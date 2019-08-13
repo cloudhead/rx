@@ -1,0 +1,61 @@
+
+
+          ██╗   ██╗ ██╗██╗
+          ██║   ██║ ╚███╔╝
+          ╚██╗ ██╔╝ ██╔██╗
+           ╚████╔╝ ██╔╝ ██╗
+            ╚═══╝  ╚═╝  ╚═╝
+
+      `vx` is a vi-inspired pixel editor.
+
+GOALS
+
+  * Everything that should be controlled by the keyboard, is.
+  * Extensible and scriptable with a simple command-based language.
+  * Anyone who is familiar with vi(m) should feel at home.
+  * There should be no perceptible input lag when painting.
+  * No frills. No clunky UI. Minimal aesthetics.
+  * Designed with great care and love with pixel artists and animators in mind.
+  * Optimized for advanced users. No hand-holding. vi-like philosophy.
+  * Small, hackable codebase. The aim is < 10 KLOC with very few direct dependencies.
+  * Web support, via WebGPU.
+
+FEATURES
+
+  * Designed for sprite animation, with live preview.
+  * Work with multiple files simultaneously.
+  * Extensible command system.
+  * Text-based configuration.
+  * Built in rust, using Vulkan.
+  * PNG support.
+
+SYSTEM REQUIREMENTS
+
+  * A graphics adapter with Vulkan support.
+
+BUILD DEPENDENCIES
+
+  * rust (https://www.rust-lang.org/)
+
+BUILDING
+
+  $ cargo build --release
+
+INSTALLING
+
+  $ cargo install --path . --root /usr/local
+
+SUPPORT
+
+  If you find this project useful, consider supporting it by sending ₿ (Bitcoin) to
+  the following address:
+
+    1HMfp9QFXmVUarNPmHxa1rhecZXyAPiPZd
+
+LICENSE
+
+  This software is licensed under the GPL. See the LICENSE file for more details.
+
+COPYRIGHT
+
+  (c) 2019 Alexis Sellier <self@cloudhead.io>

@@ -1,0 +1,17 @@
+[package]
+name = "vx"
+version = "0.1.0"
+authors = ["Alexis Sellier <alexis@monadic.xyz>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.33.0"
+cgmath = "0.17.0"
+env_logger = "0.6.2"
+image = "0.21.2"
+log = "0.4.6"
+
+[dependencies.rgx]
+git = "https://github.com/cloudhead/rgx.git"
+rev = "master"
+version = "*"
