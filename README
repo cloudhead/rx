@@ -20,6 +20,10 @@ GOALS
   * Small, hackable codebase. The aim is < 10 KLOC with very few direct dependencies.
   * Web support, via WebGPU.
 
+OVERVIEW
+
+  See the screenshots/ folder to see what the editor looks like.
+
 FEATURES
 
   * Designed for sprite animation, with live preview.
