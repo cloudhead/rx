@@ -1,0 +1,34 @@
+--
+-- .vxrc
+--
+-- Default `vx` configuration file.
+--
+
+----- ------------- -------------------------------------------- -----------------------------------
+--    KEY           COMMAND                                       DESCRIPTION
+----- ------------- -------------------------------------------- -----------------------------------
+map   .             :zoom +                                   --  Zoom in active view
+map   ,             :zoom -                                   --  Zoom out active view
+map   /             :zoom 1.0                                 --  Reset active view zoom
+map   j             :v/prev                                   --  Go to previous view
+map   k             :v/next                                   --  Go to next view
+map   z             :v/center                                 --  Center active view
+map   u             :undo                                     --  Undo active view edit
+map   r             :redo                                     --  Redo active view edit
+map   x             :swap                                     --  Swap foreground/background colors
+map   b             :brush                                    --  Reset brush
+map   e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
+map   ]             :brush/size +                             --  Increase brush size
+map   [             :brush/size -                             --  Decrease brush size
+map   <ctrl>        :sampler {:sampler/off}                   --  Sample color (hold)
+map   <up>          :pan  0  1                                --  Pan view up
+map   <down>        :pan  0 -1                                --  Pan view down
+map   <left>        :pan -1  0                                --  Pan view left
+map   <right>       :pan  1  0                                --  Pan view right
+
+source db32.palette                                           --  Source a color palette
+
+set vsync = off                                               --  Turn off Vsync
+set frame_delay = 8.0                                         --  Set frame delay to 8 milliseconds
+
+echo "vx 0.1.0"                                               --  Echo version

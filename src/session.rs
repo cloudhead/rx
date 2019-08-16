@@ -531,7 +531,7 @@ impl Session {
     }
 
     fn source_dir<P: AsRef<Path>>(&mut self, dir: P) -> io::Result<()> {
-        self.source_path(dir.as_ref().join(".pxrc"))
+        self.source_path(dir.as_ref().join(".vxrc"))
     }
 
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {

@@ -33,6 +33,10 @@ FEATURES
   * Built in rust, using Vulkan.
   * PNG support.
 
+USAGE
+
+  See `.vxrc` in the project root for a list of key mappings.
+
 SYSTEM REQUIREMENTS
 
   * A graphics adapter with Vulkan support.
@@ -47,7 +51,11 @@ BUILDING
 
 INSTALLING
 
-  $ cargo install --path . --root /usr/local
+  Clone this repository, and from the repository root, run:
+
+    cargo install --path . --root /usr/local
+
+  You can specify alternative install locations with `--root`.
 
 SUPPORT
 

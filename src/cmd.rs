@@ -216,6 +216,7 @@ impl FromStr for Command {
         let p = Parser::new(input);
         match p.parse::<Command>() {
             Ok((cmd, p)) => {
+                let (_, p) = p.clone().comment().unwrap_or(("", p));
                 p.finish()?; // Make sure we've consumed all the input
                 Ok(cmd)
             }
@@ -571,6 +572,22 @@ impl<'a> Parser<'a> {
 
     fn alpha(self) -> Result<'a, &'a str> {
         self.until(|c| !c.is_alphanumeric())
+    }
+
+    fn comment(self) -> Result<'a, &'a str> {
+        let p = self;
+
+        let (_, p) = p.whitespace()?;
+        let (_, p) = p.sigil('-')?;
+        let (_, p) = p.sigil('-')?;
+        let (_, p) = p.whitespace()?;
+        let (s, p) = p.leftover()?;
+
+        Ok((s, p))
+    }
+
+    fn leftover(self) -> Result<'a, &'a str> {
+        Ok((self.input, Parser::empty()))
     }
 
     fn whitespace(self) -> Result<'a, ()> {
