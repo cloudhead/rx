@@ -23,7 +23,6 @@ use std::io::BufRead;
 use std::path::Path;
 use std::str::FromStr;
 use std::time;
-use std::time::Instant;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -256,8 +255,6 @@ pub struct Session {
     #[allow(dead_code)]
     recording_opts: u32,
     #[allow(dead_code)]
-    started: std::time::Instant,
-    #[allow(dead_code)]
     grid_w: u32,
     #[allow(dead_code)]
     grid_h: u32,
@@ -306,7 +303,7 @@ impl Session {
         resources: ResourceManager,
     ) -> Self {
         Self {
-            is_running: true,
+            is_running: false,
             width: w as f32,
             height: h as f32,
             hidpi_factor,
@@ -323,7 +320,6 @@ impl Session {
             onion: false,
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
-            started: Instant::now(),
             settings: Settings::default(),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
@@ -346,13 +342,14 @@ impl Session {
         }
     }
 
-    pub fn init(&mut self) {
-        self.started = Instant::now();
+    pub fn init(mut self) -> Self {
+        self.is_running = true;
 
         if let Some(dir) = std::env::var_os("HOME") {
             self.source_dir(dir).ok();
         }
         self.source_dir(".").ok();
+        self
     }
 
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {

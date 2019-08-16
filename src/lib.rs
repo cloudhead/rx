@@ -80,8 +80,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) {
 
     let resources = ResourceManager::new();
     let mut session =
-        Session::new(win_w, win_h, hidpi_factor, resources.clone());
-    session.init(); // TODO: Collapse this wtih Session::new
+        Session::new(win_w, win_h, hidpi_factor, resources.clone()).init();
 
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(&win);
