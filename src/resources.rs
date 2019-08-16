@@ -27,12 +27,21 @@ impl Resources {
         }
     }
 
-    pub fn get_snapshot(&self, id: &ViewId) -> Option<&Snapshot> {
-        self.data.get(id).map(|r| r.current())
+    pub fn get_snapshot(&self, id: &ViewId) -> &Snapshot {
+        self.data.get(id).map(|r| r.current()).expect(&format!(
+            "view #{} must exist and have an associated snapshot",
+            id
+        ))
     }
 
-    pub fn get_snapshot_mut(&mut self, id: &ViewId) -> Option<&mut Snapshot> {
-        self.data.get_mut(id).map(|r| r.current_mut())
+    pub fn get_snapshot_mut(&mut self, id: &ViewId) -> &mut Snapshot {
+        self.data
+            .get_mut(id)
+            .map(|r| r.current_mut())
+            .expect(&format!(
+                "view #{} must exist and have an associated snapshot",
+                id
+            ))
     }
 
     pub fn get_snapshots_mut(
@@ -81,15 +90,22 @@ impl ResourceManager {
         id: &ViewId,
         path: P,
     ) -> io::Result<(u32, u32)> {
-        let f = File::open(path)?;
-        let decoder = image::png::PNGDecoder::new(f)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let f = File::open(&path)?;
+        let decoder = image::png::PNGDecoder::new(f).map_err(|_e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("couldn't decode {}", path.as_ref().display()),
+            )
+        })?;
         let (width, height) = decoder.dimensions();
         let (width, height) = (width as u32, height as u32);
 
-        let buffer: Vec<u8> = decoder
-            .read_image()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let buffer: Vec<u8> = decoder.read_image().map_err(|_e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("couldn't decode {}", path.as_ref().display()),
+            )
+        })?;
 
         // Convert pixels to BGRA, since they are going to be loaded into
         // the view framebuffer, which is BGRA.
@@ -97,7 +113,12 @@ impl ResourceManager {
         for rgba in buffer.chunks(4) {
             match rgba {
                 &[r, g, b, a] => pixels.extend_from_slice(&[b, g, r, a]),
-                _ => panic!("fatal: invalid pixel buffer size"),
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "invalid pixel buffer size",
+                    ))
+                }
             }
         }
         self.add_view(id, width, height, pixels);
@@ -110,11 +131,8 @@ impl ResourceManager {
         id: &ViewId,
         path: P,
     ) -> io::Result<(SnapshotId, usize)> {
-        let mut resources = self.resources.write().unwrap();
-        let snapshot = resources.get_snapshot_mut(id).ok_or(io::Error::new(
-            io::ErrorKind::Other,
-            "error: unknown view",
-        ))?;
+        let mut resources = self.lock_mut();
+        let snapshot = resources.get_snapshot_mut(id);
 
         let f = File::create(path.as_ref())?;
         let encoder = png::PNGEncoder::new(f);
@@ -126,8 +144,8 @@ impl ResourceManager {
                 &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
                 _ => {
                     return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        "error: invalid pixel buffer size",
+                        io::ErrorKind::InvalidData,
+                        "invalid pixel buffer size",
                     ))
                 }
             }
@@ -174,11 +192,15 @@ impl SnapshotList {
     }
 
     pub fn current(&self) -> &Snapshot {
-        self.list.get(self.current).unwrap()
+        self.list
+            .get(self.current)
+            .expect("there must always be a current snapshot")
     }
 
     pub fn current_mut(&mut self) -> &mut Snapshot {
-        self.list.get_mut(self.current).unwrap()
+        self.list
+            .get_mut(self.current)
+            .expect("there must always be a current snapshot")
     }
 
     pub fn push(&mut self, pixels: Vec<u8>, fw: u32, fh: u32, nframes: usize) {

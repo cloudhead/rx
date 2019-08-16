@@ -394,9 +394,7 @@ impl Renderer {
         self.resize_view_pipelines(v.width(), v.height());
 
         let resources = self.resources.lock();
-        let snapshot = resources
-            .get_snapshot(&v.id)
-            .expect("views must have an associated snapshot");
+        let snapshot = resources.get_snapshot(&v.id);
         let fb = &self
             .view_data
             .get(&v.id)
@@ -456,7 +454,7 @@ impl Renderer {
 
         for id in added {
             let resources = self.resources.lock();
-            let s = resources.get_snapshot(id).unwrap();
+            let s = resources.get_snapshot(id);
             let (w, h) = (s.width(), s.height());
 
             let view_data =

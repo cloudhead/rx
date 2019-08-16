@@ -430,26 +430,26 @@ impl Session {
         Matrix4::from_translation(self.offset.extend(0.))
     }
 
-    pub fn view(&self, id: ViewId) -> Option<&View> {
-        self.views.get(&id)
+    pub fn view(&self, id: ViewId) -> &View {
+        self.views
+            .get(&id)
+            .expect(&format!("view #{} must exist", id))
     }
 
-    pub fn view_mut(&mut self, id: ViewId) -> Option<&mut View> {
-        self.views.get_mut(&id)
+    pub fn view_mut(&mut self, id: ViewId) -> &mut View {
+        self.views
+            .get_mut(&id)
+            .expect(&format!("view #{} must exist", id))
     }
 
     pub fn active_view(&self) -> &View {
         assert!(self.active_view_id != ViewId(0), "fatal: no active view");
-
         self.view(self.active_view_id)
-            .expect("there is always an active view")
     }
 
     pub fn active_view_mut(&mut self) -> &mut View {
         assert!(self.active_view_id != ViewId(0), "fatal: no active view");
-
         self.view_mut(self.active_view_id)
-            .expect("there is always an active view")
     }
 
     pub fn new_frame(&mut self) {
@@ -463,6 +463,7 @@ impl Session {
     }
 
     pub fn edit<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
+        // TODO: Keep loading paths even if some fail?
         for path in paths {
             let path = path.as_ref();
 
@@ -501,7 +502,7 @@ impl Session {
     }
 
     fn source_path<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
-        info!("source '{}'", path.as_ref().display());
+        debug!("source: {}", path.as_ref().display());
 
         let f = File::open(&path)?;
         let r = io::BufReader::new(f);
@@ -514,14 +515,6 @@ impl Session {
             }
             match Command::from_str(&format!(":{}", line)) {
                 Err(e) => {
-                    self.message(
-                        format!(
-                            "Error sourcing '{}': {}",
-                            path.as_ref().display(),
-                            e.clone()
-                        ),
-                        MessageType::Error,
-                    );
                     return Err(io::Error::new(io::ErrorKind::Other, e));
                 }
                 Ok(cmd) => self.command(cmd),
@@ -537,7 +530,7 @@ impl Session {
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         let path = path.as_ref();
 
-        info!("load {:?}", path);
+        debug!("load: {:?}", path);
 
         if let Some(ext) = path.extension() {
             if ext != "png" {
@@ -603,11 +596,9 @@ impl Session {
 
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
         // FIXME: We shouldn't need to clone here.
-        if let Some(ref f) =
-            self.view(id).unwrap().file_name().map(|f| f.clone())
-        {
+        if let Some(ref f) = self.view(id).file_name().map(|f| f.clone()) {
             let s_id = self.save_view_as(id, f)?;
-            self.view_mut(id).unwrap().saved(s_id);
+            self.view_mut(id).saved(s_id);
             Ok(())
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
@@ -619,6 +610,19 @@ impl Session {
         id: ViewId,
         path: P,
     ) -> io::Result<SnapshotId> {
+        // Make sure we don't overwrite other files!
+        if self
+            .view(id)
+            .file_name()
+            .map_or(true, |f| path.as_ref() != f)
+            && path.as_ref().exists()
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("\"{}\" already exists", path.as_ref().display()),
+            ));
+        }
+
         let (s_id, npixels) = self.resources.save_view(&id, &path)?;
 
         self.message(
@@ -663,6 +667,10 @@ impl Session {
         if self.active_view_id == id {
             return;
         }
+        assert!(
+            self.views.contains_key(&id),
+            "the view being activated exists"
+        );
         self.active_view_id = id;
         self.views_lru.push_front(id);
         self.views_lru.truncate(Self::MAX_LRU);
@@ -810,7 +818,7 @@ impl Session {
         self.organize_views();
     }
 
-    fn message<D: fmt::Display>(&mut self, msg: D, t: MessageType) {
+    pub fn message<D: fmt::Display>(&mut self, msg: D, t: MessageType) {
         self.message = Message::new(msg, t);
         self.message.log();
     }
@@ -907,8 +915,12 @@ impl Session {
                 self.palette.add(rgba);
                 self.center_palette();
             }
-            Command::PaletteClear => unimplemented!(),
-            Command::PaletteSample => unimplemented!(),
+            Command::PaletteClear => {
+                self.unimplemented();
+            }
+            Command::PaletteSample => {
+                self.unimplemented();
+            }
             Command::Zoom(op) => match op {
                 Op::Incr => {
                     self.zoom_in();
@@ -1001,20 +1013,34 @@ impl Session {
                 // Nothing happening!
             }
             Command::Source(ref path) => {
-                self.source_path(path).unwrap();
+                if let Err(ref e) = self.source_path(path) {
+                    self.message(
+                        format!("Error sourcing `{}`: {}", path, e),
+                        MessageType::Error,
+                    );
+                }
             }
             Command::Edit(ref paths) => {
                 if paths.is_empty() {
-                    unimplemented!();
+                    self.unimplemented();
                 } else {
-                    self.edit(paths).unwrap();
+                    if let Err(e) = self.edit(paths) {
+                        self.message(
+                            format!("Error loading path(s): {}", e),
+                            MessageType::Error,
+                        );
+                    }
                 }
             }
             Command::Write(None) => {
-                self.save_view(self.active_view_id).unwrap();
+                if let Err(e) = self.save_view(self.active_view_id) {
+                    self.message(format!("Error: {}", e), MessageType::Error);
+                }
             }
             Command::Write(Some(ref path)) => {
-                self.save_view_as(self.active_view_id, path).unwrap();
+                if let Err(e) = self.save_view_as(self.active_view_id, path) {
+                    self.message(format!("Error: {}", e), MessageType::Error);
+                }
             }
             Command::WriteQuit => {
                 if self.save_view(self.active_view_id).is_ok() {
@@ -1100,6 +1126,10 @@ impl Session {
         self.restore_view_snapshot(id, false);
     }
 
+    fn unimplemented(&mut self) {
+        self.message("Error: not yet implemented", MessageType::Error);
+    }
+
     fn restore_view_snapshot(&mut self, id: ViewId, backwards: bool) {
         let snapshot = self
             .resources
@@ -1109,7 +1139,7 @@ impl Session {
             .map(|s| (s.id, s.fw, s.fh, s.nframes));
 
         if let Some((sid, fw, fh, nframes)) = snapshot {
-            let v = self.view_mut(id).unwrap();
+            let v = self.view_mut(id);
 
             v.resize(fw, fh, nframes);
             v.damaged();
@@ -1144,8 +1174,7 @@ impl Session {
         let color = {
             // TODO: Sample from any view.
             let resources = self.resources.lock();
-            let snapshot =
-                resources.get_snapshot(&self.active_view_id).unwrap();
+            let snapshot = resources.get_snapshot(&self.active_view_id);
 
             assert!(snapshot.pixels.len() % std::mem::size_of::<Bgra8>() == 0);
 

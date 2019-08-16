@@ -87,14 +87,18 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) {
     let mut r = core::Renderer::new(&win);
     let mut renderer = Renderer::new(&mut r, win_w, win_h, resources);
 
-    if paths.is_empty() {
+    if let Err(e) = session.edit(paths) {
+        session.message(
+            format!("Error loading path(s): {}", e),
+            MessageType::Error,
+        );
+    }
+    if session.views.is_empty() {
         session.blank(
             FileStatus::NoFile,
             Session::DEFAULT_VIEW_W,
             Session::DEFAULT_VIEW_H,
         );
-    } else {
-        session.edit(paths).unwrap();
     }
 
     renderer.init(&session, &mut r);
