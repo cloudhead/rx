@@ -26,7 +26,7 @@ map   <down>        :pan  0 -1                                --  Pan view down
 map   <left>        :pan -1  0                                --  Pan view left
 map   <right>       :pan  1  0                                --  Pan view right
 
-source db32.palette                                           --  Source a color palette
+source palettes/sweetie16.palette                             --  Source a color palette
 
 set vsync = off                                               --  Turn off Vsync
 set frame_delay = 8.0                                         --  Set frame delay to 8 milliseconds
