@@ -544,7 +544,7 @@ impl Renderer {
             );
             // Fg color
             canvas.add(Shape::Circle(
-                Point2::new(300., self::LINE_HEIGHT + self::MARGIN + 6.),
+                Point2::new(300., self::LINE_HEIGHT + self::MARGIN + 7.),
                 6.,
                 16,
                 Stroke::new(1.0, Rgba::WHITE),
@@ -552,7 +552,7 @@ impl Renderer {
             ));
             // Bg color
             canvas.add(Shape::Circle(
-                Point2::new(330., self::LINE_HEIGHT + self::MARGIN + 6.),
+                Point2::new(330., self::LINE_HEIGHT + self::MARGIN + 7.),
                 6.,
                 16,
                 Stroke::new(1.0, Rgba::WHITE),
