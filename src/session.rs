@@ -20,7 +20,7 @@ use std::fmt;
 use std::fs::{self, File};
 use std::io;
 use std::io::BufRead;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time;
 
@@ -498,10 +498,24 @@ impl Session {
         Ok(())
     }
 
+    fn home_dir(&self) -> Option<PathBuf> {
+        if let Some(dir) = std::env::var_os("HOME") {
+            let path = Path::new(&dir);
+            Some(path.join(".rx"))
+        } else {
+            None
+        }
+    }
+
     fn source_path<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         debug!("source: {}", path.as_ref().display());
 
-        let f = File::open(&path)?;
+        let home = self.home_dir().ok_or(io::Error::new(
+            io::ErrorKind::NotFound,
+            "home directory not found",
+        ))?;
+
+        let f = File::open(&path).or_else(|_| File::open(home.join(path)))?;
         let r = io::BufReader::new(f);
 
         for line in r.lines() {
