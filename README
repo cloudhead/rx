@@ -42,21 +42,29 @@ SYSTEM REQUIREMENTS
 
 BUILD DEPENDENCIES
 
-  * rust (https://www.rust-lang.org/)
+  * rust & cargo (https://www.rust-lang.org/tools/install)
 
-BUILD AND INSTALLATION
+INSTALLATION
 
-  Clone this repository, and from the repository root, run:
+  Before proceeding, make sure the build dependencies have been installed.
 
-    cargo install --path . --root <prefix>
+  1. Install rx by running:
 
-  where <prefix> is for example "/usr/local" or "$HOME".  This will build `rx`
-  and install it under `<prefix>/bin/rx`. Alternatively, if you just want to run
-  `rx` without installing, use:
+      $ cargo install --force --git https://github.com/cloudhead/rx --root <prefix>
 
-    cargo run --release
+     where <prefix> is for example "/usr/local" or "$HOME".  This will download `rx`
+     and install it under `<prefix>/bin/rx`.
 
-  from within the project root.
+  2. Copy `.rxrc` from this repository to your home directory to have a default
+     configuration.
+
+  3. Create a `palettes` folder in your home directory:
+
+      $ mkdir -p ~/.rx/palettes
+
+     and copy the palettes from this repository's palettes/ folder to it.
+
+  You're all set!
 
 USAGE
 
