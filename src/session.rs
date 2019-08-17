@@ -183,6 +183,7 @@ pub struct Settings {
     pub checker: bool,
     pub vsync: bool,
     pub frame_delay: time::Duration,
+    pub hidpi_factor: f64,
 }
 
 impl Settings {
@@ -195,12 +196,13 @@ impl Settings {
     }
 }
 
-impl Default for Settings {
-    fn default() -> Self {
+impl Settings {
+    fn new(hidpi_factor: f64) -> Self {
         Self {
             checker: false,
             vsync: true,
             frame_delay: time::Duration::from_micros(16666),
+            hidpi_factor,
         }
     }
 }
@@ -211,8 +213,6 @@ pub struct Session {
 
     pub width: f32,
     pub height: f32,
-
-    pub hidpi_factor: f64,
 
     pub cx: f32,
     pub cy: f32,
@@ -306,7 +306,6 @@ impl Session {
             is_running: false,
             width: w as f32,
             height: h as f32,
-            hidpi_factor,
             cx: 0.,
             cy: 0.,
             offset: Vector2::zero(),
@@ -320,7 +319,7 @@ impl Session {
             onion: false,
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
-            settings: Settings::default(),
+            settings: Settings::new(hidpi_factor),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
             fps: 6,
@@ -398,9 +397,10 @@ impl Session {
         for event in events.drain(..) {
             match event {
                 WindowEvent::CursorMoved { position, .. } => {
+                    let pos = position.to_physical(self.settings.hidpi_factor);
                     self.handle_cursor_moved(
-                        position.x.floor() as f32,
-                        self.height - position.y.floor() as f32,
+                        pos.x.floor() as f32,
+                        self.height - pos.y.floor() as f32,
                         out,
                     );
                 }
@@ -1018,6 +1018,13 @@ impl Session {
                             time::Duration::from_micros(u as u64 * 1000);
                     }
                 }
+                "hidpi" => {
+                    if let &Value::Bool(b) = v {
+                        self.settings.hidpi_factor = if b { 2. } else { 1. };
+                    } else if let &Value::F32(f) = v {
+                        self.settings.hidpi_factor = f as f64;
+                    }
+                }
                 setting => {
                     self.message(
                         format!("Error: setting {} not recognized", setting),
@@ -1216,7 +1223,7 @@ impl Session {
     ///////////////////////////////////////////////////////////////////////////
 
     pub fn handle_resized(&mut self, size: winit::dpi::LogicalSize) {
-        let win = size.to_physical(self.hidpi_factor);
+        let win = size.to_physical(self.settings.hidpi_factor);
 
         self.width = win.width as f32;
         self.height = win.height as f32;
