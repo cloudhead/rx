@@ -72,6 +72,16 @@ USAGE
 
   See `.rxrc` in the project root for a list of key mappings.
 
+  Common commands:
+
+    :e <path..>              Edit path(s)
+    :w                       Write/save view
+    :q                       Quit view
+    :slice <n>               Slice view into <n> frames
+    :source <path>           Source an rx script (eg. a palette)
+    :f/new                   Add frame to the view
+    :f/resize <w> <h>        Resize frames
+
 SUPPORT
 
   If you find this project useful, consider supporting it by sending ₿ (Bitcoin) to
