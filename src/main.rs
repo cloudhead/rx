@@ -13,5 +13,5 @@ fn main() {
         .values_of("path")
         .map_or(Vec::new(), |m| m.collect::<Vec<_>>());
 
-    rx::init(&paths);
+    rx::init(&paths).unwrap();
 }

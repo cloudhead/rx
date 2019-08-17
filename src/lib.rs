@@ -66,7 +66,7 @@ impl FrameTimer {
     }
 }
 
-pub fn init<P: AsRef<Path>>(paths: &[P]) {
+pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let mut logger = env_logger::Builder::from_default_env();
     logger.init();
 
@@ -80,7 +80,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) {
 
     let resources = ResourceManager::new();
     let mut session =
-        Session::new(win_w, win_h, hidpi_factor, resources.clone()).init();
+        Session::new(win_w, win_h, hidpi_factor, resources.clone()).init()?;
 
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(&win);
@@ -155,4 +155,5 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) {
             }
         });
     }
+    Ok(())
 }

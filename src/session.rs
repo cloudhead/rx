@@ -342,14 +342,19 @@ impl Session {
         }
     }
 
-    pub fn init(mut self) -> Self {
+    pub fn init(mut self) -> std::io::Result<Self> {
         self.is_running = true;
 
-        if let Some(dir) = std::env::var_os("HOME") {
-            self.source_dir(dir).ok();
+        let cwd = std::env::current_dir()?;
+
+        if let Some(home) = std::env::var_os("HOME") {
+            if cwd != home {
+                self.source_dir(home).ok();
+            }
         }
-        self.source_dir(".").ok();
-        self
+        self.source_dir(cwd).ok();
+
+        Ok(self)
     }
 
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
