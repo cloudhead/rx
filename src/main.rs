@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use vx;
+use rx;
 
 fn main() {
     let matches = App::new("rx")
@@ -13,5 +13,5 @@ fn main() {
         .values_of("path")
         .map_or(Vec::new(), |m| m.collect::<Vec<_>>());
 
-    vx::init(&paths);
+    rx::init(&paths);
 }

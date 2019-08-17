@@ -1,24 +1,27 @@
 
 
-          ██╗   ██╗ ██╗██╗
-          ██║   ██║ ╚███╔╝
-          ╚██╗ ██╔╝ ██╔██╗
-           ╚████╔╝ ██╔╝ ██╗
-            ╚═══╝  ╚═╝  ╚═╝
+        ██╗████╗██╗██╗
+        ╚███╔██║╚███╔╝
+         ██╔╝══╝██╔██╗
+         ██║   ██╔╝ ██╗
+         ╚═╝   ╚═╝  ╚═╝
 
-      `vx` is a vi-inspired pixel editor.
+    `rx` is a modern minimalist pixel editor.
+
+  Designed with great care and love
+    with pixel artists and animators in mind.
 
 GOALS
 
+  * Minimal UI. Clean aesthetics.
   * Everything that should be controlled by the keyboard, is.
   * Extensible and scriptable with a simple command-based language.
-  * Anyone who is familiar with vi(m) should feel at home.
-  * There should be no perceptible input lag when painting.
-  * No frills. No clunky UI. Minimal aesthetics.
-  * Designed with great care and love with pixel artists and animators in mind.
+  * Familiar to anyone with vi(m) knowledge.
+  * Snappy. No perceptible input lag when painting. All commands run in < 16ms.
   * Optimized for advanced users. No hand-holding. vi-like philosophy.
-  * Small, hackable codebase. The aim is < 10 KLOC with very few direct dependencies.
-  * Web support, via WebGPU.
+  * Small, hackable codebase. At most 10 KLOC with only a handful of direct dependencies.
+  * First-class Linux support.
+  * Run in the browser via WASM & WebGPU.
 
 OVERVIEW
 
@@ -33,10 +36,6 @@ FEATURES
   * Built in rust, using Vulkan.
   * PNG support.
 
-USAGE
-
-  See `.vxrc` in the project root for a list of key mappings.
-
 SYSTEM REQUIREMENTS
 
   * A graphics adapter with Vulkan support.
@@ -45,17 +44,25 @@ BUILD DEPENDENCIES
 
   * rust (https://www.rust-lang.org/)
 
-BUILDING
-
-  $ cargo build --release
-
-INSTALLING
+BUILD AND INSTALLATION
 
   Clone this repository, and from the repository root, run:
 
-    cargo install --path . --root /usr/local
+    cargo install --path . --root <prefix>
 
-  You can specify alternative install locations with `--root`.
+  where <prefix> is for example "/usr/local" or "$HOME".  This will build `rx`
+  and install it under `<prefix>/bin/rx`. Alternatively, if you just want to run
+  `rx` without installing, use:
+
+    cargo run --release
+
+  from within the project root.
+
+USAGE
+
+  After installing, simply run `rx` from a shell or application launcher.
+
+  See `.rxrc` in the project root for a list of key mappings.
 
 SUPPORT
 

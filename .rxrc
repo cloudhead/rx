@@ -1,7 +1,7 @@
 --
--- .vxrc
+-- .rxrc
 --
--- Default `vx` configuration file.
+-- Default `rx` configuration file.
 --
 
 ----- ------------- -------------------------------------------- -----------------------------------
@@ -31,4 +31,4 @@ source palettes/sweetie16.palette                             --  Source a color
 set vsync = off                                               --  Turn off Vsync
 set frame_delay = 8.0                                         --  Set frame delay to 8 milliseconds
 
-echo "vx 0.1.0"                                               --  Echo version
+echo "rx 0.1.0"                                               --  Echo version

@@ -1,5 +1,5 @@
 [package]
-name = "vx"
+name = "rx"
 version = "0.1.0"
 authors = ["Alexis Sellier <alexis@monadic.xyz>"]
 edition = "2018"
