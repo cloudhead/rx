@@ -9,9 +9,9 @@ authors = ["Alexis Sellier <alexis@monadic.xyz>"]
 edition = "2018"
 
 [dependencies]
-clap = "2.33.0"
-cgmath = "0.17.0"
-env_logger = "0.6.2"
+clap = { version = "2.33.0", default-features = false }
+cgmath = { version = "0.17.0", default-features = false }
+env_logger = { version = "0.6.2", default-features = false, features = ["termcolor"] }
 image = { version = "0.21.2", default-features = false, features = ["png_codec"] }
 log = "0.4.6"
 xdg = "2.2.0"
