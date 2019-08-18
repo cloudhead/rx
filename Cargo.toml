@@ -8,7 +8,7 @@ edition = "2018"
 clap = "2.33.0"
 cgmath = "0.17.0"
 env_logger = "0.6.2"
-image = "0.21.2"
+image = { version = "0.21.2", default-features = false, features = ["png_codec"] }
 log = "0.4.6"
 xdg = "2.2.0"
 
