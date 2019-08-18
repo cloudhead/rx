@@ -1,6 +1,10 @@
 [package]
 name = "rx"
 version = "0.1.0"
+description = "a modern and minimal pixel editor"
+license = "GPL-3.0-only"
+repository = "https://github.com/cloudhead/rx"
+homepage = "https://github.com/cloudhead/rx"
 authors = ["Alexis Sellier <alexis@monadic.xyz>"]
 edition = "2018"
 
