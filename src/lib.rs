@@ -27,6 +27,8 @@ extern crate log;
 
 use env_logger;
 
+use xdg;
+
 use std::collections::VecDeque;
 use std::path::Path;
 use std::time;
@@ -77,10 +79,11 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
     win.hide_cursor(true);
-
     let resources = ResourceManager::new();
+    let base_dirs = xdg::BaseDirectories::with_prefix("rx")?;
     let mut session =
-        Session::new(win_w, win_h, hidpi_factor, resources.clone()).init()?;
+        Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
+            .init()?;
 
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(&win);

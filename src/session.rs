@@ -15,12 +15,14 @@ use rgx::winit::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 use cgmath::prelude::*;
 use cgmath::{Matrix4, Point2, Vector2};
 
+use xdg;
+
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
 use std::io::BufRead;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 use std::time;
 
@@ -223,6 +225,8 @@ pub struct Session {
     pub fg: Rgba8,
     pub bg: Rgba8,
 
+    base_dirs: xdg::BaseDirectories,
+
     resources: ResourceManager,
 
     key_bindings: KeyBindings,
@@ -301,6 +305,7 @@ impl Session {
         h: u32,
         hidpi_factor: f64,
         resources: ResourceManager,
+        base_dirs: xdg::BaseDirectories,
     ) -> Self {
         Self {
             is_running: false,
@@ -308,6 +313,7 @@ impl Session {
             height: h as f32,
             cx: 0.,
             cy: 0.,
+            base_dirs,
             offset: Vector2::zero(),
             tool: Tool::Brush(Brush::default()),
             prev_tool: None,
@@ -345,11 +351,8 @@ impl Session {
         self.is_running = true;
 
         let cwd = std::env::current_dir()?;
-
-        if let Some(home) = std::env::var_os("HOME") {
-            if cwd != home {
-                self.source_dir(home).ok();
-            }
+        for cfg in self.base_dirs.find_config_files("init.rx") {
+            self.source_path(cfg)?;
         }
         self.source_dir(cwd).ok();
 
@@ -503,24 +506,17 @@ impl Session {
         Ok(())
     }
 
-    fn home_dir(&self) -> Option<PathBuf> {
-        if let Some(dir) = std::env::var_os("HOME") {
-            let path = Path::new(&dir);
-            Some(path.join(".rx"))
-        } else {
-            None
-        }
-    }
-
     fn source_path<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
-        debug!("source: {}", path.as_ref().display());
+        let path = path.as_ref();
+        debug!("source: {}", path.display());
 
-        let home = self.home_dir().ok_or(io::Error::new(
-            io::ErrorKind::NotFound,
-            "home directory not found",
-        ))?;
+        let resolved_path =
+            self.base_dirs.find_config_file(path).ok_or(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("\"{}\" not found", path.display()),
+            ))?;
 
-        let f = File::open(&path).or_else(|_| File::open(home.join(path)))?;
+        let f = File::open(&resolved_path)?;
         let r = io::BufReader::new(f);
 
         for line in r.lines() {
