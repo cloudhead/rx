@@ -100,8 +100,11 @@ impl View {
     }
 
     pub fn saved(&mut self, id: SnapshotId) {
-        if let FileStatus::Modified(ref f) = self.file_status {
-            self.file_status = FileStatus::Saved(f.clone());
+        match self.file_status {
+            FileStatus::Modified(ref f) | FileStatus::New(ref f) => {
+                self.file_status = FileStatus::Saved(f.clone());
+            }
+            FileStatus::Saved(_) | FileStatus::NoFile => {}
         }
         self.saved_snapshot = Some(id);
     }
