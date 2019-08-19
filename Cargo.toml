@@ -8,6 +8,13 @@ homepage = "https://github.com/cloudhead/rx"
 authors = ["Alexis Sellier <alexis@monadic.xyz>"]
 edition = "2018"
 
+[features]
+default = []
+vulkan = ["rgx/vulkan"]
+metal = ["rgx/metal"]
+dx11 = ["rgx/dx11"]
+dx12 = ["rgx/dx12"]
+
 [dependencies]
 clap = { version = "2.33.0", default-features = false }
 cgmath = { version = "0.17.0", default-features = false }

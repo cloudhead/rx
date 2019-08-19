@@ -36,9 +36,11 @@ FEATURES
   * Built in rust, using Vulkan.
   * PNG support.
 
-SYSTEM REQUIREMENTS
+PLATFORM SUPPORT
 
-  * A graphics adapter with Vulkan support.
+  * Linux     (Vulkan)         [YES]
+  * macOS     (Metal)          [UNTESTED]
+  * Windows   (DX11/DX12)      [UNTESTED]
 
 BUILD DEPENDENCIES
 
