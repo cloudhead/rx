@@ -6,7 +6,7 @@
          ██║   ██╔╝ ██╗
          ╚═╝   ╚═╝  ╚═╝
 
-    `rx` is a modern minimalist pixel editor.
+    `rx` is a modern pixel editor implemented in rust.
 
   Designed with great care and love
     with pixel artists and animators in mind.
@@ -33,7 +33,7 @@ FEATURES
   * Work with multiple files simultaneously.
   * Extensible command system.
   * Text-based configuration.
-  * Built in rust, using Vulkan.
+  * Built in rust, using modern graphics.
   * PNG support.
 
 PLATFORM SUPPORT
