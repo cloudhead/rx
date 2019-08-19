@@ -7,6 +7,7 @@ mod gpu;
 mod palette;
 mod renderer;
 mod resources;
+mod screen2d;
 mod session;
 mod view;
 
@@ -128,7 +129,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                             let (w, h) =
                                 (session.width as u32, session.height as u32);
                             swap_chain = r.swap_chain(w, h, present_mode);
-                            renderer.handle_resized(w, h);
+                            renderer.handle_resized(w, h, &r);
                         }
                         other => {
                             events.push(other);

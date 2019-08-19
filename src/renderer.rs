@@ -3,6 +3,7 @@ use crate::font::{Font, TextBatch};
 use crate::framebuffer2d;
 use crate::gpu;
 use crate::resources::ResourceManager;
+use crate::screen2d;
 use crate::session::{Mode, Session, Tool};
 use crate::view::{View, ViewId};
 
@@ -36,11 +37,18 @@ pub struct Renderer {
     view_transforms: Vec<Matrix4<f32>>,
     view_transforms_buf: gpu::TransformBuffer,
 
+    sampler: core::Sampler,
+
     shape2d: kit::shape2d::Pipeline,
     sprite2d: kit::sprite2d::Pipeline,
     framebuffer2d: framebuffer2d::Pipeline,
     view2d: kit::shape2d::Pipeline,
     const2d: kit::shape2d::Pipeline,
+    screen2d: screen2d::Pipeline,
+
+    screen_fb: core::Framebuffer,
+    screen_vb: core::VertexBuffer,
+    screen_binding: core::BindingGroup,
 
     resources: ResourceManager,
     view_data: BTreeMap<ViewId, ViewData>,
@@ -139,6 +147,8 @@ impl Renderer {
             r.pipeline(win_w, win_h, Blending::default());
         let framebuffer2d: framebuffer2d::Pipeline =
             r.pipeline(win_w, win_h, Blending::default());
+        let screen2d: screen2d::Pipeline =
+            r.pipeline(win_w, win_h, Blending::default());
 
         let sampler = r.sampler(Filter::Nearest, Filter::Nearest);
 
@@ -202,6 +212,10 @@ impl Renderer {
             Blending::constant(),
         );
 
+        let screen_vb = screen2d::Pipeline::vertex_buffer(r);
+        let screen_fb = r.framebuffer(win_w, win_h);
+        let screen_binding = screen2d.binding(r, &screen_fb, &sampler);
+
         r.prepare(&[
             Op::Fill(&font.texture, font_img.as_slice()),
             Op::Fill(&cursors.texture, cursors_img.as_slice()),
@@ -216,12 +230,17 @@ impl Renderer {
             checker,
             view_transforms,
             view_transforms_buf,
+            sampler,
             shape2d,
             sprite2d,
             framebuffer2d,
             view2d,
             const2d,
+            screen2d,
             resources,
+            screen_fb,
+            screen_vb,
+            screen_binding,
             view_data: BTreeMap::new(),
             active_view_id: ViewId(0),
         }
@@ -298,7 +317,8 @@ impl Renderer {
         } else {
             {
                 r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
-                let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), out);
+                let mut p =
+                    f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
 
                 // Draw view checkers.
                 if session.settings.checker {
@@ -337,12 +357,12 @@ impl Renderer {
 
             // Draw view framebuffers to screen.
             r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
-            self.render_views(&mut f, out);
+            self.render_views(&mut f, &self.screen_fb);
 
             {
                 r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
 
-                let mut p = f.pass(PassOp::Load(), out);
+                let mut p = f.pass(PassOp::Load(), &self.screen_fb);
 
                 // Draw UI elements to screen.
                 p.set_pipeline(&self.shape2d);
@@ -353,6 +373,19 @@ impl Renderer {
                 p.draw(&text_buf, &self.font.binding);
                 p.draw(&cursor_buf, &self.cursors.binding);
             }
+        }
+
+        {
+            // Render screen framebuffer to screen.
+
+            // TODO: With HiDPI, Make sure we draw at the logical size
+            // and rescale at the physical size, so things are snappier.
+
+            let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), out);
+
+            p.set_pipeline(&self.screen2d);
+            p.set_binding(&self.screen_binding, &[]);
+            p.draw_buffer(&self.screen_vb)
         }
 
         // Submit frame for presenting.
@@ -676,7 +709,7 @@ impl Renderer {
         }
     }
 
-    fn render_views(&self, f: &mut core::Frame, out: &core::SwapChainTexture) {
+    fn render_views<T: core::TextureView>(&self, f: &mut core::Frame, out: &T) {
         {
             // Render view buffers.
             let mut p = f.pass(PassOp::Load(), out);
@@ -708,12 +741,17 @@ impl Renderer {
         }
     }
 
-    pub fn handle_resized(&mut self, w: u32, h: u32) {
+    pub fn handle_resized(&mut self, w: u32, h: u32, r: &core::Renderer) {
         self.width = w;
         self.height = h;
         self.framebuffer2d.resize(w, h);
         self.sprite2d.resize(w, h);
         self.shape2d.resize(w, h);
+        self.screen2d.resize(w, h);
+
+        self.screen_fb = r.framebuffer(w, h);
+        self.screen_binding =
+            self.screen2d.binding(r, &self.screen_fb, &self.sampler);
     }
 
     fn update_view_transforms<'a, I>(

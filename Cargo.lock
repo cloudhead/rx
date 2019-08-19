@@ -772,7 +772,7 @@ dependencies = [
 [[package]]
 name = "rgx"
 version = "0.1.0"
-source = "git+https://github.com/cloudhead/rgx.git?rev=master#a5764a69b81b10b276e859e5ea151e64286dff10"
+source = "git+https://github.com/cloudhead/rgx.git?rev=master#35eeec52036567273b6406c2bcf06f51496fef61"
 dependencies = [
  "cgmath 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
