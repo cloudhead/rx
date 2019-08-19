@@ -491,6 +491,11 @@ impl<'a> Parse<'a> for Key {
                 "left" => winit::VirtualKeyCode::Left,
                 "right" => winit::VirtualKeyCode::Right,
                 "ctrl" => winit::VirtualKeyCode::LControl,
+                "shift" => winit::VirtualKeyCode::LShift,
+                "space" => winit::VirtualKeyCode::Space,
+                "return" => winit::VirtualKeyCode::Return,
+                "back" => winit::VirtualKeyCode::Back,
+                "tab" => winit::VirtualKeyCode::Tab,
                 other => {
                     return Err(Error::new(format!("unknown key <{}>", other)))
                 }

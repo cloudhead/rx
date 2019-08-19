@@ -25,6 +25,7 @@ map   <up>          :pan  0  1                                --  Pan view up
 map   <down>        :pan  0 -1                                --  Pan view down
 map   <left>        :pan -1  0                                --  Pan view left
 map   <right>       :pan  1  0                                --  Pan view right
+map   <return>      :f/new                                    --  Create new frame
 
 source palettes/sweetie16.palette                             --  Source a color palette
 
