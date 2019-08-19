@@ -931,7 +931,7 @@ impl Session {
                 self.center_palette();
             }
             Command::PaletteClear => {
-                self.unimplemented();
+                self.palette.clear();
             }
             Command::PaletteSample => {
                 self.unimplemented();
@@ -1247,7 +1247,7 @@ impl Session {
             self.record_macro(format!("cursor/down"));
 
             // Click on palette
-            if let Some(color) = self.palette.hover_color {
+            if let Some(color) = self.palette.hover {
                 if self.mode == Mode::Command {
                     self.cmdline.puts(&color.to_string());
                 } else {

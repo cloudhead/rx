@@ -3,7 +3,7 @@ use rgx::kit::Rgba8;
 pub struct Palette {
     // TODO: Make this an `ArrayVec<[Rgba8; 256]>`.
     pub colors: Vec<Rgba8>,
-    pub hover_color: Option<Rgba8>,
+    pub hover: Option<Rgba8>,
     pub cellsize: f32,
     pub x: f32,
     pub y: f32,
@@ -13,7 +13,7 @@ impl Palette {
     pub fn new(cellsize: f32) -> Self {
         Self {
             colors: Vec::with_capacity(256),
-            hover_color: None,
+            hover: None,
             cellsize,
             x: 0.,
             y: 0.,
@@ -23,6 +23,10 @@ impl Palette {
     pub fn add(&mut self, color: Rgba8) {
         // TODO: Ensure there are no duplicate colors.
         self.colors.push(color);
+    }
+
+    pub fn clear(&mut self) {
+        self.colors.clear();
     }
 
     pub fn size(&self) -> usize {
@@ -39,7 +43,7 @@ impl Palette {
         let height = i32::min(size, 16) * cellsize;
 
         if x >= width || y >= height || x < 0 || y < 0 {
-            self.hover_color = None;
+            self.hover = None;
             return;
         }
 
@@ -48,7 +52,7 @@ impl Palette {
 
         let index = y + x * 16;
 
-        self.hover_color = if index < size {
+        self.hover = if index < size {
             Some(self.colors[index as usize])
         } else {
             None

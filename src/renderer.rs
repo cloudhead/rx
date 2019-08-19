@@ -610,7 +610,7 @@ impl Renderer {
             let y = (i % 16) as f32 * p.cellsize;
 
             let mut stroke = shape2d::Stroke::NONE;
-            if let Some(c) = p.hover_color {
+            if let Some(c) = p.hover {
                 if c == color {
                     stroke = shape2d::Stroke::new(1., Rgba::WHITE);
                 }
