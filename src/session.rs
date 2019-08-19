@@ -510,13 +510,16 @@ impl Session {
         let path = path.as_ref();
         debug!("source: {}", path.display());
 
-        let resolved_path =
-            self.base_dirs.find_config_file(path).ok_or(io::Error::new(
-                io::ErrorKind::NotFound,
-                format!("\"{}\" not found", path.display()),
-            ))?;
+        let f = File::open(&path).or_else(|_| {
+            self.base_dirs
+                .find_config_file(path)
+                .ok_or(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("\"{}\" not found", path.display()),
+                ))
+                .and_then(File::open)
+        })?;
 
-        let f = File::open(&resolved_path)?;
         let r = io::BufReader::new(f);
 
         for line in r.lines() {
