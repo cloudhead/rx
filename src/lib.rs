@@ -74,7 +74,11 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     logger.init();
 
     let mut events_loop = winit::EventsLoop::new();
-    let win = winit::Window::new(&events_loop).unwrap();
+    let win = winit::WindowBuilder::new()
+        .with_title("rx")
+        .with_resizable(true)
+        .build(&events_loop)
+        .unwrap();
     let hidpi_factor = win.get_hidpi_factor();
     let win_size = win.get_inner_size().unwrap().to_physical(hidpi_factor);
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);

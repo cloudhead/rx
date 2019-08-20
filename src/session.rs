@@ -1344,15 +1344,13 @@ impl Session {
                 return;
             }
             self.cmdline_handle_input(c);
-        } else {
-            if let Some(kb) = self.key_bindings.find(
-                Key::Char(c),
-                winit::ModifiersState::default(),
-                winit::ElementState::Pressed,
-                &self.mode,
-            ) {
-                self.command(kb.command);
-            }
+        } else if let Some(kb) = self.key_bindings.find(
+            Key::Char(c),
+            winit::ModifiersState::default(),
+            winit::ElementState::Pressed,
+            &self.mode,
+        ) {
+            self.command(kb.command);
         }
     }
 

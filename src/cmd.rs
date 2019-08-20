@@ -561,7 +561,7 @@ impl<'a> Parser<'a> {
         if self.input.starts_with(c) {
             Ok((c, Parser::new(&self.input[1..])))
         } else {
-            Err(Error::new("sigil not found"))
+            Err(Error::new(format!("expected '{}'", c)))
         }
     }
 
