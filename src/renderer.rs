@@ -13,7 +13,7 @@ use rgx::kit;
 use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
 use rgx::kit::sprite2d;
-use rgx::kit::Rgba8;
+use rgx::kit::{Origin, Rgba8};
 use rgx::winit;
 
 use cgmath::prelude::*;
@@ -675,13 +675,14 @@ impl Renderer {
             let s = session.snap(p, v.offset.x, v.offset.y, v.zoom);
 
             // Draw enabled brush
-            if v.contains(s - session.offset) {
+            if v.contains(p - session.offset) {
                 if brush.is_set(BrushMode::Erase) {
                     batch.add(brush.stroke(
                         s,
                         Stroke::new(1.0, Rgba::WHITE),
                         Fill::Empty(),
                         v.zoom,
+                        Origin::BottomLeft,
                     ));
                 } else {
                     batch.add(brush.stroke(
@@ -689,6 +690,7 @@ impl Renderer {
                         Stroke::NONE,
                         Fill::Solid(session.fg.into()),
                         v.zoom,
+                        Origin::BottomLeft,
                     ));
                 }
             // Draw disabled brush
@@ -703,6 +705,7 @@ impl Renderer {
                     Stroke::new(1.0, color.into()),
                     Fill::Empty(),
                     v.zoom,
+                    Origin::Center,
                 ));
             }
         } else {

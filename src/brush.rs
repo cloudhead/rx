@@ -1,5 +1,6 @@
 use crate::kit::shape2d;
 use crate::kit::shape2d::{Fill, Shape, Stroke};
+use crate::kit::Origin;
 
 use rgx::core::{Rect, Rgba8};
 
@@ -116,6 +117,7 @@ impl Brush {
                     Stroke::NONE,
                     fill,
                     1.0,
+                    Origin::BottomLeft,
                 ));
 
                 if p0 == p1 {
@@ -139,6 +141,7 @@ impl Brush {
                 Stroke::NONE,
                 fill,
                 1.0,
+                Origin::BottomLeft,
             ));
         }
     }
@@ -149,16 +152,22 @@ impl Brush {
         stroke: Stroke,
         fill: Fill,
         scale: f32,
+        origin: Origin,
     ) -> Shape {
         let x = p.x;
         let y = p.y;
 
-        let off = (self.size / 2) as f32 * scale;
         let size = self.size as f32;
+
+        let offset = match origin {
+            Origin::Center => size * scale / 2.,
+            Origin::BottomLeft => (self.size / 2) as f32 * scale,
+            Origin::TopLeft => unreachable!(),
+        };
 
         Shape::Rectangle(
             Rect::new(x, y, x + size * scale, y + size * scale)
-                - Vector2::new(off, off),
+                - Vector2::new(offset, offset),
             stroke,
             fill,
         )
