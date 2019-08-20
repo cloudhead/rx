@@ -83,7 +83,6 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let win_size = win.get_inner_size().unwrap().to_physical(hidpi_factor);
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
-    win.hide_cursor(true);
     let resources = ResourceManager::new();
     let base_dirs = xdg::BaseDirectories::with_prefix("rx")?;
     let mut session =
@@ -137,6 +136,12 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                                 present_mode,
                             );
                             renderer.handle_resized(size, &r);
+                        }
+                        rgx::winit::WindowEvent::CursorEntered { .. } => {
+                            win.hide_cursor(true);
+                        }
+                        rgx::winit::WindowEvent::CursorLeft { .. } => {
+                            win.hide_cursor(false);
                         }
                         other => {
                             events.push(other);
