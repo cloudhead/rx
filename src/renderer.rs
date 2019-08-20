@@ -14,6 +14,7 @@ use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
 use rgx::kit::sprite2d;
 use rgx::kit::Rgba8;
+use rgx::winit;
 
 use cgmath::prelude::*;
 use cgmath::{Matrix4, Point2, Vector2};
@@ -741,7 +742,12 @@ impl Renderer {
         }
     }
 
-    pub fn handle_resized(&mut self, w: u32, h: u32, r: &core::Renderer) {
+    pub fn handle_resized(
+        &mut self,
+        size: winit::dpi::LogicalSize,
+        r: &core::Renderer,
+    ) {
+        let (w, h) = (size.width as u32, size.height as u32);
         self.width = w;
         self.height = h;
         self.framebuffer2d.resize(w, h);

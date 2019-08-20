@@ -130,10 +130,13 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                         rgx::winit::WindowEvent::Resized(size) => {
                             session.handle_resized(size);
 
-                            let (w, h) =
-                                (session.width as u32, session.height as u32);
-                            swap_chain = r.swap_chain(w, h, present_mode);
-                            renderer.handle_resized(w, h, &r);
+                            let physical = size.to_physical(hidpi_factor);
+                            swap_chain = r.swap_chain(
+                                physical.width as u32,
+                                physical.height as u32,
+                                present_mode,
+                            );
+                            renderer.handle_resized(size, &r);
                         }
                         other => {
                             events.push(other);

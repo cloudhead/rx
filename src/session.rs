@@ -400,10 +400,9 @@ impl Session {
         for event in events.drain(..) {
             match event {
                 WindowEvent::CursorMoved { position, .. } => {
-                    let pos = position.to_physical(self.settings.hidpi_factor);
                     self.handle_cursor_moved(
-                        pos.x.floor() as f32,
-                        self.height - pos.y.floor() as f32,
+                        position.x.floor() as f32,
+                        self.height - position.y.floor() as f32,
                         out,
                     );
                 }
@@ -1222,10 +1221,8 @@ impl Session {
     ///////////////////////////////////////////////////////////////////////////
 
     pub fn handle_resized(&mut self, size: winit::dpi::LogicalSize) {
-        let win = size.to_physical(self.settings.hidpi_factor);
-
-        self.width = win.width as f32;
-        self.height = win.height as f32;
+        self.width = size.width as f32;
+        self.height = size.height as f32;
 
         // TODO: Reset session cursor coordinates
         self.center_palette();
