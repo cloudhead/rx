@@ -571,8 +571,14 @@ impl Renderer {
             // Session status
             let cursor = session.active_view_coords(session.cx, session.cy);
             text.add(
-                &format!("{:4},{:4}", cursor.x, cursor.y),
+                &format!("{:>4},{:<4}", cursor.x, cursor.y,),
                 session.width - MARGIN - 36. * 8.,
+                MARGIN + self::LINE_HEIGHT,
+                Rgba8::WHITE,
+            );
+            text.add(
+                &format!("{:>5}%", (session.active_view().zoom * 100.) as u32),
+                session.width - MARGIN - 6. * 8.,
                 MARGIN + self::LINE_HEIGHT,
                 Rgba8::WHITE,
             );
