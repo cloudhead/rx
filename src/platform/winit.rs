@@ -1,7 +1,7 @@
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use crate::platform::{
-    InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
+    ControlFlow, InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
     ModifiersState, MouseButton, WindowEvent,
 };
 
@@ -17,6 +17,27 @@ pub struct Events {
 }
 
 impl Events {
+    pub fn run<F>(self, mut callback: F)
+    where
+        F: 'static + FnMut(WindowEvent) -> ControlFlow,
+    {
+        self.handle.run(move |event, _, control_flow| match event {
+            winit::event::Event::WindowEvent { event, .. } => {
+                if callback(event.into()) == ControlFlow::Exit {
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                }
+            }
+            winit::event::Event::EventsCleared => {
+                if callback(WindowEvent::Ready) == ControlFlow::Exit {
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                }
+            }
+            _ => {
+                *control_flow = winit::event_loop::ControlFlow::Poll;
+            }
+        });
+    }
+
     pub fn poll(&mut self) -> Vec<WindowEvent> {
         let mut events = Vec::new();
 
@@ -44,6 +65,10 @@ pub struct Window {
 }
 
 impl Window {
+    pub fn request_redraw(&self) {
+        self.handle.request_redraw();
+    }
+
     pub fn raw_handle(&self) -> RawWindowHandle {
         self.handle.raw_window_handle()
     }

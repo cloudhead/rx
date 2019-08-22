@@ -202,8 +202,8 @@ impl Settings {
     fn new(hidpi_factor: f64) -> Self {
         Self {
             checker: false,
-            vsync: true,
-            frame_delay: time::Duration::from_micros(16666),
+            vsync: false,
+            frame_delay: time::Duration::from_millis(8),
             hidpi_factor,
         }
     }

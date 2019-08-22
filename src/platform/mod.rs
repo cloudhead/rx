@@ -11,6 +11,12 @@ pub fn init(title: &str) -> io::Result<(backend::Window, backend::Events)> {
     backend::init(title)
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ControlFlow {
+    Continue,
+    Exit,
+}
+
 /// Describes an event from a `Window`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowEvent {
@@ -57,6 +63,9 @@ pub enum WindowEvent {
 
     /// The OS or application has requested that the window be redrawn.
     RedrawRequested,
+
+    /// There are no more inputs to process, the application can do work.
+    Ready,
 
     /// The DPI factor of the window has changed.
     HiDpiFactorChanged(f64),

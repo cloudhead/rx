@@ -36,7 +36,6 @@ use std::time;
 pub struct FrameTimer {
     timings: VecDeque<u128>,
     avg: time::Duration,
-    last: time::Instant,
 }
 
 impl FrameTimer {
@@ -46,19 +45,17 @@ impl FrameTimer {
         Self {
             timings: VecDeque::with_capacity(Self::WINDOW),
             avg: time::Duration::from_secs(0),
-            last: time::Instant::now(),
         }
     }
 
     pub fn run<F>(&mut self, frame: F)
     where
-        F: FnOnce(time::Duration, time::Duration),
+        F: FnOnce(time::Duration),
     {
         let start = time::Instant::now();
-        frame(self.avg, start.duration_since(self.last));
+        frame(self.avg);
         let elapsed = start.elapsed();
 
-        self.last = start;
         self.timings.truncate(Self::WINDOW - 1);
         self.timings.push_front(elapsed.as_micros());
 
@@ -72,7 +69,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let mut logger = env_logger::Builder::from_default_env();
     logger.init();
 
-    let (mut win, mut events) = platform::init("rx")?;
+    let (mut win, events) = platform::init("rx")?;
 
     let hidpi_factor = win.hidpi_factor();
     let win_size = win.framebuffer_size()?;
@@ -111,59 +108,74 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
         present_mode,
     );
 
-    let mut timer = FrameTimer::new();
+    let mut render_timer = FrameTimer::new();
     let mut canvas = shape2d::Batch::new();
     let mut session_events = Vec::with_capacity(16);
+    let mut last = time::Instant::now();
 
-    while session.is_running {
-        timer.run(|avg, delta| {
-            canvas.clear();
+    events.run(move |event| {
+        match event {
+            platform::WindowEvent::Resized(size) => {
+                session.handle_resized(size);
 
-            for event in events.poll() {
-                match event {
-                    platform::WindowEvent::Resized(size) => {
-                        session.handle_resized(size);
-
-                        let physical = size.to_physical(hidpi_factor);
-                        swap_chain = r.swap_chain(
-                            physical.width as u32,
-                            physical.height as u32,
-                            present_mode,
-                        );
-                        renderer.handle_resized(size, &r);
-                    }
-                    platform::WindowEvent::CursorEntered { .. } => {
-                        win.set_cursor_visible(false);
-                    }
-                    platform::WindowEvent::CursorLeft { .. } => {
-                        win.set_cursor_visible(true);
-                    }
-                    other => {
-                        session_events.push(other);
-                    }
-                }
+                let physical = size.to_physical(hidpi_factor);
+                swap_chain = r.swap_chain(
+                    physical.width as u32,
+                    physical.height as u32,
+                    present_mode,
+                );
+                renderer.handle_resized(size, &r);
             }
-
-            session.frame(&mut session_events, &mut canvas, delta);
-            renderer.frame(&session, &avg, &mut r, &mut swap_chain, &canvas);
-
-            {
-                let pm = session.settings.present_mode();
-                if pm != present_mode {
-                    present_mode = pm;
-
-                    swap_chain = r.swap_chain(
-                        session.width as u32,
-                        session.height as u32,
-                        present_mode,
-                    );
-                }
+            platform::WindowEvent::CursorEntered { .. } => {
+                win.set_cursor_visible(false);
             }
-
-            if session.settings.frame_delay > time::Duration::from_secs(0) {
+            platform::WindowEvent::CursorLeft { .. } => {
+                win.set_cursor_visible(true);
+            }
+            platform::WindowEvent::Ready => {
                 std::thread::sleep(session.settings.frame_delay);
+
+                let delta = last.elapsed();
+                last = time::Instant::now();
+                session.frame(&mut session_events, &mut canvas, delta);
+
+                win.request_redraw();
             }
-        });
-    }
+            platform::WindowEvent::RedrawRequested => {
+                render_timer.run(|avg| {
+                    renderer.frame(
+                        &session,
+                        &avg,
+                        &mut r,
+                        &mut swap_chain,
+                        &canvas,
+                    );
+                });
+                canvas.clear();
+            }
+            other => {
+                session_events.push(other);
+            }
+        }
+
+        {
+            let pm = session.settings.present_mode();
+            if pm != present_mode {
+                present_mode = pm;
+
+                swap_chain = r.swap_chain(
+                    swap_chain.width as u32,
+                    swap_chain.height as u32,
+                    present_mode,
+                );
+            }
+        }
+
+        if session.is_running {
+            platform::ControlFlow::Continue
+        } else {
+            platform::ControlFlow::Exit
+        }
+    });
     Ok(())
 }
