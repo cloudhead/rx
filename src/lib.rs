@@ -5,6 +5,7 @@ mod font;
 mod framebuffer2d;
 mod gpu;
 mod palette;
+mod platform;
 mod renderer;
 mod resources;
 mod screen2d;
@@ -20,8 +21,6 @@ use rgx;
 use rgx::core;
 use rgx::kit;
 use rgx::kit::shape2d;
-
-use rgx::winit;
 
 #[macro_use]
 extern crate log;
@@ -73,14 +72,10 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let mut logger = env_logger::Builder::from_default_env();
     logger.init();
 
-    let mut events_loop = winit::EventsLoop::new();
-    let win = winit::WindowBuilder::new()
-        .with_title("rx")
-        .with_resizable(true)
-        .build(&events_loop)
-        .unwrap();
-    let hidpi_factor = win.get_hidpi_factor();
-    let win_size = win.get_inner_size().unwrap().to_physical(hidpi_factor);
+    let (mut win, mut events) = platform::init("rx")?;
+
+    let hidpi_factor = win.hidpi_factor();
+    let win_size = win.framebuffer_size()?;
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
     let resources = ResourceManager::new();
@@ -90,7 +85,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
             .init()?;
 
     let mut present_mode = session.settings.present_mode();
-    let mut r = core::Renderer::new(&win);
+    let mut r = core::Renderer::new(win.raw_handle());
     let mut renderer = Renderer::new(&mut r, win_w, win_h, resources);
 
     if let Err(e) = session.edit(paths) {
@@ -109,48 +104,47 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
 
     renderer.init(&session, &mut r);
 
+    let physical = win_size.to_physical(hidpi_factor);
     let mut swap_chain = r.swap_chain(
-        renderer.width as u32,
-        renderer.height as u32,
+        physical.width as u32,
+        physical.height as u32,
         present_mode,
     );
 
     let mut timer = FrameTimer::new();
     let mut canvas = shape2d::Batch::new();
-    let mut events = Vec::with_capacity(16);
+    let mut session_events = Vec::with_capacity(16);
 
     while session.is_running {
         timer.run(|avg, delta| {
             canvas.clear();
 
-            events_loop.poll_events(|event| {
-                if let rgx::winit::Event::WindowEvent { event, .. } = event {
-                    match event {
-                        rgx::winit::WindowEvent::Resized(size) => {
-                            session.handle_resized(size);
+            for event in events.poll() {
+                match event {
+                    platform::WindowEvent::Resized(size) => {
+                        session.handle_resized(size);
 
-                            let physical = size.to_physical(hidpi_factor);
-                            swap_chain = r.swap_chain(
-                                physical.width as u32,
-                                physical.height as u32,
-                                present_mode,
-                            );
-                            renderer.handle_resized(size, &r);
-                        }
-                        rgx::winit::WindowEvent::CursorEntered { .. } => {
-                            win.hide_cursor(true);
-                        }
-                        rgx::winit::WindowEvent::CursorLeft { .. } => {
-                            win.hide_cursor(false);
-                        }
-                        other => {
-                            events.push(other);
-                        }
+                        let physical = size.to_physical(hidpi_factor);
+                        swap_chain = r.swap_chain(
+                            physical.width as u32,
+                            physical.height as u32,
+                            present_mode,
+                        );
+                        renderer.handle_resized(size, &r);
+                    }
+                    platform::WindowEvent::CursorEntered { .. } => {
+                        win.set_cursor_visible(false);
+                    }
+                    platform::WindowEvent::CursorLeft { .. } => {
+                        win.set_cursor_visible(true);
+                    }
+                    other => {
+                        session_events.push(other);
                     }
                 }
-            });
+            }
 
-            session.frame(&mut events, &mut canvas, delta);
+            session.frame(&mut session_events, &mut canvas, delta);
             renderer.frame(&session, &avg, &mut r, &mut swap_chain, &canvas);
 
             {

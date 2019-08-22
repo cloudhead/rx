@@ -3,14 +3,14 @@ use crate::brush::*;
 use crate::cmd;
 use crate::cmd::{Command, CommandLine, Key, Op, Value};
 use crate::palette::*;
+use crate::platform;
+use crate::platform::{InputState, KeyboardInput, WindowEvent};
 use crate::resources::{ResourceManager, SnapshotId};
 use crate::view::{FileStatus, View, ViewId};
 
 use rgx::core::{PresentMode, Rect};
 use rgx::kit::shape2d;
 use rgx::kit::Rgba8;
-use rgx::winit;
-use rgx::winit::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use cgmath::prelude::*;
 use cgmath::{Matrix4, Point2, Vector2};
@@ -134,9 +134,9 @@ impl std::fmt::Display for Message {
 #[derive(PartialEq, Clone, Debug)]
 struct KeyBinding {
     modes: Vec<Mode>,
-    modifiers: winit::ModifiersState,
+    modifiers: platform::ModifiersState,
     key: Key,
-    state: ElementState,
+    state: InputState,
     command: Command,
 }
 
@@ -150,9 +150,9 @@ impl Default for KeyBindings {
         KeyBindings {
             elems: vec![KeyBinding {
                 modes: vec![Mode::Normal],
-                modifiers: winit::ModifiersState::default(),
-                key: Key::Virtual(winit::VirtualKeyCode::Colon),
-                state: ElementState::Pressed,
+                modifiers: platform::ModifiersState::default(),
+                key: Key::Virtual(platform::Key::Colon),
+                state: InputState::Pressed,
                 command: Command::Mode(Mode::Command),
             }],
         }
@@ -167,13 +167,13 @@ impl KeyBindings {
     pub fn find(
         &self,
         key: Key,
-        modifiers: winit::ModifiersState,
-        state: winit::ElementState,
+        modifiers: platform::ModifiersState,
+        state: platform::InputState,
         mode: &Mode,
     ) -> Option<KeyBinding> {
         self.elems.iter().cloned().find(|kb| {
             kb.key == key
-                && (kb.modifiers == winit::ModifiersState::default()
+                && (kb.modifiers == platform::ModifiersState::default()
                     || kb.modifiers == modifiers)
                 && kb.state == state
                 && kb.modes.contains(mode)
@@ -387,7 +387,7 @@ impl Session {
 
     pub fn frame(
         &mut self,
-        events: &mut Vec<winit::WindowEvent>,
+        events: &mut Vec<platform::WindowEvent>,
         out: &mut shape2d::Batch,
         delta: time::Duration,
     ) {
@@ -409,7 +409,7 @@ impl Session {
                 WindowEvent::MouseInput { state, button, .. } => {
                     self.handle_mouse_input(button, state, out);
                 }
-                WindowEvent::KeyboardInput { input, .. } => {
+                WindowEvent::KeyboardInput(input) => {
                     self.handle_keyboard_input(input);
                 }
                 WindowEvent::ReceivedCharacter(c) => {
@@ -418,7 +418,6 @@ impl Session {
                 WindowEvent::CloseRequested => {
                     self.quit();
                 }
-                WindowEvent::Refresh => {}
                 _ => {}
             }
         }
@@ -1074,16 +1073,16 @@ impl Session {
                     key,
                     modes: vec![Mode::Normal],
                     command: press,
-                    state: ElementState::Pressed,
-                    modifiers: winit::ModifiersState::default(),
+                    state: InputState::Pressed,
+                    modifiers: platform::ModifiersState::default(),
                 });
                 if let Some(cmd) = release {
                     self.key_bindings.add(KeyBinding {
                         key,
                         modes: vec![Mode::Normal],
                         command: cmd,
-                        state: ElementState::Released,
-                        modifiers: winit::ModifiersState::default(),
+                        state: InputState::Released,
+                        modifiers: platform::ModifiersState::default(),
                     });
                 }
             }
@@ -1220,7 +1219,7 @@ impl Session {
     // Event handlers
     ///////////////////////////////////////////////////////////////////////////
 
-    pub fn handle_resized(&mut self, size: winit::dpi::LogicalSize) {
+    pub fn handle_resized(&mut self, size: platform::LogicalSize) {
         self.width = size.width as f32;
         self.height = size.height as f32;
 
@@ -1231,15 +1230,15 @@ impl Session {
 
     pub fn handle_mouse_input(
         &mut self,
-        button: winit::MouseButton,
-        state: winit::ElementState,
+        button: platform::MouseButton,
+        state: platform::InputState,
         out: &mut shape2d::Batch,
     ) {
-        if button != winit::MouseButton::Left {
+        if button != platform::MouseButton::Left {
             return;
         }
 
-        if state == winit::ElementState::Pressed {
+        if state == platform::InputState::Pressed {
             self.mouse_down = true;
             self.record_macro(format!("cursor/down"));
 
@@ -1284,7 +1283,7 @@ impl Session {
                     Mode::Present => {}
                 }
             }
-        } else if state == winit::ElementState::Released {
+        } else if state == platform::InputState::Released {
             self.mouse_down = false;
             self.record_macro(format!("cursor/up"));
 
@@ -1343,46 +1342,45 @@ impl Session {
             self.cmdline_handle_input(c);
         } else if let Some(kb) = self.key_bindings.find(
             Key::Char(c),
-            winit::ModifiersState::default(),
-            winit::ElementState::Pressed,
+            platform::ModifiersState::default(),
+            platform::InputState::Pressed,
             &self.mode,
         ) {
             self.command(kb.command);
         }
     }
 
-    pub fn handle_keyboard_input(&mut self, input: winit::KeyboardInput) {
+    pub fn handle_keyboard_input(&mut self, input: platform::KeyboardInput) {
         let KeyboardInput {
             state,
             modifiers,
-            virtual_keycode,
+            key,
             ..
         } = input;
 
-        if let Some(key) = virtual_keycode {
+        if let Some(key) = key {
             // While the mouse is down, don't accept keyboard input.
             if self.mouse_down {
                 return;
             }
 
             if self.mode == Mode::Visual {
-                if key == VirtualKeyCode::Escape
-                    && state == ElementState::Pressed
+                if key == platform::Key::Escape && state == InputState::Pressed
                 {
                     self.selection = Rect::empty();
                     self.mode = Mode::Normal;
                     return;
                 }
             } else if self.mode == Mode::Command {
-                if state == ElementState::Pressed {
+                if state == InputState::Pressed {
                     match key {
-                        VirtualKeyCode::Back => {
+                        platform::Key::Backspace => {
                             self.cmdline_handle_backspace();
                         }
-                        VirtualKeyCode::Return => {
+                        platform::Key::Return => {
                             self.cmdline_handle_enter();
                         }
-                        VirtualKeyCode::Escape => {
+                        platform::Key::Escape => {
                             self.cmdline_hide();
                         }
                         _ => {}

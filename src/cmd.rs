@@ -1,9 +1,9 @@
 use crate::brush::BrushMode;
+use crate::platform;
 use crate::session::Mode;
 
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
-use rgx::winit;
 
 use cgmath::{Point2, Vector2};
 
@@ -88,7 +88,7 @@ pub enum Command {
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Key {
     Char(char),
-    Virtual(winit::VirtualKeyCode),
+    Virtual(platform::Key),
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -225,9 +225,9 @@ impl FromStr for Command {
     }
 }
 
-impl<'a> Parse<'a> for winit::VirtualKeyCode {
+impl<'a> Parse<'a> for platform::Key {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        use winit::VirtualKeyCode as Key;
+        use platform::Key;
         let (c, p) = p.parse::<char>()?;
 
         #[rustfmt::skip]
@@ -486,23 +486,23 @@ impl<'a> Parse<'a> for Key {
             let (key, p) = p.alpha()?;
             let (_, p) = p.sigil('>')?;
             let virt = match key {
-                "up" => winit::VirtualKeyCode::Up,
-                "down" => winit::VirtualKeyCode::Down,
-                "left" => winit::VirtualKeyCode::Left,
-                "right" => winit::VirtualKeyCode::Right,
-                "ctrl" => winit::VirtualKeyCode::LControl,
-                "shift" => winit::VirtualKeyCode::LShift,
-                "space" => winit::VirtualKeyCode::Space,
-                "return" => winit::VirtualKeyCode::Return,
-                "back" => winit::VirtualKeyCode::Back,
-                "tab" => winit::VirtualKeyCode::Tab,
+                "up" => platform::Key::Up,
+                "down" => platform::Key::Down,
+                "left" => platform::Key::Left,
+                "right" => platform::Key::Right,
+                "ctrl" => platform::Key::LControl,
+                "shift" => platform::Key::LShift,
+                "space" => platform::Key::Space,
+                "return" => platform::Key::Return,
+                "back" => platform::Key::Backspace,
+                "tab" => platform::Key::Tab,
                 other => {
                     return Err(Error::new(format!("unknown key <{}>", other)))
                 }
             };
             Ok((Key::Virtual(virt), p))
         } else {
-            let (k, p) = p.parse::<winit::VirtualKeyCode>()?;
+            let (k, p) = p.parse::<platform::Key>()?;
             Ok((Key::Virtual(k), p))
         }
     }

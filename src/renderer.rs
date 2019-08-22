@@ -2,6 +2,7 @@ use crate::brush::BrushMode;
 use crate::font::{Font, TextBatch};
 use crate::framebuffer2d;
 use crate::gpu;
+use crate::platform;
 use crate::resources::ResourceManager;
 use crate::screen2d;
 use crate::session::{Mode, Session, Tool};
@@ -14,7 +15,6 @@ use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
 use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
-use rgx::winit;
 
 use cgmath::prelude::*;
 use cgmath::{Matrix4, Point2, Vector2};
@@ -753,7 +753,7 @@ impl Renderer {
 
     pub fn handle_resized(
         &mut self,
-        size: winit::dpi::LogicalSize,
+        size: platform::LogicalSize,
         r: &core::Renderer,
     ) {
         let (w, h) = (size.width as u32, size.height as u32);

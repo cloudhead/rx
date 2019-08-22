@@ -1,0 +1,257 @@
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+
+use crate::platform::{
+    InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
+    ModifiersState, MouseButton, WindowEvent,
+};
+
+use winit;
+use winit::platform::desktop::EventLoopExtDesktop;
+
+use std::io;
+
+///////////////////////////////////////////////////////////////////////////////
+
+pub struct Events {
+    handle: winit::event_loop::EventLoop<()>,
+}
+
+impl Events {
+    pub fn poll(&mut self) -> Vec<WindowEvent> {
+        let mut events = Vec::new();
+
+        self.handle
+            .run_return(|event, _, control_flow| match event {
+                winit::event::Event::WindowEvent { event, .. } => {
+                    events.push(event.into());
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                }
+                winit::event::Event::NewEvents(
+                    winit::event::StartCause::Poll,
+                ) => {
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
+                }
+                winit::event::Event::EventsCleared => {}
+                winit::event::Event::LoopDestroyed => {}
+                _ => {}
+            });
+        events
+    }
+}
+
+pub struct Window {
+    pub handle: winit::window::Window,
+}
+
+impl Window {
+    pub fn raw_handle(&self) -> RawWindowHandle {
+        self.handle.raw_window_handle()
+    }
+
+    pub fn set_cursor_visible(&mut self, visible: bool) {
+        self.handle.set_cursor_visible(visible);
+    }
+
+    pub fn hidpi_factor(&self) -> f64 {
+        self.handle.hidpi_factor()
+    }
+
+    pub fn framebuffer_size(&self) -> io::Result<LogicalSize> {
+        let size = self.handle.inner_size();
+        Ok(LogicalSize::new(size.width, size.height))
+    }
+}
+
+pub fn init(title: &str) -> io::Result<(Window, Events)> {
+    let events = Events {
+        handle: winit::event_loop::EventLoop::new(),
+    };
+
+    let handle = winit::window::WindowBuilder::new()
+        .with_title(title)
+        .with_resizable(true)
+        .build(&events.handle)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+    Ok((Window { handle }, events))
+}
+
+impl From<winit::dpi::LogicalSize> for LogicalSize {
+    #[inline]
+    fn from(size: winit::dpi::LogicalSize) -> Self {
+        Self::new(size.width, size.height)
+    }
+}
+
+impl From<winit::event::MouseButton> for MouseButton {
+    fn from(button: winit::event::MouseButton) -> Self {
+        match button {
+            winit::event::MouseButton::Left => MouseButton::Left,
+            winit::event::MouseButton::Right => MouseButton::Right,
+            winit::event::MouseButton::Middle => MouseButton::Middle,
+            winit::event::MouseButton::Other(n) => MouseButton::Other(n),
+        }
+    }
+}
+
+impl From<winit::event::ElementState> for InputState {
+    fn from(state: winit::event::ElementState) -> Self {
+        match state {
+            winit::event::ElementState::Pressed => InputState::Pressed,
+            winit::event::ElementState::Released => InputState::Released,
+        }
+    }
+}
+
+impl From<winit::event::KeyboardInput> for KeyboardInput {
+    fn from(input: winit::event::KeyboardInput) -> Self {
+        Self {
+            state: input.state.into(),
+            key: input.virtual_keycode.map(Key::from),
+            modifiers: input.modifiers.into(),
+        }
+    }
+}
+
+impl From<winit::event::WindowEvent> for WindowEvent {
+    fn from(event: winit::event::WindowEvent) -> Self {
+        use winit::event::WindowEvent as Winit;
+
+        match event {
+            Winit::Resized(size) => WindowEvent::Resized(size.into()),
+            Winit::Destroyed => WindowEvent::Destroyed,
+            Winit::CloseRequested => WindowEvent::CloseRequested,
+            Winit::RedrawRequested => WindowEvent::RedrawRequested,
+            Winit::Moved(pos) => WindowEvent::Moved(pos.into()),
+            Winit::MouseInput {
+                state,
+                button,
+                modifiers,
+                ..
+            } => WindowEvent::MouseInput {
+                state: state.into(),
+                button: button.into(),
+                modifiers: modifiers.into(),
+            },
+            Winit::CursorLeft { .. } => WindowEvent::CursorLeft,
+            Winit::CursorEntered { .. } => WindowEvent::CursorEntered,
+            Winit::CursorMoved {
+                position,
+                modifiers,
+                ..
+            } => WindowEvent::CursorMoved {
+                position: position.into(),
+                modifiers: modifiers.into(),
+            },
+            Winit::ReceivedCharacter(c) => WindowEvent::ReceivedCharacter(c),
+            Winit::KeyboardInput { input, .. } => {
+                WindowEvent::KeyboardInput(input.into())
+            }
+            Winit::Focused(b) => WindowEvent::Focused(b),
+            Winit::HiDpiFactorChanged(n) => WindowEvent::HiDpiFactorChanged(n),
+
+            _ => WindowEvent::Noop,
+        }
+    }
+}
+
+impl From<winit::event::VirtualKeyCode> for Key {
+    fn from(k: winit::event::VirtualKeyCode) -> Self {
+        use winit::event::VirtualKeyCode as Winit;
+
+        match k {
+            Winit::Key1 => Key::Num1,
+            Winit::Key2 => Key::Num2,
+            Winit::Key3 => Key::Num3,
+            Winit::Key4 => Key::Num4,
+            Winit::Key5 => Key::Num5,
+            Winit::Key6 => Key::Num6,
+            Winit::Key7 => Key::Num7,
+            Winit::Key8 => Key::Num8,
+            Winit::Key9 => Key::Num9,
+            Winit::Key0 => Key::Num0,
+            Winit::A => Key::A,
+            Winit::B => Key::B,
+            Winit::C => Key::C,
+            Winit::D => Key::D,
+            Winit::E => Key::E,
+            Winit::F => Key::F,
+            Winit::G => Key::G,
+            Winit::H => Key::H,
+            Winit::I => Key::I,
+            Winit::J => Key::J,
+            Winit::K => Key::K,
+            Winit::L => Key::L,
+            Winit::M => Key::M,
+            Winit::N => Key::N,
+            Winit::O => Key::O,
+            Winit::P => Key::P,
+            Winit::Q => Key::Q,
+            Winit::R => Key::R,
+            Winit::S => Key::S,
+            Winit::T => Key::T,
+            Winit::U => Key::U,
+            Winit::V => Key::V,
+            Winit::W => Key::W,
+            Winit::X => Key::X,
+            Winit::Y => Key::Y,
+            Winit::Z => Key::Z,
+            Winit::Escape => Key::Escape,
+            Winit::Insert => Key::Insert,
+            Winit::Home => Key::Home,
+            Winit::Delete => Key::Delete,
+            Winit::End => Key::End,
+            Winit::PageDown => Key::PageDown,
+            Winit::PageUp => Key::PageUp,
+            Winit::Left => Key::Left,
+            Winit::Up => Key::Up,
+            Winit::Right => Key::Right,
+            Winit::Down => Key::Down,
+            Winit::Back => Key::Backspace,
+            Winit::Return => Key::Return,
+            Winit::Space => Key::Space,
+            Winit::Caret => Key::Caret,
+            Winit::Add => Key::Add,
+            Winit::Apostrophe => Key::Apostrophe,
+            Winit::Backslash => Key::Backslash,
+            Winit::Colon => Key::Colon,
+            Winit::Comma => Key::Comma,
+            Winit::Divide => Key::Divide,
+            Winit::Equals => Key::Equals,
+            Winit::Grave => Key::Grave,
+            Winit::LAlt => Key::LAlt,
+            Winit::LBracket => Key::LBracket,
+            Winit::LControl => Key::LControl,
+            Winit::LShift => Key::LShift,
+            Winit::Minus => Key::Minus,
+            Winit::Multiply => Key::Multiply,
+            Winit::Period => Key::Period,
+            Winit::RAlt => Key::RAlt,
+            Winit::RBracket => Key::RBracket,
+            Winit::RControl => Key::RControl,
+            Winit::RShift => Key::RShift,
+            Winit::Semicolon => Key::Semicolon,
+            Winit::Slash => Key::Slash,
+            Winit::Subtract => Key::Subtract,
+            Winit::Tab => Key::Tab,
+            _ => Key::Unknown,
+        }
+    }
+}
+
+impl From<winit::event::ModifiersState> for ModifiersState {
+    fn from(mods: winit::event::ModifiersState) -> Self {
+        Self {
+            shift: mods.shift,
+            ctrl: mods.ctrl,
+            alt: mods.alt,
+            meta: mods.logo,
+        }
+    }
+}
+
+impl From<winit::dpi::LogicalPosition> for LogicalPosition {
+    fn from(pos: winit::dpi::LogicalPosition) -> Self {
+        Self { x: pos.x, y: pos.y }
+    }
+}
