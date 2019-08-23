@@ -38,8 +38,8 @@ FEATURES
 
 PLATFORM SUPPORT
 
-  * Linux     (vulkan)         [YES]
-  * macOS     (metal)          [UNTESTED]
+  * Linux     (vulkan)         [GOOD]
+  * macOS     (metal)          [OKAY]
   * Windows   (dx11/dx12)      [UNTESTED]
 
 BUILD DEPENDENCIES
@@ -73,7 +73,7 @@ USAGE
 
   After installing, simply run `rx` from a shell or application launcher.
 
-  See `.rxrc` in the project root for a list of key mappings.
+  See `.config/init.rx` for a list of key mappings.
 
   Common commands:
 
@@ -82,7 +82,6 @@ USAGE
     :q                       Quit view
     :slice <n>               Slice view into <n> frames
     :source <path>           Source an rx script (eg. a palette)
-    :f/new                   Add frame to the view
     :f/resize <w> <h>        Resize frames
 
 SUPPORT
