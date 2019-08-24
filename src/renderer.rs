@@ -378,10 +378,6 @@ impl Renderer {
 
         {
             // Render screen framebuffer to screen.
-
-            // TODO: With HiDPI, Make sure we draw at the logical size
-            // and rescale at the physical size, so things are snappier.
-
             let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), out);
 
             p.set_pipeline(&self.screen2d);
@@ -551,13 +547,15 @@ impl Renderer {
             );
         }
 
-        // Frame-time
-        text.add(
-            &format!("{:3.2}ms", avg_frametime.as_micros() as f64 / 1000.),
-            MARGIN,
-            session.height - MARGIN - self::LINE_HEIGHT,
-            Rgba8::WHITE,
-        );
+        if session.settings.debug {
+            // Frame-time
+            text.add(
+                &format!("{:3.2}ms", avg_frametime.as_micros() as f64 / 1000.),
+                MARGIN,
+                session.height - MARGIN - self::LINE_HEIGHT,
+                Rgba8::WHITE,
+            );
+        }
 
         // Active view status
         text.add(

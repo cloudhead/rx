@@ -5,7 +5,7 @@ use crate::cmd::{Command, CommandLine, Key, Op, Value};
 use crate::palette::*;
 use crate::platform;
 use crate::platform::{InputState, KeyboardInput, WindowEvent};
-use crate::resources::{ResourceManager, SnapshotId};
+use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewId};
 
 use rgx::core::{PresentMode, Rect};
@@ -199,6 +199,7 @@ impl KeyBindings {
 }
 
 pub struct Settings {
+    pub debug: bool,
     pub checker: bool,
     pub vsync: bool,
     pub frame_delay: time::Duration,
@@ -218,6 +219,7 @@ impl Settings {
 impl Settings {
     fn new(hidpi_factor: f64) -> Self {
         Self {
+            debug: false,
             checker: false,
             vsync: false,
             frame_delay: time::Duration::from_millis(8),
@@ -1023,6 +1025,11 @@ impl Session {
                 "vsync" => {
                     if let &Value::Bool(b) = v {
                         self.settings.vsync = b;
+                    }
+                }
+                "debug" => {
+                    if let &Value::Bool(b) = v {
+                        self.settings.debug = b;
                     }
                 }
                 "frame_delay" => {
