@@ -1,10 +1,17 @@
 #![allow(dead_code)]
 use std::io;
 
-#[cfg(feature = "winit")]
-mod winit;
-#[cfg(feature = "winit")]
-use crate::platform::winit as backend;
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "macos",
+    target_os = "window"
+)))]
+#[path = "dummy.rs"]
+mod backend;
+
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "window"))]
+#[path = "winit.rs"]
+mod backend;
 
 /// Initialize the platform.
 pub fn init(title: &str) -> io::Result<(backend::Window, backend::Events)> {

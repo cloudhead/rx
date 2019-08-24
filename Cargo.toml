@@ -23,7 +23,9 @@ image = { version = "0.21.2", default-features = false, features = ["png_codec"]
 log = "0.4.6"
 xdg = "2.2.0"
 raw-window-handle = "0.1.0"
-winit = { version = "0.20.0-alpha3", optional = true }
+
+[target.'cfg(any(target_os = "linux", target_os = "window", target_os = "macos"))'.dependencies]
+winit = { version = "0.20.0-alpha3" }
 
 [dependencies.rgx]
 git = "https://github.com/cloudhead/rgx.git"
