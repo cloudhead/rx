@@ -11,6 +11,21 @@
   Designed with great care and love
     with pixel artists and animators in mind.
 
+OVERVIEW
+
+  `rx` is an extensible, modern and minimalist pixel editor implemented
+  in rust[0]. It's designed to have as little UI as possible, and instead
+  takes inspiration from vi's[1] modal nature and command mode.
+
+  Compared to other pixel editors, rx aims to be smaller, yet more configurable
+  and extendable. `rx` takes a different approach when it comes to animation
+  as well, which is done with *strips*.
+
+  See the screenshots/ folder to get an idea of what this looks like.
+
+  [0]: https://rust-lang.org
+  [1]: https://en.wikipedia.org/wiki/Vi
+
 GOALS
 
   * Minimal UI. Clean aesthetics.
@@ -21,11 +36,6 @@ GOALS
   * Optimized for advanced users. No hand-holding. vi-like philosophy.
   * Small, hackable codebase. At most 10 KLOC with only a handful of direct dependencies.
   * First-class Linux support.
-  * Run in the browser via WASM & WebGPU.
-
-OVERVIEW
-
-  See the screenshots/ folder to see what the editor looks like.
 
 FEATURES
 
@@ -34,6 +44,7 @@ FEATURES
   * Extensible command system.
   * Text-based configuration.
   * Built in rust, using modern graphics.
+  * HiDPI display support.
   * PNG support.
 
 PLATFORM SUPPORT
