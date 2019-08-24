@@ -1,0 +1,20 @@
+
+
+                                      RELEASE CHECKLIST
+
+
+  1. Tag the release commit:
+
+      git tag -s vX.X.X
+
+  2. Update the version in `.config/init.rx`
+  3. Update the version in `src/main.rs`
+  4. Update the version in Cargo.toml
+  5. Push tags:
+
+      git push --tags
+
+  6. Publish crate:
+
+      cargo package
+      cargo publish
