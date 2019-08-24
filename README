@@ -39,13 +39,18 @@ GOALS
 
 FEATURES
 
-  * Designed for sprite animation, with live preview.
+  * Built-in sprite animation support, with live preview.
   * Work with multiple files simultaneously.
   * Extensible command system.
   * Text-based configuration.
-  * Built in rust, using modern graphics.
+  * Built using modern graphics.
   * HiDPI display support.
+  * Undo/redo any edit.
   * PNG support.
+
+  * (Coming soon: Layers)
+  * (Coming soon: Visual mode)
+  * (Coming soon: Workspaces)
 
 PLATFORM SUPPORT
 
