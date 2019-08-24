@@ -432,6 +432,9 @@ impl Session {
                 WindowEvent::ReceivedCharacter(c) => {
                     self.handle_received_character(c);
                 }
+                WindowEvent::HiDpiFactorChanged(factor) => {
+                    self.settings.hidpi_factor = factor;
+                }
                 WindowEvent::CloseRequested => {
                     self.quit();
                 }
