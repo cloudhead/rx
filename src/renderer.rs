@@ -581,18 +581,16 @@ impl Renderer {
                 Rgba8::WHITE,
             );
             // Fg color
-            canvas.add(Shape::Circle(
-                Point2::new(300., self::LINE_HEIGHT + self::MARGIN + 7.),
-                6.,
-                16,
+            canvas.add(Shape::Rectangle(
+                Rect::origin(11., 11.)
+                    .translate(300., self::LINE_HEIGHT + self::MARGIN + 2.),
                 Stroke::new(1.0, Rgba::WHITE),
                 Fill::Solid(session.fg.into()),
             ));
             // Bg color
-            canvas.add(Shape::Circle(
-                Point2::new(330., self::LINE_HEIGHT + self::MARGIN + 7.),
-                6.,
-                16,
+            canvas.add(Shape::Rectangle(
+                Rect::origin(11., 11.)
+                    .translate(330., self::LINE_HEIGHT + self::MARGIN + 2.),
                 Stroke::new(1.0, Rgba::WHITE),
                 Fill::Solid(session.bg.into()),
             ));
