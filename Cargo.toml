@@ -1,7 +1,7 @@
 [package]
 name = "rx"
 version = "0.1.0"
-description = "a modern and minimal pixel editor"
+description = "a modern, extensible pixel editor"
 license = "GPL-3.0-only"
 repository = "https://github.com/cloudhead/rx"
 homepage = "https://github.com/cloudhead/rx"
@@ -24,10 +24,8 @@ log = "0.4.6"
 xdg = "2.2.0"
 raw-window-handle = "0.1.0"
 
+[dependencies.rgx]
+version = "0.1.0"
+
 [target.'cfg(any(target_os = "linux", target_os = "window", target_os = "macos"))'.dependencies]
 winit = { version = "0.20.0-alpha3" }
-
-[dependencies.rgx]
-git = "https://github.com/cloudhead/rgx.git"
-rev = "master"
-version = "*"
