@@ -137,9 +137,20 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
 
                 let delta = last.elapsed();
                 last = time::Instant::now();
-                session.frame(&mut session_events, &mut canvas, delta);
 
+                session.frame(&mut session_events, &mut canvas, delta);
                 win.request_redraw();
+
+                let pm = session.settings.present_mode();
+                if pm != present_mode {
+                    present_mode = pm;
+
+                    swap_chain = r.swap_chain(
+                        swap_chain.width as u32,
+                        swap_chain.height as u32,
+                        present_mode,
+                    );
+                }
             }
             platform::WindowEvent::RedrawRequested => {
                 render_timer.run(|avg| {
@@ -153,21 +164,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                 });
                 canvas.clear();
             }
-            other => {
-                session_events.push(other);
-            }
-        }
-
-        {
-            let pm = session.settings.present_mode();
-            if pm != present_mode {
-                present_mode = pm;
-
-                swap_chain = r.swap_chain(
-                    swap_chain.width as u32,
-                    swap_chain.height as u32,
-                    present_mode,
-                );
+            event => {
+                session_events.push(event);
             }
         }
 
