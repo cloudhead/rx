@@ -50,30 +50,31 @@ INSTALLATION
 
   Before proceeding, make sure the build dependencies have been installed.
 
-  1. Install rx by running:
+  Then, run:
 
-        $ cargo install --git https://github.com/cloudhead/rx --locked --features <platform>
+    $ cargo install --git https://github.com/cloudhead/rx --locked --features <platform>
 
-     where <platform> is one of 'vulkan', 'metal', 'dx11' or 'dx12'.
+  where <platform> is one of 'vulkan', 'metal', 'dx11' or 'dx12'.
 
-     This will download `rx` and install it under `~/.cargo/bin/rx`.
-     If you prefer a different install location, you can specify it
-     via the `--root <prefix>` flag, where <prefix> is for example
-     '/usr/local'.
+  This will download `rx` and install it under `~/.cargo/bin/rx`.
+  If you prefer a different install location, you can specify it
+  via the `--root <prefix>` flag, where <prefix> is for example
+  '/usr/local'.
 
-  2. Create a config folder for rx in your user's XDG configuration directory:
+CONFIGURATION
 
-        $ mkdir -p ~/.config/rx
+  Create a config folder for rx in your XDG configuration directory:
 
-     and copy the files under the `config/` directory of this project to it.
+    $ mkdir -p ~/.config/rx
 
-  You're all set!
+  and copy the default configuration from the `config/` directory of this
+  project to it. You can then edit `init.rx` to configure rx.
 
 USAGE
 
   After installing, simply run `rx` from a shell or application launcher.
 
-  See `.config/init.rx` for a list of key mappings.
+  See `.config/init.rx` for the default key mappings.
 
   Common commands:
 

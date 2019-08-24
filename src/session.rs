@@ -21,7 +21,6 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
-use std::io::BufRead;
 use std::path::Path;
 use std::str::FromStr;
 use std::time;
@@ -319,6 +318,9 @@ impl Session {
         Self::MAX_ZOOM,
     ];
 
+    /// Initial (default) configuration for rx.
+    const CONFIG: &'static [u8] = include_bytes!("../config/init.rx");
+
     pub fn new(
         w: u32,
         h: u32,
@@ -370,8 +372,14 @@ impl Session {
         self.is_running = true;
 
         let cwd = std::env::current_dir()?;
-        for cfg in self.base_dirs.find_config_files("init.rx") {
-            self.source_path(cfg)?;
+        let mut cfgs = self.base_dirs.find_config_files("init.rx").peekable();
+
+        if cfgs.peek().is_some() {
+            for cfg in cfgs {
+                self.source_path(cfg)?;
+            }
+        } else {
+            self.source_reader(io::BufReader::new(Self::CONFIG), "<init>")?;
         }
         self.source_dir(cwd).ok();
 
@@ -540,8 +548,19 @@ impl Session {
                 .and_then(File::open)
         })?;
 
-        let r = io::BufReader::new(f);
+        self.source_reader(io::BufReader::new(f), path)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+    }
 
+    fn source_dir<P: AsRef<Path>>(&mut self, dir: P) -> io::Result<()> {
+        self.source_path(dir.as_ref().join(".rxrc"))
+    }
+
+    fn source_reader<P: AsRef<Path>, R: io::BufRead>(
+        &mut self,
+        r: R,
+        _path: P,
+    ) -> io::Result<()> {
         for line in r.lines() {
             let line = line?;
 
@@ -549,17 +568,11 @@ impl Session {
                 continue;
             }
             match Command::from_str(&format!(":{}", line)) {
-                Err(e) => {
-                    return Err(io::Error::new(io::ErrorKind::Other, e));
-                }
+                Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
                 Ok(cmd) => self.command(cmd),
             }
         }
         Ok(())
-    }
-
-    fn source_dir<P: AsRef<Path>>(&mut self, dir: P) -> io::Result<()> {
-        self.source_path(dir.as_ref().join(".rxrc"))
     }
 
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
