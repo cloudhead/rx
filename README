@@ -55,6 +55,8 @@ INSTALLATION
     $ cargo install --git https://github.com/cloudhead/rx --locked --features <platform>
 
   where <platform> is one of 'vulkan', 'metal', 'dx11' or 'dx12'.
+  See the PLATFORM SUPPORT section for which feature to enable on
+  your platform.
 
   This will download `rx` and install it under `~/.cargo/bin/rx`.
   If you prefer a different install location, you can specify it
