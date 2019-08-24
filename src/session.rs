@@ -147,14 +147,31 @@ struct KeyBindings {
 
 impl Default for KeyBindings {
     fn default() -> Self {
+        // The only default is switching to command mode. On some platforms,
+        // Pressing `<shift> + ;` sends us a `:` directly, while on others
+        // we get `<shift>` and `;`.
         KeyBindings {
-            elems: vec![KeyBinding {
-                modes: vec![Mode::Normal],
-                modifiers: platform::ModifiersState::default(),
-                key: Key::Virtual(platform::Key::Colon),
-                state: InputState::Pressed,
-                command: Command::Mode(Mode::Command),
-            }],
+            elems: vec![
+                KeyBinding {
+                    modes: vec![Mode::Normal],
+                    modifiers: platform::ModifiersState::default(),
+                    key: Key::Virtual(platform::Key::Colon),
+                    state: InputState::Pressed,
+                    command: Command::Mode(Mode::Command),
+                },
+                KeyBinding {
+                    modes: vec![Mode::Normal],
+                    modifiers: platform::ModifiersState {
+                        shift: true,
+                        ctrl: false,
+                        alt: false,
+                        meta: false,
+                    },
+                    key: Key::Virtual(platform::Key::Semicolon),
+                    state: InputState::Pressed,
+                    command: Command::Mode(Mode::Command),
+                },
+            ],
         }
     }
 }
