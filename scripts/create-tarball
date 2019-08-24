@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+
+VERSION=${1:-HEAD}
+
+git archive --format=tar.gz --prefix=rx-${VERSION}/ ${VERSION} > rx-${VERSION}.tar.gz
