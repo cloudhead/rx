@@ -99,14 +99,19 @@ impl View {
         }
     }
 
-    pub fn saved(&mut self, id: SnapshotId) {
+    pub fn save_as(&mut self, id: SnapshotId, path: PathBuf) {
         match self.file_status {
-            FileStatus::Modified(ref f) | FileStatus::New(ref f) => {
-                self.file_status = FileStatus::Saved(f.clone());
+            FileStatus::Modified(ref curr_path)
+            | FileStatus::New(ref curr_path) => {
+                if curr_path == &path {
+                    self.saved(id, path);
+                }
             }
-            FileStatus::Saved(_) | FileStatus::NoFile => {}
+            FileStatus::NoFile => {
+                self.saved(id, path);
+            }
+            FileStatus::Saved(_) => {}
         }
-        self.saved_snapshot = Some(id);
     }
 
     pub fn extend(&mut self) {
@@ -215,6 +220,13 @@ impl View {
     }
 
     pub fn handle_cursor_moved(&mut self, _cx: f32, _cy: f32) {}
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn saved(&mut self, id: SnapshotId, path: PathBuf) {
+        self.file_status = FileStatus::Saved(path);
+        self.saved_snapshot = Some(id);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

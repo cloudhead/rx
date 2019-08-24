@@ -630,9 +630,7 @@ impl Session {
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
         // FIXME: We shouldn't need to clone here.
         if let Some(ref f) = self.view(id).file_name().map(|f| f.clone()) {
-            let s_id = self.save_view_as(id, f)?;
-            self.view_mut(id).saved(s_id);
-            Ok(())
+            self.save_view_as(id, f)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
         }
@@ -642,7 +640,7 @@ impl Session {
         &mut self,
         id: ViewId,
         path: P,
-    ) -> io::Result<SnapshotId> {
+    ) -> io::Result<()> {
         // Make sure we don't overwrite other files!
         if self
             .view(id)
@@ -657,6 +655,7 @@ impl Session {
         }
 
         let (s_id, npixels) = self.resources.save_view(&id, &path)?;
+        self.view_mut(id).save_as(s_id, path.as_ref().into());
 
         self.message(
             format!(
@@ -666,7 +665,7 @@ impl Session {
             ),
             MessageType::Info,
         );
-        Ok(s_id)
+        Ok(())
     }
 
     fn center_palette(&mut self) {
