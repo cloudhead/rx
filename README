@@ -99,6 +99,15 @@ USAGE
     :source <path>           Source an rx script (eg. a palette)
     :f/resize <w> <h>        Resize frames
 
+  For example, to create a 32x32 sprite with 4 frames:
+
+    1. Open `rx`.
+    2. Type `:f/resize 32 32`.
+    3. Press <return> three times to create a total of four frames.
+    4. Zoom in/out with `.` and `,`.
+    5. Draw something great!
+    6. Type `:w animation.png` to save it.
+
 SUPPORT
 
   If you find this project useful, consider supporting it by sending ₿ (Bitcoin) to
