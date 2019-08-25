@@ -203,6 +203,7 @@ pub struct Settings {
     pub vsync: bool,
     pub frame_delay: time::Duration,
     pub hidpi_factor: f64,
+    pub scale: f64,
 }
 
 impl Settings {
@@ -222,6 +223,7 @@ impl Settings {
             checker: false,
             vsync: false,
             frame_delay: time::Duration::from_millis(8),
+            scale: 1.0,
             hidpi_factor,
         }
     }
@@ -427,9 +429,10 @@ impl Session {
         for event in events.drain(..) {
             match event {
                 WindowEvent::CursorMoved { position, .. } => {
+                    let scale = self.settings.scale;
                     self.handle_cursor_moved(
-                        position.x.floor() as f32,
-                        self.height - position.y.floor() as f32,
+                        (position.x / scale).floor() as f32,
+                        self.height - (position.y / scale).floor() as f32,
                         out,
                     );
                 }
@@ -1059,6 +1062,13 @@ impl Session {
                         self.settings.hidpi_factor = if b { 2. } else { 1. };
                     } else if let &Value::F32(f) = v {
                         self.settings.hidpi_factor = f as f64;
+                    }
+                }
+                "scale" => {
+                    if let &Value::F32(f) = v {
+                        self.settings.scale = f as f64;
+                    } else if let &Value::U32(u) = v {
+                        self.settings.scale = u as f64;
                     }
                 }
                 setting => {

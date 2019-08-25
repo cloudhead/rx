@@ -116,7 +116,11 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     events.run(move |event| {
         match event {
             platform::WindowEvent::Resized(size) => {
-                session.handle_resized(size);
+                let virtual_size = platform::LogicalSize::new(
+                    size.width / session.settings.scale,
+                    size.height / session.settings.scale,
+                );
+                session.handle_resized(virtual_size);
 
                 let physical = size.to_physical(hidpi_factor);
                 swap_chain = r.swap_chain(
@@ -124,7 +128,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                     physical.height as u32,
                     present_mode,
                 );
-                renderer.handle_resized(size, &r);
+                renderer.handle_resized(virtual_size, &r);
             }
             platform::WindowEvent::CursorEntered { .. } => {
                 win.set_cursor_visible(false);
