@@ -82,6 +82,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
             .init()?;
 
     let mut present_mode = session.settings.present_mode();
+    let mut scale = session.settings.scale;
     let mut r = core::Renderer::new(win.raw_handle());
     let mut renderer = Renderer::new(&mut r, win_w, win_h, resources);
 
@@ -102,6 +103,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     renderer.init(&session, &mut r);
 
     let physical = win_size.to_physical(hidpi_factor);
+    let mut logical = win_size;
     let mut swap_chain = r.swap_chain(
         physical.width as u32,
         physical.height as u32,
@@ -116,19 +118,17 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     events.run(move |event| {
         match event {
             platform::WindowEvent::Resized(size) => {
-                let virtual_size = platform::LogicalSize::new(
-                    size.width / session.settings.scale,
-                    size.height / session.settings.scale,
-                );
-                session.handle_resized(virtual_size);
+                logical = size;
 
-                let physical = size.to_physical(hidpi_factor);
-                swap_chain = r.swap_chain(
-                    physical.width as u32,
-                    physical.height as u32,
+                self::resize(
+                    &mut session,
+                    &mut renderer,
+                    &mut r,
+                    &mut swap_chain,
+                    size,
+                    hidpi_factor,
                     present_mode,
                 );
-                renderer.handle_resized(virtual_size, &r);
             }
             platform::WindowEvent::CursorEntered { .. } => {
                 win.set_cursor_visible(false);
@@ -145,6 +145,22 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                 session.frame(&mut session_events, &mut canvas, delta);
                 win.request_redraw();
 
+                // TODO: Session should keep track of what changed.
+                if scale != session.settings.scale {
+                    scale = session.settings.scale;
+
+                    self::resize(
+                        &mut session,
+                        &mut renderer,
+                        &mut r,
+                        &mut swap_chain,
+                        logical,
+                        hidpi_factor,
+                        present_mode,
+                    );
+                }
+
+                // TODO: Session should keep track of what changed.
                 let pm = session.settings.present_mode();
                 if pm != present_mode {
                     present_mode = pm;
@@ -180,4 +196,28 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
         }
     });
     Ok(())
+}
+
+fn resize(
+    session: &mut Session,
+    renderer: &mut Renderer,
+    r: &mut core::Renderer,
+    swap_chain: &mut core::SwapChain,
+    size: platform::LogicalSize,
+    hidpi_factor: f64,
+    present_mode: core::PresentMode,
+) {
+    let virtual_size = platform::LogicalSize::new(
+        size.width / session.settings.scale,
+        size.height / session.settings.scale,
+    );
+    session.handle_resized(virtual_size);
+
+    let physical = size.to_physical(hidpi_factor);
+    *swap_chain = r.swap_chain(
+        physical.width as u32,
+        physical.height as u32,
+        present_mode,
+    );
+    renderer.handle_resized(virtual_size, &r);
 }
