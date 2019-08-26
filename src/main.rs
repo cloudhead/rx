@@ -1,4 +1,5 @@
 use clap::{App, Arg};
+use log;
 use rx;
 
 fn main() {
@@ -13,5 +14,7 @@ fn main() {
         .values_of("path")
         .map_or(Vec::new(), |m| m.collect::<Vec<_>>());
 
-    rx::init(&paths).unwrap();
+    if let Err(e) = rx::init(&paths) {
+        log::error!("Error initializing rx: {}", e);
+    }
 }

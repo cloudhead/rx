@@ -150,10 +150,12 @@ impl View {
         false
     }
 
-    #[allow(dead_code)]
     pub fn shrink(&mut self) {
-        self.animation.pop_frame();
-        self.touch();
+        // Don't allow the view to have zero frames.
+        if self.animation.len() > 1 {
+            self.animation.pop_frame();
+            self.touch();
+        }
     }
 
     #[allow(dead_code)]

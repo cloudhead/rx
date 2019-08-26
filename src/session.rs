@@ -488,16 +488,6 @@ impl Session {
         self.view_mut(self.active_view_id)
     }
 
-    pub fn new_frame(&mut self) {
-        let (_id, _w, _h) = {
-            let v = self.active_view_mut();
-            v.extend();
-
-            (v.id, v.width(), v.height())
-        };
-        // TODO: Copy previous frame to next frame.
-    }
-
     pub fn edit<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
         // TODO: Keep loading paths even if some fail?
         for path in paths {
@@ -1014,8 +1004,18 @@ impl Session {
             Command::ViewCenter => {
                 self.center_active_view();
             }
-            Command::NewFrame => {
-                self.new_frame();
+            Command::AddFrame => {
+                let (_id, _w, _h) = {
+                    let v = self.active_view_mut();
+                    v.extend();
+
+                    (v.id, v.width(), v.height())
+                };
+                // TODO: Copy previous frame to next frame.
+            }
+            Command::RemoveFrame => {
+                let v = self.active_view_mut();
+                v.shrink();
             }
             Command::Slice(None) => {
                 self.active_view_mut().slice(1);

@@ -39,7 +39,8 @@ pub enum Command {
     FullScreen,
     Map(Key, Box<(Command, Option<Command>)>),
     Mode(Mode),
-    NewFrame,
+    AddFrame,
+    RemoveFrame,
     Noop,
     PaletteAdd(Rgba8),
     PaletteClear,
@@ -392,7 +393,11 @@ impl<'a> Parse<'a> for Command {
             "p/sample" => Ok((Command::PaletteSample, p)),
             "undo" => Ok((Command::Undo, p)),
             "redo" => Ok((Command::Redo, p)),
-            "f/new" => Ok((Command::NewFrame, p)),
+            "f/new" => Err(Error::new(
+                "parsing failed: `f/new` has been renamed to `f/add`",
+            )),
+            "f/add" => Ok((Command::AddFrame, p)),
+            "f/remove" => Ok((Command::RemoveFrame, p)),
             "f/resize" => {
                 let ((w, h), p) = p.parse::<(u32, u32)>()?;
                 Ok((Command::ResizeFrame(w, h), p))
@@ -494,7 +499,7 @@ impl<'a> Parse<'a> for Key {
                 "shift" => platform::Key::LShift,
                 "space" => platform::Key::Space,
                 "return" => platform::Key::Return,
-                "back" => platform::Key::Backspace,
+                "backspace" => platform::Key::Backspace,
                 "tab" => platform::Key::Tab,
                 other => {
                     return Err(Error::new(format!("unknown key <{}>", other)))
