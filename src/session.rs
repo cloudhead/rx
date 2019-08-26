@@ -274,6 +274,8 @@ pub struct Session {
     pub tool: Tool,
     pub prev_tool: Option<Tool>,
 
+    throttled: Option<time::Instant>,
+
     #[allow(dead_code)]
     paste: (),
     #[allow(dead_code)]
@@ -319,6 +321,7 @@ impl Session {
         64.,
         Self::MAX_ZOOM,
     ];
+    const THROTTLE_TIME: time::Duration = time::Duration::from_millis(96);
 
     /// Initial (default) configuration for rx.
     const CONFIG: &'static [u8] = include_bytes!("../config/init.rx");
@@ -357,6 +360,7 @@ impl Session {
             cmdline: CommandLine::new(),
             grid_w: 0,
             grid_h: 0,
+            throttled: None,
             mode: Mode::Normal,
             selection: Rect::new(0., 0., 0., 0.),
             message: Message::default(),
@@ -864,9 +868,17 @@ impl Session {
     }
 
     fn command(&mut self, cmd: Command) {
-        debug!("command: {:?}", cmd);
-
+        // Certain commands cause problems when run many times within
+        // a short time frame. This might be because the GPU hasn't had
+        // time to fully process the commands sent to it by the time we
+        // execute the next command. We throttle them here to have a
+        // minimum time between them.
+        if self.throttle(&cmd) {
+            return;
+        }
         self.message_clear();
+
+        debug!("command: {:?}", cmd);
 
         return match cmd {
             Command::Mode(ref m) => {
@@ -1193,6 +1205,33 @@ impl Session {
 
     fn redo(&mut self, id: ViewId) {
         self.restore_view_snapshot(id, false);
+    }
+
+    fn throttle(&mut self, cmd: &Command) -> bool {
+        match cmd {
+            // FIXME: Throttling these commands arbitrarily is not ideal.
+            // We should be using a fence somewhere to ensure that we are
+            // in sync with the GPU. This could be done by using the frame
+            // read-back as a synchronization point. For now though, this
+            // does the job.
+            &Command::AddFrame
+            | &Command::RemoveFrame
+            | &Command::ResizeFrame { .. } => {
+                if let Some(t) = self.throttled {
+                    let now = time::Instant::now();
+                    if now - t <= Self::THROTTLE_TIME {
+                        true
+                    } else {
+                        self.throttled = Some(now);
+                        false
+                    }
+                } else {
+                    self.throttled = Some(time::Instant::now());
+                    false
+                }
+            }
+            _ => false,
+        }
     }
 
     fn unimplemented(&mut self) {
