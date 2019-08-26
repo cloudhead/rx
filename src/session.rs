@@ -67,6 +67,7 @@ pub enum MessageType {
     Hint,
     Echo,
     Error,
+    #[allow(dead_code)]
     Warning,
     #[allow(dead_code)]
     Replay,
@@ -303,6 +304,7 @@ impl Session {
     const PALETTE_CELL_SIZE: f32 = 24.;
     const PAN_PIXELS: i32 = 32;
     const MIN_BRUSH_SIZE: usize = 1;
+    const GIF_FRAME_DELAY: u16 = 33;
     const MAX_LRU: usize = 16;
     const MAX_ZOOM: f32 = 128.0;
     const ZOOM_LEVELS: &'static [f32] = &[
@@ -579,16 +581,16 @@ impl Session {
 
         if let Some(ext) = path.extension() {
             if ext != "png" {
-                self.message(
-                    "Warning: trying to load file with unrecognized extension",
-                    MessageType::Warning,
-                );
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "Error: trying to load file with unsupported extension",
+                ));
             }
         } else {
-            self.message(
-                "Warning: trying to load file without an extension",
-                MessageType::Warning,
-            );
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Error: trying to load file with no extension",
+            ));
         }
 
         let id = self.gen_view_id();
@@ -653,6 +655,15 @@ impl Session {
         id: ViewId,
         path: P,
     ) -> io::Result<()> {
+        let ext = path.as_ref().extension().ok_or(io::Error::new(
+            io::ErrorKind::Other,
+            "file path requires an extension (.gif or .png)",
+        ))?;
+
+        if ext == "gif" {
+            return self.save_view_gif(id, path);
+        }
+
         // Make sure we don't overwrite other files!
         if self
             .view(id)
@@ -668,6 +679,26 @@ impl Session {
 
         let (s_id, npixels) = self.resources.save_view(&id, &path)?;
         self.view_mut(id).save_as(s_id, path.as_ref().into());
+
+        self.message(
+            format!(
+                "\"{}\" {} pixels written",
+                path.as_ref().display(),
+                npixels,
+            ),
+            MessageType::Info,
+        );
+        Ok(())
+    }
+
+    fn save_view_gif<P: AsRef<Path>>(
+        &mut self,
+        id: ViewId,
+        path: P,
+    ) -> io::Result<()> {
+        let npixels =
+            self.resources
+                .save_view_gif(&id, &path, Self::GIF_FRAME_DELAY)?;
 
         self.message(
             format!(
@@ -1030,7 +1061,12 @@ impl Session {
                 v.shrink();
             }
             Command::Slice(None) => {
-                self.active_view_mut().slice(1);
+                let v = self.active_view_mut();
+                v.slice(1);
+                // FIXME: This is very inefficient. Since the actual frame contents
+                // haven't changed, we don't need to create a full snapshot. We just
+                // have to record how many frames are in this snapshot.
+                v.touch();
             }
             Command::Slice(Some(nframes)) => {
                 let v = self.active_view_mut();
@@ -1042,6 +1078,11 @@ impl Session {
                         ),
                         MessageType::Error,
                     );
+                } else {
+                    // FIXME: This is very inefficient. Since the actual frame contents
+                    // haven't changed, we don't need to create a full snapshot. We just
+                    // have to record how many frames are in this snapshot.
+                    v.touch();
                 }
             }
             Command::Set(ref k, ref v) => match k.as_str() {

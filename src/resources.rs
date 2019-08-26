@@ -1,9 +1,12 @@
 use crate::view::ViewId;
 
+use rgx::core::Rgba8;
 use rgx::nonempty::NonEmpty;
 
 use image::png;
 use image::ImageDecoder;
+
+use gif::{self, SetParameter};
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -11,6 +14,9 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+
+/// Speed at which to encode gifs. This mainly affects quantization.
+const GIF_ENCODING_SPEED: i32 = 30;
 
 pub struct ResourceManager {
     pub resources: Arc<RwLock<Resources>>,
@@ -158,6 +164,71 @@ impl ResourceManager {
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
         Ok((snapshot.id, (w * h) as usize))
+    }
+
+    pub fn save_view_gif<P: AsRef<Path>>(
+        &self,
+        id: &ViewId,
+        path: P,
+        frame_delay: u16,
+    ) -> io::Result<usize> {
+        use std::mem;
+
+        let mut resources = self.lock_mut();
+        let snapshot = resources.get_snapshot_mut(id);
+        let nframes = snapshot.nframes;
+
+        // Convert pixels from BGRA to RGBA, for writing to disk.
+        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.pixels.len());
+        for rgba in snapshot.pixels.chunks(mem::size_of::<Rgba8>()) {
+            match rgba {
+                &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
+                _ => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "invalid pixel buffer size",
+                    ))
+                }
+            }
+        }
+
+        let (fw, fh) = (snapshot.fw as usize, snapshot.fh as usize);
+        let frame_nbytes = fw * fh as usize * mem::size_of::<Rgba8>();
+
+        let mut frames: Vec<Vec<u8>> = Vec::with_capacity(nframes);
+        frames.resize(nframes, Vec::with_capacity(frame_nbytes));
+
+        {
+            // Convert animation strip into discrete frames for gif encoder.
+            let nrows = fh as usize * nframes;
+            let row_nbytes = fw as usize * mem::size_of::<Rgba8>();
+
+            for i in 0..nrows {
+                let offset = i * row_nbytes;
+                let row = &pixels[offset..offset + row_nbytes];
+
+                frames[i % nframes].extend_from_slice(row);
+            }
+        }
+
+        let mut f = File::create(path.as_ref())?;
+        let mut encoder = gif::Encoder::new(&mut f, fw as u16, fh as u16, &[])?;
+        encoder.set(gif::Repeat::Infinite)?;
+
+        for mut frame in frames.iter_mut() {
+            let mut frame = gif::Frame::from_rgba_speed(
+                fw as u16,
+                fh as u16,
+                &mut frame,
+                self::GIF_ENCODING_SPEED,
+            );
+            frame.delay = frame_delay;
+            frame.dispose = gif::DisposalMethod::Background;
+
+            encoder.write_frame(&frame)?;
+        }
+
+        Ok(frame_nbytes * nframes)
     }
 
     ///////////////////////////////////////////////////////////////////////////

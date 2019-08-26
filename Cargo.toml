@@ -20,6 +20,7 @@ clap = { version = "2.33.0", default-features = false }
 cgmath = { version = "0.17.0", default-features = false }
 env_logger = { version = "0.6.2", default-features = false, features = ["termcolor"] }
 image = { version = "0.21.2", default-features = false, features = ["png_codec"] }
+gif = "0.10.2"
 log = "0.4.6"
 xdg = "2.2.0"
 raw-window-handle = "0.1.0"
