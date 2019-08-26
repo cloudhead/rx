@@ -6,21 +6,15 @@ use std::io;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub struct Events {
-    handle: (),
+pub fn run<F>(mut _win: Window, _events: Events, _callback: F)
+where
+    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow,
+{
+    unimplemented!()
 }
 
-impl Events {
-    pub fn run<F>(self, mut _callback: F)
-    where
-        F: 'static + FnMut(WindowEvent) -> ControlFlow,
-    {
-        unreachable!()
-    }
-
-    pub fn poll(&mut self) -> Vec<WindowEvent> {
-        unreachable!()
-    }
+pub struct Events {
+    handle: (),
 }
 
 pub struct Window {

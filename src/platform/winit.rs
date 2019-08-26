@@ -12,23 +12,20 @@ use std::io;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub struct Events {
-    handle: winit::event_loop::EventLoop<()>,
-}
-
-impl Events {
-    pub fn run<F>(self, mut callback: F)
-    where
-        F: 'static + FnMut(WindowEvent) -> ControlFlow,
-    {
-        self.handle.run(move |event, _, control_flow| match event {
+pub fn run<F>(mut win: Window, events: Events, mut callback: F)
+where
+    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow,
+{
+    events
+        .handle
+        .run(move |event, _, control_flow| match event {
             winit::event::Event::WindowEvent { event, .. } => {
-                if callback(event.into()) == ControlFlow::Exit {
+                if callback(&mut win, event.into()) == ControlFlow::Exit {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
             }
             winit::event::Event::EventsCleared => {
-                if callback(WindowEvent::Ready) == ControlFlow::Exit {
+                if callback(&mut win, WindowEvent::Ready) == ControlFlow::Exit {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
             }
@@ -36,8 +33,13 @@ impl Events {
                 *control_flow = winit::event_loop::ControlFlow::Poll;
             }
         });
-    }
+}
 
+pub struct Events {
+    handle: winit::event_loop::EventLoop<()>,
+}
+
+impl Events {
     pub fn poll(&mut self) -> Vec<WindowEvent> {
         let mut events = Vec::new();
 
@@ -160,13 +162,8 @@ impl From<winit::event::WindowEvent> for WindowEvent {
             },
             Winit::CursorLeft { .. } => WindowEvent::CursorLeft,
             Winit::CursorEntered { .. } => WindowEvent::CursorEntered,
-            Winit::CursorMoved {
-                position,
-                modifiers,
-                ..
-            } => WindowEvent::CursorMoved {
+            Winit::CursorMoved { position, .. } => WindowEvent::CursorMoved {
                 position: position.into(),
-                modifiers: modifiers.into(),
             },
             Winit::ReceivedCharacter(c) => WindowEvent::ReceivedCharacter(c),
             Winit::KeyboardInput { input, .. } => {

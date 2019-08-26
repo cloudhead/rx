@@ -10,7 +10,7 @@ edition = "2018"
 
 [features]
 default = []
-vulkan = ["rgx/vulkan"]
+vulkan = ["rgx/vulkan", "vk-sys"]
 metal = ["rgx/metal"]
 dx11 = ["rgx/dx11"]
 dx12 = ["rgx/dx12"]
@@ -21,12 +21,12 @@ cgmath = { version = "0.17.0", default-features = false }
 env_logger = { version = "0.6.2", default-features = false, features = ["termcolor"] }
 image = { version = "0.21.2", default-features = false, features = ["png_codec"] }
 gif = "0.10.2"
+glfw = { version = "0.32.0", optional = true, features = ["vulkan"] }
+winit = { version = "0.20.0-alpha3", optional = true }
+vk-sys = { version = "0.4", optional = true }
 log = "0.4.6"
 xdg = "2.2.0"
 raw-window-handle = "0.1.0"
 
 [dependencies.rgx]
 version = "0.1.1"
-
-[target.'cfg(any(target_os = "linux", target_os = "window", target_os = "macos"))'.dependencies]
-winit = { version = "0.20.0-alpha3" }

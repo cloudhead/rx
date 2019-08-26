@@ -1,21 +1,32 @@
 #![allow(dead_code)]
 use std::io;
 
-#[cfg(not(any(
-    target_os = "linux",
-    target_os = "macos",
-    target_os = "window"
-)))]
+#[cfg(all(feature = "winit", feature = "glfw"))]
+compile_error!("the `winit` and `glfw` features are both enabled");
+
+#[cfg(not(any(feature = "winit", feature = "glfw")))]
 #[path = "dummy.rs"]
 mod backend;
 
-#[cfg(any(target_os = "linux", target_os = "macos", target_os = "window"))]
+#[cfg(feature = "winit")]
 #[path = "winit.rs"]
+mod backend;
+
+#[cfg(feature = "glfw")]
+#[path = "glfw.rs"]
 mod backend;
 
 /// Initialize the platform.
 pub fn init(title: &str) -> io::Result<(backend::Window, backend::Events)> {
     backend::init(title)
+}
+
+/// Run the main event loop.
+pub fn run<F>(win: backend::Window, events: backend::Events, callback: F)
+where
+    F: 'static + FnMut(&mut backend::Window, WindowEvent) -> ControlFlow,
+{
+    backend::run(win, events, callback);
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -52,7 +63,6 @@ pub enum WindowEvent {
     CursorMoved {
         /// Coords in pixels relative to the top-left corner of the window.
         position: LogicalPosition,
-        modifiers: ModifiersState,
     },
 
     /// The cursor has entered the window.

@@ -69,7 +69,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let mut logger = env_logger::Builder::from_default_env();
     logger.init();
 
-    let (mut win, events) = platform::init("rx")?;
+    let (win, events) = platform::init("rx")?;
 
     let hidpi_factor = win.hidpi_factor();
     let win_size = win.framebuffer_size()?;
@@ -115,7 +115,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let mut session_events = Vec::with_capacity(16);
     let mut last = time::Instant::now();
 
-    events.run(move |event| {
+    platform::run(win, events, move |w, event| {
         match event {
             platform::WindowEvent::Resized(size) => {
                 logical = size;
@@ -131,10 +131,10 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                 );
             }
             platform::WindowEvent::CursorEntered { .. } => {
-                win.set_cursor_visible(false);
+                w.set_cursor_visible(false);
             }
             platform::WindowEvent::CursorLeft { .. } => {
-                win.set_cursor_visible(true);
+                w.set_cursor_visible(true);
             }
             platform::WindowEvent::Ready => {
                 std::thread::sleep(session.settings.frame_delay);
@@ -143,7 +143,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                 last = time::Instant::now();
 
                 session.frame(&mut session_events, &mut canvas, delta);
-                win.request_redraw();
+                w.request_redraw();
 
                 // TODO: Session should keep track of what changed.
                 if scale != session.settings.scale {
