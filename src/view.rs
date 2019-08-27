@@ -221,7 +221,9 @@ impl View {
         self.saved_snapshot == Some(id)
     }
 
-    pub fn handle_cursor_moved(&mut self, _cx: f32, _cy: f32) {}
+    pub fn handle_cursor_moved(&mut self, cursor: Point2<f32>) {
+        self.hover = self.contains(cursor);
+    }
 
     ////////////////////////////////////////////////////////////////////////////
 

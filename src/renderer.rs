@@ -678,19 +678,35 @@ impl Renderer {
 
             // Draw enabled brush
             if v.contains(p - session.offset) {
-                if brush.is_set(BrushMode::Erase) {
-                    batch.add(brush.stroke(
-                        s,
-                        Stroke::new(1.0, Rgba::WHITE),
-                        Fill::Empty(),
-                        v.zoom,
-                        Origin::BottomLeft,
-                    ));
+                let (stroke, fill) = if brush.is_set(BrushMode::Erase) {
+                    (Stroke::new(1.0, Rgba::WHITE), Fill::Empty())
+                } else {
+                    (Stroke::NONE, Fill::Solid(session.fg.into()))
+                };
+
+                if brush.is_set(BrushMode::Multi) {
+                    let view_coords =
+                        session.active_view_coords(session.cx, session.cy);
+                    let frame_index = (view_coords.x as u32 / v.fw) as usize;
+
+                    for i in 0..v.animation.len() - frame_index {
+                        let offset = Vector2::new(
+                            (i as f32 * v.fw as f32 * v.zoom).floor(),
+                            0.,
+                        );
+                        batch.add(brush.stroke(
+                            s + offset,
+                            stroke,
+                            fill,
+                            v.zoom,
+                            Origin::BottomLeft,
+                        ));
+                    }
                 } else {
                     batch.add(brush.stroke(
                         s,
-                        Stroke::NONE,
-                        Fill::Solid(session.fg.into()),
+                        stroke,
+                        fill,
                         v.zoom,
                         Origin::BottomLeft,
                     ));

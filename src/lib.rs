@@ -10,6 +10,7 @@ mod renderer;
 mod resources;
 mod screen2d;
 mod session;
+mod util;
 mod view;
 
 use renderer::Renderer;

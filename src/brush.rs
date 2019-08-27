@@ -47,12 +47,11 @@ impl Default for Brush {
 impl Brush {
     pub fn tick(
         &mut self,
-        p: Point2<f32>,
+        p: Point2<i32>,
         color: Rgba8,
+        offsets: &[Vector2<i32>],
         canvas: &mut shape2d::Batch,
     ) {
-        let p = Point2::new(p.x as i32, p.y as i32);
-
         if self.state == BrushState::DrawStarted {
             self.prev = p;
         } else {
@@ -60,10 +59,12 @@ impl Brush {
         }
         self.curr = p;
 
-        if self.is_set(BrushMode::Multi) {
-            // TODO
-        } else {
+        if offsets.is_empty() {
             self.draw(self.prev, self.curr, color, canvas);
+        } else {
+            for off in offsets {
+                self.draw(self.prev + off, self.curr + off, color, canvas);
+            }
         }
     }
 
@@ -81,12 +82,13 @@ impl Brush {
 
     pub fn start_drawing(
         &mut self,
-        p: Point2<f32>,
+        p: Point2<i32>,
         color: Rgba8,
+        offsets: &[Vector2<i32>],
         canvas: &mut shape2d::Batch,
     ) {
         self.state = BrushState::DrawStarted;
-        self.tick(p, color, canvas);
+        self.tick(p, color, offsets, canvas);
     }
 
     pub fn stop_drawing(&mut self) {

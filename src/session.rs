@@ -6,6 +6,7 @@ use crate::palette::*;
 use crate::platform;
 use crate::platform::{InputState, KeyboardInput, WindowEvent};
 use crate::resources::ResourceManager;
+use crate::util;
 use crate::view::{FileStatus, View, ViewId};
 
 use rgx::core::{PresentMode, Rect};
@@ -1393,15 +1394,39 @@ impl Session {
             let p = Point2::new(self.cx, self.cy) - self.offset;
             if self.active_view().contains(p) {
                 let p = self.active_view_coords(self.cx, self.cy);
+                let (nframes, fw, frame_index) = {
+                    let v = self.active_view();
+                    (v.animation.len(), v.fw, (p.x as u32 / v.fw) as i32)
+                };
 
                 match self.mode {
                     Mode::Normal => match self.tool {
+                        // TODO: This whole block of code is duplicated in
+                        // `handle_cursor_moved`.
                         Tool::Brush(ref mut brush) => {
-                            if brush.is_set(BrushMode::Erase) {
-                                brush.start_drawing(p, Rgba8::TRANSPARENT, out);
+                            let color = if brush.is_set(BrushMode::Erase) {
+                                Rgba8::TRANSPARENT
                             } else {
-                                brush.start_drawing(p, self.fg, out);
-                            }
+                                self.fg
+                            };
+
+                            let offsets: Vec<_> = if brush
+                                .is_set(BrushMode::Multi)
+                            {
+                                (0..nframes as i32 - frame_index)
+                                    .map(|i| {
+                                        Vector2::new((i as u32 * fw) as i32, 0)
+                                    })
+                                    .collect()
+                            } else {
+                                Vec::new()
+                            };
+                            brush.start_drawing(
+                                Point2::new(p.x as i32, p.y as i32),
+                                color,
+                                &offsets,
+                                out,
+                            );
                         }
                         Tool::Sampler => {
                             self.sample_color(
@@ -1440,9 +1465,19 @@ impl Session {
         self.record_macro(format!("cursor/move {} {}", cx, cy));
         self.palette.handle_cursor_moved(cx, cy);
         for (_, v) in &mut self.views {
-            v.handle_cursor_moved(cx, cy);
+            v.handle_cursor_moved(Point2::new(cx, cy) - self.offset);
         }
         let p = self.active_view_coords(cx, cy);
+        let (nframes, fw, frame_index, vw, vh) = {
+            let v = self.active_view();
+            (
+                v.animation.len(),
+                v.fw,
+                i32::max(0, (p.x / v.fw as f32) as i32),
+                v.width(),
+                v.height(),
+            )
+        };
 
         match self.mode {
             Mode::Normal => match self.tool {
@@ -1451,10 +1486,35 @@ impl Session {
                         || brush.state == BrushState::Drawing
                     {
                         brush.state = BrushState::Drawing;
-                        if brush.is_set(BrushMode::Erase) {
-                            brush.tick(p, Rgba8::TRANSPARENT, out);
+
+                        let color = if brush.is_set(BrushMode::Erase) {
+                            Rgba8::TRANSPARENT
                         } else {
-                            brush.tick(p, self.fg, out);
+                            self.fg
+                        };
+
+                        let mut p = Point2::new(p.x as i32, p.y as i32);
+                        util::clamp(
+                            &mut p,
+                            Rect::new(
+                                (brush.size / 2) as i32,
+                                (brush.size / 2) as i32,
+                                vw as i32 - (brush.size / 2) as i32 - 1,
+                                vh as i32 - (brush.size / 2) as i32 - 1,
+                            ),
+                        );
+
+                        if brush.is_set(BrushMode::Multi) {
+                            let offsets: Vec<_> = (0..nframes as i32
+                                - frame_index)
+                                .map(|i| {
+                                    Vector2::new((i as u32 * fw) as i32, 0)
+                                })
+                                .collect();
+
+                            brush.tick(p, color, &offsets, out);
+                        } else {
+                            brush.tick(p, color, &[], out);
                         }
                     }
                 }

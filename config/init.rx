@@ -18,6 +18,7 @@ map   r             :redo                                     --  Redo active vi
 map   x             :swap                                     --  Swap foreground/background colors
 map   b             :brush                                    --  Reset brush
 map   e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
+map   <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (hold)
 map   ]             :brush/size +                             --  Increase brush size
 map   [             :brush/size -                             --  Decrease brush size
 map   <ctrl>        :sampler {:sampler/off}                   --  Sample color (hold)
