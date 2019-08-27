@@ -45,8 +45,11 @@ FEATURES
   * Text-based configuration.
   * Built using modern graphics.
   * HiDPI display support.
+  * UI scaling.
   * Undo/redo any edit.
   * PNG support.
+  * Animated GIF output.
+  * Multi-brush.
 
   * (Coming soon: Layers)
   * (Coming soon: Visual mode)
