@@ -970,6 +970,14 @@ impl Session {
                 }
             }
             Command::ResizeFrame(fw, fh) => {
+                if fw == 0 || fh == 0 {
+                    self.message(
+                        "Error: cannot set frame dimension to `0`",
+                        MessageType::Error,
+                    );
+                    return;
+                }
+
                 let v = self.active_view_mut();
                 v.resize_frame(fw, fh);
                 v.touch();
