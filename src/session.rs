@@ -1138,16 +1138,28 @@ impl Session {
                         );
                     }
                     Ok(old) => {
-                        self.message(
-                            format!("{}: {} => {}", k, old, v),
-                            MessageType::Info,
-                        );
+                        debug!("set `{}`: {} -> {}", k, old, v);
                     }
                 }
             }
-            Command::Toggle(ref _k) => {
-                self.unimplemented();
-            }
+            #[allow(mutable_borrow_reservation_conflict)]
+            Command::Toggle(ref k) => match self.settings.get(k) {
+                Some(Value::Bool(b)) => {
+                    self.settings.set(k, Value::Bool(!b)).ok();
+                }
+                Some(_) => {
+                    self.message(
+                        format!("Error: can't toggle `{}`", k),
+                        MessageType::Error,
+                    );
+                }
+                None => {
+                    self.message(
+                        format!("Error: no such setting `{}`", k),
+                        MessageType::Error,
+                    );
+                }
+            },
             Command::Noop => {
                 // Nothing happening!
             }
