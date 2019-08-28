@@ -100,16 +100,27 @@ impl ResourceManager {
         let decoder = image::png::PNGDecoder::new(f).map_err(|_e| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("couldn't decode {}", path.as_ref().display()),
+                format!("couldn't decode `{}`", path.as_ref().display()),
             )
         })?;
+
+        if decoder.colortype() != image::ColorType::RGBA(8) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "couldn't decode `{}`, only 8-bit RGBA images are supported",
+                    path.as_ref().display()
+                ),
+            ));
+        }
+
         let (width, height) = decoder.dimensions();
         let (width, height) = (width as u32, height as u32);
 
         let buffer: Vec<u8> = decoder.read_image().map_err(|_e| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("couldn't decode {}", path.as_ref().display()),
+                format!("couldn't decode `{}`", path.as_ref().display()),
             )
         })?;
 
