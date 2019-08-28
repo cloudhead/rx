@@ -17,7 +17,7 @@ use rgx::kit::Rgba8;
 use cgmath::prelude::*;
 use cgmath::{Matrix4, Point2, Vector2};
 
-use xdg;
+use directories as dirs;
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt;
@@ -273,7 +273,7 @@ pub struct Session {
     pub fg: Rgba8,
     pub bg: Rgba8,
 
-    base_dirs: xdg::BaseDirectories,
+    base_dirs: dirs::ProjectDirs,
 
     resources: ResourceManager,
 
@@ -360,7 +360,7 @@ impl Session {
         h: u32,
         hidpi_factor: f64,
         resources: ResourceManager,
-        base_dirs: xdg::BaseDirectories,
+        base_dirs: dirs::ProjectDirs,
     ) -> Self {
         Self {
             is_running: false,
@@ -408,12 +408,10 @@ impl Session {
         self.is_running = true;
 
         let cwd = std::env::current_dir()?;
-        let mut cfgs = self.base_dirs.find_config_files("init.rx").peekable();
+        let cfg = self.base_dirs.config_dir().join("init.rx");
 
-        if cfgs.peek().is_some() {
-            for cfg in cfgs {
-                self.source_path(cfg)?;
-            }
+        if cfg.exists() {
+            self.source_path(cfg)?;
         } else {
             self.source_reader(io::BufReader::new(Self::CONFIG), "<init>")?;
         }
@@ -565,15 +563,8 @@ impl Session {
         let path = path.as_ref();
         debug!("source: {}", path.display());
 
-        let f = File::open(&path).or_else(|_| {
-            self.base_dirs
-                .find_config_file(path)
-                .ok_or(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("\"{}\" not found", path.display()),
-                ))
-                .and_then(File::open)
-        })?;
+        let f = File::open(&path)
+            .or_else(|_| File::open(self.base_dirs.config_dir().join(path)))?;
 
         self.source_reader(io::BufReader::new(f), path)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))

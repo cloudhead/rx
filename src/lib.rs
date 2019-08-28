@@ -30,7 +30,7 @@ extern crate log;
 
 use env_logger;
 
-use xdg;
+use directories as dirs;
 
 use std::collections::VecDeque;
 use std::path::Path;
@@ -69,6 +69,8 @@ impl FrameTimer {
 }
 
 pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
+    use std::io;
+
     let mut logger = env_logger::Builder::from_default_env();
     logger.init();
 
@@ -79,7 +81,9 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
     let resources = ResourceManager::new();
-    let base_dirs = xdg::BaseDirectories::with_prefix("rx")?;
+    let base_dirs = dirs::ProjectDirs::from("org", "rx", "rx").ok_or(
+        io::Error::new(io::ErrorKind::NotFound, "home directory not found"),
+    )?;
     let mut session =
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
             .init()?;
