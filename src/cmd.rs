@@ -74,6 +74,7 @@ pub enum Command {
     TestRecord,
     #[allow(dead_code)]
     TestSave,
+    Toggle(String),
     Undo,
     ViewCenter,
     ViewNext,
@@ -98,13 +99,43 @@ pub enum Value {
     #[allow(dead_code)]
     I32(i32),
     U32(u32),
-    F32(f32),
+    Float(f64),
     Vector2(Vector2<f32>),
     #[allow(dead_code)]
     Point2(Point2<f32>),
     Str(String),
     Ident(String),
     Rgba8(Rgba8),
+}
+
+impl Value {
+    pub fn is_set(&self) -> bool {
+        if let Value::Bool(b) = self {
+            return *b;
+        }
+        panic!("expected {:?} to be a `bool`", self);
+    }
+
+    pub fn float64(&self) -> f64 {
+        if let Value::Float(n) = self {
+            return *n;
+        }
+        panic!("expected {:?} to be a `float`", self);
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::Bool(_) => "on / off",
+            Self::I32(_) => "positive or negative integer, eg. -32",
+            Self::U32(_) => "positive integer, eg. 32",
+            Self::Float(_) => "float, eg. 1.33",
+            Self::Vector2(_) => "two floats, eg. 32.0, 48.0",
+            Self::Point2(_) => "two floats, eg. 32.0, 48.0",
+            Self::Str(_) => "string, eg. \"fnord\"",
+            Self::Rgba8(_) => "color, eg. #ffff00",
+            Self::Ident(_) => "identifier, eg. fnord",
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -117,10 +148,11 @@ pub enum Op {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Bool(b) => b.fmt(f),
+            Value::Bool(true) => "on".fmt(f),
+            Value::Bool(false) => "off".fmt(f),
             Value::I32(i) => i.fmt(f),
             Value::U32(u) => u.fmt(f),
-            Value::F32(x) => x.fmt(f),
+            Value::Float(x) => x.fmt(f),
             Value::Vector2(v) => write!(f, "{},{}", v.x, v.y),
             Value::Point2(p) => write!(f, "{},{}", p.x, p.y),
             Value::Str(s) => s.fmt(f),
@@ -313,6 +345,10 @@ impl<'a> Parse<'a> for Command {
                 let (k, p) = p.identifier()?;
                 Ok((Command::Set(k.to_string(), Value::Bool(false)), p))
             }
+            "toggle" => {
+                let (k, p) = p.identifier()?;
+                Ok((Command::Toggle(k.to_string()), p))
+            }
             "echo" => {
                 let (v, p) = p.value()?;
                 Ok((Command::Echo(v), p))
@@ -338,8 +374,8 @@ impl<'a> Parse<'a> for Command {
                     Ok((Command::Zoom(Op::Incr), p))
                 } else if let Ok((_, p)) = p.clone().sigil('-') {
                     Ok((Command::Zoom(Op::Decr), p))
-                } else if let Ok((z, p)) = p.parse::<f32>() {
-                    Ok((Command::Zoom(Op::Set(z)), p))
+                } else if let Ok((z, p)) = p.parse::<f64>() {
+                    Ok((Command::Zoom(Op::Set(z as f32)), p))
                 } else {
                     Err(Error::new("couldn't parse zoom parameter"))
                 }
@@ -444,13 +480,13 @@ impl<'a> Parse<'a> for i32 {
     }
 }
 
-impl<'a> Parse<'a> for f32 {
+impl<'a> Parse<'a> for f64 {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         let (s, rest) = p.word()?;
 
-        match f32::from_str(s) {
+        match f64::from_str(s) {
             Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing u32")),
+            Err(_) => Err(Error::new("error parsing f64")),
         }
     }
 }
@@ -648,8 +684,8 @@ impl<'a> Parser<'a> {
             if let Ok((v, p)) = self.clone().parse::<u32>() {
                 Ok((Value::U32(v), p))
             } else {
-                let (v, p) = self.parse::<f32>()?;
-                Ok((Value::F32(v), p))
+                let (v, p) = self.parse::<f64>()?;
+                Ok((Value::Float(v), p))
             }
         } else {
             let (i, p) = self.identifier()?;

@@ -2,6 +2,7 @@
 use crate::brush::*;
 use crate::cmd;
 use crate::cmd::{Command, CommandLine, Key, Op, Value};
+use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
 use crate::platform::{InputState, KeyboardInput, WindowEvent};
@@ -18,7 +19,7 @@ use cgmath::{Matrix4, Point2, Vector2};
 
 use xdg;
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
@@ -132,6 +133,8 @@ impl std::fmt::Display for Message {
     }
 }
 
+type Error = String;
+
 #[derive(PartialEq, Clone, Debug)]
 struct KeyBinding {
     modes: Vec<Mode>,
@@ -199,35 +202,56 @@ impl KeyBindings {
     }
 }
 
-pub struct Settings {
-    pub debug: bool,
-    pub checker: bool,
-    pub vsync: bool,
-    pub frame_delay: time::Duration,
-    pub hidpi_factor: f64,
-    pub scale: f64,
-}
+pub struct Settings(HashMap<String, Value>);
 
 impl Settings {
     pub fn present_mode(&self) -> PresentMode {
-        if self.vsync {
+        if self["vsync"].is_set() {
             PresentMode::Vsync
         } else {
             PresentMode::NoVsync
         }
     }
+
+    pub fn get(&self, setting: &str) -> Option<&Value> {
+        self.0.get(setting)
+    }
+
+    pub fn set(&mut self, k: &str, v: Value) -> Result<Value, Error> {
+        if let Some(current) = self.get(k) {
+            if std::mem::discriminant(&v) == std::mem::discriminant(current) {
+                return Ok(self.0.insert(k.to_string(), v).unwrap());
+            }
+            Err(format!(
+                "invalid value `{}`, expected {}",
+                v,
+                current.description()
+            ))
+        } else {
+            Err(format!("no such setting `{}`", k))
+        }
+    }
+}
+
+impl std::ops::Index<&str> for Settings {
+    type Output = Value;
+
+    fn index(&self, setting: &str) -> &Self::Output {
+        &self
+            .get(setting)
+            .expect(&format!("setting {} should exist", setting))
+    }
 }
 
 impl Settings {
-    fn new(hidpi_factor: f64) -> Self {
-        Self {
-            debug: false,
-            checker: false,
-            vsync: false,
-            frame_delay: time::Duration::from_millis(8),
-            scale: 1.0,
-            hidpi_factor,
-        }
+    fn new() -> Self {
+        Self(hashmap! {
+            "debug" => Value::Bool(false),
+            "checker" => Value::Bool(false),
+            "vsync" => Value::Bool(false),
+            "frame_delay" => Value::Float(8.0),
+            "scale" => Value::Float(1.0)
+        })
     }
 }
 
@@ -237,6 +261,8 @@ pub struct Session {
 
     pub width: f32,
     pub height: f32,
+
+    pub hidpi_factor: f64,
 
     pub cx: f32,
     pub cy: f32,
@@ -340,6 +366,7 @@ impl Session {
             is_running: false,
             width: w as f32,
             height: h as f32,
+            hidpi_factor,
             cx: 0.,
             cy: 0.,
             base_dirs,
@@ -354,7 +381,7 @@ impl Session {
             onion: false,
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
-            settings: Settings::new(hidpi_factor),
+            settings: Settings::new(),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
             fps: 6,
@@ -436,7 +463,7 @@ impl Session {
         for event in events.drain(..) {
             match event {
                 WindowEvent::CursorMoved { position, .. } => {
-                    let scale = self.settings.scale;
+                    let scale: f64 = self.settings["scale"].float64();
                     self.handle_cursor_moved(
                         (position.x / scale).floor() as f32,
                         self.height - (position.y / scale).floor() as f32,
@@ -453,7 +480,7 @@ impl Session {
                     self.handle_received_character(c);
                 }
                 WindowEvent::HiDpiFactorChanged(factor) => {
-                    self.settings.hidpi_factor = factor;
+                    self.hidpi_factor = factor;
                 }
                 WindowEvent::CloseRequested => {
                     self.quit();
@@ -988,13 +1015,21 @@ impl Session {
                 let result = match v {
                     Value::Str(s) => Ok(Value::Str(s.clone())),
                     Value::Ident(s) => match s.as_str() {
-                        "s:vsync" => Ok(Value::Bool(self.settings.vsync)),
                         "s:offset" => Ok(Value::Vector2(self.offset)),
                         "v:offset" => {
                             Ok(Value::Vector2(self.active_view().offset))
                         }
-                        "v:zoom" => Ok(Value::F32(self.active_view().zoom)),
-                        _ => Err(format!("Error: {} is undefined", s)),
+                        "v:zoom" => {
+                            Ok(Value::Float(self.active_view().zoom as f64))
+                        }
+                        _ => match self.settings.get(s) {
+                            None => Err(format!("Error: {} is undefined", s)),
+                            Some(result) => Ok(Value::Str(format!(
+                                "{} = {}",
+                                v.clone(),
+                                result
+                            ))),
+                        },
                     },
                     _ => Err(format!("Error: argument cannot be echoed")),
                 };
@@ -1094,52 +1129,25 @@ impl Session {
                     v.touch();
                 }
             }
-            Command::Set(ref k, ref v) => match k.as_str() {
-                "checker" => {
-                    if let &Value::Bool(b) = v {
-                        self.settings.checker = b;
+            Command::Set(ref k, ref v) => {
+                match self.settings.set(k, v.clone()) {
+                    Err(e) => {
+                        self.message(
+                            format!("Error: {}", e),
+                            MessageType::Error,
+                        );
+                    }
+                    Ok(old) => {
+                        self.message(
+                            format!("{}: {} => {}", k, old, v),
+                            MessageType::Info,
+                        );
                     }
                 }
-                "vsync" => {
-                    if let &Value::Bool(b) = v {
-                        self.settings.vsync = b;
-                    }
-                }
-                "debug" => {
-                    if let &Value::Bool(b) = v {
-                        self.settings.debug = b;
-                    }
-                }
-                "frame_delay" => {
-                    if let &Value::F32(f) = v {
-                        self.settings.frame_delay =
-                            time::Duration::from_micros((f * 1000.) as u64);
-                    } else if let &Value::U32(u) = v {
-                        self.settings.frame_delay =
-                            time::Duration::from_micros(u as u64 * 1000);
-                    }
-                }
-                "hidpi" => {
-                    if let &Value::Bool(b) = v {
-                        self.settings.hidpi_factor = if b { 2. } else { 1. };
-                    } else if let &Value::F32(f) = v {
-                        self.settings.hidpi_factor = f as f64;
-                    }
-                }
-                "scale" => {
-                    if let &Value::F32(f) = v {
-                        self.settings.scale = f as f64;
-                    } else if let &Value::U32(u) = v {
-                        self.settings.scale = u as f64;
-                    }
-                }
-                setting => {
-                    self.message(
-                        format!("Error: setting {} not recognized", setting),
-                        MessageType::Error,
-                    );
-                }
-            },
+            }
+            Command::Toggle(ref _k) => {
+                self.unimplemented();
+            }
             Command::Noop => {
                 // Nothing happening!
             }

@@ -322,7 +322,7 @@ impl Renderer {
                     f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
 
                 // Draw view checkers.
-                if session.settings.checker {
+                if session.settings["checker"].is_set() {
                     p.set_pipeline(&self.sprite2d);
                     p.draw(&checker_buf, &self.checker.binding);
                 }
@@ -547,7 +547,7 @@ impl Renderer {
             );
         }
 
-        if session.settings.debug {
+        if session.settings["debug"].is_set() {
             // Frame-time
             text.add(
                 &format!("{:3.2}ms", avg_frametime.as_micros() as f64 / 1000.),
@@ -633,7 +633,7 @@ impl Renderer {
     }
 
     fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
-        if session.settings.checker {
+        if session.settings["checker"].is_set() {
             for (_, v) in session.views.iter() {
                 let ratio = v.width() as f32 / v.height() as f32;
                 let rx = v.zoom * ratio * 2.;

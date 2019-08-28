@@ -10,8 +10,10 @@ mod renderer;
 mod resources;
 mod screen2d;
 mod session;
-mod util;
 mod view;
+
+#[macro_use]
+mod util;
 
 use renderer::Renderer;
 use resources::ResourceManager;
@@ -83,7 +85,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
             .init()?;
 
     let mut present_mode = session.settings.present_mode();
-    let mut scale = session.settings.scale;
+    let mut scale: f64 = session.settings["scale"].float64();
     let mut r = core::Renderer::new(win.raw_handle());
     let mut renderer = Renderer::new(&mut r, win_w, win_h, resources);
 
@@ -138,7 +140,11 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                 w.set_cursor_visible(true);
             }
             platform::WindowEvent::Ready => {
-                std::thread::sleep(session.settings.frame_delay);
+                let frame_delay: f64 =
+                    session.settings["frame_delay"].float64();
+                std::thread::sleep(time::Duration::from_micros(
+                    (frame_delay * 1000.) as u64,
+                ));
 
                 let delta = last.elapsed();
                 last = time::Instant::now();
@@ -147,8 +153,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
                 w.request_redraw();
 
                 // TODO: Session should keep track of what changed.
-                if scale != session.settings.scale {
-                    scale = session.settings.scale;
+                if scale != session.settings["scale"].float64() {
+                    scale = session.settings["scale"].float64();
 
                     self::resize(
                         &mut session,
@@ -208,10 +214,9 @@ fn resize(
     hidpi_factor: f64,
     present_mode: core::PresentMode,
 ) {
-    let virtual_size = platform::LogicalSize::new(
-        size.width / session.settings.scale,
-        size.height / session.settings.scale,
-    );
+    let scale: f64 = session.settings["scale"].float64();
+    let virtual_size =
+        platform::LogicalSize::new(size.width / scale, size.height / scale);
     session.handle_resized(virtual_size);
 
     let physical = size.to_physical(hidpi_factor);
