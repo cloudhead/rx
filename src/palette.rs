@@ -21,8 +21,9 @@ impl Palette {
     }
 
     pub fn add(&mut self, color: Rgba8) {
-        // TODO: Ensure there are no duplicate colors.
-        self.colors.push(color);
+        if !self.colors.contains(&color) {
+            self.colors.push(color);
+        }
     }
 
     pub fn clear(&mut self) {
