@@ -598,6 +598,14 @@ impl<'a> Parser<'a> {
         self.input.is_empty()
     }
 
+    fn next(&self) -> Result<'a, char> {
+        if let Some(c) = self.input.chars().nth(0) {
+            Ok((c, Parser::new(&self.input[1..])))
+        } else {
+            Err(Error::new("EOF"))
+        }
+    }
+
     fn sigil(self, c: char) -> Result<'a, char> {
         if self.input.starts_with(c) {
             Ok((c, Parser::new(&self.input[1..])))
@@ -617,7 +625,7 @@ impl<'a> Parser<'a> {
     }
 
     fn alpha(self) -> Result<'a, &'a str> {
-        self.until(|c| !c.is_alphanumeric())
+        self.expect(|c| c.is_alphanumeric())
     }
 
     fn comment(self) -> Result<'a, &'a str> {
@@ -645,7 +653,7 @@ impl<'a> Parser<'a> {
     }
 
     fn word(self) -> Result<'a, &'a str> {
-        self.until(|c| c.is_whitespace())
+        self.expect(|c| !c.is_whitespace())
     }
 
     fn count(self, n: usize) -> Result<'a, &'a str> {
@@ -657,8 +665,8 @@ impl<'a> Parser<'a> {
     }
 
     fn identifier(self) -> Result<'a, &'a str> {
-        self.until(|c| {
-            !(c.is_ascii_lowercase()
+        self.expect(|c| {
+            (c.is_ascii_lowercase()
                 || c.is_ascii_digit()
                 || c == ':'
                 || c == '/'
@@ -724,5 +732,25 @@ impl<'a> Parser<'a> {
             }
             None => Ok((self.input, Parser::empty())),
         }
+    }
+
+    fn expect<P>(self, predicate: P) -> Result<'a, &'a str>
+    where
+        P: Fn(char) -> bool,
+    {
+        if self.is_empty() {
+            return Err(Error::new("EOF"));
+        }
+
+        let mut index = 0;
+        for (i, c) in self.input.chars().enumerate() {
+            if predicate(c) {
+                index = i;
+            } else {
+                break;
+            }
+        }
+        let (l, r) = self.input.split_at(index + 1);
+        Ok((l, Parser::new(r)))
     }
 }
