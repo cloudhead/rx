@@ -1006,6 +1006,10 @@ impl Session {
                 let result = match v {
                     Value::Str(s) => Ok(Value::Str(s.clone())),
                     Value::Ident(s) => match s.as_str() {
+                        "s:config:dir" => Ok(Value::Str(format!(
+                            "{}",
+                            self.base_dirs.config_dir().display()
+                        ))),
                         "s:offset" => Ok(Value::Vector2(self.offset)),
                         "v:offset" => {
                             Ok(Value::Vector2(self.active_view().offset))
