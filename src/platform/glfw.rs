@@ -8,8 +8,6 @@ use crate::platform::{
 use glfw::{self, Context};
 
 use std::{io, sync};
-#[cfg(feature = "vulkan")]
-use std::{mem, os::raw::c_void, ptr};
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -32,45 +30,10 @@ pub fn init(title: &str) -> io::Result<(Window, Events)> {
     window.set_all_polling(true);
     window.make_current();
 
-    #[cfg(feature = "vulkan")]
-    let (instance, instance_ptrs) = {
-        assert!(glfw.vulkan_supported());
-
-        let required_extensions = glfw
-            .get_required_instance_extensions()
-            .unwrap_or(Vec::new());
-
-        assert!(required_extensions.contains(&"VK_KHR_surface".to_string()));
-
-        // Load up all the entry points using 0 as the VkInstance,
-        // since we can't have an instance before we get vkCreateInstance.
-        let mut entry_points: EntryPoints = EntryPoints::load(|func| {
-            window.get_instance_proc_address(0, func.to_str().unwrap())
-                as *const c_void
-        });
-
-        let instance: VkInstance = unsafe {
-            self::create_vulkan_instance(required_extensions, &mut entry_points)
-        };
-
-        (
-            instance,
-            InstancePointers::load(|func| {
-                window
-                    .get_instance_proc_address(instance, func.to_str().unwrap())
-                    as *const c_void
-            }),
-        )
-    };
-
     Ok((
         Window {
             handle: window,
             redraw_requested: false,
-            #[cfg(feature = "vulkan")]
-            instance,
-            #[cfg(feature = "vulkan")]
-            instance_ptrs,
         },
         Events {
             handle: events,
@@ -106,10 +69,6 @@ where
             }
         }
     }
-    #[cfg(feature = "vulkan")]
-    unsafe {
-        self::destroy_vulkan_instance(win.instance, &mut win.instance_ptrs);
-    }
     callback(&mut win, WindowEvent::Destroyed);
 }
 
@@ -121,10 +80,6 @@ pub struct Events {
 pub struct Window {
     pub handle: glfw::Window,
     redraw_requested: bool,
-    #[cfg(feature = "vulkan")]
-    instance: VkInstance,
-    #[cfg(feature = "vulkan")]
-    instance_ptrs: InstancePointers,
 }
 
 impl Window {
@@ -312,60 +267,4 @@ impl From<glfw::Modifiers> for ModifiersState {
             meta: mods.contains(glfw::Modifiers::Super),
         }
     }
-}
-
-#[cfg(feature = "vulkan")]
-use vk_sys::{
-    self as vk, EntryPoints, Instance as VkInstance, InstanceCreateInfo,
-    InstancePointers, Result as VkResult,
-};
-
-#[cfg(feature = "vulkan")]
-unsafe fn create_vulkan_instance(
-    required_extensions: Vec<String>,
-    entry_points: &mut EntryPoints,
-) -> VkInstance {
-    use std::ffi::CString;
-
-    let mut instance: VkInstance = mem::uninitialized();
-
-    let cstr_argv: Vec<_> = required_extensions
-        .iter()
-        .map(|arg| CString::new(arg.as_str()).unwrap())
-        .collect();
-
-    let mut p_argv: Vec<_> = cstr_argv.iter().map(|arg| arg.as_ptr()).collect();
-
-    p_argv.push(std::ptr::null());
-
-    let p: *const *const i8 = p_argv.as_ptr();
-
-    let info: InstanceCreateInfo = InstanceCreateInfo {
-        sType: vk::STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        pNext: ptr::null(),
-        flags: 0,
-        pApplicationInfo: ptr::null(),
-        enabledLayerCount: 0,
-        ppEnabledLayerNames: ptr::null(),
-        enabledExtensionCount: required_extensions.len() as u32,
-        ppEnabledExtensionNames: p,
-    };
-
-    let res: VkResult = entry_points.CreateInstance(
-        &info as *const InstanceCreateInfo,
-        ptr::null(),
-        &mut instance as *mut VkInstance,
-    );
-
-    assert_eq!(res, vk::SUCCESS);
-
-    instance
-}
-
-#[cfg(feature = "vulkan")]
-unsafe fn destroy_vulkan_instance(
-    instance: VkInstance,
-    instance_ptrs: &mut InstancePointers,
-) {
-    instance_ptrs.DestroyInstance(instance, ptr::null());
 }
