@@ -1402,6 +1402,7 @@ impl Session {
         if button != platform::MouseButton::Left {
             return;
         }
+        let is_cursor_active = self.active_view().hover;
 
         if state == platform::InputState::Pressed {
             self.mouse_down = true;
@@ -1418,8 +1419,7 @@ impl Session {
             }
 
             // Click on active view
-            let p = Point2::new(self.cx, self.cy) - self.offset;
-            if self.active_view().contains(p) {
+            if is_cursor_active {
                 let p = self.active_view_coords(self.cx, self.cy);
                 let (nframes, fw, frame_index) = {
                     let v = self.active_view();
@@ -1471,14 +1471,28 @@ impl Session {
                     }
                     Mode::Present => {}
                 }
+            } else {
+                for (id, v) in &self.views {
+                    if v.hover {
+                        let id = id.clone();
+                        self.activate_view(id);
+                        self.center_active_view_v();
+                        return;
+                    }
+                }
             }
         } else if state == platform::InputState::Released {
             self.mouse_down = false;
             self.record_macro(format!("cursor/up"));
 
             if let Tool::Brush(ref mut brush) = self.tool {
-                brush.stop_drawing();
-                self.active_view_mut().touch();
+                match brush.state {
+                    BrushState::Drawing | BrushState::DrawStarted => {
+                        brush.stop_drawing();
+                        self.active_view_mut().touch();
+                    }
+                    _ => {}
+                }
             }
         }
     }
