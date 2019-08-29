@@ -598,14 +598,6 @@ impl<'a> Parser<'a> {
         self.input.is_empty()
     }
 
-    fn next(&self) -> Result<'a, char> {
-        if let Some(c) = self.input.chars().nth(0) {
-            Ok((c, Parser::new(&self.input[1..])))
-        } else {
-            Err(Error::new("EOF"))
-        }
-    }
-
     fn sigil(self, c: char) -> Result<'a, char> {
         if self.input.starts_with(c) {
             Ok((c, Parser::new(&self.input[1..])))
