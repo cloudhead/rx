@@ -85,7 +85,7 @@ pub fn init<'a, P: AsRef<Path>>(
     let (win, events) = platform::init("rx")?;
 
     let hidpi_factor = win.hidpi_factor();
-    let win_size = win.framebuffer_size()?;
+    let win_size = win.size()?;
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
     let resources = ResourceManager::new();

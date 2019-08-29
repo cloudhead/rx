@@ -83,7 +83,7 @@ impl Window {
         self.handle.hidpi_factor()
     }
 
-    pub fn framebuffer_size(&self) -> io::Result<LogicalSize> {
+    pub fn size(&self) -> io::Result<LogicalSize> {
         let size = self.handle.inner_size();
         Ok(LogicalSize::new(size.width, size.height))
     }

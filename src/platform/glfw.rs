@@ -106,8 +106,8 @@ impl Window {
         x as f64
     }
 
-    pub fn framebuffer_size(&self) -> io::Result<LogicalSize> {
-        let (w, h) = self.handle.get_framebuffer_size();
+    pub fn size(&self) -> io::Result<LogicalSize> {
+        let (w, h) = self.handle.get_size();
         Ok(LogicalSize::new(w as f64, h as f64))
     }
 }
