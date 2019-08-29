@@ -56,6 +56,8 @@ pub struct View {
 }
 
 impl View {
+    const DEFAULT_ANIMATION_DELAY: u64 = 160;
+
     pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
             Some(SnapshotId::default())
@@ -74,8 +76,7 @@ impl View {
             file_status: fs,
             animation: Animation::new(
                 &[Rect::origin(fw as f32, fh as f32)],
-                // FIXME: Should be configurable.
-                time::Duration::from_millis(160),
+                time::Duration::from_millis(Self::DEFAULT_ANIMATION_DELAY),
             ),
             state: ViewState::Okay,
             saved_snapshot,
@@ -168,8 +169,20 @@ impl View {
         self.animation.pause();
     }
 
-    pub fn frame(&mut self, delta: time::Duration) {
+    #[allow(dead_code)]
+    pub fn stop_animation(&mut self) {
+        self.animation.stop();
+    }
+
+    pub fn set_animation_delay(&mut self, ms: u64) {
+        self.animation.delay = time::Duration::from_millis(ms);
+    }
+
+    pub fn okay(&mut self) {
         self.state = ViewState::Okay;
+    }
+
+    pub fn frame(&mut self, delta: time::Duration) {
         self.animation.step(delta);
     }
 

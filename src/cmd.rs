@@ -123,6 +123,13 @@ impl Value {
         panic!("expected {:?} to be a `float`", self);
     }
 
+    pub fn uint64(&self) -> u64 {
+        if let Value::U32(n) = self {
+            return *n as u64;
+        }
+        panic!("expected {:?} to be a `uint`", self);
+    }
+
     pub fn description(&self) -> &'static str {
         match self {
             Self::Bool(_) => "on / off",

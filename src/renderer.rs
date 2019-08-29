@@ -359,6 +359,9 @@ impl Renderer {
             // Draw view framebuffers to screen.
             r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
             self.render_views(&mut f, &self.screen_fb);
+            if session.settings["animation"].is_set() {
+                self.render_view_animations(&mut f, &self.screen_fb);
+            }
 
             {
                 r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
@@ -732,33 +735,33 @@ impl Renderer {
     }
 
     fn render_views<T: core::TextureView>(&self, f: &mut core::Frame, out: &T) {
-        {
-            // Render view buffers.
-            let mut p = f.pass(PassOp::Load(), out);
-            p.set_pipeline(&self.framebuffer2d);
+        let mut p = f.pass(PassOp::Load(), out);
+        p.set_pipeline(&self.framebuffer2d);
 
-            for ((_, v), off) in self
-                .view_data
-                .iter()
-                .zip(self.view_transforms_buf.iter_offset())
-            {
-                // FIXME: (rgx) Why is it that ommitting this line yields an obscure error
-                // message?
-                p.set_binding(&self.view_transforms_buf.binding, &[off]);
-                p.set_binding(&v.binding, &[]);
-                p.draw_buffer(&v.vb);
-            }
+        for ((_, v), off) in self
+            .view_data
+            .iter()
+            .zip(self.view_transforms_buf.iter_offset())
+        {
+            // FIXME: (rgx) Why is it that ommitting this line yields an obscure error
+            // message?
+            p.set_binding(&self.view_transforms_buf.binding, &[off]);
+            p.set_binding(&v.binding, &[]);
+            p.draw_buffer(&v.vb);
         }
+    }
 
-        {
-            // Render view animations.
-            let mut p = f.pass(PassOp::Load(), out);
-            p.set_pipeline(&self.sprite2d);
+    fn render_view_animations<T: core::TextureView>(
+        &self,
+        f: &mut core::Frame,
+        out: &T,
+    ) {
+        let mut p = f.pass(PassOp::Load(), out);
+        p.set_pipeline(&self.sprite2d);
 
-            for (_, v) in self.view_data.iter() {
-                if let Some(ref vb) = v.anim_vb {
-                    p.draw(vb, &v.anim_binding);
-                }
+        for (_, v) in self.view_data.iter() {
+            if let Some(ref vb) = v.anim_vb {
+                p.draw(vb, &v.anim_binding);
             }
         }
     }
@@ -802,7 +805,7 @@ impl Renderer {
     }
 
     fn update_view_animations(&mut self, s: &Session, r: &core::Renderer) {
-        if s.paused {
+        if s.paused || !s.settings["animation"].is_set() {
             return;
         }
         for (id, v) in &s.views {

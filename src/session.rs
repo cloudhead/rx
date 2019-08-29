@@ -202,9 +202,25 @@ impl KeyBindings {
     }
 }
 
-pub struct Settings(HashMap<String, Value>);
+pub struct Settings {
+    map: HashMap<String, Value>,
+}
 
 impl Settings {
+    fn new() -> Self {
+        Self {
+            map: hashmap! {
+                "debug" => Value::Bool(false),
+                "checker" => Value::Bool(false),
+                "vsync" => Value::Bool(false),
+                "frame_delay" => Value::Float(8.0),
+                "scale" => Value::Float(1.0),
+                "animation" => Value::Bool(true),
+                "animation:delay" => Value::U32(160)
+            },
+        }
+    }
+
     pub fn present_mode(&self) -> PresentMode {
         if self["vsync"].is_set() {
             PresentMode::Vsync
@@ -214,13 +230,13 @@ impl Settings {
     }
 
     pub fn get(&self, setting: &str) -> Option<&Value> {
-        self.0.get(setting)
+        self.map.get(setting)
     }
 
     pub fn set(&mut self, k: &str, v: Value) -> Result<Value, Error> {
         if let Some(current) = self.get(k) {
             if std::mem::discriminant(&v) == std::mem::discriminant(current) {
-                return Ok(self.0.insert(k.to_string(), v).unwrap());
+                return Ok(self.map.insert(k.to_string(), v).unwrap());
             }
             Err(format!(
                 "invalid value `{}`, expected {}",
@@ -240,18 +256,6 @@ impl std::ops::Index<&str> for Settings {
         &self
             .get(setting)
             .expect(&format!("setting {} should exist", setting))
-    }
-}
-
-impl Settings {
-    fn new() -> Self {
-        Self(hashmap! {
-            "debug" => Value::Bool(false),
-            "checker" => Value::Bool(false),
-            "vsync" => Value::Bool(false),
-            "frame_delay" => Value::Float(8.0),
-            "scale" => Value::Float(1.0)
-        })
     }
 }
 
@@ -456,7 +460,11 @@ impl Session {
         self.dirty = false;
 
         for (_, v) in &mut self.views {
-            v.frame(delta);
+            v.okay();
+
+            if self.settings["animation"].is_set() {
+                v.frame(delta);
+            }
         }
 
         for event in events.drain(..) {
@@ -740,6 +748,17 @@ impl Session {
             MessageType::Info,
         );
         Ok(())
+    }
+
+    fn setting_changed(&mut self, name: &str, old: &Value, new: &Value) {
+        debug!("set `{}`: {} -> {}", name, old, new);
+
+        match name {
+            "animation:delay" => {
+                self.active_view_mut().set_animation_delay(new.uint64());
+            }
+            _ => {}
+        }
     }
 
     fn center_palette(&mut self) {
@@ -1147,15 +1166,17 @@ impl Session {
                             MessageType::Error,
                         );
                     }
-                    Ok(old) => {
-                        debug!("set `{}`: {} -> {}", k, old, v);
+                    Ok(ref old) => {
+                        if old != v {
+                            self.setting_changed(k, old, v);
+                        }
                     }
                 }
             }
             #[allow(mutable_borrow_reservation_conflict)]
             Command::Toggle(ref k) => match self.settings.get(k) {
                 Some(Value::Bool(b)) => {
-                    self.settings.set(k, Value::Bool(!b)).ok();
+                    self.command(Command::Set(k.clone(), Value::Bool(!b)))
                 }
                 Some(_) => {
                     self.message(
