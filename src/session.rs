@@ -327,6 +327,7 @@ impl Session {
     pub const DEFAULT_VIEW_W: u32 = 128;
     pub const DEFAULT_VIEW_H: u32 = 128;
 
+    const SUPPORTED_FORMATS: &'static [&'static str] = &["png", "gif"];
     const VIEW_MARGIN: f32 = 24.;
     const PALETTE_CELL_SIZE: f32 = 24.;
     const PAN_PIXELS: i32 = 32;
@@ -678,6 +679,17 @@ impl Session {
             io::ErrorKind::Other,
             "file path requires an extension (.gif or .png)",
         ))?;
+        let ext = ext.to_str().ok_or(io::Error::new(
+            io::ErrorKind::Other,
+            "file extension is not valid unicode",
+        ))?;
+
+        if !Self::SUPPORTED_FORMATS.contains(&ext) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("`{}` is not a supported output format", ext),
+            ));
+        }
 
         if ext == "gif" {
             return self.save_view_gif(id, path);
