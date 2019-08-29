@@ -36,6 +36,10 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::time;
 
+pub struct Options<'a> {
+    pub log: &'a str,
+}
+
 pub struct FrameTimer {
     timings: VecDeque<u128>,
     avg: time::Duration,
@@ -68,10 +72,14 @@ impl FrameTimer {
     }
 }
 
-pub fn init<P: AsRef<Path>>(paths: &[P]) -> std::io::Result<()> {
+pub fn init<'a, P: AsRef<Path>>(
+    paths: &[P],
+    options: Options<'a>,
+) -> std::io::Result<()> {
     use std::io;
 
-    let mut logger = env_logger::Builder::from_default_env();
+    let mut logger = env_logger::Builder::new();
+    logger.parse_filters(options.log);
     logger.init();
 
     let (win, events) = platform::init("rx")?;

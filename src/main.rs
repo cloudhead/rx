@@ -7,6 +7,12 @@ fn main() {
         .version("0.1.0")
         .author("Alexis Sellier <self@cloudhead.io>")
         .about("An Extensible Pixel Editor")
+        .arg(
+            Arg::with_name("v")
+                .short("v")
+                .multiple(true)
+                .help("Sets the verbosity level"),
+        )
         .arg(Arg::with_name("path").multiple(true))
         .get_matches();
 
@@ -14,7 +20,16 @@ fn main() {
         .values_of("path")
         .map_or(Vec::new(), |m| m.collect::<Vec<_>>());
 
-    if let Err(e) = rx::init(&paths) {
+    let log = match matches.occurrences_of("v") {
+        0 => "rx=warn",
+        1 => "rx=info",
+        2 => "rx=debug",
+        3 => "rx=debug,error",
+        4 => "rx=debug,info",
+        _ => "debug",
+    };
+
+    if let Err(e) = rx::init(&paths, rx::Options { log }) {
         log::error!("Error initializing rx: {}", e);
     }
 }
