@@ -5,7 +5,7 @@ use crate::platform::{
     ModifiersState, MouseButton, WindowEvent,
 };
 
-use glfw::{self, Context};
+use glfw;
 
 use std::{io, sync};
 
@@ -19,6 +19,7 @@ pub fn init(title: &str) -> io::Result<(Window, Events)> {
     glfw.window_hint(glfw::WindowHint::Visible(true));
     glfw.window_hint(glfw::WindowHint::Focused(true));
     glfw.window_hint(glfw::WindowHint::RefreshRate(None));
+    glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
 
     let (mut window, events) = glfw
         .create_window(800, 600, title, glfw::WindowMode::Windowed)
@@ -28,7 +29,6 @@ pub fn init(title: &str) -> io::Result<(Window, Events)> {
         ))?;
 
     window.set_all_polling(true);
-    window.make_current();
 
     Ok((
         Window {
