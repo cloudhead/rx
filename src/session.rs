@@ -1022,6 +1022,9 @@ impl Session {
                             "{}",
                             self.base_dirs.config_dir().display()
                         ))),
+                        "s:hidpi" => {
+                            Ok(Value::Str(format!("{:.1}", self.hidpi_factor)))
+                        }
                         "s:offset" => Ok(Value::Vector2(self.offset)),
                         "v:offset" => {
                             Ok(Value::Vector2(self.active_view().offset))
