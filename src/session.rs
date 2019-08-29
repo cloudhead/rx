@@ -336,7 +336,6 @@ impl Session {
     const PALETTE_CELL_SIZE: f32 = 24.;
     const PAN_PIXELS: i32 = 32;
     const MIN_BRUSH_SIZE: usize = 1;
-    const GIF_FRAME_DELAY: u16 = 33;
     const MAX_LRU: usize = 16;
     const MAX_ZOOM: f32 = 128.0;
     const ZOOM_LEVELS: &'static [f32] = &[
@@ -735,9 +734,8 @@ impl Session {
         id: ViewId,
         path: P,
     ) -> io::Result<()> {
-        let npixels =
-            self.resources
-                .save_view_gif(&id, &path, Self::GIF_FRAME_DELAY)?;
+        let delay = self.view(id).animation.delay;
+        let npixels = self.resources.save_view_gif(&id, &path, delay)?;
 
         self.message(
             format!(

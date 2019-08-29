@@ -14,6 +14,7 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::time;
 
 /// Speed at which to encode gifs. This mainly affects quantization.
 const GIF_ENCODING_SPEED: i32 = 30;
@@ -181,9 +182,16 @@ impl ResourceManager {
         &self,
         id: &ViewId,
         path: P,
-        frame_delay: u16,
+        frame_delay: time::Duration,
     ) -> io::Result<usize> {
         use std::mem;
+
+        // The gif encoder expects the frame delay in units of 10ms.
+        let frame_delay = frame_delay.as_millis() / 10;
+        // If the passed in delay is larger than a `u16` can hold,
+        // we ensure it doesn't overflow.
+        let frame_delay =
+            u128::min(frame_delay, u16::max_value() as u128) as u16;
 
         let mut resources = self.lock_mut();
         let snapshot = resources.get_snapshot_mut(id);
