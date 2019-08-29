@@ -1,8 +1,8 @@
---
--- init.rx
---
+-------------
+-- init.rx --
+-------------
+
 -- Default `rx` configuration file.
---
 
 ----- ------------- -------------------------------------------- -----------------------------------
 --    KEY           COMMAND                                       DESCRIPTION
@@ -29,8 +29,6 @@ map   <right>       :pan  1  0                                --  Pan view right
 map   <return>      :f/add                                    --  Add a frame to the view
 map   <backspace>   :f/remove                                 --  Remove a frame from the view
 
-source palettes/sweetie16.palette                             --  Source a color palette
-
 set scale = 1.0                                               --  Set interface scale to 100%
 set checker = off                                             --  Turn off alpha checker
 set debug = off                                               --  Turn off debug mode
@@ -38,3 +36,23 @@ set vsync = off                                               --  Turn off Vsync
 set frame_delay = 8.0                                         --  Set frame delay to 8 milliseconds
 
 echo "rx 0.1.0"                                               --  Echo version
+
+-------------------
+-- Color palette --
+-------------------
+#1a1c2c
+#5d275d
+#b13e53
+#ef7d57
+#ffcd75
+#a7f070
+#38b764
+#257179
+#29366f
+#3b5dc9
+#41a6f6
+#73eff7
+#f4f4f4
+#94b0c2
+#566c86
+#333c57
