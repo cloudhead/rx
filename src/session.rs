@@ -988,17 +988,17 @@ impl Session {
             Command::Mode(m) => {
                 self.switch_mode(m);
             }
-            Command::Quit => {
-                if let FileStatus::Modified(_) = &self.active_view().file_status
-                {
+            Command::Quit => match &self.active_view().file_status {
+                FileStatus::Modified(_) | FileStatus::New(_) => {
                     self.message(
                         "Error: no write since last change",
                         MessageType::Error,
                     );
-                } else {
+                }
+                _ => {
                     self.command(Command::ForceQuit);
                 }
-            }
+            },
             Command::SwapColors => {
                 std::mem::swap(&mut self.fg, &mut self.bg);
             }
