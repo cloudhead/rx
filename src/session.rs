@@ -947,12 +947,19 @@ impl Session {
     }
 
     fn switch_mode(&mut self, mode: Mode) {
-        if self.mode == mode {
+        let (old, new) = (self.mode, mode);
+        if old == new {
             return;
         }
-        self.mode = mode;
 
-        match mode {
+        match old {
+            Mode::Command => {
+                self.cmdline_hide();
+            }
+            _ => {}
+        }
+
+        match new {
             Mode::Command => {
                 if let Tool::Brush(ref mut b) = self.tool {
                     b.reset();
@@ -960,6 +967,7 @@ impl Session {
             }
             _ => {}
         }
+        self.mode = new;
     }
 
     fn command(&mut self, cmd: Command) {
@@ -1278,7 +1286,6 @@ impl Session {
     }
 
     fn cmdline_hide(&mut self) {
-        self.switch_mode(Mode::Normal);
         self.selection = Rect::empty();
         self.cmdline.clear();
     }
@@ -1458,6 +1465,11 @@ impl Session {
 
             // Click on active view
             if is_cursor_active {
+                if self.mode == Mode::Command {
+                    self.switch_mode(Mode::Normal);
+                    return;
+                }
+
                 let p = self.active_view_coords(self.cx, self.cy);
                 let (nframes, fw, frame_index) = {
                     let v = self.active_view();
@@ -1657,7 +1669,10 @@ impl Session {
                             self.cmdline_handle_enter();
                         }
                         platform::Key::Escape => {
-                            self.cmdline_hide();
+                            // XXX: When visual mode is implemented, we'll have to switch
+                            // back to whatever the *previous* mode is - either Normal or
+                            // Visual.
+                            self.switch_mode(Mode::Normal);
                         }
                         _ => {}
                     }
