@@ -954,7 +954,8 @@ impl Session {
 
         match old {
             Mode::Command => {
-                self.cmdline_hide();
+                self.selection = Rect::empty();
+                self.cmdline.clear();
             }
             _ => {}
         }
@@ -1286,8 +1287,10 @@ impl Session {
     }
 
     fn cmdline_hide(&mut self) {
-        self.selection = Rect::empty();
-        self.cmdline.clear();
+        // XXX: When visual mode is implemented, we'll have to switch
+        // back to whatever the *previous* mode is - either Normal or
+        // Visual.
+        self.switch_mode(Mode::Normal);
     }
 
     fn cmdline_handle_backspace(&mut self) {
@@ -1466,7 +1469,7 @@ impl Session {
             // Click on active view
             if is_cursor_active {
                 if self.mode == Mode::Command {
-                    self.switch_mode(Mode::Normal);
+                    self.cmdline_hide();
                     return;
                 }
 
@@ -1669,10 +1672,7 @@ impl Session {
                             self.cmdline_handle_enter();
                         }
                         platform::Key::Escape => {
-                            // XXX: When visual mode is implemented, we'll have to switch
-                            // back to whatever the *previous* mode is - either Normal or
-                            // Visual.
-                            self.switch_mode(Mode::Normal);
+                            self.cmdline_hide();
                         }
                         _ => {}
                     }
