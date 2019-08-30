@@ -80,6 +80,10 @@ impl Brush {
         self.modes.remove(&m)
     }
 
+    pub fn reset(&mut self) {
+        self.modes.clear();
+    }
+
     pub fn start_drawing(
         &mut self,
         p: Point2<i32>,

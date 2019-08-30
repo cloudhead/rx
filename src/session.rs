@@ -946,6 +946,22 @@ impl Session {
         self.message.log();
     }
 
+    fn switch_mode(&mut self, mode: Mode) {
+        if self.mode == mode {
+            return;
+        }
+        self.mode = mode;
+
+        match mode {
+            Mode::Command => {
+                if let Tool::Brush(ref mut b) = self.tool {
+                    b.reset();
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn command(&mut self, cmd: Command) {
         // Certain commands cause problems when run many times within
         // a short time frame. This might be because the GPU hasn't had
@@ -960,8 +976,8 @@ impl Session {
         debug!("command: {:?}", cmd);
 
         return match cmd {
-            Command::Mode(ref m) => {
-                self.mode = *m;
+            Command::Mode(m) => {
+                self.switch_mode(m);
             }
             Command::Quit => {
                 if let FileStatus::Modified(_) = &self.active_view().file_status
@@ -1262,7 +1278,7 @@ impl Session {
     }
 
     fn cmdline_hide(&mut self) {
-        self.mode = Mode::Normal;
+        self.switch_mode(Mode::Normal);
         self.selection = Rect::empty();
         self.cmdline.clear();
     }
@@ -1628,7 +1644,7 @@ impl Session {
                 if key == platform::Key::Escape && state == InputState::Pressed
                 {
                     self.selection = Rect::empty();
-                    self.mode = Mode::Normal;
+                    self.switch_mode(Mode::Normal);
                     return;
                 }
             } else if self.mode == Mode::Command {
