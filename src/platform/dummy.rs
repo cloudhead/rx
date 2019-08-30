@@ -38,7 +38,7 @@ impl Window {
         unreachable!()
     }
 
-    pub fn framebuffer_size(&self) -> io::Result<LogicalSize> {
+    pub fn size(&self) -> io::Result<LogicalSize> {
         unreachable!()
     }
 }
