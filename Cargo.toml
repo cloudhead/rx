@@ -5,7 +5,7 @@ description = "a modern, extensible pixel editor"
 license = "GPL-3.0-only"
 repository = "https://github.com/cloudhead/rx"
 homepage = "https://github.com/cloudhead/rx"
-authors = ["Alexis Sellier <alexis@monadic.xyz>"]
+authors = ["Alexis Sellier <self@cloudhead.io>"]
 edition = "2018"
 
 [features]
