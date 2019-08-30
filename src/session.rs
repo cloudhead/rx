@@ -1284,7 +1284,7 @@ impl Session {
         }
 
         match Command::from_str(&input) {
-            Err(e) => self.message(e, MessageType::Error),
+            Err(e) => self.message(format!("Error: {}", e), MessageType::Error),
             Ok(cmd) => self.command(cmd),
         }
     }

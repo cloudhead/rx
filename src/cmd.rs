@@ -296,7 +296,8 @@ impl<'a> Parse<'a> for Command {
             return Ok((Command::Noop, p));
         }
 
-        if let Ok((rgba, p)) = p.clone().parse::<Rgba8>() {
+        if Some('#') == p.peek() {
+            let (rgba, p) = p.parse::<Rgba8>()?;
             return Ok((Command::PaletteAdd(rgba), p));
         }
 
@@ -447,7 +448,7 @@ impl<'a> Parse<'a> for Command {
             }
             "swap" => Ok((Command::SwapColors, p)),
             unrecognized => Err(Error::new(format!(
-                "Error: unrecognized command ':{}'",
+                "unrecognized command ':{}'",
                 unrecognized
             ))),
         }
@@ -573,7 +574,7 @@ impl<'a> Parse<'a> for Rgba8 {
 
         match Rgba8::from_str(s) {
             Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing Rgba8")),
+            Err(_) => Err(Error::new(format!("malformed color value `{}`", s))),
         }
     }
 }
@@ -690,9 +691,11 @@ impl<'a> Parser<'a> {
         } else if c.map_or(false, |c| c.is_digit(10)) {
             if let Ok((v, p)) = self.clone().parse::<u32>() {
                 Ok((Value::U32(v), p))
-            } else {
-                let (v, p) = self.parse::<f64>()?;
+            } else if let Ok((v, p)) = self.clone().parse::<f64>() {
                 Ok((Value::Float(v), p))
+            } else {
+                let (input, _) = self.until(|c| c.is_whitespace())?;
+                Err(Error::new(format!("malformed number: `{}`", input)))
             }
         } else {
             let (i, p) = self.identifier()?;
