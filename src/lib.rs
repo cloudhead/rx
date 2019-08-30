@@ -15,6 +15,17 @@ mod view;
 #[macro_use]
 mod util;
 
+#[cfg(not(any(
+    feature = "vulkan",
+    feature = "metal",
+    feature = "dx11",
+    feature = "dx12"
+)))]
+compile_error!(
+    "please enable a graphics backend with the --features flag, \
+     available backends are: 'vulkan', 'metal', 'dx11' and 'dx12'"
+);
+
 use renderer::Renderer;
 use resources::ResourceManager;
 use session::*;

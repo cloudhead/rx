@@ -44,5 +44,5 @@ impl Window {
 }
 
 pub fn init(_title: &str) -> io::Result<(Window, Events)> {
-    panic!("no backend found for this platform!");
+    panic!("no platform selected");
 }
