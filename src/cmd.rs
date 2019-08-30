@@ -725,7 +725,7 @@ impl<'a> Parser<'a> {
         P: Fn(char) -> bool,
     {
         if self.input.is_empty() {
-            return Err(Error::new("EOF"));
+            return Err(Error::new("expected input"));
         }
         match self.input.find(predicate) {
             Some(i) => {
@@ -741,7 +741,7 @@ impl<'a> Parser<'a> {
         P: Fn(char) -> bool,
     {
         if self.is_empty() {
-            return Err(Error::new("EOF"));
+            return Err(Error::new("expected input"));
         }
 
         let mut index = 0;

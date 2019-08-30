@@ -610,13 +610,13 @@ impl Session {
             if ext != "png" {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
-                    "Error: trying to load file with unsupported extension",
+                    "trying to load file with unsupported extension",
                 ));
             }
         } else {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                "Error: trying to load file with no extension",
+                "trying to load file with no extension",
             ));
         }
 
