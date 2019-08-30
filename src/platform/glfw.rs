@@ -101,7 +101,9 @@ impl Window {
 
     pub fn hidpi_factor(&self) -> f64 {
         let (x, y) = self.handle.get_content_scale();
-        assert_eq!(x, y, "glfw: content scale must be uniform");
+        if x != y {
+            warn!("glfw: content scale isn't uniform: {} x {}", x, y);
+        }
 
         x as f64
     }
@@ -172,7 +174,9 @@ impl From<glfw::WindowEvent> for WindowEvent {
             }
             Glfw::Focus(b) => WindowEvent::Focused(b),
             Glfw::ContentScale(x, y) => {
-                assert_eq!(x, y, "glfw: content scale must be uniform");
+                if x != y {
+                    warn!("glfw: content scale isn't uniform: {} x {}", x, y);
+                }
                 WindowEvent::HiDpiFactorChanged(x as f64)
             }
             _ => WindowEvent::Noop,
