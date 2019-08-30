@@ -58,7 +58,7 @@ FEATURES
 PLATFORM SUPPORT
 
   * Linux     (vulkan)         [GOOD]
-  * macOS     (metal)          [OKAY]
+  * macOS     (metal)          [GOOD]
   * Windows   (dx11/dx12)      [UNTESTED]
 
 BUILD DEPENDENCIES
@@ -71,9 +71,9 @@ INSTALLATION
 
   Then, run:
 
-    $ cargo install --git https://github.com/cloudhead/rx --locked --features <platform>
+    $ cargo install --git https://github.com/cloudhead/rx --locked --features <backend>
 
-  where <platform> is one of 'vulkan', 'metal', 'dx11' or 'dx12'.
+  where <backend> is one of 'vulkan', 'metal', 'dx11' or 'dx12'.
   See the PLATFORM SUPPORT section for which feature to enable on
   your platform.
 
@@ -83,6 +83,8 @@ INSTALLATION
   '/usr/local'.
 
 CONFIGURATION
+
+  Linux
 
   Create a config folder for rx in your XDG configuration directory:
 
