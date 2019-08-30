@@ -216,7 +216,7 @@ impl Settings {
                 "frame_delay" => Value::Float(8.0),
                 "scale" => Value::Float(1.0),
                 "animation" => Value::Bool(true),
-                "animation:delay" => Value::U32(160)
+                "animation/delay" => Value::U32(160)
             },
         }
     }
@@ -752,7 +752,7 @@ impl Session {
         debug!("set `{}`: {} -> {}", name, old, new);
 
         match name {
-            "animation:delay" => {
+            "animation/delay" => {
                 self.active_view_mut().set_animation_delay(new.uint64());
             }
             _ => {}
