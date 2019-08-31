@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time;
 
 /// Speed at which to encode gifs. This mainly affects quantization.
-const GIF_ENCODING_SPEED: i32 = 30;
+const GIF_ENCODING_SPEED: i32 = 10;
 
 pub struct ResourceManager {
     pub resources: Arc<RwLock<Resources>>,
