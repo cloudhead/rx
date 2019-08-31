@@ -853,6 +853,9 @@ impl Session {
     }
 
     fn organize_views(&mut self) {
+        if self.views.is_empty() {
+            return;
+        }
         let (_, first) = self
             .views
             .iter()
