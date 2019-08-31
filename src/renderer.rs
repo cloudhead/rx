@@ -17,7 +17,7 @@ use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
 
 use cgmath::prelude::*;
-use cgmath::{Matrix4, Point2, Vector2};
+use cgmath::{Matrix4, Vector2};
 
 use std::collections::{BTreeMap, HashSet};
 use std::time;
@@ -626,7 +626,7 @@ impl Renderer {
 
         {
             // Session status
-            let cursor = session.active_view_coords(session.cx, session.cy);
+            let cursor = session.active_view_coords(session.cursor);
             let _hover_color = session.hover_color.map_or(String::new(), |c| {
                 format!("#{:02X}{:02X}{:02X}", c.r, c.g, c.b)
             });
@@ -719,9 +719,10 @@ impl Renderer {
             Mode::Normal | Mode::Command | Mode::Visual => {
                 if let Some(rect) = Cursors::rect(&session.tool) {
                     let offset = Cursors::offset(&session.tool);
+                    let cursor = session.cursor;
                     batch.add(
                         rect,
-                        rect.translate(session.cx, session.cy) + offset,
+                        rect.translate(cursor.x, cursor.y) + offset,
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -735,7 +736,7 @@ impl Renderer {
         // TODO: Handle zoom by scaling everything in CPU?
         if let Tool::Brush(ref brush) = session.tool {
             let v = session.active_view();
-            let p = Point2::new(session.cx, session.cy);
+            let p = session.cursor;
             let s = session.snap(p, v.offset.x, v.offset.y, v.zoom);
 
             // Draw enabled brush
@@ -748,7 +749,7 @@ impl Renderer {
 
                 if brush.is_set(BrushMode::Multi) {
                     let view_coords =
-                        session.active_view_coords(session.cx, session.cy);
+                        session.active_view_coords(session.cursor);
                     let frame_index = (view_coords.x as u32 / v.fw) as usize;
 
                     for i in 0..v.animation.len() - frame_index {
@@ -757,7 +758,7 @@ impl Renderer {
                             0.,
                         );
                         batch.add(brush.stroke(
-                            s + offset,
+                            *(s + offset),
                             stroke,
                             fill,
                             v.zoom,
@@ -766,7 +767,7 @@ impl Renderer {
                     }
                 } else {
                     batch.add(brush.stroke(
-                        s,
+                        *s,
                         stroke,
                         fill,
                         v.zoom,
@@ -781,7 +782,7 @@ impl Renderer {
                     session.fg
                 };
                 batch.add(brush.stroke(
-                    p,
+                    *p,
                     Stroke::new(1.0, color.into()),
                     Fill::Empty(),
                     v.zoom,

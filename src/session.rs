@@ -7,8 +7,7 @@ use crate::palette::*;
 use crate::platform;
 use crate::platform::{InputState, KeyboardInput, ModifiersState, WindowEvent};
 use crate::resources::ResourceManager;
-use crate::util;
-use crate::view::{FileStatus, View, ViewId};
+use crate::view::{FileStatus, View, ViewCoords, ViewId};
 
 use rgx::core::{PresentMode, Rect};
 use rgx::kit::shape2d;
@@ -23,6 +22,7 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
+use std::ops::{Add, Deref, Sub};
 use std::path::Path;
 use std::str::FromStr;
 use std::time;
@@ -74,6 +74,43 @@ struct Bgra8 {
     g: u8,
     r: u8,
     a: u8,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct SessionCoords(Point2<f32>);
+
+impl SessionCoords {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self(Point2::new(x, y))
+    }
+
+    pub fn floor(&mut self) -> Self {
+        Self(self.0.map(f32::floor))
+    }
+}
+
+impl Deref for SessionCoords {
+    type Target = Point2<f32>;
+
+    fn deref(&self) -> &Point2<f32> {
+        &self.0
+    }
+}
+
+impl Add<Vector2<f32>> for SessionCoords {
+    type Output = Self;
+
+    fn add(self, vec: Vector2<f32>) -> Self {
+        SessionCoords(self.0 + vec)
+    }
+}
+
+impl Sub<Vector2<f32>> for SessionCoords {
+    type Output = Self;
+
+    fn sub(self, vec: Vector2<f32>) -> Self {
+        SessionCoords(self.0 - vec)
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -373,10 +410,8 @@ pub struct Session {
     /// The HiDPI factor of the host.
     pub hidpi_factor: f64,
 
-    /// The cursor *x* coordinate.
-    pub cx: f32,
-    /// The cursor *y* coordinate.
-    pub cy: f32,
+    /// The cursor coordinates.
+    pub cursor: SessionCoords,
 
     /// The color under the cursor, if any.
     pub hover_color: Option<Rgba8>,
@@ -504,8 +539,7 @@ impl Session {
             width: w as f32,
             height: h as f32,
             hidpi_factor,
-            cx: 0.,
-            cy: 0.,
+            cursor: SessionCoords::new(0., 0.),
             base_dirs,
             offset: Vector2::zero(),
             tool: Tool::Brush(Brush::default()),
@@ -569,9 +603,9 @@ impl Session {
         self.resources.add_blank_view(&id, w, h);
     }
 
-    pub fn view_coords(&self, v: ViewId, x: f32, y: f32) -> Point2<f32> {
+    pub fn view_coords(&self, v: ViewId, p: SessionCoords) -> ViewCoords<f32> {
         let v = self.view(v);
-        let mut p = Point2::new(x, y);
+        let SessionCoords(mut p) = p;
 
         p = p - self.offset - v.offset;
         p = p / v.zoom;
@@ -583,11 +617,11 @@ impl Session {
             p.y = v.height() as f32 - p.y;
         }
 
-        p.map(f32::floor)
+        ViewCoords::new(p.x.floor(), p.y.floor())
     }
 
-    pub fn active_view_coords(&self, x: f32, y: f32) -> Point2<f32> {
-        self.view_coords(self.active_view_id, x, y)
+    pub fn active_view_coords(&self, p: SessionCoords) -> ViewCoords<f32> {
+        self.view_coords(self.active_view_id, p)
     }
 
     pub fn frame(
@@ -611,8 +645,12 @@ impl Session {
                 WindowEvent::CursorMoved { position, .. } => {
                     let scale: f64 = self.settings["scale"].float64();
                     self.handle_cursor_moved(
-                        (position.x / scale).floor() as f32,
-                        self.height - (position.y / scale).floor() as f32 - 1.,
+                        SessionCoords::new(
+                            (position.x / scale).floor() as f32,
+                            self.height
+                                - (position.y / scale).floor() as f32
+                                - 1.,
+                        ),
                         out,
                     );
                 }
@@ -991,16 +1029,16 @@ impl Session {
 
     pub fn snap(
         &self,
-        p: Point2<f32>,
+        p: SessionCoords,
         offx: f32,
         offy: f32,
         zoom: f32,
-    ) -> Point2<f32> {
-        Point2::new(
+    ) -> SessionCoords {
+        SessionCoords::new(
             p.x - ((p.x - offx - self.offset.x) % zoom),
             p.y - ((p.y - offy - self.offset.y) % zoom),
         )
-        .map(f32::floor)
+        .floor()
     }
 
     fn zoom_in(&mut self) {
@@ -1044,10 +1082,10 @@ impl Session {
     }
 
     fn zoom(&mut self, z: f32) {
-        let px = self.cx - self.offset.x;
-        let py = self.cy - self.offset.y;
+        let px = self.cursor.x - self.offset.x;
+        let py = self.cursor.y - self.offset.y;
 
-        let cursor = Point2::new(self.cx, self.cy);
+        let cursor = self.cursor;
 
         let within = self.active_view().contains(cursor - self.offset);
         let zprev = self.active_view().zoom;
@@ -1060,7 +1098,8 @@ impl Session {
             let nx = (px * zdiff).floor();
             let ny = (py * zdiff).floor();
 
-            let mut offset = Vector2::new(self.cx - nx, self.cy - ny);
+            let mut offset =
+                Vector2::new(self.cursor.x - nx, self.cursor.y - ny);
 
             let v = self.active_view_mut();
 
@@ -1553,7 +1592,7 @@ impl Session {
         // TODO: Switch to brush.
     }
 
-    fn color_at(&self, v: ViewId, x: u32, y: u32) -> Rgba8 {
+    fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Rgba8 {
         let resources = self.resources.lock();
         let snapshot = resources.get_snapshot(&v);
 
@@ -1566,7 +1605,7 @@ impl Session {
         assert!(tail.is_empty());
 
         let index =
-            ((snapshot.height() - y - 1) * snapshot.width() + x) as usize;
+            ((snapshot.height() - p.y - 1) * snapshot.width() + p.x) as usize;
         let bgra = pixels[index];
 
         Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a)
@@ -1625,7 +1664,7 @@ impl Session {
                     return;
                 }
 
-                let p = self.active_view_coords(self.cx, self.cy);
+                let p = self.active_view_coords(self.cursor);
                 let (nframes, fw, frame_index) = {
                     let v = self.active_view();
                     (v.animation.len(), v.fw, (p.x as u32 / v.fw) as i32)
@@ -1653,12 +1692,7 @@ impl Session {
                             } else {
                                 Vec::new()
                             };
-                            brush.start_drawing(
-                                Point2::new(p.x as i32, p.y as i32),
-                                color,
-                                &offsets,
-                                out,
-                            );
+                            brush.start_drawing(p.into(), color, &offsets, out);
                         }
                         Tool::Sampler => {
                             self.sample_color();
@@ -1701,23 +1735,22 @@ impl Session {
 
     pub fn handle_cursor_moved(
         &mut self,
-        cx: f32,
-        cy: f32,
+        cursor: SessionCoords,
         out: &mut shape2d::Batch,
     ) {
-        self.record_macro(format!("cursor/move {} {}", cx, cy));
-        self.palette.handle_cursor_moved(cx, cy);
+        self.record_macro(format!("cursor/move {} {}", cursor.x, cursor.y));
+        self.palette.handle_cursor_moved(cursor);
 
         self.hover_view = None;
         self.hover_color = None;
         for (_, v) in &mut self.views {
-            v.handle_cursor_moved(Point2::new(cx, cy) - self.offset);
+            v.handle_cursor_moved(cursor - self.offset);
             if v.hover {
                 self.hover_view = Some(v.id);
             }
         }
 
-        let p = self.active_view_coords(cx, cy);
+        let p = self.active_view_coords(cursor);
         let (nframes, fw, frame_index, vw, vh) = {
             let v = self.active_view();
             (
@@ -1731,8 +1764,8 @@ impl Session {
         if let Some(color) = self.palette.hover {
             self.hover_color = Some(color);
         } else if let Some(v) = self.hover_view {
-            let p = self.view_coords(v, cx, cy).map(|c| c.round() as u32);
-            self.hover_color = Some(self.color_at(v, p.x, p.y));
+            let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
+            self.hover_color = Some(self.color_at(v, p));
         }
 
         match self.mode {
@@ -1749,18 +1782,15 @@ impl Session {
                             self.fg
                         };
 
-                        let mut p = Point2::new(p.x as i32, p.y as i32);
+                        let mut p: ViewCoords<i32> = p.into();
 
                         if brush.is_set(BrushMode::Multi) {
-                            util::clamp(
-                                &mut p,
-                                Rect::new(
-                                    (brush.size / 2) as i32,
-                                    (brush.size / 2) as i32,
-                                    vw as i32 - (brush.size / 2) as i32 - 1,
-                                    vh as i32 - (brush.size / 2) as i32 - 1,
-                                ),
-                            );
+                            p.clamp(Rect::new(
+                                (brush.size / 2) as i32,
+                                (brush.size / 2) as i32,
+                                vw as i32 - (brush.size / 2) as i32 - 1,
+                                vh as i32 - (brush.size / 2) as i32 - 1,
+                            ));
                             let offsets: Vec<_> = (0..nframes as i32
                                 - frame_index)
                                 .map(|i| {
@@ -1775,16 +1805,15 @@ impl Session {
                     }
                 }
                 Tool::Pan => {
-                    self.offset.x += cx - self.cx;
-                    self.offset.y += cy - self.cy;
+                    self.offset.x += cursor.x - self.cursor.x;
+                    self.offset.y += cursor.y - self.cursor.y;
                 }
                 Tool::Sampler => {}
             },
             Mode::Visual => {}
             _ => {}
         }
-        self.cx = cx;
-        self.cy = cy;
+        self.cursor = cursor;
     }
 
     pub fn handle_received_character(&mut self, c: char) {

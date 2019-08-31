@@ -1,6 +1,7 @@
 use crate::kit::shape2d;
 use crate::kit::shape2d::{Fill, Shape, Stroke};
 use crate::kit::Origin;
+use crate::view::ViewCoords;
 
 use rgx::core::{Rect, Rgba8};
 
@@ -47,17 +48,17 @@ impl Default for Brush {
 impl Brush {
     pub fn tick(
         &mut self,
-        p: Point2<i32>,
+        p: ViewCoords<i32>,
         color: Rgba8,
         offsets: &[Vector2<i32>],
         canvas: &mut shape2d::Batch,
     ) {
         if self.state == BrushState::DrawStarted {
-            self.prev = p;
+            self.prev = *p;
         } else {
             self.prev = self.curr;
         }
-        self.curr = p;
+        self.curr = *p;
 
         if offsets.is_empty() {
             self.draw(self.prev, self.curr, color, canvas);
@@ -87,7 +88,7 @@ impl Brush {
 
     pub fn start_drawing(
         &mut self,
-        p: Point2<i32>,
+        p: ViewCoords<i32>,
         color: Rgba8,
         offsets: &[Vector2<i32>],
         canvas: &mut shape2d::Batch,

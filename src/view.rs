@@ -1,4 +1,6 @@
 use crate::resources::SnapshotId;
+use crate::session::SessionCoords;
+use crate::util;
 
 use cgmath::prelude::*;
 use cgmath::{Point2, Vector2};
@@ -7,6 +9,7 @@ use rgx::core::Rect;
 use rgx::kit::Animation;
 
 use std::fmt;
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::time;
 
@@ -22,6 +25,41 @@ impl Default for ViewId {
 impl fmt::Display for ViewId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct ViewCoords<T>(Point2<T>);
+
+impl<T> ViewCoords<T> {
+    pub fn new(x: T, y: T) -> Self {
+        Self(Point2::new(x, y))
+    }
+}
+
+impl ViewCoords<i32> {
+    pub fn clamp(&mut self, rect: Rect<i32>) {
+        util::clamp(&mut self.0, rect);
+    }
+}
+
+impl<T> Deref for ViewCoords<T> {
+    type Target = Point2<T>;
+
+    fn deref(&self) -> &Point2<T> {
+        &self.0
+    }
+}
+
+impl Into<ViewCoords<i32>> for ViewCoords<f32> {
+    fn into(self) -> ViewCoords<i32> {
+        ViewCoords::new(self.x.round() as i32, self.y.round() as i32)
+    }
+}
+
+impl Into<ViewCoords<u32>> for ViewCoords<f32> {
+    fn into(self) -> ViewCoords<u32> {
+        ViewCoords::new(self.x.round() as u32, self.y.round() as u32)
     }
 }
 
@@ -226,8 +264,8 @@ impl View {
         )
     }
 
-    pub fn contains(&self, p: Point2<f32>) -> bool {
-        self.rect().contains(p)
+    pub fn contains(&self, p: SessionCoords) -> bool {
+        self.rect().contains(*p)
     }
 
     /// View has been modified. Called when using the brush on the view,
@@ -265,7 +303,7 @@ impl View {
         self.saved_snapshot == Some(id)
     }
 
-    pub fn handle_cursor_moved(&mut self, cursor: Point2<f32>) {
+    pub fn handle_cursor_moved(&mut self, cursor: SessionCoords) {
         self.hover = self.contains(cursor);
     }
 

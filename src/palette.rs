@@ -1,3 +1,5 @@
+use crate::session::SessionCoords;
+
 use rgx::kit::Rgba8;
 
 pub struct Palette {
@@ -34,7 +36,8 @@ impl Palette {
         self.colors.len()
     }
 
-    pub fn handle_cursor_moved(&mut self, x: f32, y: f32) {
+    pub fn handle_cursor_moved(&mut self, p: SessionCoords) {
+        let (x, y) = (p.x, p.y);
         let mut x = x as i32 - self.x as i32;
         let mut y = y as i32 - self.y as i32;
         let cellsize = self.cellsize as i32;
