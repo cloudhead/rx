@@ -37,6 +37,7 @@ pub enum Command {
     ForceQuit,
     ForceQuitAll,
     FullScreen,
+    Help,
     Map(Key, Box<(Command, Option<Command>)>),
     Mode(Mode),
     AddFrame,
@@ -336,6 +337,7 @@ impl<'a> Parse<'a> for Command {
                     Ok((Command::Edit(edits), q))
                 }
             }
+            "help" => Ok((Command::Help, p)),
             "fullscreen" => Ok((Command::FullScreen, p)),
             "set" => {
                 let (k, p) = p.identifier()?;

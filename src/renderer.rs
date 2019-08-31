@@ -5,7 +5,7 @@ use crate::gpu;
 use crate::platform;
 use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{Mode, Session, Tool};
+use crate::session::{Mode, Session, Tool, HELP};
 use crate::view::{View, ViewId, ViewOp};
 
 use rgx::core;
@@ -251,6 +251,45 @@ impl Renderer {
         self.update_views(session, r);
     }
 
+    fn render_help(
+        &self,
+        r: &mut core::Renderer,
+        textures: &mut core::SwapChain,
+    ) {
+        let out = &textures.next();
+        let mut text = TextBatch::new(&self.font);
+        for (i, l) in HELP.lines().enumerate() {
+            text.add(
+                &format!("{}", l),
+                self::MARGIN * 2.,
+                self.height as f32
+                    - self::MARGIN
+                    - i as f32 * self::LINE_HEIGHT,
+                Rgba8::new(0xaa, 0xaa, 0xaa, 0xff),
+            );
+        }
+        let buf = text.finish(&r);
+
+        let mut f = r.frame();
+        r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
+        {
+            let mut p =
+                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
+
+            p.set_pipeline(&self.sprite2d);
+            p.draw(&buf, &self.font.binding);
+        }
+        {
+            let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), out);
+
+            p.set_pipeline(&self.screen2d);
+            p.set_binding(&self.screen_binding, &[]);
+            p.draw_buffer(&self.screen_vb)
+        }
+        // Submit frame for presenting.
+        r.submit(f);
+    }
+
     pub fn frame(
         &mut self,
         session: &Session,
@@ -260,6 +299,10 @@ impl Renderer {
         draw: &shape2d::Batch,
     ) {
         if !session.is_running {
+            return;
+        }
+        if session.mode == Mode::Help {
+            self.render_help(r, textures);
             return;
         }
         let out = &textures.next();
@@ -313,70 +356,66 @@ impl Renderer {
         r.update_pipeline(&self.shape2d, Matrix4::identity(), &mut f);
         r.update_pipeline(&self.framebuffer2d, (), &mut f);
 
-        if session.help {
-            // TODO
-        } else {
-            {
-                r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
-                let mut p =
-                    f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
+        {
+            r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
+            let mut p =
+                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
 
-                // Draw view checkers.
-                if session.settings["checker"].is_set() {
-                    p.set_pipeline(&self.sprite2d);
-                    p.draw(&checker_buf, &self.checker.binding);
-                }
-            }
-
-            // Draw brush strokes to view framebuffers.
-            if let Some(draw_buf) = draw_buf {
-                let ViewData { fb: view_fb, .. } =
-                    self.view_data.get(&session.active_view_id).unwrap();
-
-                r.update_pipeline(&self.view2d, Matrix4::identity(), &mut f);
-                r.update_pipeline(&self.const2d, Matrix4::identity(), &mut f);
-
-                let mut p = f.pass(
-                    if v.is_damaged() {
-                        PassOp::Clear(Rgba::TRANSPARENT)
-                    } else {
-                        PassOp::Load()
-                    },
-                    view_fb,
-                );
-
-                // FIXME: There must be a better way.
-                if let Tool::Brush(ref b) = session.tool {
-                    if b.is_set(BrushMode::Erase) {
-                        p.set_pipeline(&self.const2d);
-                    } else {
-                        p.set_pipeline(&self.view2d);
-                    }
-                }
-                p.draw_buffer(&draw_buf);
-            }
-
-            // Draw view framebuffers to screen.
-            r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
-            self.render_views(&mut f, &self.screen_fb);
-            if session.settings["animation"].is_set() {
-                self.render_view_animations(&mut f, &self.screen_fb);
-            }
-
-            {
-                r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
-
-                let mut p = f.pass(PassOp::Load(), &self.screen_fb);
-
-                // Draw UI elements to screen.
-                p.set_pipeline(&self.shape2d);
-                p.draw_buffer(&ui_buf);
-
-                // Draw text & cursor to screen.
+            // Draw view checkers.
+            if session.settings["checker"].is_set() {
                 p.set_pipeline(&self.sprite2d);
-                p.draw(&text_buf, &self.font.binding);
-                p.draw(&cursor_buf, &self.cursors.binding);
+                p.draw(&checker_buf, &self.checker.binding);
             }
+        }
+
+        // Draw brush strokes to view framebuffers.
+        if let Some(draw_buf) = draw_buf {
+            let ViewData { fb: view_fb, .. } =
+                self.view_data.get(&session.active_view_id).unwrap();
+
+            r.update_pipeline(&self.view2d, Matrix4::identity(), &mut f);
+            r.update_pipeline(&self.const2d, Matrix4::identity(), &mut f);
+
+            let mut p = f.pass(
+                if v.is_damaged() {
+                    PassOp::Clear(Rgba::TRANSPARENT)
+                } else {
+                    PassOp::Load()
+                },
+                view_fb,
+            );
+
+            // FIXME: There must be a better way.
+            if let Tool::Brush(ref b) = session.tool {
+                if b.is_set(BrushMode::Erase) {
+                    p.set_pipeline(&self.const2d);
+                } else {
+                    p.set_pipeline(&self.view2d);
+                }
+            }
+            p.draw_buffer(&draw_buf);
+        }
+
+        // Draw view framebuffers to screen.
+        r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
+        self.render_views(&mut f, &self.screen_fb);
+        if session.settings["animation"].is_set() {
+            self.render_view_animations(&mut f, &self.screen_fb);
+        }
+
+        {
+            r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
+
+            let mut p = f.pass(PassOp::Load(), &self.screen_fb);
+
+            // Draw UI elements to screen.
+            p.set_pipeline(&self.shape2d);
+            p.draw_buffer(&ui_buf);
+
+            // Draw text & cursor to screen.
+            p.set_pipeline(&self.sprite2d);
+            p.draw(&text_buf, &self.font.binding);
+            p.draw(&cursor_buf, &self.cursors.binding);
         }
 
         {
@@ -673,7 +712,7 @@ impl Renderer {
     fn draw_cursor(session: &Session, batch: &mut sprite2d::Batch) {
         // TODO: Cursor should be greyed out in command mode.
         match session.mode {
-            Mode::Present => {}
+            Mode::Present | Mode::Help => {}
             Mode::Normal | Mode::Command | Mode::Visual => {
                 if let Some(rect) = Cursors::rect(&session.tool) {
                     let offset = Cursors::offset(&session.tool);

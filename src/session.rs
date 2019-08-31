@@ -27,6 +27,45 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time;
 
+pub const HELP: &'static str = r#"
+rx: help
+
+KEY MAPPINGS                                             COMMANDS
+
+.                Zoom in view                            :help                    Toggle this help
+,                Zoom out view                           :e <path..>              Edit path(s)
+/                Reset view zoom                         :w [<path>]              Write view / Write view as <path>
+j                Go to previous view                     :q                       Quit view
+k                Go to next view                         :q!                      Force quit view
+z                Center active view                      :echo <val>              Echo a value
+u                Undo active view edit                   :echo "pixel!"           Echo the string "pixel!"
+r                Redo active view edit                   :set <setting> = <val>   Set <setting> to <val>
+x                Swap foreground/background colors       :set <setting>           Set <setting> to `on`
+b                Reset brush                             :unset <setting>         Set <setting> to `off`
+e                Erase (hold)                            :toggle <setting>        Toggle <setting> `on` / `off`
+<shift>          Multi-brush (hold)                      :slice <n>               Slice view into <n> frames
+]                Increase brush size                     :source <path>           Source an rx script (eg. a palette or config)
+[                Decrease brush size                     :map <key> <command>     Map a key combination to a command
+<ctrl>           Sample color (hold)                     :f/resize <w> <h>        Resize frames
+<up>             Pan view up                             :f/add                   Add a blank frame to the view
+<down>           Pan view down                           :f/remove                Remove the last frame of the view
+<left>           Pan view left                           :f/clone <index>         Clone frame <index> and add it to the view
+<right>          Pan view right                          :f/clone                 Clone the last frame and add it to the view
+<return>         Add a frame to the view                 :p/clear                 Clear the palette
+<backspace>      Remove a frame from the view            :p/add <color>           Add <color> to the palette, eg. #ff0011
+
+
+SETTINGS
+
+debug             on/off          Debug mode
+checker           on/off          Alpha checker toggle
+vsync             on/off          Vertical sync toggle
+frame_delay       0.0..32.0       Delay between render frames (ms)
+scale             1.0..4.0        UI scale
+animation         on/off          View animation toggle
+animation/delay   1..1000         View animation delay (ms)
+"#;
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 struct Bgra8 {
@@ -41,10 +80,12 @@ struct Bgra8 {
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Mode {
     Normal,
+    #[allow(dead_code)]
     Visual,
     Command,
     #[allow(dead_code)]
     Present,
+    Help,
 }
 
 #[derive(Debug, Clone)]
@@ -285,7 +326,6 @@ pub struct Session {
 
     pub paused: bool,
     pub onion: bool,
-    pub help: bool,
     pub recording: bool,
     pub selection: Rect<f32>,
 
@@ -381,7 +421,6 @@ impl Session {
             mouse_selection: Rect::new(0., 0., 0., 0.),
             frame_count: 0,
             paused: false,
-            help: false,
             onion: false,
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
@@ -999,6 +1038,13 @@ impl Session {
                     self.command(Command::ForceQuit);
                 }
             },
+            Command::Help => {
+                if self.mode == Mode::Help {
+                    self.switch_mode(Mode::Normal);
+                } else {
+                    self.switch_mode(Mode::Help);
+                }
+            }
             Command::SwapColors => {
                 std::mem::swap(&mut self.fg, &mut self.bg);
             }
@@ -1519,7 +1565,7 @@ impl Session {
                     Mode::Visual => {
                         // TODO
                     }
-                    Mode::Present => {}
+                    Mode::Present | Mode::Help => {}
                 }
             } else {
                 for (id, v) in &self.views {
@@ -1652,29 +1698,42 @@ impl Session {
                 return;
             }
 
-            if self.mode == Mode::Visual {
-                if key == platform::Key::Escape && state == InputState::Pressed
-                {
-                    self.selection = Rect::empty();
-                    self.switch_mode(Mode::Normal);
-                    return;
-                }
-            } else if self.mode == Mode::Command {
-                if state == InputState::Pressed {
-                    match key {
-                        platform::Key::Backspace => {
-                            self.cmdline_handle_backspace();
-                        }
-                        platform::Key::Return => {
-                            self.cmdline_handle_enter();
-                        }
-                        platform::Key::Escape => {
-                            self.cmdline_hide();
-                        }
-                        _ => {}
+            match self.mode {
+                Mode::Visual => {
+                    if key == platform::Key::Escape
+                        && state == InputState::Pressed
+                    {
+                        self.selection = Rect::empty();
+                        self.switch_mode(Mode::Normal);
+                        return;
                     }
                 }
-                return;
+                Mode::Command => {
+                    if state == InputState::Pressed {
+                        match key {
+                            platform::Key::Backspace => {
+                                self.cmdline_handle_backspace();
+                            }
+                            platform::Key::Return => {
+                                self.cmdline_handle_enter();
+                            }
+                            platform::Key::Escape => {
+                                self.cmdline_hide();
+                            }
+                            _ => {}
+                        }
+                    }
+                    return;
+                }
+                Mode::Help => {
+                    if state == InputState::Pressed {
+                        if key == platform::Key::Escape {
+                            self.switch_mode(Mode::Normal);
+                        }
+                    }
+                    return;
+                }
+                _ => {}
             }
 
             if let Some(kb) = self.key_bindings.find(
