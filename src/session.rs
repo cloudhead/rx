@@ -858,9 +858,11 @@ impl Session {
         }
         let (_, first) = self
             .views
-            .iter()
+            .iter_mut()
             .next()
             .expect("view list should never be empty");
+
+        first.offset.y = 0.;
 
         let mut offset = first.height() as f32 * first.zoom + Self::VIEW_MARGIN;
 
