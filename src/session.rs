@@ -312,6 +312,9 @@ pub struct Session {
     pub cx: f32,
     pub cy: f32,
 
+    pub hover_color: Option<Rgba8>,
+    pub hover_view: Option<ViewId>,
+
     pub offset: Vector2<f32>,
     pub message: Message,
 
@@ -422,6 +425,8 @@ impl Session {
             frame_count: 0,
             paused: false,
             onion: false,
+            hover_color: None,
+            hover_view: None,
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
             settings: Settings::new(),
@@ -440,7 +445,7 @@ impl Session {
             paste: (),
             recording: false,
             recording_opts: 0,
-            active_view_id: ViewId(0),
+            active_view_id: ViewId::default(),
             next_view_id: ViewId(1),
             resources,
             dirty: true,
@@ -472,8 +477,8 @@ impl Session {
         self.resources.add_blank_view(&id, w, h);
     }
 
-    pub fn active_view_coords(&self, x: f32, y: f32) -> Point2<f32> {
-        let v = self.active_view();
+    pub fn view_coords(&self, v: ViewId, x: f32, y: f32) -> Point2<f32> {
+        let v = self.view(v);
         let mut p = Point2::new(x, y);
 
         p = p - self.offset - v.offset;
@@ -487,6 +492,10 @@ impl Session {
         }
 
         p.map(f32::floor)
+    }
+
+    pub fn active_view_coords(&self, x: f32, y: f32) -> Point2<f32> {
+        self.view_coords(self.active_view_id, x, y)
     }
 
     pub fn frame(
@@ -511,7 +520,7 @@ impl Session {
                     let scale: f64 = self.settings["scale"].float64();
                     self.handle_cursor_moved(
                         (position.x / scale).floor() as f32,
-                        self.height - (position.y / scale).floor() as f32,
+                        self.height - (position.y / scale).floor() as f32 - 1.,
                         out,
                     );
                 }
@@ -1446,27 +1455,29 @@ impl Session {
         // TODO: Switch to brush.
     }
 
-    fn sample_color(&mut self, x: u32, y: u32) {
-        let color = {
-            // TODO: Sample from any view.
-            let resources = self.resources.lock();
-            let snapshot = resources.get_snapshot(&self.active_view_id);
+    fn color_at(&self, v: ViewId, x: u32, y: u32) -> Rgba8 {
+        let resources = self.resources.lock();
+        let snapshot = resources.get_snapshot(&v);
 
-            assert!(snapshot.pixels.len() % std::mem::size_of::<Bgra8>() == 0);
+        assert!(snapshot.pixels.len() % std::mem::size_of::<Bgra8>() == 0);
 
-            let (head, pixels, tail) =
-                unsafe { snapshot.pixels.align_to::<Bgra8>() };
+        let (head, pixels, tail) =
+            unsafe { snapshot.pixels.align_to::<Bgra8>() };
 
-            assert!(head.is_empty());
-            assert!(tail.is_empty());
+        assert!(head.is_empty());
+        assert!(tail.is_empty());
 
-            let index =
-                ((snapshot.height() - y) * snapshot.width() + x) as usize;
-            let bgra = pixels[index];
+        let index =
+            ((snapshot.height() - y - 1) * snapshot.width() + x) as usize;
+        let bgra = pixels[index];
 
-            Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a)
-        };
-        self.pick_color(color);
+        Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a)
+    }
+
+    fn sample_color(&mut self) {
+        if let Some(color) = self.hover_color {
+            self.pick_color(color);
+        }
     }
 
     pub fn record_macro(&mut self, _cmd: String) {}
@@ -1552,10 +1563,7 @@ impl Session {
                             );
                         }
                         Tool::Sampler => {
-                            self.sample_color(
-                                p.x.round() as u32,
-                                p.y.round() as u32,
-                            );
+                            self.sample_color();
                         }
                         Tool::Pan => {}
                     },
@@ -1601,9 +1609,16 @@ impl Session {
     ) {
         self.record_macro(format!("cursor/move {} {}", cx, cy));
         self.palette.handle_cursor_moved(cx, cy);
+
+        self.hover_view = None;
+        self.hover_color = None;
         for (_, v) in &mut self.views {
             v.handle_cursor_moved(Point2::new(cx, cy) - self.offset);
+            if v.hover {
+                self.hover_view = Some(v.id);
+            }
         }
+
         let p = self.active_view_coords(cx, cy);
         let (nframes, fw, frame_index, vw, vh) = {
             let v = self.active_view();
@@ -1615,6 +1630,10 @@ impl Session {
                 v.height(),
             )
         };
+        if let Some(v) = self.hover_view {
+            let p = self.view_coords(v, cx, cy).map(|c| c.round() as u32);
+            self.hover_color = Some(self.color_at(v, p.x, p.y));
+        }
 
         match self.mode {
             Mode::Normal => match self.tool {

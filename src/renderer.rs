@@ -627,8 +627,11 @@ impl Renderer {
         {
             // Session status
             let cursor = session.active_view_coords(session.cx, session.cy);
+            let hover_color = session.hover_color.map_or(String::new(), |c| {
+                format!("#{:02X}{:02X}{:02X}", c.r, c.g, c.b)
+            });
             text.add(
-                &format!("{:>4},{:<4}", cursor.x, cursor.y,),
+                &format!("{:>4},{:<4} {:>12}", cursor.x, cursor.y, hover_color),
                 session.width - MARGIN - 36. * 8.,
                 MARGIN + self::LINE_HEIGHT,
                 Rgba8::WHITE,

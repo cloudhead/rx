@@ -13,6 +13,12 @@ use std::time;
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug)]
 pub struct ViewId(pub u16);
 
+impl Default for ViewId {
+    fn default() -> Self {
+        ViewId(0)
+    }
+}
+
 impl fmt::Display for ViewId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
