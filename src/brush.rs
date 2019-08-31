@@ -80,6 +80,7 @@ impl Brush {
         self.modes.remove(&m)
     }
 
+    #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.modes.clear();
     }

@@ -5,7 +5,7 @@ use crate::cmd::{Command, CommandLine, Key, Op, Value};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
-use crate::platform::{InputState, KeyboardInput, WindowEvent};
+use crate::platform::{InputState, KeyboardInput, ModifiersState, WindowEvent};
 use crate::resources::ResourceManager;
 use crate::util;
 use crate::view::{FileStatus, View, ViewId};
@@ -19,7 +19,7 @@ use cgmath::{Matrix4, Point2, Vector2};
 
 use directories as dirs;
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
@@ -179,7 +179,7 @@ type Error = String;
 #[derive(PartialEq, Clone, Debug)]
 struct KeyBinding {
     modes: Vec<Mode>,
-    modifiers: platform::ModifiersState,
+    modifiers: ModifiersState,
     key: Key,
     state: InputState,
     command: Command,
@@ -199,14 +199,14 @@ impl Default for KeyBindings {
             elems: vec![
                 KeyBinding {
                     modes: vec![Mode::Normal],
-                    modifiers: platform::ModifiersState::default(),
+                    modifiers: ModifiersState::default(),
                     key: Key::Virtual(platform::Key::Colon),
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
                 },
                 KeyBinding {
                     modes: vec![Mode::Normal],
-                    modifiers: platform::ModifiersState {
+                    modifiers: ModifiersState {
                         shift: true,
                         ctrl: false,
                         alt: false,
@@ -229,13 +229,13 @@ impl KeyBindings {
     pub fn find(
         &self,
         key: Key,
-        modifiers: platform::ModifiersState,
-        state: platform::InputState,
+        modifiers: ModifiersState,
+        state: InputState,
         mode: &Mode,
     ) -> Option<KeyBinding> {
         self.elems.iter().cloned().find(|kb| {
             kb.key == key
-                && (kb.modifiers == platform::ModifiersState::default()
+                && (kb.modifiers == ModifiersState::default()
                     || kb.modifiers == modifiers)
                 && kb.state == state
                 && kb.modes.contains(mode)
@@ -325,6 +325,7 @@ pub struct Session {
 
     resources: ResourceManager,
 
+    keys_pressed: HashSet<platform::Key>,
     key_bindings: KeyBindings,
 
     pub paused: bool,
@@ -432,6 +433,7 @@ impl Session {
             settings: Settings::new(),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
+            keys_pressed: HashSet::new(),
             fps: 6,
             views: BTreeMap::new(),
             views_lru: VecDeque::new(),
@@ -1013,14 +1015,15 @@ impl Session {
             _ => {}
         }
 
-        match new {
-            Mode::Command => {
-                if let Tool::Brush(ref mut b) = self.tool {
-                    b.reset();
-                }
-            }
-            _ => {}
+        let pressed: Vec<platform::Key> = self.keys_pressed.drain().collect();
+        for k in pressed {
+            self.handle_keyboard_input(platform::KeyboardInput {
+                key: Some(k),
+                modifiers: ModifiersState::default(),
+                state: InputState::Released,
+            });
         }
+
         self.mode = new;
     }
 
@@ -1722,6 +1725,12 @@ impl Session {
             // While the mouse is down, don't accept keyboard input.
             if self.mouse_down {
                 return;
+            }
+
+            if state == InputState::Pressed {
+                self.keys_pressed.insert(key);
+            } else if state == InputState::Released {
+                self.keys_pressed.remove(&key);
             }
 
             match self.mode {
