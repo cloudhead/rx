@@ -1631,17 +1631,17 @@ impl Session {
                         };
 
                         let mut p = Point2::new(p.x as i32, p.y as i32);
-                        util::clamp(
-                            &mut p,
-                            Rect::new(
-                                (brush.size / 2) as i32,
-                                (brush.size / 2) as i32,
-                                vw as i32 - (brush.size / 2) as i32 - 1,
-                                vh as i32 - (brush.size / 2) as i32 - 1,
-                            ),
-                        );
 
                         if brush.is_set(BrushMode::Multi) {
+                            util::clamp(
+                                &mut p,
+                                Rect::new(
+                                    (brush.size / 2) as i32,
+                                    (brush.size / 2) as i32,
+                                    vw as i32 - (brush.size / 2) as i32 - 1,
+                                    vh as i32 - (brush.size / 2) as i32 - 1,
+                                ),
+                            );
                             let offsets: Vec<_> = (0..nframes as i32
                                 - frame_index)
                                 .map(|i| {
