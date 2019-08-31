@@ -434,8 +434,8 @@ impl Renderer {
             .expect("views must have associated view data")
             .fb;
 
-        let (w, h) = (v.width(), v.height());
-        let (fb_w, fb_h) = (fb.width(), fb.height());
+        let (vw, vh) = (v.width(), v.height());
+        let (sw, sh) = (snapshot.width(), snapshot.height());
 
         // View size changed. Re-create view resources.
         // This condition is triggered when the size of the view doesn't match the size
@@ -444,24 +444,24 @@ impl Renderer {
         //      1. The view was resized.
         //      2. A snapshot was restored with a different size than the view.
         //
-        if fb_w != w || fb_h != h {
-            // Transfer the smaller of the two images to the new framebuffer,
-            // so that we don't overflow the buffer.
-            let transfer_w = if w <= fb_w { w } else { fb_w };
-            let transfer_h = if h <= fb_h { h } else { fb_h };
-
+        if fb.width() != vw || fb.height() != vh {
             let view_data =
-                ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, r);
+                ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, r);
+
+            // Ensure not to transfer more data than can fit
+            // in the view buffer.
+            let tw = u32::min(sw, vw);
+            let th = u32::min(sh, vh);
 
             r.prepare(&[
                 Op::Clear(&view_data.fb, Rgba::TRANSPARENT),
                 Op::Transfer(
                     &view_data.fb,
                     snapshot.pixels.as_slice(),
-                    snapshot.width(),
-                    snapshot.height(),
-                    transfer_w,
-                    transfer_h,
+                    sw, // Source width
+                    sh, // Source height
+                    tw, // Transfer width
+                    th, // Transfer height
                 ),
             ]);
             self.view_data.insert(v.id, view_data);
