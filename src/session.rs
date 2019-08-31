@@ -1630,7 +1630,9 @@ impl Session {
                 v.height(),
             )
         };
-        if let Some(v) = self.hover_view {
+        if let Some(color) = self.palette.hover {
+            self.hover_color = Some(color);
+        } else if let Some(v) = self.hover_view {
             let p = self.view_coords(v, cx, cy).map(|c| c.round() as u32);
             self.hover_color = Some(self.color_at(v, p.x, p.y));
         }
