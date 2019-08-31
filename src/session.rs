@@ -66,6 +66,7 @@ animation         on/off          View animation toggle
 animation/delay   1..1000         View animation delay (ms)
 "#;
 
+/// A BGRA color, used when dealing with framebuffers.
 #[repr(C)]
 #[derive(Copy, Clone)]
 struct Bgra8 {
@@ -77,21 +78,38 @@ struct Bgra8 {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/// An editing mode the `Session` can be in.
+/// Some of these modes are inspired by vi.
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Mode {
+    /// Allows the user to paint pixels.
     Normal,
+    /// Allows pixels to be selected, copied and manipulated visually.
     #[allow(dead_code)]
     Visual,
+    /// Allows commands to be run.
     Command,
+    /// Used to present work.
     #[allow(dead_code)]
     Present,
+    /// Activated with the `:help` command.
     Help,
 }
 
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Normal
+    }
+}
+
+/// An editing tool.
 #[derive(Debug, Clone)]
 pub enum Tool {
+    /// The standard drawing tool.
     Brush(Brush),
+    /// Used to sample colors.
     Sampler,
+    /// Used to pan the workspace.
     #[allow(dead_code)]
     Pan,
 }
@@ -104,40 +122,16 @@ impl Default for Tool {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Eq, PartialEq, Clone, Copy, Debug)]
-pub enum MessageType {
-    Info,
-    Hint,
-    Echo,
-    Error,
-    #[allow(dead_code)]
-    Warning,
-    #[allow(dead_code)]
-    Replay,
-    #[allow(dead_code)]
-    Okay,
-}
-
-impl MessageType {
-    fn color(&self) -> Rgba8 {
-        match *self {
-            MessageType::Info => Rgba8::new(200, 200, 200, 255),
-            MessageType::Hint => Rgba8::new(100, 100, 100, 255),
-            MessageType::Echo => Rgba8::new(190, 255, 230, 255),
-            MessageType::Error => Rgba8::new(255, 50, 100, 255),
-            MessageType::Warning => Rgba8::new(255, 255, 100, 255),
-            MessageType::Replay => Rgba8::new(255, 255, 255, 160),
-            MessageType::Okay => Rgba8::new(90, 255, 90, 255),
-        }
-    }
-}
-
+/// A message to the user, displayed in the session.
 pub struct Message {
+    /// The message string.
     string: String,
+    /// The message type.
     message_type: MessageType,
 }
 
 impl Message {
+    /// Create a new message.
     pub fn new<D: fmt::Display>(s: D, t: MessageType) -> Self {
         Message {
             string: format!("{}", s),
@@ -145,10 +139,12 @@ impl Message {
         }
     }
 
+    /// Return the color of a message.
     pub fn color(&self) -> Rgba8 {
         self.message_type.color()
     }
 
+    /// Log a message to stdout/stderr.
     fn log(&self) {
         match self.message_type {
             MessageType::Info => info!("{}", self),
@@ -174,17 +170,62 @@ impl std::fmt::Display for Message {
     }
 }
 
+/// The type of a `Message`.
+#[derive(Eq, PartialEq, Clone, Copy, Debug)]
+pub enum MessageType {
+    /// A hint that can be ignored.
+    Hint,
+    /// Informational message.
+    Info,
+    /// A message that is displayed by the `:echo` command.
+    Echo,
+    /// An error message.
+    Error,
+    /// Non-critical warning.
+    #[allow(dead_code)]
+    Warning,
+    #[allow(dead_code)]
+    Replay,
+    #[allow(dead_code)]
+    Okay,
+}
+
+impl MessageType {
+    /// Returns the color associated with a `MessageType`.
+    fn color(&self) -> Rgba8 {
+        match *self {
+            MessageType::Info => Rgba8::new(200, 200, 200, 255),
+            MessageType::Hint => Rgba8::new(100, 100, 100, 255),
+            MessageType::Echo => Rgba8::new(190, 255, 230, 255),
+            MessageType::Error => Rgba8::new(255, 50, 100, 255),
+            MessageType::Warning => Rgba8::new(255, 255, 100, 255),
+            MessageType::Replay => Rgba8::new(255, 255, 255, 160),
+            MessageType::Okay => Rgba8::new(90, 255, 90, 255),
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+/// A session error.
 type Error = String;
 
+/// A key binding.
 #[derive(PartialEq, Clone, Debug)]
 struct KeyBinding {
+    /// The `Mode`s this binding applies to.
     modes: Vec<Mode>,
+    /// Modifiers which must be held.
     modifiers: ModifiersState,
+    /// Key which must be pressed or released.
     key: Key,
+    /// Whether the key should be pressed or released.
     state: InputState,
+    /// The `Command` to run when this binding is triggered.
     command: Command,
 }
 
+/// Manages a list of key bindings.
 #[derive(Debug)]
 struct KeyBindings {
     elems: Vec<KeyBinding>,
@@ -222,10 +263,12 @@ impl Default for KeyBindings {
 }
 
 impl KeyBindings {
+    /// Add a key binding.
     pub fn add(&mut self, binding: KeyBinding) {
         self.elems.push(binding);
     }
 
+    /// Find a key binding based on some input state.
     pub fn find(
         &self,
         key: Key,
@@ -243,25 +286,15 @@ impl KeyBindings {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+/// A dictionary used to store session settings.
 pub struct Settings {
     map: HashMap<String, Value>,
 }
 
 impl Settings {
-    fn new() -> Self {
-        Self {
-            map: hashmap! {
-                "debug" => Value::Bool(false),
-                "checker" => Value::Bool(false),
-                "vsync" => Value::Bool(false),
-                "frame_delay" => Value::Float(8.0),
-                "scale" => Value::Float(1.0),
-                "animation" => Value::Bool(true),
-                "animation/delay" => Value::U32(160)
-            },
-        }
-    }
-
+    /// Presentation mode.
     pub fn present_mode(&self) -> PresentMode {
         if self["vsync"].is_set() {
             PresentMode::Vsync
@@ -270,10 +303,14 @@ impl Settings {
         }
     }
 
+    /// Lookup a setting.
     pub fn get(&self, setting: &str) -> Option<&Value> {
         self.map.get(setting)
     }
 
+    /// Set an existing setting to a new value. Returns `Err` if there is a type
+    /// mismatch or the setting isn't found. Otherwise, returns `Ok` with the
+    /// old value.
     pub fn set(&mut self, k: &str, v: Value) -> Result<Value, Error> {
         if let Some(current) = self.get(k) {
             if std::mem::discriminant(&v) == std::mem::discriminant(current) {
@@ -290,6 +327,23 @@ impl Settings {
     }
 }
 
+impl Default for Settings {
+    /// The default settings.
+    fn default() -> Self {
+        Self {
+            map: hashmap! {
+                "debug" => Value::Bool(false),
+                "checker" => Value::Bool(false),
+                "vsync" => Value::Bool(false),
+                "frame_delay" => Value::Float(8.0),
+                "scale" => Value::Float(1.0),
+                "animation" => Value::Bool(true),
+                "animation/delay" => Value::U32(160)
+            },
+        }
+    }
+}
+
 impl std::ops::Index<&str> for Settings {
     type Output = Value;
 
@@ -300,74 +354,108 @@ impl std::ops::Index<&str> for Settings {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+/// The user session.
+///
+/// Stores all relevant session state.
 pub struct Session {
+    /// Whether the session is running or not.
     pub is_running: bool,
+    /// The current session `Mode`.
     pub mode: Mode,
 
+    /// The width of the session workspace.
     pub width: f32,
+    /// The height of the session workspace.
     pub height: f32,
 
+    /// The HiDPI factor of the host.
     pub hidpi_factor: f64,
 
+    /// The cursor *x* coordinate.
     pub cx: f32,
+    /// The cursor *y* coordinate.
     pub cy: f32,
 
+    /// The color under the cursor, if any.
     pub hover_color: Option<Rgba8>,
+    /// The view under the cursor, if any.
     pub hover_view: Option<ViewId>,
 
+    /// The workspace offset. Views are offset by this vector.
     pub offset: Vector2<f32>,
+    /// The current message displayed to the user.
     pub message: Message,
 
+    /// The session foreground color.
     pub fg: Rgba8,
+    /// The session background color.
     pub bg: Rgba8,
 
+    /// Directories in which user configuration is stored.
     base_dirs: dirs::ProjectDirs,
 
+    /// Resources shared with the `Renderer`.
     resources: ResourceManager,
 
+    /// The set of keys currently pressed.
     keys_pressed: HashSet<platform::Key>,
+    /// The list of all active key bindings.
     key_bindings: KeyBindings,
 
+    /// Set to `true` if animations are paused.
     pub paused: bool,
-    pub onion: bool,
-    pub recording: bool,
+    /// Current pixel selection.
     pub selection: Rect<f32>,
 
+    /// The session's current settings.
     pub settings: Settings,
 
+    /// Views loaded in the session.
     pub views: BTreeMap<ViewId, View>,
+    /// Currently active view.
     pub active_view_id: ViewId,
 
+    /// The next `ViewId`.
     next_view_id: ViewId,
+    /// A last-recently-used list of views.
     views_lru: VecDeque<ViewId>,
 
+    /// The current state of the command line.
     pub cmdline: CommandLine,
+    /// The color palette.
     pub palette: Palette,
 
     /// Set to `true` if a view was added or removed from the session.
     pub dirty: bool,
 
+    /// The current tool.
     pub tool: Tool,
+    /// The previous tool, if any.
     pub prev_tool: Option<Tool>,
 
+    /// Whether session inputs are being throttled.
     throttled: Option<time::Instant>,
+    /// Set to `true` if the mouse button is pressed.
+    mouse_down: bool,
 
     #[allow(dead_code)]
-    paste: (),
+    _paste: (),
     #[allow(dead_code)]
-    recording_opts: u32,
+    _onion: bool,
     #[allow(dead_code)]
-    grid_w: u32,
+    _recording: bool,
     #[allow(dead_code)]
-    grid_h: u32,
+    _recording_opts: u32,
     #[allow(dead_code)]
-    fps: u32,
+    _grid_w: u32,
     #[allow(dead_code)]
-    mouse_down: bool,
+    _grid_h: u32,
     #[allow(dead_code)]
-    mouse_selection: Rect<f32>,
+    _mouse_selection: Rect<f32>,
     #[allow(dead_code)]
-    frame_count: u64,
+    _frame_count: u64,
 }
 
 impl Session {
@@ -403,6 +491,7 @@ impl Session {
     /// Initial (default) configuration for rx.
     const CONFIG: &'static [u8] = include_bytes!("../config/init.rx");
 
+    /// Create a new un-initialized session.
     pub fn new(
         w: u32,
         h: u32,
@@ -422,31 +511,30 @@ impl Session {
             tool: Tool::Brush(Brush::default()),
             prev_tool: None,
             mouse_down: false,
-            mouse_selection: Rect::new(0., 0., 0., 0.),
-            frame_count: 0,
+            _mouse_selection: Rect::new(0., 0., 0., 0.),
+            _frame_count: 0,
             paused: false,
-            onion: false,
+            _onion: false,
             hover_color: None,
             hover_view: None,
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
-            settings: Settings::new(),
+            settings: Settings::default(),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
-            fps: 6,
             views: BTreeMap::new(),
             views_lru: VecDeque::new(),
             cmdline: CommandLine::new(),
-            grid_w: 0,
-            grid_h: 0,
+            _grid_w: 0,
+            _grid_h: 0,
             throttled: None,
             mode: Mode::Normal,
             selection: Rect::new(0., 0., 0., 0.),
             message: Message::default(),
-            paste: (),
-            recording: false,
-            recording_opts: 0,
+            _paste: (),
+            _recording: false,
+            _recording_opts: 0,
             active_view_id: ViewId::default(),
             next_view_id: ViewId(1),
             resources,
@@ -454,6 +542,7 @@ impl Session {
         }
     }
 
+    /// Initialize a session.
     pub fn init(mut self) -> std::io::Result<Self> {
         self.is_running = true;
 
@@ -470,6 +559,7 @@ impl Session {
         Ok(self)
     }
 
+    /// Create a blank view.
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
         let id = self.gen_view_id();
 
