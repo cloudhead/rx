@@ -98,7 +98,8 @@ USAGE
 
   After installing, simply run `rx` from a shell or application launcher.
 
-  See `.config/init.rx` for the default key mappings.
+  You can then use the :help command to show the default set of key mappings
+  and commands.
 
   Common commands:
 

@@ -28,7 +28,7 @@ use std::str::FromStr;
 use std::time;
 
 pub const HELP: &'static str = r#"
-rx: help
+rx: default key mappings and commands
 
 KEY MAPPINGS                                             COMMANDS
 
