@@ -1144,13 +1144,10 @@ impl Session {
                 self.center_active_view();
             }
             Command::AddFrame => {
-                let (_id, _w, _h) = {
-                    let v = self.active_view_mut();
-                    v.extend();
-
-                    (v.id, v.width(), v.height())
-                };
-                // TODO: Copy previous frame to next frame.
+                self.active_view_mut().extend();
+            }
+            Command::CloneFrame(n) => {
+                self.active_view_mut().extend_clone(n);
             }
             Command::RemoveFrame => {
                 let v = self.active_view_mut();

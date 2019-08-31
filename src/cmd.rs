@@ -40,6 +40,7 @@ pub enum Command {
     Map(Key, Box<(Command, Option<Command>)>),
     Mode(Mode),
     AddFrame,
+    CloneFrame(i32),
     RemoveFrame,
     Noop,
     PaletteAdd(Rgba8),
@@ -441,6 +442,12 @@ impl<'a> Parse<'a> for Command {
                 "parsing failed: `f/new` has been renamed to `f/add`",
             )),
             "f/add" => Ok((Command::AddFrame, p)),
+            "f/clone" => {
+                match p.clone().parse::<i32>().or_else(|_| Ok((-1, p))) {
+                    Ok((index, p)) => Ok((Command::CloneFrame(index), p)),
+                    Err(e) => Err(e),
+                }
+            }
             "f/remove" => Ok((Command::RemoveFrame, p)),
             "f/resize" => {
                 let ((w, h), p) = p.parse::<(u32, u32)>()?;

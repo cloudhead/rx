@@ -6,7 +6,7 @@ use crate::platform;
 use crate::resources::ResourceManager;
 use crate::screen2d;
 use crate::session::{Mode, Session, Tool};
-use crate::view::{View, ViewId};
+use crate::view::{View, ViewId, ViewOp};
 
 use rgx::core;
 use rgx::core::{AbstractPipeline, Blending, Filter, Op, PassOp, Rect, Rgba};
@@ -470,6 +470,22 @@ impl Renderer {
         }
     }
 
+    pub fn handle_view_ops(&mut self, v: &View, r: &mut core::Renderer) {
+        let fb = &self
+            .view_data
+            .get(&v.id)
+            .expect("views must have associated view data")
+            .fb;
+
+        for op in &v.ops {
+            match op {
+                ViewOp::Blit(src, dst) => {
+                    r.prepare(&[Op::Blit(fb, *src, *dst)]);
+                }
+            }
+        }
+    }
+
     pub fn update_views(&mut self, session: &Session, r: &mut core::Renderer) {
         let data_keys: HashSet<ViewId> =
             self.view_data.keys().cloned().collect();
@@ -482,6 +498,7 @@ impl Renderer {
         for v in session.views.values() {
             if !v.is_okay() {
                 self.resize_view_framebuffer(v, r);
+                self.handle_view_ops(v, r);
             }
         }
 

@@ -35,6 +35,11 @@ pub enum ViewState {
     Damaged,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ViewOp {
+    Blit(Rect<f32>, Rect<f32>),
+}
+
 #[derive(Debug)]
 pub struct View {
     pub fw: u32,
@@ -42,6 +47,7 @@ pub struct View {
     pub offset: Vector2<f32>,
     pub id: ViewId,
     pub zoom: f32,
+    pub ops: Vec<ViewOp>,
 
     pub flip_x: bool,
     pub flip_y: bool,
@@ -70,6 +76,7 @@ impl View {
             fh,
             offset: Vector2::zero(),
             zoom: 1.,
+            ops: Vec::new(),
             flip_x: false,
             flip_y: false,
             hover: false,
@@ -123,6 +130,23 @@ impl View {
         self.animation.push_frame(Rect::new(w, 0., w + fw, fh));
 
         self.touch();
+    }
+
+    pub fn extend_clone(&mut self, index: i32) {
+        let width = self.width() as f32;
+        let (fw, fh) = (self.fw as f32, self.fh as f32);
+
+        let index = if index == -1 {
+            self.animation.len() - 1
+        } else {
+            index as usize
+        };
+
+        self.ops.push(ViewOp::Blit(
+            Rect::new(fw * index as f32, 0., fw * (index + 1) as f32, fh),
+            Rect::new(width, 0., width + fw, fh),
+        ));
+        self.extend();
     }
 
     pub fn resize_frame(&mut self, fw: u32, fh: u32) {
@@ -180,6 +204,7 @@ impl View {
 
     pub fn okay(&mut self) {
         self.state = ViewState::Okay;
+        self.ops.clear();
     }
 
     pub fn frame(&mut self, delta: time::Duration) {
