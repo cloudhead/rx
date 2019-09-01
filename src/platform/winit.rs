@@ -136,6 +136,8 @@ impl From<winit::event::KeyboardInput> for KeyboardInput {
             state: input.state.into(),
             key: input.virtual_keycode.map(Key::from),
             modifiers: input.modifiers.into(),
+            // NOTE: winit currently doesn't support this.
+            repeat: false,
         }
     }
 }

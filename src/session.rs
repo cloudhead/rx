@@ -260,6 +260,8 @@ struct KeyBinding {
     state: InputState,
     /// The `Command` to run when this binding is triggered.
     command: Command,
+    /// Whether this key binding controls a toggle.
+    is_toggle: bool,
 }
 
 /// Manages a list of key bindings.
@@ -281,6 +283,7 @@ impl Default for KeyBindings {
                     key: Key::Virtual(platform::Key::Colon),
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
+                    is_toggle: false,
                 },
                 KeyBinding {
                     modes: vec![Mode::Normal],
@@ -293,6 +296,7 @@ impl Default for KeyBindings {
                     key: Key::Virtual(platform::Key::Semicolon),
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
+                    is_toggle: false,
                 },
             ],
         }
@@ -1150,6 +1154,7 @@ impl Session {
                 key: Some(k),
                 modifiers: ModifiersState::default(),
                 state: InputState::Released,
+                repeat: false,
             });
         }
 
@@ -1449,6 +1454,7 @@ impl Session {
                     command: press,
                     state: InputState::Pressed,
                     modifiers: platform::ModifiersState::default(),
+                    is_toggle: release.is_some(),
                 });
                 if let Some(cmd) = release {
                     self.key_bindings.add(KeyBinding {
@@ -1457,6 +1463,7 @@ impl Session {
                         command: cmd,
                         state: InputState::Released,
                         modifiers: platform::ModifiersState::default(),
+                        is_toggle: true,
                     });
                 }
             }
@@ -1837,7 +1844,7 @@ impl Session {
             state,
             modifiers,
             key,
-            ..
+            repeat,
         } = input;
 
         if let Some(key) = key {
@@ -1896,7 +1903,12 @@ impl Session {
                 state,
                 &self.mode,
             ) {
-                self.command(kb.command);
+                // For toggle-like key bindings, we don't want to run the command
+                // on key repeats. For regular key bindings, we run the command
+                // either way.
+                if !kb.is_toggle || kb.is_toggle && !repeat {
+                    self.command(kb.command);
+                }
             }
         }
     }

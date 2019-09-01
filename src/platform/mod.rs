@@ -97,6 +97,7 @@ pub struct KeyboardInput {
     pub state: InputState,
     pub key: Option<Key>,
     pub modifiers: ModifiersState,
+    pub repeat: bool,
 }
 
 /// Describes the input state of a key.
