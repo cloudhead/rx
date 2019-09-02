@@ -1160,7 +1160,8 @@ impl Session {
             _ => {}
         }
 
-        let pressed: Vec<platform::Key> = self.keys_pressed.drain().collect();
+        let pressed: Vec<platform::Key> =
+            self.keys_pressed.iter().cloned().collect();
         for k in pressed {
             self.handle_keyboard_input(platform::KeyboardInput {
                 key: Some(k),
@@ -1868,7 +1869,9 @@ impl Session {
             if state == InputState::Pressed {
                 self.keys_pressed.insert(key);
             } else if state == InputState::Released {
-                self.keys_pressed.remove(&key);
+                if !self.keys_pressed.remove(&key) {
+                    return;
+                }
             }
 
             match self.mode {
