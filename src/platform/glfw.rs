@@ -243,7 +243,7 @@ impl From<glfw::Key> for Key {
             Glfw::Apostrophe => Key::Apostrophe,
             Glfw::Backslash => Key::Backslash,
             Glfw::Comma => Key::Comma,
-            Glfw::Equal => Key::Equals,
+            Glfw::Equal => Key::Equal,
             Glfw::GraveAccent => Key::Grave,
             Glfw::LeftAlt => Key::LAlt,
             Glfw::LeftBracket => Key::LBracket,

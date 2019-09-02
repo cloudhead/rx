@@ -6,7 +6,6 @@ use crate::platform::{
 };
 
 use winit;
-use winit::platform::desktop::EventLoopExtDesktop;
 
 use std::io;
 
@@ -37,29 +36,6 @@ where
 
 pub struct Events {
     handle: winit::event_loop::EventLoop<()>,
-}
-
-impl Events {
-    pub fn poll(&mut self) -> Vec<WindowEvent> {
-        let mut events = Vec::new();
-
-        self.handle
-            .run_return(|event, _, control_flow| match event {
-                winit::event::Event::WindowEvent { event, .. } => {
-                    events.push(event.into());
-                    *control_flow = winit::event_loop::ControlFlow::Exit;
-                }
-                winit::event::Event::NewEvents(
-                    winit::event::StartCause::Poll,
-                ) => {
-                    *control_flow = winit::event_loop::ControlFlow::Exit;
-                }
-                winit::event::Event::EventsCleared => {}
-                winit::event::Event::LoopDestroyed => {}
-                _ => {}
-            });
-        events
-    }
 }
 
 pub struct Window {
@@ -235,20 +211,17 @@ impl From<winit::event::VirtualKeyCode> for Key {
             Winit::Return => Key::Return,
             Winit::Space => Key::Space,
             Winit::Caret => Key::Caret,
-            Winit::Add => Key::Add,
             Winit::Apostrophe => Key::Apostrophe,
             Winit::Backslash => Key::Backslash,
             Winit::Colon => Key::Colon,
             Winit::Comma => Key::Comma,
-            Winit::Divide => Key::Divide,
-            Winit::Equals => Key::Equals,
+            Winit::Equals => Key::Equal,
             Winit::Grave => Key::Grave,
             Winit::LAlt => Key::LAlt,
             Winit::LBracket => Key::LBracket,
             Winit::LControl => Key::LControl,
             Winit::LShift => Key::LShift,
-            Winit::Minus => Key::Minus,
-            Winit::Multiply => Key::Multiply,
+            Winit::Subtract => Key::Minus,
             Winit::Period => Key::Period,
             Winit::RAlt => Key::RAlt,
             Winit::RBracket => Key::RBracket,
@@ -256,7 +229,6 @@ impl From<winit::event::VirtualKeyCode> for Key {
             Winit::RShift => Key::RShift,
             Winit::Semicolon => Key::Semicolon,
             Winit::Slash => Key::Slash,
-            Winit::Subtract => Key::Subtract,
             Winit::Tab => Key::Tab,
             _ => Key::Unknown,
         }

@@ -283,7 +283,7 @@ impl<'a> Parse<'a> for platform::Key {
             'y' => Key::Y, 'z' => Key::Z,
             '/' => Key::Slash, '[' => Key::LBracket, ']' => Key::RBracket,
             '`' => Key::Grave, ',' => Key::Comma, '.' => Key::Period,
-            '=' => Key::Equals, '-' => Key::Subtract, '\'' => Key::Apostrophe,
+            '=' => Key::Equal, '-' => Key::Minus, '\'' => Key::Apostrophe,
             _ => return Err(Error::new(format!("unknown key {:?}", c))),
         };
         Ok((key, p))
