@@ -139,6 +139,18 @@ impl Default for Mode {
     }
 }
 
+impl fmt::Display for Mode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Normal => "normal".fmt(f),
+            Self::Visual => "visual".fmt(f),
+            Self::Command => "command".fmt(f),
+            Self::Present => "present".fmt(f),
+            Self::Help => "help".fmt(f),
+        }
+    }
+}
+
 /// An editing tool.
 #[derive(Debug, Clone)]
 pub enum Tool {

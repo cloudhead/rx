@@ -89,10 +89,80 @@ pub enum Command {
     Zoom(Op),
 }
 
+impl fmt::Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Brush => write!(f, "Reset brush"),
+            Self::BrushSet(m) => write!(f, "Set brush mode to `{}`", m),
+            Self::BrushSize(Op::Incr) => write!(f, "Increase brush size"),
+            Self::BrushSize(Op::Decr) => write!(f, "Decrease brush size"),
+            Self::BrushSize(Op::Set(s)) => write!(f, "Set brush size to {}", s),
+            Self::BrushUnset(m) => write!(f, "Unset brush `{}` mode", m),
+            Self::Center => write!(f, "Center active view"),
+            Self::Echo(_) => write!(f, "Echo a value"),
+            Self::Edit(_) => write!(f, "Edit path(s)"),
+            Self::Fill(c) => write!(f, "Fill view with {color}", color = c),
+            Self::ForceQuit => write!(f, "Quit view without saving"),
+            Self::ForceQuitAll => write!(f, "Quit all views without saving"),
+            Self::Help => write!(f, "Toggle help"),
+            Self::Map(_, _) => write!(f, "Map a key combination to a command"),
+            Self::Mode(m) => write!(f, "Switch session mode to {}", m),
+            Self::AddFrame => write!(f, "Add a blank frame to the view"),
+            Self::CloneFrame(i) => {
+                write!(f, "Clone frame {} and add it to the view", i)
+            }
+            Self::RemoveFrame => write!(f, "Remove the last frame of the view"),
+            Self::Noop => write!(f, "No-op"),
+            Self::PaletteAdd(c) => {
+                write!(f, "Add {color} to palette", color = c)
+            }
+            Self::PaletteClear => write!(f, "Clear palette"),
+            Self::PaletteSample => write!(f, "Sample palette from view"),
+            Self::Pan(_, _) => write!(f, "Pan workspace"),
+            Self::Quit => write!(f, "Quit active view"),
+            Self::Redo => write!(f, "Redo view edit"),
+            Self::ResizeFrame(_, _) => write!(f, "Resize active view frame"),
+            Self::Sampler(_) => write!(f, "Toggle color sampler"),
+            Self::Set(s, v) => {
+                write!(f, "Set {setting} to {val}", setting = s, val = v)
+            }
+            Self::Slice(Some(n)) => write!(f, "Slice view into {} frame(s)", n),
+            Self::Slice(None) => write!(f, "Reset view slices"),
+            Self::Source(_) => write!(f, "Source an rx script (eg. a palette)"),
+            Self::SwapColors => {
+                write!(f, "Swap foreground & background colors")
+            }
+            Self::Toggle(s) => {
+                write!(f, "Toggle {setting} on/off", setting = s)
+            }
+            Self::Undo => write!(f, "Undo view edit"),
+            Self::ViewCenter => write!(f, "Center view in workspace"),
+            Self::ViewNext => write!(f, "Go to next view"),
+            Self::ViewPrev => write!(f, "Go to previous view"),
+            Self::Write(None) => write!(f, "Write view to disk"),
+            Self::Write(Some(_)) => write!(f, "Write view to disk as..."),
+            Self::WriteQuit => write!(f, "Write file to disk and quit"),
+            Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
+            Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
+            Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
+            _ => write!(f, ""),
+        }
+    }
+}
+
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Key {
     Char(char),
     Virtual(platform::Key),
+}
+
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Key::Char(c) => c.fmt(f),
+            Key::Virtual(k) => k.fmt(f),
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Debug)]

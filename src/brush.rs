@@ -8,6 +8,7 @@ use rgx::core::{Rect, Rgba8};
 use cgmath::{Point2, Vector2};
 
 use std::collections::BTreeSet;
+use std::fmt;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum BrushState {
@@ -21,6 +22,15 @@ pub enum BrushState {
 pub enum BrushMode {
     Erase,
     Multi,
+}
+
+impl fmt::Display for BrushMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Erase => "erase".fmt(f),
+            Self::Multi => "multi".fmt(f),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

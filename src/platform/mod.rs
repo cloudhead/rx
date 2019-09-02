@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 use std::io;
 
+use std::fmt;
+
 #[cfg(all(feature = "winit", feature = "glfw"))]
 compile_error!("the `winit` and `glfw` features are both enabled");
 
@@ -145,10 +147,85 @@ pub enum Key {
     LShift, RShift,
 
     // Math keys.
-    Divide, Equals, Add, Minus, Subtract, Multiply,
+    Equal, Minus,
 
     // Key is unknown/unsupported.
     Unknown,
+}
+
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Key::A => "a".fmt(f),
+            Key::B => "b".fmt(f),
+            Key::C => "c".fmt(f),
+            Key::D => "d".fmt(f),
+            Key::E => "e".fmt(f),
+            Key::F => "f".fmt(f),
+            Key::G => "g".fmt(f),
+            Key::H => "h".fmt(f),
+            Key::I => "i".fmt(f),
+            Key::J => "j".fmt(f),
+            Key::K => "k".fmt(f),
+            Key::L => "l".fmt(f),
+            Key::M => "m".fmt(f),
+            Key::N => "n".fmt(f),
+            Key::O => "o".fmt(f),
+            Key::P => "p".fmt(f),
+            Key::Q => "q".fmt(f),
+            Key::R => "r".fmt(f),
+            Key::S => "s".fmt(f),
+            Key::T => "t".fmt(f),
+            Key::U => "u".fmt(f),
+            Key::V => "v".fmt(f),
+            Key::W => "w".fmt(f),
+            Key::X => "x".fmt(f),
+            Key::Y => "y".fmt(f),
+            Key::Z => "z".fmt(f),
+            Key::Num0 => "0".fmt(f),
+            Key::Num1 => "1".fmt(f),
+            Key::Num2 => "2".fmt(f),
+            Key::Num3 => "3".fmt(f),
+            Key::Num4 => "4".fmt(f),
+            Key::Num5 => "5".fmt(f),
+            Key::Num6 => "6".fmt(f),
+            Key::Num7 => "7".fmt(f),
+            Key::Num8 => "8".fmt(f),
+            Key::Num9 => "9".fmt(f),
+            Key::LBracket => "[".fmt(f),
+            Key::RBracket => "]".fmt(f),
+            Key::Comma => ",".fmt(f),
+            Key::Period => ".".fmt(f),
+            Key::Slash => "/".fmt(f),
+            Key::Backslash => "\\".fmt(f),
+            Key::Apostrophe => "'".fmt(f),
+            Key::LControl | Key::RControl => "<ctrl>".fmt(f),
+            Key::LShift | Key::RShift => "<shift>".fmt(f),
+            Key::LAlt | Key::RAlt => "<alt>".fmt(f),
+            Key::Up => "<up>".fmt(f),
+            Key::Down => "<down>".fmt(f),
+            Key::Left => "<left>".fmt(f),
+            Key::Right => "<right>".fmt(f),
+            Key::Return => "<return>".fmt(f),
+            Key::Backspace => "<backspace>".fmt(f),
+            Key::Space => "<space>".fmt(f),
+            Key::Tab => "<tab>".fmt(f),
+            Key::Escape => "<esc>".fmt(f),
+            Key::Insert => "<insert>".fmt(f),
+            Key::Delete => "<delete>".fmt(f),
+            Key::Home => "<home>".fmt(f),
+            Key::PageUp => "<pgup>".fmt(f),
+            Key::PageDown => "<pgdown>".fmt(f),
+            Key::Grave => "`".fmt(f),
+            Key::Caret => "^".fmt(f),
+            Key::End => "<end>".fmt(f),
+            Key::Colon => ":".fmt(f),
+            Key::Semicolon => ";".fmt(f),
+            Key::Equal => "=".fmt(f),
+            Key::Minus => "-".fmt(f),
+            _ => "???".fmt(f),
+        }
+    }
 }
 
 /// Represents the current state of the keyboard modifiers
@@ -162,6 +239,25 @@ pub struct ModifiersState {
     pub alt: bool,
     /// The "meta" key. This is the "windows" key on PC and "command" key on Mac.
     pub meta: bool,
+}
+
+impl fmt::Display for ModifiersState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut s = String::new();
+        if self.ctrl {
+            s.push_str("<ctrl>");
+        }
+        if self.alt {
+            s.push_str("<alt>");
+        }
+        if self.meta {
+            s.push_str("<meta>");
+        }
+        if self.shift {
+            s.push_str("<shift>");
+        }
+        s.fmt(f)
+    }
 }
 
 /// A position represented in logical pixels.
