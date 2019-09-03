@@ -170,7 +170,6 @@ impl From<glfw::WindowEvent> for WindowEvent {
                     key: Some(key.into()),
                     state: action.into(),
                     modifiers: modifiers.into(),
-                    repeat: action == glfw::Action::Repeat,
                 })
             }
             Glfw::Focus(b) => WindowEvent::Focused(b),

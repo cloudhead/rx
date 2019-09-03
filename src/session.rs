@@ -1167,7 +1167,6 @@ impl Session {
                 key: Some(k),
                 modifiers: ModifiersState::default(),
                 state: InputState::Released,
-                repeat: false,
             });
         }
 
@@ -1857,8 +1856,10 @@ impl Session {
             state,
             modifiers,
             key,
-            repeat,
+            ..
         } = input;
+
+        let mut repeat = false;
 
         if let Some(key) = key {
             // While the mouse is down, don't accept keyboard input.
@@ -1867,7 +1868,7 @@ impl Session {
             }
 
             if state == InputState::Pressed {
-                self.keys_pressed.insert(key);
+                repeat = !self.keys_pressed.insert(key);
             } else if state == InputState::Released {
                 if !self.keys_pressed.remove(&key) {
                     return;
