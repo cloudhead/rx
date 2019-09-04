@@ -44,5 +44,5 @@ impl Window {
 }
 
 pub fn init(_title: &str) -> io::Result<(Window, Events)> {
-    panic!("no platform selected");
+    panic!("`dummy` platform initialized");
 }

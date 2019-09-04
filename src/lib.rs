@@ -22,7 +22,7 @@ mod util;
     feature = "dx12"
 )))]
 compile_error!(
-    "please enable a graphics backend with the --features flag, \
+    "a graphics backend must be enabled with `--features <backend>`: \
      available backends are: 'vulkan', 'metal', 'dx11' and 'dx12'"
 );
 
