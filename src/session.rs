@@ -27,43 +27,40 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time;
 
+pub const VERSION: &'static str = "0.1.0";
+
 pub const HELP: &'static str = r#"
-rx: default key mappings and commands (<escape> to exit)
-
-KEY MAPPINGS                                             COMMANDS
-
-.                Zoom in view                            :help                    Toggle this help
-,                Zoom out view                           :e <path..>              Edit path(s)
-/                Reset view zoom                         :w [<path>]              Write view / Write view as <path>
-j                Go to previous view                     :q                       Quit view
-k                Go to next view                         :q!                      Force quit view
-z                Center active view                      :echo <val>              Echo a value
-u                Undo active view edit                   :echo "pixel!"           Echo the string "pixel!"
-r                Redo active view edit                   :set <setting> = <val>   Set <setting> to <val>
-x                Swap foreground/background colors       :set <setting>           Set <setting> to `on`
-b                Reset brush                             :unset <setting>         Set <setting> to `off`
-e                Erase (hold)                            :toggle <setting>        Toggle <setting> `on` / `off`
-<shift>          Multi-brush (hold)                      :slice <n>               Slice view into <n> frames
-]                Increase brush size                     :source <path>           Source an rx script (eg. a palette or config)
-[                Decrease brush size                     :map <key> <command>     Map a key combination to a command
-<ctrl>           Sample color (hold)                     :f/resize <w> <h>        Resize frames
-<up>             Pan view up                             :f/add                   Add a blank frame to the view
-<down>           Pan view down                           :f/remove                Remove the last frame of the view
-<left>           Pan view left                           :f/clone <index>         Clone frame <index> and add it to the view
-<right>          Pan view right                          :f/clone                 Clone the last frame and add it to the view
-<return>         Add a frame to the view                 :p/clear                 Clear the palette
-<backspace>      Remove a frame from the view            :p/add <color>           Add <color> to the palette, eg. #ff0011
-
+:help                    Toggle this help
+:e <path..>              Edit path(s)
+:w [<path>]              Write view / Write view as <path>
+:q                       Quit view
+:q!                      Force quit view
+:echo <val>              Echo a value
+:echo "pixel!"           Echo the string "pixel!"
+:set <setting> = <val>   Set <setting> to <val>
+:set <setting>           Set <setting> to `on`
+:unset <setting>         Set <setting> to `off`
+:toggle <setting>        Toggle <setting> `on` / `off`
+:slice <n>               Slice view into <n> frames
+:source <path>           Source an rx script (eg. a palette or config)
+:map <key> <command>     Map a key combination to a command
+:f/resize <w> <h>        Resize frames
+:f/add                   Add a blank frame to the view
+:f/remove                Remove the last frame of the view
+:f/clone <index>         Clone frame <index> and add it to the view
+:f/clone                 Clone the last frame and add it to the view
+:p/clear                 Clear the palette
+:p/add <color>           Add <color> to the palette, eg. #ff0011
 
 SETTINGS
 
-debug             on/off          Debug mode
-checker           on/off          Alpha checker toggle
-vsync             on/off          Vertical sync toggle
-frame_delay       0.0..32.0       Delay between render frames (ms)
-scale             1.0..4.0        UI scale
-animation         on/off          View animation toggle
-animation/delay   1..1000         View animation delay (ms)
+debug             on/off        Debug mode
+checker           on/off        Alpha checker toggle
+vsync             on/off        Vertical sync toggle
+frame_delay       0.0..32.0     Delay between render frames (ms)
+scale             1.0..4.0      UI scale
+animation         on/off        View animation toggle
+animation/delay   1..1000       View animation delay (ms)
 "#;
 
 /// A BGRA color, used when dealing with framebuffers.
@@ -261,24 +258,27 @@ type Error = String;
 
 /// A key binding.
 #[derive(PartialEq, Clone, Debug)]
-struct KeyBinding {
+pub struct KeyBinding {
     /// The `Mode`s this binding applies to.
-    modes: Vec<Mode>,
+    pub modes: Vec<Mode>,
     /// Modifiers which must be held.
-    modifiers: ModifiersState,
+    pub modifiers: ModifiersState,
     /// Key which must be pressed or released.
-    key: Key,
+    pub key: Key,
     /// Whether the key should be pressed or released.
-    state: InputState,
+    pub state: InputState,
     /// The `Command` to run when this binding is triggered.
-    command: Command,
+    pub command: Command,
     /// Whether this key binding controls a toggle.
-    is_toggle: bool,
+    pub is_toggle: bool,
+    /// How this key binding should be displayed to the user.
+    /// If `None`, then this binding shouldn't be shown to the user.
+    pub display: Option<String>,
 }
 
 /// Manages a list of key bindings.
 #[derive(Debug)]
-struct KeyBindings {
+pub struct KeyBindings {
     elems: Vec<KeyBinding>,
 }
 
@@ -291,11 +291,40 @@ impl Default for KeyBindings {
             elems: vec![
                 KeyBinding {
                     modes: vec![Mode::Normal],
+                    modifiers: ModifiersState {
+                        shift: true,
+                        ctrl: false,
+                        alt: false,
+                        meta: false,
+                    },
+                    key: Key::Virtual(platform::Key::Slash),
+                    state: InputState::Pressed,
+                    command: Command::Help,
+                    is_toggle: true,
+                    display: Some("?".to_string()),
+                },
+                KeyBinding {
+                    modes: vec![Mode::Help],
+                    modifiers: ModifiersState {
+                        shift: true,
+                        ctrl: false,
+                        alt: false,
+                        meta: false,
+                    },
+                    key: Key::Virtual(platform::Key::Slash),
+                    state: InputState::Released,
+                    command: Command::Help,
+                    is_toggle: true,
+                    display: None,
+                },
+                KeyBinding {
+                    modes: vec![Mode::Normal],
                     modifiers: ModifiersState::default(),
                     key: Key::Virtual(platform::Key::Colon),
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
                     is_toggle: false,
+                    display: None,
                 },
                 KeyBinding {
                     modes: vec![Mode::Normal],
@@ -309,6 +338,7 @@ impl Default for KeyBindings {
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
                     is_toggle: false,
+                    display: Some(":".to_string()),
                 },
             ],
         }
@@ -336,6 +366,10 @@ impl KeyBindings {
                 && kb.state == state
                 && kb.modes.contains(mode)
         })
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, KeyBinding> {
+        self.elems.iter()
     }
 }
 
@@ -453,7 +487,7 @@ pub struct Session {
     /// The set of keys currently pressed.
     keys_pressed: HashSet<platform::Key>,
     /// The list of all active key bindings.
-    key_bindings: KeyBindings,
+    pub key_bindings: KeyBindings,
 
     /// Set to `true` if animations are paused.
     pub paused: bool,
@@ -1470,6 +1504,7 @@ impl Session {
                     state: InputState::Pressed,
                     modifiers: platform::ModifiersState::default(),
                     is_toggle: release.is_some(),
+                    display: Some(format!("{}", key)),
                 });
                 if let Some(cmd) = release {
                     self.key_bindings.add(KeyBinding {
@@ -1479,6 +1514,7 @@ impl Session {
                         state: InputState::Released,
                         modifiers: platform::ModifiersState::default(),
                         is_toggle: true,
+                        display: None,
                     });
                 }
             }
@@ -1862,6 +1898,8 @@ impl Session {
             ..
         } = input;
 
+        debug!("{:?}", input);
+
         let mut repeat = false;
 
         if let Some(key) = key {
@@ -1909,9 +1947,9 @@ impl Session {
                     if state == InputState::Pressed {
                         if key == platform::Key::Escape {
                             self.switch_mode(Mode::Normal);
+                            return;
                         }
                     }
-                    return;
                 }
                 _ => {}
             }

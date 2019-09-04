@@ -5,7 +5,7 @@ use crate::gpu;
 use crate::platform;
 use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{Mode, Session, Tool, HELP};
+use crate::session::{self, Mode, Session, Tool};
 use crate::view::{View, ViewId, ViewOp};
 
 use rgx::core;
@@ -253,19 +253,55 @@ impl Renderer {
 
     fn render_help(
         &self,
+        session: &Session,
         r: &mut core::Renderer,
         textures: &mut core::SwapChain,
     ) {
         let out = &textures.next();
         let mut text = TextBatch::new(&self.font);
-        for (i, l) in HELP.lines().enumerate() {
+        let column_offset = self::GLYPH_WIDTH * 16.;
+        let left_margin = self::MARGIN * 2.;
+
+        text.add(
+            &format!(
+                "rx v{}: help ({} to exit)",
+                session::VERSION,
+                platform::Key::Escape,
+            ),
+            left_margin,
+            self.height as f32 - self::MARGIN - self::LINE_HEIGHT,
+            Rgba8::new(0xaa, 0xaa, 0xaa, 0xff),
+        );
+
+        for (i, (display, kb)) in session
+            .key_bindings
+            .iter()
+            .filter_map(|kb| kb.display.as_ref().map(|d| (d, kb)))
+            .enumerate()
+        {
+            let y = self.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
+
             text.add(
-                &format!("{}", l),
-                self::MARGIN * 2.,
-                self.height as f32
-                    - self::MARGIN
-                    - i as f32 * self::LINE_HEIGHT,
+                display,
+                left_margin,
+                y,
+                Rgba8::new(0xb1, 0x3e, 0x53, 0xff),
+            );
+            text.add(
+                &format!("{}", kb.command),
+                left_margin + column_offset,
+                y,
                 Rgba8::new(0xaa, 0xaa, 0xaa, 0xff),
+            );
+        }
+        for (i, l) in session::HELP.lines().enumerate() {
+            let y = self.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
+
+            text.add(
+                l,
+                left_margin + column_offset * 3. + 64.,
+                y,
+                Rgba8::new(0x94, 0xb0, 0xc2, 0xff),
             );
         }
         let buf = text.finish(&r);
@@ -302,7 +338,7 @@ impl Renderer {
             return;
         }
         if session.mode == Mode::Help {
-            self.render_help(r, textures);
+            self.render_help(session, r, textures);
             return;
         }
         let out = &textures.next();

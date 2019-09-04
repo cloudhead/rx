@@ -118,7 +118,10 @@ impl fmt::Display for Command {
             }
             Self::PaletteClear => write!(f, "Clear palette"),
             Self::PaletteSample => write!(f, "Sample palette from view"),
-            Self::Pan(_, _) => write!(f, "Pan workspace"),
+            Self::Pan(x, 0) if *x > 0 => write!(f, "Pan workspace right"),
+            Self::Pan(x, 0) if *x < 0 => write!(f, "Pan workspace left"),
+            Self::Pan(0, y) if *y > 0 => write!(f, "Pan workspace up"),
+            Self::Pan(0, y) if *y < 0 => write!(f, "Pan workspace down"),
             Self::Quit => write!(f, "Quit active view"),
             Self::Redo => write!(f, "Redo view edit"),
             Self::ResizeFrame(_, _) => write!(f, "Resize active view frame"),
