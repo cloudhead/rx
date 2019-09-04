@@ -284,7 +284,7 @@ pub struct KeyBindings {
 
 impl Default for KeyBindings {
     fn default() -> Self {
-        // The only default is switching to command mode. On some platforms,
+        // The only defaults are switching to command mode and 'help'. On some platforms,
         // Pressing `<shift> + ;` sends us a `:` directly, while on others
         // we get `<shift>` and `;`.
         KeyBindings {
