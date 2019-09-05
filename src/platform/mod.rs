@@ -147,9 +147,7 @@ pub enum Key {
     Slash, Backslash,
 
     // Modifiers.
-    LAlt, RAlt,
-    LControl, RControl,
-    LShift, RShift,
+    Alt, Control, Shift,
 
     // Math keys.
     Equal, Minus,
@@ -204,9 +202,9 @@ impl fmt::Display for Key {
             Key::Slash => "/".fmt(f),
             Key::Backslash => "\\".fmt(f),
             Key::Apostrophe => "'".fmt(f),
-            Key::LControl | Key::RControl => "<ctrl>".fmt(f),
-            Key::LShift | Key::RShift => "<shift>".fmt(f),
-            Key::LAlt | Key::RAlt => "<alt>".fmt(f),
+            Key::Control => "<ctrl>".fmt(f),
+            Key::Shift => "<shift>".fmt(f),
+            Key::Alt => "<alt>".fmt(f),
             Key::Up => "<up>".fmt(f),
             Key::Down => "<down>".fmt(f),
             Key::Left => "<left>".fmt(f),
