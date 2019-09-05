@@ -5,7 +5,7 @@ use crate::gpu;
 use crate::platform;
 use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{self, Mode, Session, Tool};
+use crate::session::{self, Mode, Rgb8, Session, Tool};
 use crate::view::{View, ViewId, ViewOp};
 
 use rgx::core;
@@ -663,9 +663,9 @@ impl Renderer {
         {
             // Session status
             let cursor = session.active_view_coords(session.cursor);
-            let hover_color = session.hover_color.map_or(String::new(), |c| {
-                format!("#{:02X}{:02X}{:02X}", c.r, c.g, c.b)
-            });
+            let hover_color = session
+                .hover_color
+                .map_or(String::new(), |c| Rgb8::from(c).to_string());
             text.add(
                 &format!("{:>4},{:<4} {}", cursor.x, cursor.y, hover_color),
                 session.width - MARGIN - 36. * 8.,
@@ -753,8 +753,16 @@ impl Renderer {
         match session.mode {
             Mode::Present | Mode::Help => {}
             Mode::Normal | Mode::Command | Mode::Visual => {
-                if let Some(rect) = Cursors::rect(&session.tool) {
-                    let offset = Cursors::offset(&session.tool);
+                // When hovering over the palette, switch to the sampler icon
+                // to tell the user that clicking will select the color.
+                let tool = if session.palette.hover.is_some() {
+                    &Tool::Sampler
+                } else {
+                    &session.tool
+                };
+
+                if let Some(rect) = Cursors::rect(tool) {
+                    let offset = Cursors::offset(tool);
                     let cursor = session.cursor;
                     batch.add(
                         rect,

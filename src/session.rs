@@ -73,6 +73,31 @@ struct Bgra8 {
     a: u8,
 }
 
+/// An RGB 8-bit color. Used when the alpha value isn't used.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Rgb8 {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl From<Rgba8> for Rgb8 {
+    fn from(rgba: Rgba8) -> Self {
+        Self {
+            r: rgba.r,
+            g: rgba.g,
+            b: rgba.b,
+        }
+    }
+}
+
+impl ToString for Rgb8 {
+    fn to_string(&self) -> String {
+        format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub struct SessionCoords(Point2<f32>);
 
@@ -1708,7 +1733,7 @@ impl Session {
             // Click on palette
             if let Some(color) = self.palette.hover {
                 if self.mode == Mode::Command {
-                    self.cmdline.puts(&color.to_string());
+                    self.cmdline.puts(&Rgb8::from(color).to_string());
                 } else {
                     self.pick_color(color);
                 }
