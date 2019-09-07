@@ -393,6 +393,7 @@ impl KeyBindings {
         })
     }
 
+    /// Iterate over all key bindings.
     pub fn iter(&self) -> std::slice::Iter<'_, KeyBinding> {
         self.elems.iter()
     }
@@ -569,17 +570,28 @@ pub struct Session {
 }
 
 impl Session {
+    /// Maximum number of views in a session.
     pub const MAX_VIEWS: usize = 64;
+    /// Default view width.
     pub const DEFAULT_VIEW_W: u32 = 128;
+    /// Default view height.
     pub const DEFAULT_VIEW_H: u32 = 128;
 
+    /// Supported image formats for writing.
     const SUPPORTED_FORMATS: &'static [&'static str] = &["png", "gif"];
+    /// Minimum margin between views, in pixels.
     const VIEW_MARGIN: f32 = 24.;
+    /// Size of palette cells, in pixels.
     const PALETTE_CELL_SIZE: f32 = 24.;
+    /// Distance to pan when using keyboard.
     const PAN_PIXELS: i32 = 32;
+    /// Minimum brush size.
     const MIN_BRUSH_SIZE: usize = 1;
+    /// Maximum number of views in the view LRU list.
     const MAX_LRU: usize = 16;
+    /// Maximum zoom amount as a multiplier.
     const MAX_ZOOM: f32 = 128.0;
+    /// Zoom levels used when zooming in/out.
     const ZOOM_LEVELS: &'static [f32] = &[
         1.,
         2.,
@@ -596,6 +608,7 @@ impl Session {
         64.,
         Self::MAX_ZOOM,
     ];
+    /// Minimum time to wait between invocations of a throttled command.
     const THROTTLE_TIME: time::Duration = time::Duration::from_millis(96);
 
     /// Initial (default) configuration for rx.
@@ -620,10 +633,7 @@ impl Session {
             tool: Tool::Brush(Brush::default()),
             prev_tool: None,
             mouse_down: false,
-            _mouse_selection: Rect::new(0., 0., 0., 0.),
-            _frame_count: 0,
             paused: false,
-            _onion: false,
             hover_color: None,
             hover_view: None,
             fg: Rgba8::WHITE,
@@ -635,19 +645,24 @@ impl Session {
             views: BTreeMap::new(),
             views_lru: VecDeque::new(),
             cmdline: CommandLine::new(),
-            _grid_w: 0,
-            _grid_h: 0,
             throttled: None,
             mode: Mode::Normal,
             selection: Rect::new(0., 0., 0., 0.),
             message: Message::default(),
-            _paste: (),
-            _recording: false,
-            _recording_opts: 0,
             active_view_id: ViewId::default(),
             next_view_id: ViewId(1),
             resources,
             dirty: true,
+
+            // Unused
+            _onion: false,
+            _mouse_selection: Rect::new(0., 0., 0., 0.),
+            _frame_count: 0,
+            _grid_w: 0,
+            _grid_h: 0,
+            _paste: (),
+            _recording: false,
+            _recording_opts: 0,
         }
     }
 
@@ -678,6 +693,7 @@ impl Session {
         self.resources.add_blank_view(&id, w, h);
     }
 
+    /// Convert session coordinates to view coordinates of the given view.
     pub fn view_coords(&self, v: ViewId, p: SessionCoords) -> ViewCoords<f32> {
         let v = self.view(v);
         let SessionCoords(mut p) = p;
@@ -695,11 +711,14 @@ impl Session {
         ViewCoords::new(p.x.floor(), p.y.floor())
     }
 
+    /// Convert session coordinates to view coordinates of the active view.
     pub fn active_view_coords(&self, p: SessionCoords) -> ViewCoords<f32> {
         self.view_coords(self.active_view_id, p)
     }
 
-    pub fn frame(
+    /// Update the session by processing new user events and advancing
+    /// the internal state.
+    pub fn update(
         &mut self,
         events: &mut Vec<platform::WindowEvent>,
         out: &mut shape2d::Batch,
@@ -755,32 +774,60 @@ impl Session {
         assert_eq!(self.offset, self.offset.map(|a| a.floor()));
     }
 
+    /// Return the session offset as a transformation matrix.
     pub fn transform(&self) -> Matrix4<f32> {
         Matrix4::from_translation(self.offset.extend(0.))
     }
 
+    /// Get the view with the given id.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the view isn't found.
     pub fn view(&self, id: ViewId) -> &View {
         self.views
             .get(&id)
             .expect(&format!("view #{} must exist", id))
     }
 
+    /// Get the view with the given id (mutable).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the view isn't found.
     pub fn view_mut(&mut self, id: ViewId) -> &mut View {
         self.views
             .get_mut(&id)
             .expect(&format!("view #{} must exist", id))
     }
 
+    /// Get the currently active view.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no active view.
     pub fn active_view(&self) -> &View {
         assert!(self.active_view_id != ViewId(0), "fatal: no active view");
         self.view(self.active_view_id)
     }
 
+    /// Get the currently active view (mutable).
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no active view.
     pub fn active_view_mut(&mut self) -> &mut View {
         assert!(self.active_view_id != ViewId(0), "fatal: no active view");
         self.view_mut(self.active_view_id)
     }
 
+    /// Edit paths.
+    ///
+    /// Loads the given files into the session. Returns an error if one of
+    /// the paths couldn't be loaded. If a path points to a directory,
+    /// loads all files within that directory.
+    ///
+    /// If a path doesn't exist, creates a blank view for that path.
     pub fn edit<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
         // TODO: Keep loading paths even if some fail?
         for path in paths {
@@ -806,12 +853,18 @@ impl Session {
                 } else {
                     (Self::DEFAULT_VIEW_W, Self::DEFAULT_VIEW_H)
                 };
-                self.blank(FileStatus::New(path.into()), w, h);
+                self.blank(
+                    FileStatus::New(path.with_extension("png").into()),
+                    w,
+                    h,
+                );
             }
         }
         Ok(())
     }
 
+    /// Source an rx script at the given path. Returns an error if the path
+    /// does not exist or the script couldn't be sourced.
     fn source_path<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         let path = path.as_ref();
         debug!("source: {}", path.display());
@@ -823,10 +876,13 @@ impl Session {
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 
+    /// Source a directory which contains a `.rxrc` script. Returns an
+    /// error if the script wasn't found or couldn't be sourced.
     fn source_dir<P: AsRef<Path>>(&mut self, dir: P) -> io::Result<()> {
         self.source_path(dir.as_ref().join(".rxrc"))
     }
 
+    /// Source a script from an [`io::BufRead`].
     fn source_reader<P: AsRef<Path>, R: io::BufRead>(
         &mut self,
         r: R,
@@ -846,6 +902,7 @@ impl Session {
         Ok(())
     }
 
+    /// Load a view into the session.
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         let path = path.as_ref();
 
@@ -896,6 +953,7 @@ impl Session {
         Ok(())
     }
 
+    /// Destroys the resources associated with a view.
     fn destroy_view(&mut self, id: ViewId) {
         assert!(!self.views.is_empty());
         assert!(!self.views_lru.is_empty());
@@ -907,6 +965,7 @@ impl Session {
         self.dirty = true;
     }
 
+    /// Quit the view.
     fn quit_view(&mut self, id: ViewId) {
         self.destroy_view(id);
 
@@ -920,12 +979,14 @@ impl Session {
         }
     }
 
+    /// Quit the session.
     pub fn quit(&mut self) {
         self.is_running = false;
     }
 
+    /// Save the given view to disk with the current file name. Returns
+    /// an error if the view has no file name.
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
-        // FIXME: We shouldn't need to clone here.
         if let Some(ref f) = self.view(id).file_name().map(|f| f.clone()) {
             self.save_view_as(id, f)
         } else {
@@ -933,6 +994,8 @@ impl Session {
         }
     }
 
+    /// Save a view with the given file name. Returns an error if
+    /// the format is not supported.
     pub fn save_view_as<P: AsRef<Path>>(
         &mut self,
         id: ViewId,
@@ -985,6 +1048,7 @@ impl Session {
         Ok(())
     }
 
+    /// Save a view as a gif animation.
     fn save_view_gif<P: AsRef<Path>>(
         &mut self,
         id: ViewId,
@@ -1015,6 +1079,7 @@ impl Session {
         }
     }
 
+    /// Center the palette in the workspace.
     fn center_palette(&mut self) {
         let n = usize::min(self.palette.size(), 16) as f32;
         let p = &mut self.palette;
@@ -1023,6 +1088,7 @@ impl Session {
         p.y = self.height / 2. - n * p.cellsize / 2.;
     }
 
+    /// Vertically the active view in the workspace.
     fn center_active_view_v(&mut self) {
         let v = self.active_view();
         self.offset.y =
@@ -1030,6 +1096,7 @@ impl Session {
                 .floor();
     }
 
+    /// Horizontally center the active view in the workspace.
     fn center_active_view_h(&mut self) {
         let v = self.active_view();
         self.offset.x =
@@ -1037,11 +1104,13 @@ impl Session {
                 .floor();
     }
 
+    /// Center the active view in the workspace.
     fn center_active_view(&mut self) {
         self.center_active_view_v();
         self.center_active_view_h();
     }
 
+    /// Activate the given view.
     pub fn activate_view(&mut self, id: ViewId) {
         if self.active_view_id == id {
             return;
@@ -1055,11 +1124,13 @@ impl Session {
         self.views_lru.truncate(Self::MAX_LRU);
     }
 
+    /// Start editing the given view.
     fn edit_view(&mut self, id: ViewId) {
         self.activate_view(id);
         self.center_active_view();
     }
 
+    /// Re-position all views relative to each other so that they don't overlap.
     fn organize_views(&mut self) {
         if self.views.is_empty() {
             return;
@@ -1080,6 +1151,7 @@ impl Session {
         }
     }
 
+    /// Generate a new view id.
     fn gen_view_id(&mut self) -> ViewId {
         let ViewId(id) = self.next_view_id;
         self.next_view_id = ViewId(id + 1);
@@ -1087,6 +1159,7 @@ impl Session {
         ViewId(id)
     }
 
+    /// Add the given view to the session.
     fn add_view(&mut self, v: View) {
         let id = v.id;
 
@@ -1105,6 +1178,8 @@ impl Session {
         self.dirty = true;
     }
 
+    /// Snap the given session coordinates to the pixel grid.
+    /// This only has an effect at zoom levels greater than `1.0`.
     pub fn snap(
         &self,
         p: SessionCoords,
@@ -1119,6 +1194,7 @@ impl Session {
         .floor()
     }
 
+    /// Zoom the active view in.
     fn zoom_in(&mut self) {
         let view = self.active_view_mut();
         let lvls = Self::ZOOM_LEVELS;
@@ -1138,6 +1214,7 @@ impl Session {
         }
     }
 
+    /// Zoom the active view out.
     fn zoom_out(&mut self) {
         let view = self.active_view_mut();
         let lvls = Self::ZOOM_LEVELS;
@@ -1159,6 +1236,7 @@ impl Session {
         }
     }
 
+    /// Set the active view zoom.
     fn zoom(&mut self, z: f32) {
         let px = self.cursor.x - self.offset.x;
         let py = self.cursor.y - self.offset.y;
@@ -1203,11 +1281,13 @@ impl Session {
         self.organize_views();
     }
 
+    /// Display a message to the user. Also logs.
     pub fn message<D: fmt::Display>(&mut self, msg: D, t: MessageType) {
         self.message = Message::new(msg, t);
         self.message.log();
     }
 
+    /// Switch the session mode.
     fn switch_mode(&mut self, mode: Mode) {
         let (old, new) = (self.mode, mode);
         if old == new {
@@ -1235,6 +1315,7 @@ impl Session {
         self.mode = new;
     }
 
+    /// Process a command.
     fn command(&mut self, cmd: Command) {
         // Certain commands cause problems when run many times within
         // a short time frame. This might be because the GPU hasn't had
@@ -1664,6 +1745,7 @@ impl Session {
         }
     }
 
+    /// Pick the given color as foreground color.
     fn pick_color(&mut self, color: Rgba8) {
         if color.a == 0x0 {
             return;
@@ -1675,6 +1757,7 @@ impl Session {
         // TODO: Switch to brush.
     }
 
+    /// Get the color at the given view coordinate.
     fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Rgba8 {
         let resources = self.resources.lock();
         let snapshot = resources.get_snapshot(&v);

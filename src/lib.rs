@@ -172,7 +172,7 @@ pub fn init<'a, P: AsRef<Path>>(
                 let delta = last.elapsed();
                 last = time::Instant::now();
 
-                session.frame(&mut session_events, &mut canvas, delta);
+                session.update(&mut session_events, &mut canvas, delta);
                 w.request_redraw();
 
                 // TODO: Session should keep track of what changed.
