@@ -7,7 +7,7 @@ use crate::palette::*;
 use crate::platform;
 use crate::platform::{InputState, KeyboardInput, ModifiersState, WindowEvent};
 use crate::resources::ResourceManager;
-use crate::view::{FileStatus, View, ViewCoords, ViewId};
+use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{PresentMode, Rect};
 use rgx::kit::shape2d;
@@ -18,7 +18,7 @@ use cgmath::{Matrix4, Point2, Vector2};
 
 use directories as dirs;
 
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
@@ -524,14 +524,7 @@ pub struct Session {
     pub settings: Settings,
 
     /// Views loaded in the session.
-    pub views: BTreeMap<ViewId, View>,
-    /// Currently active view.
-    pub active_view_id: ViewId,
-
-    /// The next `ViewId`.
-    next_view_id: ViewId,
-    /// A last-recently-used list of views.
-    views_lru: VecDeque<ViewId>,
+    pub views: ViewManager,
 
     /// The current state of the command line.
     pub cmdline: CommandLine,
@@ -587,8 +580,6 @@ impl Session {
     const PAN_PIXELS: i32 = 32;
     /// Minimum brush size.
     const MIN_BRUSH_SIZE: usize = 1;
-    /// Maximum number of views in the view LRU list.
-    const MAX_LRU: usize = 16;
     /// Maximum zoom amount as a multiplier.
     const MAX_ZOOM: f32 = 128.0;
     /// Zoom levels used when zooming in/out.
@@ -639,18 +630,15 @@ impl Session {
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
             settings: Settings::default(),
+            views: ViewManager::new(),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
-            views: BTreeMap::new(),
-            views_lru: VecDeque::new(),
             cmdline: CommandLine::new(),
             throttled: None,
             mode: Mode::Normal,
             selection: Rect::new(0., 0., 0., 0.),
             message: Message::default(),
-            active_view_id: ViewId::default(),
-            next_view_id: ViewId(1),
             resources,
             dirty: true,
 
@@ -685,12 +673,13 @@ impl Session {
 
     /// Create a blank view.
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
-        let id = self.gen_view_id();
+        let id = self.views.add(fs, w, h);
 
-        self.add_view(View::new(id, fs, w, h));
+        self.resources.add_blank_view(id, w, h);
+        self.organize_views();
         self.edit_view(id);
 
-        self.resources.add_blank_view(&id, w, h);
+        self.dirty = true;
     }
 
     /// Convert session coordinates to view coordinates of the given view.
@@ -713,7 +702,7 @@ impl Session {
 
     /// Convert session coordinates to view coordinates of the active view.
     pub fn active_view_coords(&self, p: SessionCoords) -> ViewCoords<f32> {
-        self.view_coords(self.active_view_id, p)
+        self.view_coords(self.views.active_id, p)
     }
 
     /// Update the session by processing new user events and advancing
@@ -726,7 +715,7 @@ impl Session {
     ) {
         self.dirty = false;
 
-        for (_, v) in &mut self.views {
+        for (_, v) in self.views.iter_mut() {
             v.okay();
 
             if self.settings["animation"].is_set() {
@@ -807,8 +796,11 @@ impl Session {
     ///
     /// Panics if there is no active view.
     pub fn active_view(&self) -> &View {
-        assert!(self.active_view_id != ViewId(0), "fatal: no active view");
-        self.view(self.active_view_id)
+        assert!(
+            self.views.active_id != ViewId::default(),
+            "fatal: no active view"
+        );
+        self.view(self.views.active_id)
     }
 
     /// Get the currently active view (mutable).
@@ -817,8 +809,11 @@ impl Session {
     ///
     /// Panics if there is no active view.
     pub fn active_view_mut(&mut self) -> &mut View {
-        assert!(self.active_view_id != ViewId(0), "fatal: no active view");
-        self.view_mut(self.active_view_id)
+        assert!(
+            self.views.active_id != ViewId::default(),
+            "fatal: no active view"
+        );
+        self.view_mut(self.views.active_id)
     }
 
     /// Edit paths.
@@ -922,6 +917,7 @@ impl Session {
             ));
         }
 
+        // View is already loaded.
         if let Some(View { id, .. }) = self
             .views
             .values()
@@ -929,26 +925,33 @@ impl Session {
         {
             // TODO: Reload from disk.
             let id = *id;
-            self.activate_view(id);
+            self.views.activate(id);
             return Ok(());
         }
 
-        let id = self.gen_view_id();
-        let (width, height) = self.resources.load_view(&id, &path)?;
-        let view = View::new(
-            id,
+        if let Some(v) = self.views.active() {
+            let id = v.id;
+
+            if v.file_status == FileStatus::NoFile {
+                self.destroy_view(id);
+            }
+        }
+
+        let (width, height, pixels) = ResourceManager::load_image(&path)?;
+        let id = self.views.add(
             FileStatus::Saved(path.into()),
             width as u32,
             height as u32,
         );
 
-        self.add_view(view);
+        self.resources.add_view(id, width, height, pixels);
+        self.organize_views();
         self.edit_view(id);
-
         self.message(
             format!("\"{}\" {} pixels read", path.display(), width * height),
             MessageType::Info,
         );
+        self.dirty = true;
 
         Ok(())
     }
@@ -956,10 +959,8 @@ impl Session {
     /// Destroys the resources associated with a view.
     fn destroy_view(&mut self, id: ViewId) {
         assert!(!self.views.is_empty());
-        assert!(!self.views_lru.is_empty());
 
         self.views.remove(&id);
-        self.views_lru.retain(|&v| v != id);
         self.resources.remove_view(&id);
 
         self.dirty = true;
@@ -970,11 +971,7 @@ impl Session {
         self.destroy_view(id);
 
         if !self.views.is_empty() {
-            let lru =
-                *self.views_lru.front().expect("fatal: view cache is empty!");
-
             self.organize_views();
-            self.activate_view(lru);
             self.center_active_view();
         }
     }
@@ -1110,23 +1107,9 @@ impl Session {
         self.center_active_view_h();
     }
 
-    /// Activate the given view.
-    pub fn activate_view(&mut self, id: ViewId) {
-        if self.active_view_id == id {
-            return;
-        }
-        assert!(
-            self.views.contains_key(&id),
-            "the view being activated exists"
-        );
-        self.active_view_id = id;
-        self.views_lru.push_front(id);
-        self.views_lru.truncate(Self::MAX_LRU);
-    }
-
     /// Start editing the given view.
     fn edit_view(&mut self, id: ViewId) {
-        self.activate_view(id);
+        self.views.activate(id);
         self.center_active_view();
     }
 
@@ -1149,33 +1132,6 @@ impl Session {
             v.offset.y = offset;
             offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
         }
-    }
-
-    /// Generate a new view id.
-    fn gen_view_id(&mut self) -> ViewId {
-        let ViewId(id) = self.next_view_id;
-        self.next_view_id = ViewId(id + 1);
-
-        ViewId(id)
-    }
-
-    /// Add the given view to the session.
-    fn add_view(&mut self, v: View) {
-        let id = v.id;
-
-        if self.views.is_empty() {
-            self.views.insert(id, v);
-            self.activate_view(id);
-            self.center_active_view();
-        } else {
-            // FIXME: Handle case where there is no active view.
-            if self.active_view().file_status == FileStatus::NoFile {
-                self.destroy_view(self.active_view_id);
-            }
-            self.views.insert(id, v);
-            self.organize_views();
-        }
-        self.dirty = true;
     }
 
     /// Snap the given session coordinates to the pixel grid.
@@ -1407,7 +1363,7 @@ impl Session {
                 v.resize_frame(fw, fh);
                 v.touch();
             }
-            Command::ForceQuit => self.quit_view(self.active_view_id),
+            Command::ForceQuit => self.quit_view(self.views.active_id),
             Command::Echo(ref v) => {
                 let result = match v {
                     Value::Str(s) => Ok(Value::Str(s.clone())),
@@ -1475,20 +1431,20 @@ impl Session {
                 self.offset.y -= (y * Self::PAN_PIXELS) as f32;
             }
             Command::ViewNext => {
-                let id = self.active_view_id;
+                let id = self.views.active_id;
                 if let Some(id) =
                     self.views.range(id..).nth(1).map(|(id, _)| *id)
                 {
-                    self.activate_view(id);
+                    self.views.activate(id);
                     self.center_active_view_v();
                 }
             }
             Command::ViewPrev => {
-                let id = self.active_view_id;
+                let id = self.views.active_id;
                 if let Some(id) =
                     self.views.range(..id).next_back().map(|(id, _)| *id)
                 {
-                    self.activate_view(id);
+                    self.views.activate(id);
                     self.center_active_view_v();
                 }
             }
@@ -1587,18 +1543,18 @@ impl Session {
                 }
             }
             Command::Write(None) => {
-                if let Err(e) = self.save_view(self.active_view_id) {
+                if let Err(e) = self.save_view(self.views.active_id) {
                     self.message(format!("Error: {}", e), MessageType::Error);
                 }
             }
             Command::Write(Some(ref path)) => {
-                if let Err(e) = self.save_view_as(self.active_view_id, path) {
+                if let Err(e) = self.save_view_as(self.views.active_id, path) {
                     self.message(format!("Error: {}", e), MessageType::Error);
                 }
             }
             Command::WriteQuit => {
-                if self.save_view(self.active_view_id).is_ok() {
-                    self.quit_view(self.active_view_id);
+                if self.save_view(self.views.active_id).is_ok() {
+                    self.quit_view(self.views.active_id);
                 }
             }
             Command::Map(key, cmds) => {
@@ -1625,10 +1581,10 @@ impl Session {
                 }
             }
             Command::Undo => {
-                self.undo(self.active_view_id);
+                self.undo(self.views.active_id);
             }
             Command::Redo => {
-                self.redo(self.active_view_id);
+                self.redo(self.views.active_id);
             }
             _ => {
                 self.message(
@@ -1874,10 +1830,10 @@ impl Session {
                     Mode::Present | Mode::Help => {}
                 }
             } else {
-                for (id, v) in &self.views {
+                for (id, v) in self.views.iter() {
                     if v.hover {
                         let id = id.clone();
-                        self.activate_view(id);
+                        self.views.activate(id);
                         self.center_active_view_v();
                         return;
                     }
@@ -1909,7 +1865,7 @@ impl Session {
 
         self.hover_view = None;
         self.hover_color = None;
-        for (_, v) in &mut self.views {
+        for (_, v) in self.views.iter_mut() {
             v.handle_cursor_moved(cursor - self.offset);
             if v.hover {
                 self.hover_view = Some(v.id);

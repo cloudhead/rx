@@ -243,7 +243,7 @@ impl Renderer {
             screen_vb,
             screen_binding,
             view_data: BTreeMap::new(),
-            active_view_id: ViewId(0),
+            active_view_id: ViewId::default(),
         }
     }
 
@@ -407,7 +407,7 @@ impl Renderer {
         // Draw brush strokes to view framebuffers.
         if let Some(draw_buf) = draw_buf {
             let ViewData { fb: view_fb, .. } =
-                self.view_data.get(&session.active_view_id).unwrap();
+                self.view_data.get(&session.views.active_id).unwrap();
 
             r.update_pipeline(&self.view2d, Matrix4::identity(), &mut f);
             r.update_pipeline(&self.const2d, Matrix4::identity(), &mut f);
@@ -602,7 +602,7 @@ impl Renderer {
         canvas: &mut shape2d::Batch,
         text: &mut TextBatch,
     ) {
-        for (_, v) in &session.views {
+        for (_, v) in session.views.iter() {
             // Frame lines
             for n in 0..v.animation.len() {
                 let n = n as f32;
@@ -622,7 +622,7 @@ impl Renderer {
                 ));
             }
             // View border
-            let border_color = if v.id == session.active_view_id {
+            let border_color = if v.id == session.views.active_id {
                 Rgba::WHITE
             } else {
                 Rgba::new(0.5, 0.5, 0.5, 1.0)
@@ -912,7 +912,7 @@ impl Renderer {
         if s.paused || !s.settings["animation"].is_set() {
             return;
         }
-        for (id, v) in &s.views {
+        for (id, v) in s.views.iter() {
             if !v.animation.is_playing() {
                 continue;
             }

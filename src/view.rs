@@ -1,5 +1,5 @@
 use crate::resources::SnapshotId;
-use crate::session::SessionCoords;
+use crate::session::{Session, SessionCoords};
 use crate::util;
 
 use cgmath::prelude::*;
@@ -8,6 +8,8 @@ use cgmath::{Point2, Vector2};
 use rgx::core::Rect;
 use rgx::kit::Animation;
 
+use std::collections::btree_map;
+use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::ops::Deref;
 use std::path::PathBuf;
@@ -335,5 +337,102 @@ impl ToString for FileStatus {
                 format!("{} [modified]", path.display())
             }
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug)]
+pub struct ViewManager {
+    /// Currently active view.
+    pub active_id: ViewId,
+
+    /// View dictionary.
+    views: BTreeMap<ViewId, View>,
+
+    /// The next `ViewId`.
+    next_id: ViewId,
+
+    /// A last-recently-used list of views.
+    lru: VecDeque<ViewId>,
+}
+
+impl ViewManager {
+    /// Maximum number of views in the view LRU list.
+    const MAX_LRU: usize = Session::MAX_VIEWS;
+
+    pub fn new() -> Self {
+        Self {
+            active_id: ViewId::default(),
+            next_id: ViewId(1),
+            views: BTreeMap::new(),
+            lru: VecDeque::new(),
+        }
+    }
+
+    pub fn add(&mut self, fs: FileStatus, w: u32, h: u32) -> ViewId {
+        let id = self.gen_id();
+        let view = View::new(id, fs, w, h);
+
+        self.views.insert(id, view);
+
+        id
+    }
+
+    pub fn remove(&mut self, id: &ViewId) {
+        assert!(!self.lru.is_empty());
+        self.views.remove(id);
+        self.lru.retain(|v| v != id);
+
+        if let Some(v) = self.last() {
+            self.activate(v);
+        } else {
+            self.active_id = ViewId::default();
+        }
+    }
+
+    pub fn last(&self) -> Option<ViewId> {
+        self.lru.front().map(|v| *v)
+    }
+
+    pub fn active(&self) -> Option<&View> {
+        self.views.get(&self.active_id)
+    }
+
+    pub fn activate(&mut self, id: ViewId) {
+        debug_assert!(
+            self.views.contains_key(&id),
+            "the view being activated exists"
+        );
+        if self.active_id == id {
+            return;
+        }
+        self.active_id = id;
+        self.lru.push_front(id);
+        self.lru.truncate(Self::MAX_LRU);
+    }
+
+    pub fn iter_mut(&mut self) -> btree_map::IterMut<'_, ViewId, View> {
+        self.views.iter_mut()
+    }
+
+    pub fn get_mut(&mut self, id: &ViewId) -> Option<&mut View> {
+        self.views.get_mut(id)
+    }
+
+    /// Generate a new view id.
+    fn gen_id(&mut self) -> ViewId {
+        let ViewId(id) = self.next_id;
+        self.next_id = ViewId(id + 1);
+
+        ViewId(id)
+    }
+}
+
+impl Deref for ViewManager {
+    type Target = BTreeMap<ViewId, View>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.views
     }
 }

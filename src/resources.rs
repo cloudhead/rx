@@ -84,7 +84,7 @@ impl ResourceManager {
         self.resources.write().unwrap().data.remove(id);
     }
 
-    pub fn add_blank_view(&mut self, id: &ViewId, w: u32, h: u32) {
+    pub fn add_blank_view(&mut self, id: ViewId, w: u32, h: u32) {
         let len = w as usize * h as usize * 4;
         let mut pixels = Vec::with_capacity(len);
         pixels.resize(len, 0);
@@ -92,11 +92,9 @@ impl ResourceManager {
         self.add_view(id, w, h, pixels);
     }
 
-    pub fn load_view<P: AsRef<Path>>(
-        &mut self,
-        id: &ViewId,
+    pub fn load_image<P: AsRef<Path>>(
         path: P,
-    ) -> io::Result<(u32, u32)> {
+    ) -> io::Result<(u32, u32, Vec<u8>)> {
         let f = File::open(&path)?;
         let decoder = image::png::PNGDecoder::new(f).map_err(|_e| {
             io::Error::new(
@@ -139,9 +137,8 @@ impl ResourceManager {
                 }
             }
         }
-        self.add_view(id, width, height, pixels);
 
-        Ok((width, height))
+        Ok((width, height, pixels))
     }
 
     pub fn save_view<P: AsRef<Path>>(
@@ -250,14 +247,12 @@ impl ResourceManager {
         Ok(frame_nbytes * nframes)
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-
-    fn add_view(&mut self, id: &ViewId, fw: u32, fh: u32, pixels: Vec<u8>) {
+    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: Vec<u8>) {
         self.resources
             .write()
             .unwrap()
             .data
-            .insert(*id, SnapshotList::new(pixels, fw, fh));
+            .insert(id, SnapshotList::new(pixels, fw, fh));
     }
 }
 
