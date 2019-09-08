@@ -366,6 +366,7 @@ impl<'a> Parse<'a> for platform::Key {
 impl<'a> Parse<'a> for Command {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         let (_, p) = p.sigil(':')?;
+        let (_, p) = p.whitespace()?;
 
         if p.is_empty() {
             return Ok((Command::Noop, p));
@@ -824,6 +825,9 @@ impl<'a> Parser<'a> {
     {
         if self.is_empty() {
             return Err(Error::new("expected input"));
+        }
+        if !self.input.is_ascii() {
+            return Err(Error::new("error parsing non-ASCII characters"));
         }
 
         let mut index = 0;
