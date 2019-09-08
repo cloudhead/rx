@@ -344,6 +344,7 @@ impl Renderer {
         let out = &textures.next();
 
         let mut ui_batch = shape2d::Batch::new();
+        let mut palette_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
         let mut cursor_batch = sprite2d::Batch::new(
             self.cursors.texture.w,
@@ -354,13 +355,14 @@ impl Renderer {
             self.checker.texture.h,
         );
 
-        Self::draw_palette(&session, &mut ui_batch);
         Self::draw_brush(&session, &mut ui_batch);
         Self::draw_ui(&session, avg_frametime, &mut ui_batch, &mut text_batch);
+        Self::draw_palette(&session, &mut palette_batch);
         Self::draw_cursor(&session, &mut cursor_batch);
         Self::draw_checker(&session, &mut checker_batch);
 
         let ui_buf = ui_batch.finish(&r);
+        let palette_buf = palette_batch.finish(&r);
         let cursor_buf = cursor_batch.finish(&r);
         let checker_buf = checker_batch.finish(&r);
         let text_buf = text_batch.finish(&r);
@@ -448,9 +450,16 @@ impl Renderer {
             p.set_pipeline(&self.shape2d);
             p.draw_buffer(&ui_buf);
 
-            // Draw text & cursor to screen.
+            // Draw text to screen.
             p.set_pipeline(&self.sprite2d);
             p.draw(&text_buf, &self.font.binding);
+
+            // Draw palette to screen.
+            p.set_pipeline(&self.shape2d);
+            p.draw_buffer(&palette_buf);
+
+            // Draw cursor to screen.
+            p.set_pipeline(&self.sprite2d);
             p.draw(&cursor_buf, &self.cursors.binding);
         }
 
