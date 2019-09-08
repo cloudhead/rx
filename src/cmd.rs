@@ -750,15 +750,9 @@ impl<'a> Parser<'a> {
     fn identifier(self) -> Result<'a, &'a str> {
         self.expect(|c| {
             (c.is_ascii_lowercase()
+                || c.is_ascii_uppercase()
                 || c.is_ascii_digit()
-                || c == ':'
-                || c == '/'
-                || c == '_'
-                || c == '.'
-                || c == '+'
-                || c == '-'
-                || c == '!'
-                || c == '?')
+                || [':', '/', '_', '+', '-', '!', '?'].contains(&c))
         })
     }
 
