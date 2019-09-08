@@ -1362,6 +1362,8 @@ impl Session {
                 let v = self.active_view_mut();
                 v.resize_frame(fw, fh);
                 v.touch();
+
+                self.organize_views();
             }
             Command::ForceQuit => self.quit_view(self.views.active_id),
             Command::Echo(ref v) => {
