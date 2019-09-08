@@ -35,8 +35,6 @@ set debug = off                                               --  Turn off debug
 set vsync = off                                               --  Turn off Vsync
 set frame_delay = 8.0                                         --  Set frame delay to 8 milliseconds
 
-echo "rx 0.1.0"                                               --  Echo version
-
 -------------------
 -- Color palette --
 -------------------
@@ -56,3 +54,5 @@ echo "rx 0.1.0"                                               --  Echo version
 #94b0c2
 #566c86
 #333c57
+
+echo "rx 0.1.0"

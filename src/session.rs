@@ -1293,7 +1293,9 @@ impl Session {
         if self.throttle(&cmd) {
             return;
         }
-        self.message_clear();
+        if cmd != Command::Noop {
+            self.message_clear();
+        }
 
         debug!("command: {:?}", cmd);
 
