@@ -602,6 +602,9 @@ impl Session {
     /// Minimum time to wait between invocations of a throttled command.
     const THROTTLE_TIME: time::Duration = time::Duration::from_millis(96);
 
+    /// Name of rx initialization script.
+    const INIT: &'static str = "init.rx";
+
     /// Initial (default) configuration for rx.
     const CONFIG: &'static [u8] = include_bytes!("../config/init.rx");
 
@@ -659,11 +662,20 @@ impl Session {
         self.is_running = true;
 
         let cwd = std::env::current_dir()?;
-        let cfg = self.base_dirs.config_dir().join("init.rx");
+        let dir = self.base_dirs.config_dir();
+        let cfg = dir.join(Self::INIT);
 
         if cfg.exists() {
             self.source_path(cfg)?;
         } else {
+            if let Err(e) = fs::create_dir_all(dir)
+                .and_then(|_| fs::write(&cfg, Self::CONFIG))
+            {
+                warn!(
+                    "Warning: couldn't create configuration file {:?}: {}",
+                    cfg, e
+                );
+            }
             self.source_reader(io::BufReader::new(Self::CONFIG), "<init>")?;
         }
         self.source_dir(cwd).ok();
