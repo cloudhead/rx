@@ -777,7 +777,9 @@ impl Renderer {
     }
 
     fn draw_brush(session: &Session, batch: &mut shape2d::Batch) {
-        // TODO: Handle zoom by scaling everything in CPU?
+        if session.palette.hover.is_some() {
+            return;
+        }
         if let Tool::Brush(ref brush) = session.tool {
             let v = session.active_view();
             let p = session.cursor;
