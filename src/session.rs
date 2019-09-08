@@ -1382,18 +1382,18 @@ impl Session {
                 let result = match v {
                     Value::Str(s) => Ok(Value::Str(s.clone())),
                     Value::Ident(s) => match s.as_str() {
-                        "s:config:dir" => Ok(Value::Str(format!(
+                        "config/dir" => Ok(Value::Str(format!(
                             "{}",
                             self.base_dirs.config_dir().display()
                         ))),
-                        "s:hidpi" => {
+                        "s/hidpi" => {
                             Ok(Value::Str(format!("{:.1}", self.hidpi_factor)))
                         }
-                        "s:offset" => Ok(Value::Vector2(self.offset)),
-                        "v:offset" => {
+                        "s/offset" => Ok(Value::Vector2(self.offset)),
+                        "v/offset" => {
                             Ok(Value::Vector2(self.active_view().offset))
                         }
-                        "v:zoom" => {
+                        "v/zoom" => {
                             Ok(Value::Float(self.active_view().zoom as f64))
                         }
                         _ => match self.settings.get(s) {
