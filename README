@@ -84,15 +84,13 @@ INSTALLATION
 
 CONFIGURATION
 
-  Linux
+  Configuring `rx` involves editing the `init.rx` script, which is found in a
+  different location depending on your platform. On Linux, this is in the XDG
+  config directory, eg. `~/.config/rx/init.rx` by default, while on macOS this
+  is in the `~/Library/Preferences` folder.
 
-  Create a config folder for rx in your XDG configuration directory:
-
-    $ mkdir -p ~/.config/rx
-
-  and copy the default configuration and palettes from the `config/`
-  directory of this project to it. You can then edit `init.rx` to
-  configure rx.
+  To get the exact path config is loaded from, enter `:echo config/dir` from
+  within `rx`.
 
 USAGE
 
