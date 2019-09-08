@@ -522,6 +522,8 @@ pub struct Session {
 
     /// The session's current settings.
     pub settings: Settings,
+    /// Settings recently changed.
+    pub settings_changed: HashSet<String>,
 
     /// Views loaded in the session.
     pub views: ViewManager,
@@ -633,6 +635,7 @@ impl Session {
             fg: Rgba8::WHITE,
             bg: Rgba8::BLACK,
             settings: Settings::default(),
+            settings_changed: HashSet::new(),
             views: ViewManager::new(),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
@@ -726,6 +729,7 @@ impl Session {
         delta: time::Duration,
     ) {
         self.dirty = false;
+        self.settings_changed.clear();
 
         for (_, v) in self.views.iter_mut() {
             v.okay();
@@ -1079,6 +1083,8 @@ impl Session {
 
     fn setting_changed(&mut self, name: &str, old: &Value, new: &Value) {
         debug!("set `{}`: {} -> {}", name, old, new);
+
+        self.settings_changed.insert(name.to_owned());
 
         match name {
             "animation/delay" => {

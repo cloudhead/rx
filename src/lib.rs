@@ -108,7 +108,6 @@ pub fn init<'a, P: AsRef<Path>>(
             .init()?;
 
     let mut present_mode = session.settings.present_mode();
-    let mut scale: f64 = session.settings["scale"].float64();
     let mut r = core::Renderer::new(win.raw_handle());
     let mut renderer = Renderer::new(&mut r, win_w, win_h, resources);
 
@@ -175,10 +174,7 @@ pub fn init<'a, P: AsRef<Path>>(
                 session.update(&mut session_events, &mut canvas, delta);
                 w.request_redraw();
 
-                // TODO: Session should keep track of what changed.
-                if scale != session.settings["scale"].float64() {
-                    scale = session.settings["scale"].float64();
-
+                if session.settings_changed.contains("scale") {
                     self::resize(
                         &mut session,
                         &mut renderer,
@@ -190,10 +186,8 @@ pub fn init<'a, P: AsRef<Path>>(
                     );
                 }
 
-                // TODO: Session should keep track of what changed.
-                let pm = session.settings.present_mode();
-                if pm != present_mode {
-                    present_mode = pm;
+                if session.settings_changed.contains("vsync") {
+                    present_mode = session.settings.present_mode();
 
                     swap_chain = r.swap_chain(
                         swap_chain.width as u32,
