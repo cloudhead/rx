@@ -144,7 +144,7 @@ impl From<glfw::WindowEvent> for WindowEvent {
         use glfw::WindowEvent as Glfw;
 
         match event {
-            Glfw::FramebufferSize(w, h) => {
+            Glfw::Size(w, h) => {
                 WindowEvent::Resized(LogicalSize::new(w as f64, h as f64))
             }
             Glfw::Close => WindowEvent::CloseRequested,
