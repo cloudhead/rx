@@ -14,7 +14,6 @@ vulkan = ["rgx/vulkan"]
 metal = ["rgx/metal"]
 dx11 = ["rgx/dx11"]
 dx12 = ["rgx/dx12"]
-dummy = []
 
 [dependencies]
 clap = { version = "2.33.0", default-features = false }

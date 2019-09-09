@@ -3,16 +3,7 @@ use std::io;
 
 use std::fmt;
 
-#[cfg(all(feature = "winit", feature = "glfw"))]
-compile_error!("the `winit` and `glfw` features can't both be enabled");
-
-#[cfg(not(any(feature = "winit", feature = "glfw", feature = "dummy")))]
-compile_error!(
-    "a platform must be enabled with `--features <platform>`: \
-     available platforms are `winit` and `glfw`"
-);
-
-#[cfg(feature = "dummy")]
+#[cfg(not(any(feature = "winit", feature = "glfw")))]
 #[path = "dummy.rs"]
 mod backend;
 
@@ -20,7 +11,7 @@ mod backend;
 #[path = "winit.rs"]
 mod backend;
 
-#[cfg(feature = "glfw")]
+#[cfg(all(feature = "glfw", not(feature = "winit")))]
 #[path = "glfw.rs"]
 mod backend;
 
