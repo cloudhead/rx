@@ -1481,7 +1481,20 @@ impl Session {
                 self.active_view_mut().extend();
             }
             Command::CloneFrame(n) => {
-                self.active_view_mut().extend_clone(n);
+                let v = self.active_view_mut();
+                let l = v.animation.len() as i32;
+                if n >= -1 && n < l {
+                    v.extend_clone(n);
+                } else {
+                    self.message(
+                        format!(
+                            "Error: clone index must be in the range {}..{}",
+                            0,
+                            l - 1
+                        ),
+                        MessageType::Error,
+                    );
+                }
             }
             Command::RemoveFrame => {
                 let v = self.active_view_mut();
