@@ -22,8 +22,8 @@ fn main() {
 
     let log = match matches.occurrences_of("v") {
         0 => "rx=warn",
-        1 => "rx=info",
-        2 => "rx=debug",
+        1 => "rx=info,error",
+        2 => "rx=debug,error",
         3 => "rx=debug,error",
         4 => "rx=debug,info",
         _ => "debug",
