@@ -782,7 +782,7 @@ impl Session {
         }
 
         // Make sure we don't have rounding errors
-        assert_eq!(self.offset, self.offset.map(|a| a.floor()));
+        debug_assert_eq!(self.offset, self.offset.map(|a| a.floor()));
     }
 
     /// Return the session offset as a transformation matrix.

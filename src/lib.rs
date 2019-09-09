@@ -111,6 +111,12 @@ pub fn init<'a, P: AsRef<Path>>(
     let mut last = time::Instant::now();
 
     platform::run(win, events, move |w, event| {
+        if event != platform::WindowEvent::Ready
+            && event != platform::WindowEvent::RedrawRequested
+        {
+            debug!("event: {:?}", event);
+        }
+
         match event {
             platform::WindowEvent::Resized(size) => {
                 logical = size;
