@@ -739,7 +739,7 @@ impl Session {
             v.okay();
 
             if self.settings["animation"].is_set() {
-                v.frame(delta);
+                v.update(delta);
             }
         }
 
@@ -1384,7 +1384,7 @@ impl Session {
                 }
 
                 let v = self.active_view_mut();
-                v.resize_frame(fw, fh);
+                v.resize_frames(fw, fh);
                 v.touch();
 
                 self.organize_views();
@@ -1709,7 +1709,7 @@ impl Session {
         if let Some((sid, fw, fh, nframes)) = snapshot {
             let v = self.view_mut(id);
 
-            v.resize(fw, fh, nframes);
+            v.reset(fw, fh, nframes);
             v.damaged();
 
             // If the snapshot was saved to disk, we mark the view as saved too.

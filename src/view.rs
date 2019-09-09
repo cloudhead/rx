@@ -13,8 +13,9 @@ use std::ops::Deref;
 use std::path::PathBuf;
 use std::time;
 
+/// View identifier.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug)]
-pub struct ViewId(pub u16);
+pub struct ViewId(u16);
 
 impl Default for ViewId {
     fn default() -> Self {
@@ -28,6 +29,9 @@ impl fmt::Display for ViewId {
     }
 }
 
+/// View coordinates.
+///
+/// These coordinates are relative to the bottom left corner of the view.
 #[derive(Copy, Clone, PartialEq)]
 pub struct ViewCoords<T>(Point2<T>);
 
@@ -63,11 +67,7 @@ impl Into<ViewCoords<u32>> for ViewCoords<f32> {
     }
 }
 
-#[allow(dead_code)]
-pub enum Error {
-    FileError,
-}
-
+/// Current state of the view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewState {
     /// The view is okay. It doesn't need to be redrawn or saved.
@@ -79,35 +79,50 @@ pub enum ViewState {
     Damaged,
 }
 
+/// A view operation to be carried out by the renderer.
 #[derive(Debug, Clone, Copy)]
 pub enum ViewOp {
+    /// Copy an area of the view to another area.
     Blit(Rect<f32>, Rect<f32>),
 }
 
+/// A view on a sprite or image.
 #[derive(Debug)]
 pub struct View {
+    /// Frame width.
     pub fw: u32,
+    /// Frame height.
     pub fh: u32,
+    /// View offset relative to the session workspace.
     pub offset: Vector2<f32>,
+    /// Identifier.
     pub id: ViewId,
+    /// Zoom level.
     pub zoom: f32,
+    /// List of operations to carry out on the view.  Cleared every frame.
     pub ops: Vec<ViewOp>,
-
+    /// Whether the view is flipped in the X axis.
     pub flip_x: bool,
+    /// Whether the view is flipped in the Y axis.
     pub flip_y: bool,
+    /// Whether the cursor is hovering over this view.
     pub hover: bool,
-
+    /// Status of the file displayed by this view.
     pub file_status: FileStatus,
+    /// State of the view.
     pub state: ViewState,
-
+    /// Animation state of the sprite displayed by this view.
     pub animation: Animation<Rect<f32>>,
 
+    /// Which view snapshot has been saved to disk, if any.
     saved_snapshot: Option<SnapshotId>,
 }
 
 impl View {
+    /// The default frame delay for animations.
     const DEFAULT_ANIMATION_DELAY: u64 = 160;
 
+    /// Create a new view. Takes a frame width and height.
     pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
             Some(SnapshotId::default())
@@ -134,14 +149,17 @@ impl View {
         }
     }
 
+    /// View width. Basically frame-width times number of frames.
     pub fn width(&self) -> u32 {
         self.fw * self.animation.len() as u32
     }
 
+    /// View height.
     pub fn height(&self) -> u32 {
         self.fh
     }
 
+    /// View file name, if any.
     pub fn file_name(&self) -> Option<&PathBuf> {
         match self.file_status {
             FileStatus::New(ref f) => Some(f),
@@ -151,6 +169,8 @@ impl View {
         }
     }
 
+    /// Mark the view as saved at a specific snapshot and with
+    /// the given path.
     pub fn save_as(&mut self, id: SnapshotId, path: PathBuf) {
         match self.file_status {
             FileStatus::Modified(ref curr_path)
@@ -166,6 +186,7 @@ impl View {
         }
     }
 
+    /// Extend the view by one frame.
     pub fn extend(&mut self) {
         let w = self.width() as f32;
         let fw = self.fw as f32;
@@ -176,6 +197,17 @@ impl View {
         self.touch();
     }
 
+    /// Shrink the view by one frame.
+    pub fn shrink(&mut self) {
+        // Don't allow the view to have zero frames.
+        if self.animation.len() > 1 {
+            self.animation.pop_frame();
+            self.touch();
+        }
+    }
+
+    /// Extend the view by one frame, by cloning an existing frame,
+    /// by index.
     pub fn extend_clone(&mut self, index: i32) {
         let width = self.width() as f32;
         let (fw, fh) = (self.fw as f32, self.fh as f32);
@@ -193,11 +225,13 @@ impl View {
         self.extend();
     }
 
-    pub fn resize_frame(&mut self, fw: u32, fh: u32) {
-        self.resize(fw, fh, self.animation.len());
+    /// Resize view frames to the given size.
+    pub fn resize_frames(&mut self, fw: u32, fh: u32) {
+        self.reset(fw, fh, self.animation.len());
     }
 
-    pub fn resize(&mut self, fw: u32, fh: u32, nframes: usize) {
+    /// Reset the view by providing frame size and number of frames.
+    pub fn reset(&mut self, fw: u32, fh: u32, nframes: usize) {
         self.fw = fw;
         self.fh = fh;
 
@@ -210,21 +244,14 @@ impl View {
         self.animation = Animation::new(&frames, self.animation.delay);
     }
 
+    /// Slice the view into the given number of frames.
     pub fn slice(&mut self, nframes: usize) -> bool {
         if self.width() % nframes as u32 == 0 {
             let fw = self.width() / nframes as u32;
-            self.resize(fw, self.fh, nframes);
+            self.reset(fw, self.fh, nframes);
             return true;
         }
         false
-    }
-
-    pub fn shrink(&mut self) {
-        // Don't allow the view to have zero frames.
-        if self.animation.len() > 1 {
-            self.animation.pop_frame();
-            self.touch();
-        }
     }
 
     #[allow(dead_code)]
@@ -242,19 +269,23 @@ impl View {
         self.animation.stop();
     }
 
+    /// Set the delay between animation frames.
     pub fn set_animation_delay(&mut self, ms: u64) {
         self.animation.delay = time::Duration::from_millis(ms);
     }
 
+    /// Set the view state to `Okay`.
     pub fn okay(&mut self) {
         self.state = ViewState::Okay;
         self.ops.clear();
     }
 
-    pub fn frame(&mut self, delta: time::Duration) {
+    /// Update the view by one "tick".
+    pub fn update(&mut self, delta: time::Duration) {
         self.animation.step(delta);
     }
 
+    /// Return the view area, including the offset.
     pub fn rect(&self) -> Rect<f32> {
         Rect::new(
             self.offset.x,
@@ -264,6 +295,7 @@ impl View {
         )
     }
 
+    /// Check whether the session coordinates are contained within the view.
     pub fn contains(&self, p: SessionCoords) -> bool {
         self.rect().contains(*p)
     }
@@ -283,26 +315,32 @@ impl View {
         self.state = ViewState::Damaged;
     }
 
+    /// Check whether the view is damaged.
     pub fn is_damaged(&self) -> bool {
         self.state == ViewState::Damaged
     }
 
+    /// Check whether the view is dirty.
     pub fn is_dirty(&self) -> bool {
         self.state == ViewState::Dirty
     }
 
+    /// Check whether the view is okay.
     pub fn is_okay(&self) -> bool {
         self.state == ViewState::Okay
     }
 
+    /// Return the file status as a string.
     pub fn status(&self) -> String {
         self.file_status.to_string()
     }
 
+    /// Check whether the given snapshot has been saved to disk.
     pub fn is_snapshot_saved(&self, id: SnapshotId) -> bool {
         self.saved_snapshot == Some(id)
     }
 
+    /// Handle cursor movement.
     pub fn handle_cursor_moved(&mut self, cursor: SessionCoords) {
         self.hover = self.contains(cursor);
     }
@@ -317,11 +355,16 @@ impl View {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/// Status of the underlying file displayed by the view.
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum FileStatus {
+    /// There is no file being displayed.
     NoFile,
+    /// The file is new and unsaved.
     New(PathBuf),
+    /// The file is saved and unmodified.
     Saved(PathBuf),
+    /// The file has been modified since the last save.
     Modified(PathBuf),
 }
 
@@ -340,6 +383,7 @@ impl ToString for FileStatus {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/// Manages views.
 #[derive(Debug)]
 pub struct ViewManager {
     /// Currently active view.
@@ -359,6 +403,7 @@ impl ViewManager {
     /// Maximum number of views in the view LRU list.
     const MAX_LRU: usize = Session::MAX_VIEWS;
 
+    /// New empty view manager.
     pub fn new() -> Self {
         Self {
             active_id: ViewId::default(),
@@ -368,6 +413,7 @@ impl ViewManager {
         }
     }
 
+    /// Add a view.
     pub fn add(&mut self, fs: FileStatus, w: u32, h: u32) -> ViewId {
         let id = self.gen_id();
         let view = View::new(id, fs, w, h);
@@ -377,6 +423,7 @@ impl ViewManager {
         id
     }
 
+    /// Remove a view.
     pub fn remove(&mut self, id: &ViewId) {
         assert!(!self.lru.is_empty());
         self.views.remove(id);
@@ -389,14 +436,17 @@ impl ViewManager {
         }
     }
 
+    /// Return the id of the last recently active view, if any.
     pub fn last(&self) -> Option<ViewId> {
         self.lru.front().map(|v| *v)
     }
 
+    /// Return the currently active view, if any.
     pub fn active(&self) -> Option<&View> {
         self.views.get(&self.active_id)
     }
 
+    /// Activate a view.
     pub fn activate(&mut self, id: ViewId) {
         debug_assert!(
             self.views.contains_key(&id),
@@ -410,10 +460,12 @@ impl ViewManager {
         self.lru.truncate(Self::MAX_LRU);
     }
 
+    /// Iterate over views, mutably.
     pub fn iter_mut(&mut self) -> btree_map::IterMut<'_, ViewId, View> {
         self.views.iter_mut()
     }
 
+    /// Get a view, mutably.
     pub fn get_mut(&mut self, id: &ViewId) -> Option<&mut View> {
         self.views.get_mut(id)
     }
