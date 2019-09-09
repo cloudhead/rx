@@ -18,7 +18,6 @@ dummy = []
 
 [dependencies]
 clap = { version = "2.33.0", default-features = false }
-cgmath = { version = "0.17.0", default-features = false }
 env_logger = { version = "0.6.2", default-features = false, features = ["termcolor"] }
 image = { version = "0.21.2", default-features = false, features = ["png_codec"] }
 gif = "0.10.2"
@@ -29,4 +28,4 @@ directories = "2.0.2"
 raw-window-handle = "0.1.0"
 
 [dependencies.rgx]
-version = "0.1.3"
+version = "0.1.4"

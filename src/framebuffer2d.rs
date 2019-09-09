@@ -1,8 +1,7 @@
 use rgx::core;
 use rgx::core::*;
 use rgx::kit;
-
-use cgmath::{Matrix4, Vector4};
+use rgx::math::*;
 
 pub struct Pipeline {
     pub pipeline: core::Pipeline,

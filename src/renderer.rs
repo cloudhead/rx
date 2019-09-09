@@ -15,9 +15,7 @@ use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
 use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
-
-use cgmath::prelude::*;
-use cgmath::{Matrix4, Vector2};
+use rgx::math::{Matrix4, Vector2};
 
 use std::collections::{BTreeMap, HashSet};
 use std::time;

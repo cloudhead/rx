@@ -4,8 +4,7 @@ use crate::session::Mode;
 
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
-
-use cgmath::{Point2, Vector2};
+use rgx::math::{Point2, Vector2};
 
 use std::fmt;
 use std::result;

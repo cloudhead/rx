@@ -4,8 +4,7 @@ use crate::kit::Origin;
 use crate::view::ViewCoords;
 
 use rgx::core::{Rect, Rgba8};
-
-use cgmath::{Point2, Vector2};
+use rgx::math::{Point2, Vector2};
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -73,7 +72,7 @@ impl Brush {
         if offsets.is_empty() {
             self.draw(self.prev, self.curr, color, canvas);
         } else {
-            for off in offsets {
+            for off in offsets.iter().cloned() {
                 self.draw(self.prev + off, self.curr + off, color, canvas);
             }
         }

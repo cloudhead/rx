@@ -2,11 +2,9 @@ use crate::resources::SnapshotId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
 
-use cgmath::prelude::*;
-use cgmath::{Point2, Vector2};
-
 use rgx::core::Rect;
 use rgx::kit::Animation;
+use rgx::math::*;
 
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};

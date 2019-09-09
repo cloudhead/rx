@@ -1,8 +1,6 @@
 use rgx::core;
 use rgx::kit::AlignedBuffer;
-
-use cgmath::prelude::*;
-use cgmath::Matrix4;
+use rgx::math::Matrix4;
 
 pub struct TransformBuffer {
     pub binding: core::BindingGroup,

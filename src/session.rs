@@ -12,9 +12,7 @@ use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 use rgx::core::{PresentMode, Rect};
 use rgx::kit::shape2d;
 use rgx::kit::Rgba8;
-
-use cgmath::prelude::*;
-use cgmath::{Matrix4, Point2, Vector2};
+use rgx::math::*;
 
 use directories as dirs;
 
