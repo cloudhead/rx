@@ -536,6 +536,9 @@ pub struct Session {
     /// Set to `true` if a view was added or removed from the session.
     pub dirty: bool,
 
+    /// Average time it takes for a session update.
+    pub avg_time: time::Duration,
+
     /// The current tool.
     pub tool: Tool,
     /// The previous tool, if any.
@@ -647,6 +650,7 @@ impl Session {
             message: Message::default(),
             resources,
             dirty: true,
+            avg_time: time::Duration::from_secs(0),
 
             // Unused
             _onion: false,
@@ -727,9 +731,11 @@ impl Session {
         events: &mut Vec<platform::WindowEvent>,
         out: &mut shape2d::Batch,
         delta: time::Duration,
+        avg_time: time::Duration,
     ) {
         self.dirty = false;
         self.settings_changed.clear();
+        self.avg_time = avg_time;
 
         for (_, v) in self.views.iter_mut() {
             v.okay();

@@ -10,6 +10,7 @@ mod renderer;
 mod resources;
 mod screen2d;
 mod session;
+mod timer;
 mod view;
 
 #[macro_use]
@@ -29,6 +30,7 @@ compile_error!(
 use renderer::Renderer;
 use resources::ResourceManager;
 use session::*;
+use timer::FrameTimer;
 use view::FileStatus;
 
 use rgx;
@@ -43,44 +45,11 @@ use env_logger;
 
 use directories as dirs;
 
-use std::collections::VecDeque;
 use std::path::Path;
 use std::time;
 
 pub struct Options<'a> {
     pub log: &'a str,
-}
-
-pub struct FrameTimer {
-    timings: VecDeque<u128>,
-    avg: time::Duration,
-}
-
-impl FrameTimer {
-    const WINDOW: usize = 60;
-
-    pub fn new() -> Self {
-        Self {
-            timings: VecDeque::with_capacity(Self::WINDOW),
-            avg: time::Duration::from_secs(0),
-        }
-    }
-
-    pub fn run<F>(&mut self, frame: F)
-    where
-        F: FnOnce(time::Duration),
-    {
-        let start = time::Instant::now();
-        frame(self.avg);
-        let elapsed = start.elapsed();
-
-        self.timings.truncate(Self::WINDOW - 1);
-        self.timings.push_front(elapsed.as_micros());
-
-        let avg =
-            self.timings.iter().sum::<u128>() / self.timings.len() as u128;
-        self.avg = time::Duration::from_micros(avg as u64);
-    }
 }
 
 pub fn init<'a, P: AsRef<Path>>(
@@ -136,6 +105,7 @@ pub fn init<'a, P: AsRef<Path>>(
     );
 
     let mut render_timer = FrameTimer::new();
+    let mut update_timer = FrameTimer::new();
     let mut canvas = shape2d::Batch::new();
     let mut session_events = Vec::with_capacity(16);
     let mut last = time::Instant::now();
@@ -171,7 +141,14 @@ pub fn init<'a, P: AsRef<Path>>(
                 let delta = last.elapsed();
                 last = time::Instant::now();
 
-                session.update(&mut session_events, &mut canvas, delta);
+                update_timer.run(|avg| {
+                    session.update(
+                        &mut session_events,
+                        &mut canvas,
+                        delta,
+                        avg,
+                    );
+                });
                 w.request_redraw();
 
                 if session.settings_changed.contains("scale") {

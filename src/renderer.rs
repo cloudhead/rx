@@ -653,8 +653,13 @@ impl Renderer {
 
         if session.settings["debug"].is_set() {
             // Frame-time
+            let txt = &format!(
+                "{:3.2}ms {:3.2}ms",
+                avg_frametime.as_micros() as f64 / 1000.,
+                session.avg_time.as_micros() as f64 / 1000.
+            );
             text.add(
-                &format!("{:3.2}ms", avg_frametime.as_micros() as f64 / 1000.),
+                txt,
                 MARGIN,
                 session.height - MARGIN - self::LINE_HEIGHT,
                 Rgba8::WHITE,
