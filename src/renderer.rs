@@ -24,8 +24,8 @@ use image;
 use image::ImageDecoder;
 
 pub struct Renderer {
-    pub width: u32,
-    pub height: u32,
+    width: u32,
+    height: u32,
 
     active_view_id: ViewId,
 

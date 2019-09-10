@@ -9,17 +9,25 @@ use rgx::math::{Point2, Vector2};
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Input state of the brush.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub enum BrushState {
+    /// Not currently drawing.
     NotDrawing = 0,
+    /// Drawing has just started.
     DrawStarted = 1,
+    /// Drawing.
     Drawing = 2,
+    /// Drawing has just ended.
     DrawEnded = 3,
 }
 
+/// Brush mode. Any number of these modes can be active at once.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub enum BrushMode {
+    /// Erase pixels.
     Erase,
+    /// Draw on all frames at once.
     Multi,
 }
 
@@ -32,13 +40,19 @@ impl fmt::Display for BrushMode {
     }
 }
 
+/// Brush context.
 #[derive(Debug, Clone)]
 pub struct Brush {
+    /// Brush size in pixels.
     pub size: usize,
+    /// Current brush state.
     pub state: BrushState,
-    pub modes: BTreeSet<BrushMode>,
 
+    /// Currently active brush modes.
+    modes: BTreeSet<BrushMode>,
+    /// Current brush position.
     curr: Point2<i32>,
+    /// Previous brush position.
     prev: Point2<i32>,
 }
 
@@ -55,7 +69,40 @@ impl Default for Brush {
 }
 
 impl Brush {
-    pub fn tick(
+    /// Check whether the given mode is active.
+    pub fn is_set(&self, m: BrushMode) -> bool {
+        self.modes.contains(&m)
+    }
+
+    /// Activate the given brush mode.
+    pub fn set(&mut self, m: BrushMode) -> bool {
+        self.modes.insert(m)
+    }
+
+    /// De-activate the given brush mode.
+    pub fn unset(&mut self, m: BrushMode) -> bool {
+        self.modes.remove(&m)
+    }
+
+    #[allow(dead_code)]
+    pub fn reset(&mut self) {
+        self.modes.clear();
+    }
+
+    /// Start drawing. Called when input is first pressed.
+    pub fn start_drawing(
+        &mut self,
+        p: ViewCoords<i32>,
+        color: Rgba8,
+        offsets: &[Vector2<i32>],
+        canvas: &mut shape2d::Batch,
+    ) {
+        self.state = BrushState::DrawStarted;
+        self.draw(p, color, offsets, canvas);
+    }
+
+    /// Draw. Called while input is pressed.
+    pub fn draw(
         &mut self,
         p: ViewCoords<i32>,
         color: Rgba8,
@@ -70,47 +117,55 @@ impl Brush {
         self.curr = *p;
 
         if offsets.is_empty() {
-            self.draw(self.prev, self.curr, color, canvas);
+            self.paint(self.prev, self.curr, color, canvas);
         } else {
             for off in offsets.iter().cloned() {
-                self.draw(self.prev + off, self.curr + off, color, canvas);
+                self.paint(self.prev + off, self.curr + off, color, canvas);
             }
         }
     }
 
-    pub fn is_set(&self, m: BrushMode) -> bool {
-        self.modes.contains(&m)
-    }
-
-    pub fn set(&mut self, m: BrushMode) -> bool {
-        self.modes.insert(m)
-    }
-
-    pub fn unset(&mut self, m: BrushMode) -> bool {
-        self.modes.remove(&m)
-    }
-
-    #[allow(dead_code)]
-    pub fn reset(&mut self) {
-        self.modes.clear();
-    }
-
-    pub fn start_drawing(
-        &mut self,
-        p: ViewCoords<i32>,
-        color: Rgba8,
-        offsets: &[Vector2<i32>],
-        canvas: &mut shape2d::Batch,
-    ) {
-        self.state = BrushState::DrawStarted;
-        self.tick(p, color, offsets, canvas);
-    }
-
+    /// Stop drawing. Called when input is released.
     pub fn stop_drawing(&mut self) {
         self.state = BrushState::DrawEnded;
     }
 
-    pub fn draw(
+    /// Return the shape that should be painted when the brush is at the given
+    /// position with the given parameters. Takes an `Origin` which describes
+    /// whether to align the position to the bottom-left of the shape, or the
+    /// center.
+    pub fn stroke(
+        &self,
+        p: Point2<f32>,
+        stroke: Stroke,
+        fill: Fill,
+        scale: f32,
+        origin: Origin,
+    ) -> Shape {
+        let x = p.x;
+        let y = p.y;
+
+        let size = self.size as f32;
+
+        let offset = match origin {
+            Origin::Center => size * scale / 2.,
+            Origin::BottomLeft => (self.size / 2) as f32 * scale,
+            Origin::TopLeft => unreachable!(),
+        };
+
+        Shape::Rectangle(
+            Rect::new(x, y, x + size * scale, y + size * scale)
+                - Vector2::new(offset, offset),
+            stroke,
+            fill,
+        )
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    /// Paint a stroke between two points, onto the given canvas.
+    /// Uses Bresenham's line algorithm.
+    fn paint(
         &self,
         mut p0: Point2<i32>,
         p1: Point2<i32>,
@@ -161,32 +216,5 @@ impl Brush {
                 Origin::BottomLeft,
             ));
         }
-    }
-
-    pub fn stroke(
-        &self,
-        p: Point2<f32>,
-        stroke: Stroke,
-        fill: Fill,
-        scale: f32,
-        origin: Origin,
-    ) -> Shape {
-        let x = p.x;
-        let y = p.y;
-
-        let size = self.size as f32;
-
-        let offset = match origin {
-            Origin::Center => size * scale / 2.,
-            Origin::BottomLeft => (self.size / 2) as f32 * scale,
-            Origin::TopLeft => unreachable!(),
-        };
-
-        Shape::Rectangle(
-            Rect::new(x, y, x + size * scale, y + size * scale)
-                - Vector2::new(offset, offset),
-            stroke,
-            fill,
-        )
     }
 }

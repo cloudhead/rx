@@ -1401,9 +1401,12 @@ impl Session {
                         "s/hidpi" => {
                             Ok(Value::Str(format!("{:.1}", self.hidpi_factor)))
                         }
-                        "s/offset" => Ok(Value::Vector2(self.offset)),
+                        "s/offset" => {
+                            Ok(Value::Float2(self.offset.x, self.offset.y))
+                        }
                         "v/offset" => {
-                            Ok(Value::Vector2(self.active_view().offset))
+                            let v = self.active_view();
+                            Ok(Value::Float2(v.offset.x, v.offset.y))
                         }
                         "v/zoom" => {
                             Ok(Value::Float(self.active_view().zoom as f64))
@@ -1959,9 +1962,9 @@ impl Session {
                                 })
                                 .collect();
 
-                            brush.tick(p, color, &offsets, out);
+                            brush.draw(p, color, &offsets, out);
                         } else {
-                            brush.tick(p, color, &[], out);
+                            brush.draw(p, color, &[], out);
                         }
                     }
                 }

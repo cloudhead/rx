@@ -4,7 +4,6 @@ use crate::session::Mode;
 
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
-use rgx::math::{Point2, Vector2};
 
 use std::fmt;
 use std::result;
@@ -13,6 +12,9 @@ use std::time;
 
 pub const COMMENT: char = '-';
 
+/// User command. Most of the interactions available to
+/// the user are modeled as commands that are processed
+/// by the session.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Command {
     Brush,
@@ -20,11 +22,9 @@ pub enum Command {
     BrushSize(Op),
     BrushUnset(BrushMode),
     #[allow(dead_code)]
-    Center,
-    #[allow(dead_code)]
     Crop(Rect<u32>),
     #[allow(dead_code)]
-    CursorMove(Point2<f32>),
+    CursorMove(f32, f32),
     #[allow(dead_code)]
     CursorPress,
     #[allow(dead_code)]
@@ -46,7 +46,6 @@ pub enum Command {
     PaletteAdd(Rgba8),
     PaletteClear,
     PaletteSample,
-    #[allow(dead_code)]
     Pan(i32, i32),
     #[allow(dead_code)]
     Pause,
@@ -80,8 +79,6 @@ pub enum Command {
     ViewCenter,
     ViewNext,
     ViewPrev,
-    #[allow(dead_code)]
-    Window,
     Write(Option<String>),
     #[allow(dead_code)]
     WriteQuit,
@@ -97,7 +94,6 @@ impl fmt::Display for Command {
             Self::BrushSize(Op::Decr) => write!(f, "Decrease brush size"),
             Self::BrushSize(Op::Set(s)) => write!(f, "Set brush size to {}", s),
             Self::BrushUnset(m) => write!(f, "Unset brush `{}` mode", m),
-            Self::Center => write!(f, "Center active view"),
             Self::Echo(_) => write!(f, "Echo a value"),
             Self::Edit(_) => write!(f, "Edit path(s)"),
             Self::Fill(c) => write!(f, "Fill view with {color}", color = c),
@@ -138,7 +134,7 @@ impl fmt::Display for Command {
                 write!(f, "Toggle {setting} on/off", setting = s)
             }
             Self::Undo => write!(f, "Undo view edit"),
-            Self::ViewCenter => write!(f, "Center view in workspace"),
+            Self::ViewCenter => write!(f, "Center active view"),
             Self::ViewNext => write!(f, "Go to next view"),
             Self::ViewPrev => write!(f, "Go to previous view"),
             Self::Write(None) => write!(f, "Write view to disk"),
@@ -170,13 +166,9 @@ impl fmt::Display for Key {
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
     Bool(bool),
-    #[allow(dead_code)]
-    I32(i32),
     U32(u32),
     Float(f64),
-    Vector2(Vector2<f32>),
-    #[allow(dead_code)]
-    Point2(Point2<f32>),
+    Float2(f32, f32),
     Str(String),
     Ident(String),
     Rgba8(Rgba8),
@@ -207,11 +199,9 @@ impl Value {
     pub fn description(&self) -> &'static str {
         match self {
             Self::Bool(_) => "on / off",
-            Self::I32(_) => "positive or negative integer, eg. -32",
             Self::U32(_) => "positive integer, eg. 32",
             Self::Float(_) => "float, eg. 1.33",
-            Self::Vector2(_) => "two floats, eg. 32.0, 48.0",
-            Self::Point2(_) => "two floats, eg. 32.0, 48.0",
+            Self::Float2(_, _) => "two floats, eg. 32.0, 48.0",
             Self::Str(_) => "string, eg. \"fnord\"",
             Self::Rgba8(_) => "color, eg. #ffff00",
             Self::Ident(_) => "identifier, eg. fnord",
@@ -231,11 +221,9 @@ impl fmt::Display for Value {
         match self {
             Value::Bool(true) => "on".fmt(f),
             Value::Bool(false) => "off".fmt(f),
-            Value::I32(i) => i.fmt(f),
             Value::U32(u) => u.fmt(f),
             Value::Float(x) => x.fmt(f),
-            Value::Vector2(v) => write!(f, "{},{}", v.x, v.y),
-            Value::Point2(p) => write!(f, "{},{}", p.x, p.y),
+            Value::Float2(x, y) => write!(f, "{},{}", x, y),
             Value::Str(s) => s.fmt(f),
             Value::Rgba8(c) => c.fmt(f),
             Value::Ident(i) => i.fmt(f),
