@@ -17,11 +17,10 @@ use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
 use rgx::math::{Matrix4, Vector2};
 
+use png;
+
 use std::collections::{BTreeMap, HashSet};
 use std::time;
-
-use image;
-use image::ImageDecoder;
 
 pub struct Renderer {
     width: u32,
@@ -159,11 +158,12 @@ impl Renderer {
         let view_transforms = Vec::with_capacity(Session::MAX_VIEWS);
 
         let (font, font_img) = {
-            let decoder = image::png::PNGDecoder::new(GLYPHS).unwrap();
-            let (width, height) = decoder.dimensions();
+            let decoder = png::Decoder::new(GLYPHS);
+            let (info, mut reader) = decoder.read_info().unwrap();
+            let mut img = vec![0; info.buffer_size()];
+            reader.next_frame(&mut img).unwrap();
 
-            let img = decoder.read_image().unwrap();
-            let texture = r.texture(width as u32, height as u32);
+            let texture = r.texture(info.width as u32, info.height as u32);
             let binding = sprite2d.binding(r, &texture, &sampler);
 
             (
@@ -177,11 +177,12 @@ impl Renderer {
             )
         };
         let (cursors, cursors_img) = {
-            let decoder = image::png::PNGDecoder::new(CURSORS).unwrap();
-            let (width, height) = decoder.dimensions();
+            let decoder = png::Decoder::new(CURSORS);
+            let (info, mut reader) = decoder.read_info().unwrap();
+            let mut img = vec![0; info.buffer_size()];
+            reader.next_frame(&mut img).unwrap();
 
-            let img = decoder.read_image().unwrap();
-            let texture = r.texture(width as u32, height as u32);
+            let texture = r.texture(info.width as u32, info.height as u32);
             let binding = sprite2d.binding(r, &texture, &sampler);
 
             (Cursors { texture, binding }, img)

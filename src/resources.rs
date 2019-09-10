@@ -3,10 +3,8 @@ use crate::view::ViewId;
 use rgx::core::Rgba8;
 use rgx::nonempty::NonEmpty;
 
-use image::png;
-use image::ImageDecoder;
-
 use gif::{self, SetParameter};
+use png;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -96,14 +94,15 @@ impl ResourceManager {
         path: P,
     ) -> io::Result<(u32, u32, Vec<u8>)> {
         let f = File::open(&path)?;
-        let decoder = image::png::PNGDecoder::new(f).map_err(|_e| {
+        let decoder = png::Decoder::new(f);
+
+        let (info, mut reader) = decoder.read_info().map_err(|_e| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("couldn't decode `{}`", path.as_ref().display()),
             )
         })?;
-
-        if decoder.colortype() != image::ColorType::RGBA(8) {
+        if info.color_type != png::ColorType::RGBA {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!(
@@ -113,10 +112,10 @@ impl ResourceManager {
             ));
         }
 
-        let (width, height) = decoder.dimensions();
-        let (width, height) = (width as u32, height as u32);
+        let (width, height) = (info.width as u32, info.height as u32);
 
-        let buffer: Vec<u8> = decoder.read_image().map_err(|_e| {
+        let mut buffer: Vec<u8> = vec![0; info.buffer_size()];
+        reader.next_frame(&mut buffer).map_err(|_e| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("couldn't decode `{}`", path.as_ref().display()),
@@ -148,9 +147,14 @@ impl ResourceManager {
     ) -> io::Result<(SnapshotId, usize)> {
         let mut resources = self.lock_mut();
         let snapshot = resources.get_snapshot_mut(id);
+        let (w, h) = (snapshot.width(), snapshot.height());
 
         let f = File::create(path.as_ref())?;
-        let encoder = png::PNGEncoder::new(f);
+        let ref mut out = io::BufWriter::new(f);
+        let mut encoder = png::Encoder::new(out, w, h);
+
+        encoder.set_color(png::ColorType::RGBA);
+        encoder.set_depth(png::BitDepth::Eight);
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
         let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.pixels.len());
@@ -166,11 +170,8 @@ impl ResourceManager {
             }
         }
 
-        let (w, h) = (snapshot.width(), snapshot.height());
-
-        encoder
-            .encode(&pixels, w, h, image::ColorType::RGBA(8))
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(&pixels)?;
 
         Ok((snapshot.id, (w * h) as usize))
     }
