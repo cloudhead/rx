@@ -41,7 +41,7 @@ pub struct Renderer {
     shape2d: kit::shape2d::Pipeline,
     sprite2d: kit::sprite2d::Pipeline,
     framebuffer2d: framebuffer2d::Pipeline,
-    view2d: kit::shape2d::Pipeline,
+    brush2d: kit::shape2d::Pipeline,
     const2d: kit::shape2d::Pipeline,
     screen2d: screen2d::Pipeline,
 
@@ -200,7 +200,7 @@ impl Renderer {
             (Checker { texture, binding }, texels)
         };
 
-        let view2d = r.pipeline(
+        let brush2d = r.pipeline(
             Session::DEFAULT_VIEW_W,
             Session::DEFAULT_VIEW_H,
             Blending::default(),
@@ -233,7 +233,7 @@ impl Renderer {
             shape2d,
             sprite2d,
             framebuffer2d,
-            view2d,
+            brush2d,
             const2d,
             screen2d,
             resources,
@@ -246,7 +246,7 @@ impl Renderer {
     }
 
     pub fn init(&mut self, session: &Session, r: &mut core::Renderer) {
-        self.update_views(session, r);
+        self.synchronize_views(session, r);
     }
 
     fn render_help(
@@ -339,7 +339,7 @@ impl Renderer {
             self.render_help(session, r, textures);
             return;
         }
-        let out = &textures.next();
+        let present = &textures.next();
 
         let mut ui_batch = shape2d::Batch::new();
         let mut palette_batch = shape2d::Batch::new();
@@ -371,14 +371,25 @@ impl Renderer {
         };
 
         let v = session.active_view();
+
+        // When switching views, or when the view is dirty (eg. it has been resized),
+        // we have to resize the brush pipelines, for the brush strokes to
+        // render properly in the view framebuffer.
         if v.id != self.active_view_id || v.is_dirty() {
-            self.resize_view_pipelines(v.width(), v.height());
+            self.resize_brush_pipelines(v.width(), v.height());
             self.active_view_id = v.id;
         }
-        if session.dirty || !v.is_okay() {
-            self.update_views(session, r);
+
+        if session.dirty {
+            self.synchronize_views(session, r);
         }
 
+        for v in session.views.values().filter(|v| !v.is_okay()) {
+            self.handle_view_dirty(v, r);
+            self.handle_view_ops(v, r);
+        }
+
+        // Start the render frame.
         let mut f = r.frame();
 
         self.update_view_animations(session, r);
@@ -390,10 +401,10 @@ impl Renderer {
         );
 
         r.update_pipeline(&self.shape2d, Matrix4::identity(), &mut f);
+        r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
         r.update_pipeline(&self.framebuffer2d, (), &mut f);
 
         {
-            r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
             let mut p =
                 f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
 
@@ -404,39 +415,39 @@ impl Renderer {
             }
         }
 
-        // Draw brush strokes to view framebuffers.
+        // Render brush strokes to view framebuffers.
         if let Some(draw_buf) = draw_buf {
             let ViewData { fb: view_fb, .. } =
                 self.view_data.get(&session.views.active_id).unwrap();
 
-            r.update_pipeline(&self.view2d, Matrix4::identity(), &mut f);
+            r.update_pipeline(&self.brush2d, Matrix4::identity(), &mut f);
             r.update_pipeline(&self.const2d, Matrix4::identity(), &mut f);
 
-            let mut p = f.pass(
-                if v.is_damaged() {
-                    PassOp::Clear(Rgba::TRANSPARENT)
-                } else {
-                    PassOp::Load()
-                },
-                view_fb,
-            );
+            let mut p = f.pass(PassOp::Load(), view_fb);
 
             // FIXME: There must be a better way.
             if let Tool::Brush(ref b) = session.tool {
                 if b.is_set(BrushMode::Erase) {
                     p.set_pipeline(&self.const2d);
                 } else {
-                    p.set_pipeline(&self.view2d);
+                    p.set_pipeline(&self.brush2d);
                 }
             }
             p.draw_buffer(&draw_buf);
         }
 
-        // Draw view framebuffers to screen.
-        r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
-        self.render_views(&mut f, &self.screen_fb);
-        if session.settings["animation"].is_set() {
-            self.render_view_animations(&mut f, &self.screen_fb);
+        {
+            r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
+
+            let mut p = f.pass(PassOp::Load(), &self.screen_fb);
+
+            // Draw view framebuffers to screen framebuffer.
+            self.render_views(&mut p);
+
+            // Draw view animations to screen framebuffer.
+            if session.settings["animation"].is_set() {
+                self.render_view_animations(&mut p);
+            }
         }
 
         {
@@ -444,33 +455,33 @@ impl Renderer {
 
             let mut p = f.pass(PassOp::Load(), &self.screen_fb);
 
-            // Draw UI elements to screen.
+            // Draw UI elements to screen framebuffer.
             p.set_pipeline(&self.shape2d);
             p.draw_buffer(&ui_buf);
 
-            // Draw text to screen.
+            // Draw text to screen framebuffer.
             p.set_pipeline(&self.sprite2d);
             p.draw(&text_buf, &self.font.binding);
 
-            // Draw palette to screen.
+            // Draw palette to screen framebuffer.
             p.set_pipeline(&self.shape2d);
             p.draw_buffer(&palette_buf);
 
-            // Draw cursor to screen.
+            // Draw cursor to screen framebuffer.
             p.set_pipeline(&self.sprite2d);
             p.draw(&cursor_buf, &self.cursors.binding);
         }
 
         {
-            // Render screen framebuffer to screen.
-            let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), out);
+            // Present screen framebuffer to screen.
+            let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), present);
 
             p.set_pipeline(&self.screen2d);
             p.set_binding(&self.screen_binding, &[]);
             p.draw_buffer(&self.screen_vb)
         }
 
-        // Submit frame for presenting.
+        // Submit frame to device.
         r.submit(f);
 
         // If active view is dirty, record a snapshot of it.
@@ -489,25 +500,19 @@ impl Renderer {
         }
     }
 
-    pub fn resize_view_pipelines(&mut self, w: u32, h: u32) {
+    pub fn resize_brush_pipelines(&mut self, w: u32, h: u32) {
         assert!(
-            self.view2d.width() == self.const2d.width()
-                && self.view2d.height() == self.const2d.height(),
+            self.brush2d.width() == self.const2d.width()
+                && self.brush2d.height() == self.const2d.height(),
             "the view pipelines must always have the same size"
         );
-        if self.view2d.width() != w || self.view2d.height() != h {
-            self.view2d.resize(w, h);
+        if self.brush2d.width() != w || self.brush2d.height() != h {
+            self.brush2d.resize(w, h);
             self.const2d.resize(w, h);
         }
     }
 
-    pub fn resize_view_framebuffer(
-        &mut self,
-        v: &View,
-        r: &mut core::Renderer,
-    ) {
-        self.resize_view_pipelines(v.width(), v.height());
-
+    pub fn handle_view_dirty(&mut self, v: &View, r: &mut core::Renderer) {
         let resources = self.resources.lock();
         let snapshot = resources.get_snapshot(&v.id);
         let fb = &self
@@ -523,9 +528,11 @@ impl Renderer {
         // This condition is triggered when the size of the view doesn't match the size
         // of the view framebuffer. This can happen in two cases:
         //
-        //      1. The view was resized.
-        //      2. A snapshot was restored with a different size than the view.
+        //   1. The view was resized (it's dirty).
+        //   2. A snapshot was restored with a different size than the view (it's damaged).
         //
+        // Either way, we handle it equally, by re-creating the view-data and restoring
+        // the current snapshot.
         if fb.width() != vw || fb.height() != vh {
             let view_data =
                 ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, r);
@@ -568,7 +575,11 @@ impl Renderer {
         }
     }
 
-    pub fn update_views(&mut self, session: &Session, r: &mut core::Renderer) {
+    pub fn synchronize_views(
+        &mut self,
+        session: &Session,
+        r: &mut core::Renderer,
+    ) {
         let data_keys: HashSet<ViewId> =
             self.view_data.keys().cloned().collect();
         let session_keys: HashSet<ViewId> =
@@ -576,13 +587,6 @@ impl Renderer {
 
         let added = session_keys.difference(&data_keys);
         let removed = data_keys.difference(&session_keys);
-
-        for v in session.views.values() {
-            if !v.is_okay() {
-                self.resize_view_framebuffer(v, r);
-                self.handle_view_ops(v, r);
-            }
-        }
 
         for id in added {
             let resources = self.resources.lock();
@@ -852,8 +856,7 @@ impl Renderer {
         }
     }
 
-    fn render_views<T: core::TextureView>(&self, f: &mut core::Frame, out: &T) {
-        let mut p = f.pass(PassOp::Load(), out);
+    fn render_views(&self, p: &mut core::Pass) {
         p.set_pipeline(&self.framebuffer2d);
 
         for ((_, v), off) in self
@@ -869,12 +872,7 @@ impl Renderer {
         }
     }
 
-    fn render_view_animations<T: core::TextureView>(
-        &self,
-        f: &mut core::Frame,
-        out: &T,
-    ) {
-        let mut p = f.pass(PassOp::Load(), out);
+    fn render_view_animations(&self, p: &mut core::Pass) {
         p.set_pipeline(&self.sprite2d);
 
         for (_, v) in self.view_data.iter() {
