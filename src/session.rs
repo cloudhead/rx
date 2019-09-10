@@ -25,8 +25,10 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time;
 
+/// `rx` version string.
 pub const VERSION: &'static str = "0.1.0";
 
+/// Help string.
 pub const HELP: &'static str = r#"
 :help                    Toggle this help
 :e <path..>              Edit path(s)
@@ -96,6 +98,8 @@ impl ToString for Rgb8 {
     }
 }
 
+/// Session coordinates.
+/// Encompasses anything within the window, such as the cursor position.
 #[derive(Copy, Clone, PartialEq)]
 pub struct SessionCoords(Point2<f32>);
 
@@ -699,29 +703,6 @@ impl Session {
         self.dirty = true;
     }
 
-    /// Convert session coordinates to view coordinates of the given view.
-    pub fn view_coords(&self, v: ViewId, p: SessionCoords) -> ViewCoords<f32> {
-        let v = self.view(v);
-        let SessionCoords(mut p) = p;
-
-        p = p - self.offset - v.offset;
-        p = p / v.zoom;
-
-        if v.flip_x {
-            p.x = v.width() as f32 - p.x;
-        }
-        if v.flip_y {
-            p.y = v.height() as f32 - p.y;
-        }
-
-        ViewCoords::new(p.x.floor(), p.y.floor())
-    }
-
-    /// Convert session coordinates to view coordinates of the active view.
-    pub fn active_view_coords(&self, p: SessionCoords) -> ViewCoords<f32> {
-        self.view_coords(self.views.active_id, p)
-    }
-
     /// Update the session by processing new user events and advancing
     /// the internal state.
     pub fn update(
@@ -783,10 +764,99 @@ impl Session {
         debug_assert_eq!(self.offset, self.offset.map(|a| a.floor()));
     }
 
+    /// Quit the session.
+    pub fn quit(&mut self) {
+        self.is_running = false;
+    }
+
     /// Return the session offset as a transformation matrix.
     pub fn transform(&self) -> Matrix4<f32> {
         Matrix4::from_translation(self.offset.extend(0.))
     }
+
+    /// Snap the given session coordinates to the pixel grid.
+    /// This only has an effect at zoom levels greater than `1.0`.
+    pub fn snap(
+        &self,
+        p: SessionCoords,
+        offx: f32,
+        offy: f32,
+        zoom: f32,
+    ) -> SessionCoords {
+        SessionCoords::new(
+            p.x - ((p.x - offx - self.offset.x) % zoom),
+            p.y - ((p.y - offy - self.offset.y) % zoom),
+        )
+        .floor()
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    /// Called when settings have been changed.
+    fn setting_changed(&mut self, name: &str, old: &Value, new: &Value) {
+        debug!("set `{}`: {} -> {}", name, old, new);
+
+        self.settings_changed.insert(name.to_owned());
+
+        match name {
+            "animation/delay" => {
+                self.active_view_mut().set_animation_delay(new.uint64());
+            }
+            _ => {}
+        }
+    }
+
+    /// Switch the session mode.
+    fn switch_mode(&mut self, mode: Mode) {
+        let (old, new) = (self.mode, mode);
+        if old == new {
+            return;
+        }
+
+        match old {
+            Mode::Command => {
+                self.selection = Rect::empty();
+                self.cmdline.clear();
+            }
+            _ => {}
+        }
+
+        let pressed: Vec<platform::Key> =
+            self.keys_pressed.iter().cloned().collect();
+        for k in pressed {
+            self.handle_keyboard_input(platform::KeyboardInput {
+                key: Some(k),
+                modifiers: ModifiersState::default(),
+                state: InputState::Released,
+            });
+        }
+
+        self.mode = new;
+    }
+
+    fn record_macro(&mut self, _cmd: String) {}
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// Messages
+    ///////////////////////////////////////////////////////////////////////////////
+
+    /// Display a message to the user. Also logs.
+    pub fn message<D: fmt::Display>(&mut self, msg: D, t: MessageType) {
+        self.message = Message::new(msg, t);
+        self.message.log();
+    }
+
+    fn message_clear(&mut self) {
+        self.message = Message::default();
+    }
+
+    fn unimplemented(&mut self) {
+        self.message("Error: not yet implemented", MessageType::Error);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////
+    /// View functions
+    ///////////////////////////////////////////////////////////////////////////////
 
     /// Get the view with the given id.
     ///
@@ -836,6 +906,29 @@ impl Session {
         self.view_mut(self.views.active_id)
     }
 
+    /// Convert session coordinates to view coordinates of the given view.
+    pub fn view_coords(&self, v: ViewId, p: SessionCoords) -> ViewCoords<f32> {
+        let v = self.view(v);
+        let SessionCoords(mut p) = p;
+
+        p = p - self.offset - v.offset;
+        p = p / v.zoom;
+
+        if v.flip_x {
+            p.x = v.width() as f32 - p.x;
+        }
+        if v.flip_y {
+            p.y = v.height() as f32 - p.y;
+        }
+
+        ViewCoords::new(p.x.floor(), p.y.floor())
+    }
+
+    /// Convert session coordinates to view coordinates of the active view.
+    pub fn active_view_coords(&self, p: SessionCoords) -> ViewCoords<f32> {
+        self.view_coords(self.views.active_id, p)
+    }
+
     /// Edit paths.
     ///
     /// Loads the given files into the session. Returns an error if one of
@@ -878,44 +971,71 @@ impl Session {
         Ok(())
     }
 
-    /// Source an rx script at the given path. Returns an error if the path
-    /// does not exist or the script couldn't be sourced.
-    fn source_path<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
-        let path = path.as_ref();
-        debug!("source: {}", path.display());
-
-        let f = File::open(&path)
-            .or_else(|_| File::open(self.base_dirs.config_dir().join(path)))?;
-
-        self.source_reader(io::BufReader::new(f), path)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-    }
-
-    /// Source a directory which contains a `.rxrc` script. Returns an
-    /// error if the script wasn't found or couldn't be sourced.
-    fn source_dir<P: AsRef<Path>>(&mut self, dir: P) -> io::Result<()> {
-        self.source_path(dir.as_ref().join(".rxrc"))
-    }
-
-    /// Source a script from an [`io::BufRead`].
-    fn source_reader<P: AsRef<Path>, R: io::BufRead>(
-        &mut self,
-        r: R,
-        _path: P,
-    ) -> io::Result<()> {
-        for line in r.lines() {
-            let line = line?;
-
-            if line.starts_with(cmd::COMMENT) {
-                continue;
-            }
-            match Command::from_str(&format!(":{}", line)) {
-                Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
-                Ok(cmd) => self.command(cmd),
-            }
+    /// Save the given view to disk with the current file name. Returns
+    /// an error if the view has no file name.
+    pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
+        if let Some(ref f) = self.view(id).file_name().map(|f| f.clone()) {
+            self.save_view_as(id, f)
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
         }
+    }
+
+    /// Save a view with the given file name. Returns an error if
+    /// the format is not supported.
+    pub fn save_view_as<P: AsRef<Path>>(
+        &mut self,
+        id: ViewId,
+        path: P,
+    ) -> io::Result<()> {
+        let ext = path.as_ref().extension().ok_or(io::Error::new(
+            io::ErrorKind::Other,
+            "file path requires an extension (.gif or .png)",
+        ))?;
+        let ext = ext.to_str().ok_or(io::Error::new(
+            io::ErrorKind::Other,
+            "file extension is not valid unicode",
+        ))?;
+
+        if !Self::SUPPORTED_FORMATS.contains(&ext) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("`{}` is not a supported output format", ext),
+            ));
+        }
+
+        if ext == "gif" {
+            return self.save_view_gif(id, path);
+        }
+
+        // Make sure we don't overwrite other files!
+        if self
+            .view(id)
+            .file_name()
+            .map_or(true, |f| path.as_ref() != f)
+            && path.as_ref().exists()
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("\"{}\" already exists", path.as_ref().display()),
+            ));
+        }
+
+        let (s_id, npixels) = self.resources.save_view(&id, &path)?;
+        self.view_mut(id).save_as(s_id, path.as_ref().into());
+
+        self.message(
+            format!(
+                "\"{}\" {} pixels written",
+                path.as_ref().display(),
+                npixels,
+            ),
+            MessageType::Info,
+        );
         Ok(())
     }
+
+    /// Private ///////////////////////////////////////////////////////////////////
 
     /// Load a view into the session.
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
@@ -996,75 +1116,6 @@ impl Session {
         }
     }
 
-    /// Quit the session.
-    pub fn quit(&mut self) {
-        self.is_running = false;
-    }
-
-    /// Save the given view to disk with the current file name. Returns
-    /// an error if the view has no file name.
-    pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
-        if let Some(ref f) = self.view(id).file_name().map(|f| f.clone()) {
-            self.save_view_as(id, f)
-        } else {
-            Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
-        }
-    }
-
-    /// Save a view with the given file name. Returns an error if
-    /// the format is not supported.
-    pub fn save_view_as<P: AsRef<Path>>(
-        &mut self,
-        id: ViewId,
-        path: P,
-    ) -> io::Result<()> {
-        let ext = path.as_ref().extension().ok_or(io::Error::new(
-            io::ErrorKind::Other,
-            "file path requires an extension (.gif or .png)",
-        ))?;
-        let ext = ext.to_str().ok_or(io::Error::new(
-            io::ErrorKind::Other,
-            "file extension is not valid unicode",
-        ))?;
-
-        if !Self::SUPPORTED_FORMATS.contains(&ext) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("`{}` is not a supported output format", ext),
-            ));
-        }
-
-        if ext == "gif" {
-            return self.save_view_gif(id, path);
-        }
-
-        // Make sure we don't overwrite other files!
-        if self
-            .view(id)
-            .file_name()
-            .map_or(true, |f| path.as_ref() != f)
-            && path.as_ref().exists()
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                format!("\"{}\" already exists", path.as_ref().display()),
-            ));
-        }
-
-        let (s_id, npixels) = self.resources.save_view(&id, &path)?;
-        self.view_mut(id).save_as(s_id, path.as_ref().into());
-
-        self.message(
-            format!(
-                "\"{}\" {} pixels written",
-                path.as_ref().display(),
-                npixels,
-            ),
-            MessageType::Info,
-        );
-        Ok(())
-    }
-
     /// Save a view as a gif animation.
     fn save_view_gif<P: AsRef<Path>>(
         &mut self,
@@ -1085,18 +1136,409 @@ impl Session {
         Ok(())
     }
 
-    fn setting_changed(&mut self, name: &str, old: &Value, new: &Value) {
-        debug!("set `{}`: {} -> {}", name, old, new);
+    /// Start editing the given view.
+    fn edit_view(&mut self, id: ViewId) {
+        self.views.activate(id);
+        self.center_active_view();
+    }
 
-        self.settings_changed.insert(name.to_owned());
+    /// Re-position all views relative to each other so that they don't overlap.
+    fn organize_views(&mut self) {
+        if self.views.is_empty() {
+            return;
+        }
+        let (_, first) = self
+            .views
+            .iter_mut()
+            .next()
+            .expect("view list should never be empty");
 
-        match name {
-            "animation/delay" => {
-                self.active_view_mut().set_animation_delay(new.uint64());
-            }
-            _ => {}
+        first.offset.y = 0.;
+
+        let mut offset = first.height() as f32 * first.zoom + Self::VIEW_MARGIN;
+
+        for (_, v) in self.views.iter_mut().skip(1) {
+            v.offset.y = offset;
+            offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
         }
     }
+
+    fn undo(&mut self, id: ViewId) {
+        self.restore_view_snapshot(id, true);
+    }
+
+    fn redo(&mut self, id: ViewId) {
+        self.restore_view_snapshot(id, false);
+    }
+
+    fn restore_view_snapshot(&mut self, id: ViewId, backwards: bool) {
+        let snapshot = self
+            .resources
+            .lock_mut()
+            .get_snapshots_mut(&id)
+            .and_then(|s| if backwards { s.prev() } else { s.next() })
+            .map(|s| (s.id, s.fw, s.fh, s.nframes));
+
+        if let Some((sid, fw, fh, nframes)) = snapshot {
+            let v = self.view_mut(id);
+
+            v.reset(fw, fh, nframes);
+            v.damaged();
+
+            // If the snapshot was saved to disk, we mark the view as saved too.
+            // Otherwise, if the view was saved before restoring the snapshot,
+            // we mark it as modified.
+            if let FileStatus::Modified(ref f) = v.file_status {
+                if v.is_snapshot_saved(sid) {
+                    v.file_status = FileStatus::Saved(f.clone());
+                }
+            } else if let FileStatus::Saved(ref f) = v.file_status {
+                v.file_status = FileStatus::Modified(f.clone());
+            } else {
+                // TODO
+            }
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Event handlers
+    ///////////////////////////////////////////////////////////////////////////
+
+    pub fn handle_resized(&mut self, size: platform::LogicalSize) {
+        self.width = size.width as f32;
+        self.height = size.height as f32;
+
+        // TODO: Reset session cursor coordinates
+        self.center_palette();
+        self.center_active_view();
+    }
+
+    pub fn handle_mouse_input(
+        &mut self,
+        button: platform::MouseButton,
+        state: platform::InputState,
+        out: &mut shape2d::Batch,
+    ) {
+        if button != platform::MouseButton::Left {
+            return;
+        }
+        let is_cursor_active = self.active_view().hover;
+
+        if state == platform::InputState::Pressed {
+            self.mouse_down = true;
+            self.record_macro(format!("cursor/down"));
+
+            // Click on palette
+            if let Some(color) = self.palette.hover {
+                if self.mode == Mode::Command {
+                    self.cmdline.puts(&Rgb8::from(color).to_string());
+                } else {
+                    self.pick_color(color);
+                }
+                return;
+            }
+
+            // Click on active view
+            if is_cursor_active {
+                if self.mode == Mode::Command {
+                    self.cmdline_hide();
+                    return;
+                }
+
+                let p = self.active_view_coords(self.cursor);
+                let (nframes, fw, frame_index) = {
+                    let v = self.active_view();
+                    (v.animation.len(), v.fw, (p.x as u32 / v.fw) as i32)
+                };
+
+                match self.mode {
+                    Mode::Normal => match self.tool {
+                        // TODO: This whole block of code is duplicated in
+                        // `handle_cursor_moved`.
+                        Tool::Brush(ref mut brush) => {
+                            let color = if brush.is_set(BrushMode::Erase) {
+                                Rgba8::TRANSPARENT
+                            } else {
+                                self.fg
+                            };
+
+                            let offsets: Vec<_> = if brush
+                                .is_set(BrushMode::Multi)
+                            {
+                                (0..nframes as i32 - frame_index)
+                                    .map(|i| {
+                                        Vector2::new((i as u32 * fw) as i32, 0)
+                                    })
+                                    .collect()
+                            } else {
+                                Vec::new()
+                            };
+                            brush.start_drawing(p.into(), color, &offsets, out);
+                        }
+                        Tool::Sampler => {
+                            self.sample_color();
+                        }
+                        Tool::Pan => {}
+                    },
+                    Mode::Command => {
+                        // TODO
+                    }
+                    Mode::Visual => {
+                        // TODO
+                    }
+                    Mode::Present | Mode::Help => {}
+                }
+            } else {
+                for (id, v) in self.views.iter() {
+                    if v.hover {
+                        let id = id.clone();
+                        self.views.activate(id);
+                        self.center_active_view_v();
+                        return;
+                    }
+                }
+            }
+        } else if state == platform::InputState::Released {
+            self.mouse_down = false;
+            self.record_macro(format!("cursor/up"));
+
+            if let Tool::Brush(ref mut brush) = self.tool {
+                match brush.state {
+                    BrushState::Drawing | BrushState::DrawStarted => {
+                        brush.stop_drawing();
+                        self.active_view_mut().touch();
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn handle_cursor_moved(
+        &mut self,
+        cursor: SessionCoords,
+        out: &mut shape2d::Batch,
+    ) {
+        self.record_macro(format!("cursor/move {} {}", cursor.x, cursor.y));
+        self.palette.handle_cursor_moved(cursor);
+
+        self.hover_view = None;
+        self.hover_color = None;
+        for (_, v) in self.views.iter_mut() {
+            v.handle_cursor_moved(cursor - self.offset);
+            if v.hover {
+                self.hover_view = Some(v.id);
+            }
+        }
+
+        let p = self.active_view_coords(cursor);
+        let (nframes, fw, frame_index, vw, vh) = {
+            let v = self.active_view();
+            (
+                v.animation.len(),
+                v.fw,
+                i32::max(0, (p.x / v.fw as f32) as i32),
+                v.width(),
+                v.height(),
+            )
+        };
+        if let Some(color) = self.palette.hover {
+            self.hover_color = Some(color);
+        } else if let Some(v) = self.hover_view {
+            let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
+            self.hover_color = Some(self.color_at(v, p));
+        }
+
+        match self.mode {
+            Mode::Normal => match self.tool {
+                Tool::Brush(ref mut brush) => {
+                    if brush.state == BrushState::DrawStarted
+                        || brush.state == BrushState::Drawing
+                    {
+                        brush.state = BrushState::Drawing;
+
+                        let color = if brush.is_set(BrushMode::Erase) {
+                            Rgba8::TRANSPARENT
+                        } else {
+                            self.fg
+                        };
+
+                        let mut p: ViewCoords<i32> = p.into();
+
+                        if brush.is_set(BrushMode::Multi) {
+                            p.clamp(Rect::new(
+                                (brush.size / 2) as i32,
+                                (brush.size / 2) as i32,
+                                vw as i32 - (brush.size / 2) as i32 - 1,
+                                vh as i32 - (brush.size / 2) as i32 - 1,
+                            ));
+                            let offsets: Vec<_> = (0..nframes as i32
+                                - frame_index)
+                                .map(|i| {
+                                    Vector2::new((i as u32 * fw) as i32, 0)
+                                })
+                                .collect();
+
+                            brush.draw(p, color, &offsets, out);
+                        } else {
+                            brush.draw(p, color, &[], out);
+                        }
+                    }
+                }
+                Tool::Pan => {
+                    self.offset.x += cursor.x - self.cursor.x;
+                    self.offset.y += cursor.y - self.cursor.y;
+                }
+                Tool::Sampler => {}
+            },
+            Mode::Visual => {}
+            _ => {}
+        }
+        self.cursor = cursor;
+    }
+
+    pub fn handle_received_character(&mut self, c: char) {
+        if self.mode == Mode::Command {
+            if c.is_control() {
+                return;
+            }
+            self.cmdline_handle_input(c);
+        } else if let Some(kb) = self.key_bindings.find(
+            Key::Char(c),
+            platform::ModifiersState::default(),
+            platform::InputState::Pressed,
+            &self.mode,
+        ) {
+            self.command(kb.command);
+        }
+    }
+
+    pub fn handle_keyboard_input(&mut self, input: platform::KeyboardInput) {
+        let KeyboardInput {
+            state,
+            modifiers,
+            key,
+            ..
+        } = input;
+
+        debug!("{:?}", input);
+
+        let mut repeat = false;
+
+        if let Some(key) = key {
+            // While the mouse is down, don't accept keyboard input.
+            if self.mouse_down {
+                return;
+            }
+
+            if state == InputState::Pressed {
+                repeat = !self.keys_pressed.insert(key);
+            } else if state == InputState::Released {
+                if !self.keys_pressed.remove(&key) {
+                    return;
+                }
+            }
+
+            match self.mode {
+                Mode::Visual => {
+                    if key == platform::Key::Escape
+                        && state == InputState::Pressed
+                    {
+                        self.selection = Rect::empty();
+                        self.switch_mode(Mode::Normal);
+                        return;
+                    }
+                }
+                Mode::Command => {
+                    if state == InputState::Pressed {
+                        match key {
+                            platform::Key::Backspace => {
+                                self.cmdline_handle_backspace();
+                            }
+                            platform::Key::Return => {
+                                self.cmdline_handle_enter();
+                            }
+                            platform::Key::Escape => {
+                                self.cmdline_hide();
+                            }
+                            _ => {}
+                        }
+                    }
+                    return;
+                }
+                Mode::Help => {
+                    if state == InputState::Pressed {
+                        if key == platform::Key::Escape {
+                            self.switch_mode(Mode::Normal);
+                            return;
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            if let Some(kb) = self.key_bindings.find(
+                Key::Virtual(key),
+                modifiers,
+                state,
+                &self.mode,
+            ) {
+                // For toggle-like key bindings, we don't want to run the command
+                // on key repeats. For regular key bindings, we run the command
+                // either way.
+                if !kb.is_toggle || kb.is_toggle && !repeat {
+                    self.command(kb.command);
+                }
+            }
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    /// Sourcing
+    ///////////////////////////////////////////////////////////////////////////
+
+    /// Source an rx script at the given path. Returns an error if the path
+    /// does not exist or the script couldn't be sourced.
+    fn source_path<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
+        let path = path.as_ref();
+        debug!("source: {}", path.display());
+
+        let f = File::open(&path)
+            .or_else(|_| File::open(self.base_dirs.config_dir().join(path)))?;
+
+        self.source_reader(io::BufReader::new(f), path)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+    }
+
+    /// Source a directory which contains a `.rxrc` script. Returns an
+    /// error if the script wasn't found or couldn't be sourced.
+    fn source_dir<P: AsRef<Path>>(&mut self, dir: P) -> io::Result<()> {
+        self.source_path(dir.as_ref().join(".rxrc"))
+    }
+
+    /// Source a script from an [`io::BufRead`].
+    fn source_reader<P: AsRef<Path>, R: io::BufRead>(
+        &mut self,
+        r: R,
+        _path: P,
+    ) -> io::Result<()> {
+        for line in r.lines() {
+            let line = line?;
+
+            if line.starts_with(cmd::COMMENT) {
+                continue;
+            }
+            match Command::from_str(&format!(":{}", line)) {
+                Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
+                Ok(cmd) => self.command(cmd),
+            }
+        }
+        Ok(())
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    /// Centering
+    ///////////////////////////////////////////////////////////////////////////
 
     /// Center the palette in the workspace.
     fn center_palette(&mut self) {
@@ -1129,48 +1571,9 @@ impl Session {
         self.center_active_view_h();
     }
 
-    /// Start editing the given view.
-    fn edit_view(&mut self, id: ViewId) {
-        self.views.activate(id);
-        self.center_active_view();
-    }
-
-    /// Re-position all views relative to each other so that they don't overlap.
-    fn organize_views(&mut self) {
-        if self.views.is_empty() {
-            return;
-        }
-        let (_, first) = self
-            .views
-            .iter_mut()
-            .next()
-            .expect("view list should never be empty");
-
-        first.offset.y = 0.;
-
-        let mut offset = first.height() as f32 * first.zoom + Self::VIEW_MARGIN;
-
-        for (_, v) in self.views.iter_mut().skip(1) {
-            v.offset.y = offset;
-            offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
-        }
-    }
-
-    /// Snap the given session coordinates to the pixel grid.
-    /// This only has an effect at zoom levels greater than `1.0`.
-    pub fn snap(
-        &self,
-        p: SessionCoords,
-        offx: f32,
-        offy: f32,
-        zoom: f32,
-    ) -> SessionCoords {
-        SessionCoords::new(
-            p.x - ((p.x - offx - self.offset.x) % zoom),
-            p.y - ((p.y - offy - self.offset.y) % zoom),
-        )
-        .floor()
-    }
+    ///////////////////////////////////////////////////////////////////////////
+    /// Zoom functions
+    ///////////////////////////////////////////////////////////////////////////
 
     /// Zoom the active view in.
     fn zoom_in(&mut self) {
@@ -1259,39 +1662,9 @@ impl Session {
         self.organize_views();
     }
 
-    /// Display a message to the user. Also logs.
-    pub fn message<D: fmt::Display>(&mut self, msg: D, t: MessageType) {
-        self.message = Message::new(msg, t);
-        self.message.log();
-    }
-
-    /// Switch the session mode.
-    fn switch_mode(&mut self, mode: Mode) {
-        let (old, new) = (self.mode, mode);
-        if old == new {
-            return;
-        }
-
-        match old {
-            Mode::Command => {
-                self.selection = Rect::empty();
-                self.cmdline.clear();
-            }
-            _ => {}
-        }
-
-        let pressed: Vec<platform::Key> =
-            self.keys_pressed.iter().cloned().collect();
-        for k in pressed {
-            self.handle_keyboard_input(platform::KeyboardInput {
-                key: Some(k),
-                modifiers: ModifiersState::default(),
-                state: InputState::Released,
-            });
-        }
-
-        self.mode = new;
-    }
+    ///////////////////////////////////////////////////////////////////////////
+    /// Commands
+    ///////////////////////////////////////////////////////////////////////////
 
     /// Process a command.
     fn command(&mut self, cmd: Command) {
@@ -1671,18 +2044,6 @@ impl Session {
         self.message_clear();
     }
 
-    fn message_clear(&mut self) {
-        self.message = Message::default();
-    }
-
-    fn undo(&mut self, id: ViewId) {
-        self.restore_view_snapshot(id, true);
-    }
-
-    fn redo(&mut self, id: ViewId) {
-        self.restore_view_snapshot(id, false);
-    }
-
     fn throttle(&mut self, cmd: &Command) -> bool {
         match cmd {
             // FIXME: Throttling these commands arbitrarily is not ideal.
@@ -1710,38 +2071,9 @@ impl Session {
         }
     }
 
-    fn unimplemented(&mut self) {
-        self.message("Error: not yet implemented", MessageType::Error);
-    }
-
-    fn restore_view_snapshot(&mut self, id: ViewId, backwards: bool) {
-        let snapshot = self
-            .resources
-            .lock_mut()
-            .get_snapshots_mut(&id)
-            .and_then(|s| if backwards { s.prev() } else { s.next() })
-            .map(|s| (s.id, s.fw, s.fh, s.nframes));
-
-        if let Some((sid, fw, fh, nframes)) = snapshot {
-            let v = self.view_mut(id);
-
-            v.reset(fw, fh, nframes);
-            v.damaged();
-
-            // If the snapshot was saved to disk, we mark the view as saved too.
-            // Otherwise, if the view was saved before restoring the snapshot,
-            // we mark it as modified.
-            if let FileStatus::Modified(ref f) = v.file_status {
-                if v.is_snapshot_saved(sid) {
-                    v.file_status = FileStatus::Saved(f.clone());
-                }
-            } else if let FileStatus::Saved(ref f) = v.file_status {
-                v.file_status = FileStatus::Modified(f.clone());
-            } else {
-                // TODO
-            }
-        }
-    }
+    ///////////////////////////////////////////////////////////////////////////
+    /// Color functions
+    ///////////////////////////////////////////////////////////////////////////
 
     /// Pick the given color as foreground color.
     fn pick_color(&mut self, color: Rgba8) {
@@ -1778,301 +2110,6 @@ impl Session {
     fn sample_color(&mut self) {
         if let Some(color) = self.hover_color {
             self.pick_color(color);
-        }
-    }
-
-    pub fn record_macro(&mut self, _cmd: String) {}
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Event handlers
-    ///////////////////////////////////////////////////////////////////////////
-
-    pub fn handle_resized(&mut self, size: platform::LogicalSize) {
-        self.width = size.width as f32;
-        self.height = size.height as f32;
-
-        // TODO: Reset session cursor coordinates
-        self.center_palette();
-        self.center_active_view();
-    }
-
-    pub fn handle_mouse_input(
-        &mut self,
-        button: platform::MouseButton,
-        state: platform::InputState,
-        out: &mut shape2d::Batch,
-    ) {
-        if button != platform::MouseButton::Left {
-            return;
-        }
-        let is_cursor_active = self.active_view().hover;
-
-        if state == platform::InputState::Pressed {
-            self.mouse_down = true;
-            self.record_macro(format!("cursor/down"));
-
-            // Click on palette
-            if let Some(color) = self.palette.hover {
-                if self.mode == Mode::Command {
-                    self.cmdline.puts(&Rgb8::from(color).to_string());
-                } else {
-                    self.pick_color(color);
-                }
-                return;
-            }
-
-            // Click on active view
-            if is_cursor_active {
-                if self.mode == Mode::Command {
-                    self.cmdline_hide();
-                    return;
-                }
-
-                let p = self.active_view_coords(self.cursor);
-                let (nframes, fw, frame_index) = {
-                    let v = self.active_view();
-                    (v.animation.len(), v.fw, (p.x as u32 / v.fw) as i32)
-                };
-
-                match self.mode {
-                    Mode::Normal => match self.tool {
-                        // TODO: This whole block of code is duplicated in
-                        // `handle_cursor_moved`.
-                        Tool::Brush(ref mut brush) => {
-                            let color = if brush.is_set(BrushMode::Erase) {
-                                Rgba8::TRANSPARENT
-                            } else {
-                                self.fg
-                            };
-
-                            let offsets: Vec<_> = if brush
-                                .is_set(BrushMode::Multi)
-                            {
-                                (0..nframes as i32 - frame_index)
-                                    .map(|i| {
-                                        Vector2::new((i as u32 * fw) as i32, 0)
-                                    })
-                                    .collect()
-                            } else {
-                                Vec::new()
-                            };
-                            brush.start_drawing(p.into(), color, &offsets, out);
-                        }
-                        Tool::Sampler => {
-                            self.sample_color();
-                        }
-                        Tool::Pan => {}
-                    },
-                    Mode::Command => {
-                        // TODO
-                    }
-                    Mode::Visual => {
-                        // TODO
-                    }
-                    Mode::Present | Mode::Help => {}
-                }
-            } else {
-                for (id, v) in self.views.iter() {
-                    if v.hover {
-                        let id = id.clone();
-                        self.views.activate(id);
-                        self.center_active_view_v();
-                        return;
-                    }
-                }
-            }
-        } else if state == platform::InputState::Released {
-            self.mouse_down = false;
-            self.record_macro(format!("cursor/up"));
-
-            if let Tool::Brush(ref mut brush) = self.tool {
-                match brush.state {
-                    BrushState::Drawing | BrushState::DrawStarted => {
-                        brush.stop_drawing();
-                        self.active_view_mut().touch();
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    pub fn handle_cursor_moved(
-        &mut self,
-        cursor: SessionCoords,
-        out: &mut shape2d::Batch,
-    ) {
-        self.record_macro(format!("cursor/move {} {}", cursor.x, cursor.y));
-        self.palette.handle_cursor_moved(cursor);
-
-        self.hover_view = None;
-        self.hover_color = None;
-        for (_, v) in self.views.iter_mut() {
-            v.handle_cursor_moved(cursor - self.offset);
-            if v.hover {
-                self.hover_view = Some(v.id);
-            }
-        }
-
-        let p = self.active_view_coords(cursor);
-        let (nframes, fw, frame_index, vw, vh) = {
-            let v = self.active_view();
-            (
-                v.animation.len(),
-                v.fw,
-                i32::max(0, (p.x / v.fw as f32) as i32),
-                v.width(),
-                v.height(),
-            )
-        };
-        if let Some(color) = self.palette.hover {
-            self.hover_color = Some(color);
-        } else if let Some(v) = self.hover_view {
-            let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
-            self.hover_color = Some(self.color_at(v, p));
-        }
-
-        match self.mode {
-            Mode::Normal => match self.tool {
-                Tool::Brush(ref mut brush) => {
-                    if brush.state == BrushState::DrawStarted
-                        || brush.state == BrushState::Drawing
-                    {
-                        brush.state = BrushState::Drawing;
-
-                        let color = if brush.is_set(BrushMode::Erase) {
-                            Rgba8::TRANSPARENT
-                        } else {
-                            self.fg
-                        };
-
-                        let mut p: ViewCoords<i32> = p.into();
-
-                        if brush.is_set(BrushMode::Multi) {
-                            p.clamp(Rect::new(
-                                (brush.size / 2) as i32,
-                                (brush.size / 2) as i32,
-                                vw as i32 - (brush.size / 2) as i32 - 1,
-                                vh as i32 - (brush.size / 2) as i32 - 1,
-                            ));
-                            let offsets: Vec<_> = (0..nframes as i32
-                                - frame_index)
-                                .map(|i| {
-                                    Vector2::new((i as u32 * fw) as i32, 0)
-                                })
-                                .collect();
-
-                            brush.draw(p, color, &offsets, out);
-                        } else {
-                            brush.draw(p, color, &[], out);
-                        }
-                    }
-                }
-                Tool::Pan => {
-                    self.offset.x += cursor.x - self.cursor.x;
-                    self.offset.y += cursor.y - self.cursor.y;
-                }
-                Tool::Sampler => {}
-            },
-            Mode::Visual => {}
-            _ => {}
-        }
-        self.cursor = cursor;
-    }
-
-    pub fn handle_received_character(&mut self, c: char) {
-        if self.mode == Mode::Command {
-            if c.is_control() {
-                return;
-            }
-            self.cmdline_handle_input(c);
-        } else if let Some(kb) = self.key_bindings.find(
-            Key::Char(c),
-            platform::ModifiersState::default(),
-            platform::InputState::Pressed,
-            &self.mode,
-        ) {
-            self.command(kb.command);
-        }
-    }
-
-    pub fn handle_keyboard_input(&mut self, input: platform::KeyboardInput) {
-        let KeyboardInput {
-            state,
-            modifiers,
-            key,
-            ..
-        } = input;
-
-        debug!("{:?}", input);
-
-        let mut repeat = false;
-
-        if let Some(key) = key {
-            // While the mouse is down, don't accept keyboard input.
-            if self.mouse_down {
-                return;
-            }
-
-            if state == InputState::Pressed {
-                repeat = !self.keys_pressed.insert(key);
-            } else if state == InputState::Released {
-                if !self.keys_pressed.remove(&key) {
-                    return;
-                }
-            }
-
-            match self.mode {
-                Mode::Visual => {
-                    if key == platform::Key::Escape
-                        && state == InputState::Pressed
-                    {
-                        self.selection = Rect::empty();
-                        self.switch_mode(Mode::Normal);
-                        return;
-                    }
-                }
-                Mode::Command => {
-                    if state == InputState::Pressed {
-                        match key {
-                            platform::Key::Backspace => {
-                                self.cmdline_handle_backspace();
-                            }
-                            platform::Key::Return => {
-                                self.cmdline_handle_enter();
-                            }
-                            platform::Key::Escape => {
-                                self.cmdline_hide();
-                            }
-                            _ => {}
-                        }
-                    }
-                    return;
-                }
-                Mode::Help => {
-                    if state == InputState::Pressed {
-                        if key == platform::Key::Escape {
-                            self.switch_mode(Mode::Normal);
-                            return;
-                        }
-                    }
-                }
-                _ => {}
-            }
-
-            if let Some(kb) = self.key_bindings.find(
-                Key::Virtual(key),
-                modifiers,
-                state,
-                &self.mode,
-            ) {
-                // For toggle-like key bindings, we don't want to run the command
-                // on key repeats. For regular key bindings, we run the command
-                // either way.
-                if !kb.is_toggle || kb.is_toggle && !repeat {
-                    self.command(kb.command);
-                }
-            }
         }
     }
 }
