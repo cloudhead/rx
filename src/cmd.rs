@@ -339,6 +339,19 @@ impl<'a> Parse<'a> for platform::Key {
     }
 }
 
+impl<'a> Parse<'a> for Mode {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        let (id, p) = p.identifier()?;
+        match id {
+            "command" => Ok((Mode::Command, p)),
+            "normal" => Ok((Mode::Normal, p)),
+            "visual" => Ok((Mode::Visual, p)),
+            "present" => Ok((Mode::Present, p)),
+            mode => Err(Error::new(format!("unknown mode '{}'", mode))),
+        }
+    }
+}
+
 impl<'a> Parse<'a> for Command {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         let (_, p) = p.sigil(':')?;
@@ -457,6 +470,10 @@ impl<'a> Parse<'a> for Command {
             "brush/unset" => {
                 let (mode, p) = p.parse::<BrushMode>()?;
                 Ok((Command::BrushUnset(mode), p))
+            }
+            "mode" => {
+                let (mode, p) = p.parse::<Mode>()?;
+                Ok((Command::Mode(mode), p))
             }
             "sampler" => Ok((Command::Sampler(true), p)),
             "sampler/off" => Ok((Command::Sampler(false), p)),
