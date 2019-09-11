@@ -440,13 +440,21 @@ impl Renderer {
         {
             r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
 
-            let mut p = f.pass(PassOp::Load(), &self.screen_fb);
+            // NOTE: We should be able to use the same render pass for both
+            // of the following operations, but strangely enough, this yields
+            // validation errors around the dynamic buffer offsets. I'm pretty
+            // sure that this is a bug in wgpu, which perhaps doesn't reset
+            // the dynamic offset count when the pipeline is switched.
 
-            // Draw view framebuffers to screen framebuffer.
-            self.render_views(&mut p);
+            {
+                // Draw view framebuffers to screen framebuffer.
+                let mut p = f.pass(PassOp::Load(), &self.screen_fb);
+                self.render_views(&mut p);
+            }
 
             // Draw view animations to screen framebuffer.
             if session.settings["animation"].is_set() {
+                let mut p = f.pass(PassOp::Load(), &self.screen_fb);
                 self.render_view_animations(&mut p);
             }
         }
