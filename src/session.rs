@@ -512,6 +512,8 @@ pub struct Session {
     /// Resources shared with the `Renderer`.
     resources: ResourceManager,
 
+    /// Whether we should ignore characters received.
+    ignore_received_characters: bool,
     /// The set of keys currently pressed.
     keys_pressed: HashSet<platform::Key>,
     /// The list of all active key bindings.
@@ -645,6 +647,7 @@ impl Session {
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
+            ignore_received_characters: false,
             cmdline: CommandLine::new(),
             throttled: None,
             mode: Mode::Normal,
@@ -817,6 +820,19 @@ impl Session {
             Mode::Command => {
                 self.selection = Rect::empty();
                 self.cmdline.clear();
+            }
+            _ => {}
+        }
+
+        match new {
+            Mode::Command => {
+                // When switching to command mode via the keyboard, we simultaneously
+                // also receive the character input equivalent of the key pressed.
+                // This input, since we are now in command mode, is processed as
+                // text input to the command line. To avoid this, we have to ignore
+                // all such input until the end of the current upate.
+                self.ignore_received_characters = true;
+                self.cmdline.putc(':');
             }
             _ => {}
         }
@@ -1400,6 +1416,10 @@ impl Session {
     pub fn handle_received_character(&mut self, c: char) {
         if self.mode == Mode::Command {
             if c.is_control() {
+                return;
+            }
+            if self.ignore_received_characters {
+                self.ignore_received_characters = false;
                 return;
             }
             self.cmdline_handle_input(c);
