@@ -329,23 +329,12 @@ impl FromStr for Command {
 
 impl<'a> Parse<'a> for platform::Key {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        use platform::Key;
         let (c, p) = p.parse::<char>()?;
+        let key: platform::Key = c.into();
 
-        #[rustfmt::skip]
-        let key = match c {
-            'a' => Key::A, 'b' => Key::B, 'c' => Key::C, 'd' => Key::D,
-            'e' => Key::E, 'f' => Key::F, 'g' => Key::G, 'h' => Key::H,
-            'i' => Key::I, 'j' => Key::J, 'k' => Key::K, 'l' => Key::L,
-            'm' => Key::M, 'n' => Key::N, 'o' => Key::O, 'p' => Key::P,
-            'q' => Key::Q, 'r' => Key::R, 's' => Key::S, 't' => Key::T,
-            'u' => Key::U, 'v' => Key::V, 'w' => Key::W, 'x' => Key::X,
-            'y' => Key::Y, 'z' => Key::Z,
-            '/' => Key::Slash, '[' => Key::LBracket, ']' => Key::RBracket,
-            '`' => Key::Grave, ',' => Key::Comma, '.' => Key::Period,
-            '=' => Key::Equal, '-' => Key::Minus, '\'' => Key::Apostrophe,
-            _ => return Err(Error::new(format!("unknown key {:?}", c))),
-        };
+        if key == platform::Key::Unknown {
+            return Err(Error::new(format!("unknown key {:?}", c)));
+        }
         Ok((key, p))
     }
 }

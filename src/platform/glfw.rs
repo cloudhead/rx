@@ -189,42 +189,6 @@ impl From<glfw::Key> for Key {
         use glfw::Key as Glfw;
 
         match k {
-            Glfw::Num1 => Key::Num1,
-            Glfw::Num2 => Key::Num2,
-            Glfw::Num3 => Key::Num3,
-            Glfw::Num4 => Key::Num4,
-            Glfw::Num5 => Key::Num5,
-            Glfw::Num6 => Key::Num6,
-            Glfw::Num7 => Key::Num7,
-            Glfw::Num8 => Key::Num8,
-            Glfw::Num9 => Key::Num9,
-            Glfw::Num0 => Key::Num0,
-            Glfw::A => Key::A,
-            Glfw::B => Key::B,
-            Glfw::C => Key::C,
-            Glfw::D => Key::D,
-            Glfw::E => Key::E,
-            Glfw::F => Key::F,
-            Glfw::G => Key::G,
-            Glfw::H => Key::H,
-            Glfw::I => Key::I,
-            Glfw::J => Key::J,
-            Glfw::K => Key::K,
-            Glfw::L => Key::L,
-            Glfw::M => Key::M,
-            Glfw::N => Key::N,
-            Glfw::O => Key::O,
-            Glfw::P => Key::P,
-            Glfw::Q => Key::Q,
-            Glfw::R => Key::R,
-            Glfw::S => Key::S,
-            Glfw::T => Key::T,
-            Glfw::U => Key::U,
-            Glfw::V => Key::V,
-            Glfw::W => Key::W,
-            Glfw::X => Key::X,
-            Glfw::Y => Key::Y,
-            Glfw::Z => Key::Z,
             Glfw::Escape => Key::Escape,
             Glfw::Insert => Key::Insert,
             Glfw::Home => Key::Home,
@@ -239,25 +203,24 @@ impl From<glfw::Key> for Key {
             Glfw::Backspace => Key::Backspace,
             Glfw::Enter => Key::Return,
             Glfw::Space => Key::Space,
-            Glfw::Apostrophe => Key::Apostrophe,
-            Glfw::Backslash => Key::Backslash,
-            Glfw::Comma => Key::Comma,
-            Glfw::Equal => Key::Equal,
-            Glfw::GraveAccent => Key::Grave,
             Glfw::LeftAlt => Key::Alt,
             Glfw::LeftBracket => Key::LBracket,
             Glfw::LeftControl => Key::Control,
             Glfw::LeftShift => Key::Shift,
-            Glfw::Minus => Key::Minus,
-            Glfw::Period => Key::Period,
             Glfw::RightAlt => Key::Alt,
             Glfw::RightBracket => Key::RBracket,
             Glfw::RightControl => Key::Control,
             Glfw::RightShift => Key::Shift,
-            Glfw::Semicolon => Key::Semicolon,
-            Glfw::Slash => Key::Slash,
             Glfw::Tab => Key::Tab,
-            _ => Key::Unknown,
+
+            _ => {
+                if let Some(sym) = k.get_name() {
+                    if let Some(c) = sym.chars().next() {
+                        return Key::from(c);
+                    }
+                }
+                Key::Unknown
+            }
         }
     }
 }
