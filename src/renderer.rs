@@ -1,9 +1,11 @@
 use crate::brush::BrushMode;
 use crate::color;
+use crate::data;
 use crate::font::{Font, TextBatch};
 use crate::framebuffer2d;
 use crate::gpu;
-use crate::platform;
+use crate::image;
+use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::screen2d;
 use crate::session::{self, Mode, Rgb8, Session, Tool};
@@ -18,38 +20,50 @@ use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
 use rgx::math::{Matrix4, Vector2};
 
-use png;
-
 use std::collections::{BTreeMap, HashSet};
 use std::time;
 
+/// 2D Renderer. Renders the [`Session`] to screen.
 pub struct Renderer {
-    width: u32,
-    height: u32,
-
+    /// Window size.
+    window: LogicalSize,
+    /// Currently active view. We keep track of this to know when the
+    /// active view in the session has changed.
     active_view_id: ViewId,
-
+    /// The font used to render text.
     font: Font,
     cursors: Cursors,
     checker: Checker,
-
+    /// View transforms. These are sorted by [`ViewId`].
     view_transforms: Vec<Matrix4<f32>>,
+    /// View transform buffer, created from the transform matrices. This is bound
+    /// as a dynamic uniform buffer, to render all views in a single pass.
     view_transforms_buf: gpu::TransformBuffer,
-
+    /// Sampler used for literally everything.
     sampler: core::Sampler,
 
+    /// Pipeline for shapes, eg. UI elements.
     shape2d: kit::shape2d::Pipeline,
+    /// Pipeline for sprites, eg. text and views.
     sprite2d: kit::sprite2d::Pipeline,
+    /// Pipeline for off-screen rendering.
     framebuffer2d: framebuffer2d::Pipeline,
+    /// Pipeline for brush strokes.
     brush2d: kit::shape2d::Pipeline,
+    /// Pipeline for eraser strokes and other use-cases that require
+    /// "constant" blending.
     const2d: kit::shape2d::Pipeline,
+    /// Pipeline used to render to the screen/window.
     screen2d: screen2d::Pipeline,
 
     screen_fb: core::Framebuffer,
     screen_vb: core::VertexBuffer,
     screen_binding: core::BindingGroup,
 
+    /// Resources shared between the renderer and session.
     resources: ResourceManager,
+
+    /// View data, such as buffers, bindings etc.
     view_data: BTreeMap<ViewId, ViewData>,
 }
 
@@ -87,11 +101,17 @@ impl Cursors {
     }
 }
 
+/// View data used for rendering.
 pub struct ViewData {
+    /// View framebuffer. Brush strokes and edits are written to this buffer.
     fb: core::Framebuffer,
+    /// Vertex buffer. This holds the vertices that form the view quad.
     vb: core::VertexBuffer,
+    /// Texture/sampler binding for the view.
     binding: core::BindingGroup,
+    /// Animation quad.
     anim_vb: Option<core::VertexBuffer>,
+    /// Animation texture/sampler binding.
     anim_binding: core::BindingGroup,
 }
 
@@ -121,12 +141,6 @@ impl ViewData {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// TODO: Move all of these inside modules.
-const CURSORS: &'static [u8] =
-    include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/cursors.png"));
-const GLYPHS: &'static [u8] =
-    include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/glyphs.png"));
-
 const GLYPH_WIDTH: f32 = 8.;
 const GLYPH_HEIGHT: f32 = 14.;
 
@@ -136,10 +150,11 @@ const MARGIN: f32 = 10.;
 impl Renderer {
     pub fn new(
         r: &mut core::Renderer,
-        win_w: u32,
-        win_h: u32,
+        window: LogicalSize,
         resources: ResourceManager,
     ) -> Self {
+        let (win_w, win_h) = (window.width as u32, window.height as u32);
+
         let sprite2d: kit::sprite2d::Pipeline =
             r.pipeline(win_w, win_h, Blending::default());
         let shape2d: kit::shape2d::Pipeline =
@@ -159,12 +174,8 @@ impl Renderer {
         let view_transforms = Vec::with_capacity(Session::MAX_VIEWS);
 
         let (font, font_img) = {
-            let decoder = png::Decoder::new(GLYPHS);
-            let (info, mut reader) = decoder.read_info().unwrap();
-            let mut img = vec![0; info.buffer_size()];
-            reader.next_frame(&mut img).unwrap();
-
-            let texture = r.texture(info.width as u32, info.height as u32);
+            let (img, width, height) = image::decode(data::GLYPHS).unwrap();
+            let texture = r.texture(width, height);
             let binding = sprite2d.binding(r, &texture, &sampler);
 
             (
@@ -178,12 +189,8 @@ impl Renderer {
             )
         };
         let (cursors, cursors_img) = {
-            let decoder = png::Decoder::new(CURSORS);
-            let (info, mut reader) = decoder.read_info().unwrap();
-            let mut img = vec![0; info.buffer_size()];
-            reader.next_frame(&mut img).unwrap();
-
-            let texture = r.texture(info.width as u32, info.height as u32);
+            let (img, width, height) = image::decode(data::CURSORS).unwrap();
+            let texture = r.texture(width, height);
             let binding = sprite2d.binding(r, &texture, &sampler);
 
             (Cursors { texture, binding }, img)
@@ -224,8 +231,7 @@ impl Renderer {
         ]);
 
         Self {
-            width: win_w,
-            height: win_h,
+            window,
             font,
             cursors,
             checker,
@@ -269,7 +275,7 @@ impl Renderer {
                 platform::Key::Escape,
             ),
             left_margin,
-            self.height as f32 - self::MARGIN - self::LINE_HEIGHT,
+            self.window.height as f32 - self::MARGIN - self::LINE_HEIGHT,
             color::LIGHT_GREY,
         );
 
@@ -279,7 +285,8 @@ impl Renderer {
             .filter_map(|kb| kb.display.as_ref().map(|d| (d, kb)))
             .enumerate()
         {
-            let y = self.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
+            let y =
+                self.window.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
 
             text.add(display, left_margin, y, color::RED);
             text.add(
@@ -290,7 +297,8 @@ impl Renderer {
             );
         }
         for (i, l) in session::HELP.lines().enumerate() {
-            let y = self.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
+            let y =
+                self.window.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
 
             text.add(
                 l,
@@ -893,8 +901,8 @@ impl Renderer {
         r: &core::Renderer,
     ) {
         let (w, h) = (size.width as u32, size.height as u32);
-        self.width = w;
-        self.height = h;
+
+        self.window = size;
         self.framebuffer2d.resize(w, h);
         self.sprite2d.resize(w, h);
         self.shape2d.resize(w, h);

@@ -1,3 +1,4 @@
+use crate::image;
 use crate::view::ViewId;
 
 use rgx::core::Rgba8;
@@ -93,34 +94,7 @@ impl ResourceManager {
     pub fn load_image<P: AsRef<Path>>(
         path: P,
     ) -> io::Result<(u32, u32, Vec<u8>)> {
-        let f = File::open(&path)?;
-        let decoder = png::Decoder::new(f);
-
-        let (info, mut reader) = decoder.read_info().map_err(|_e| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("couldn't decode `{}`", path.as_ref().display()),
-            )
-        })?;
-        if info.color_type != png::ColorType::RGBA {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "couldn't decode `{}`, only 8-bit RGBA images are supported",
-                    path.as_ref().display()
-                ),
-            ));
-        }
-
-        let (width, height) = (info.width as u32, info.height as u32);
-
-        let mut buffer: Vec<u8> = vec![0; info.buffer_size()];
-        reader.next_frame(&mut buffer).map_err(|_e| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("couldn't decode `{}`", path.as_ref().display()),
-            )
-        })?;
+        let (buffer, width, height) = image::load(path)?;
 
         // Convert pixels to BGRA, since they are going to be loaded into
         // the view framebuffer, which is BGRA.

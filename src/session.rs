@@ -3,6 +3,7 @@ use crate::brush::*;
 use crate::cmd;
 use crate::cmd::{Command, CommandLine, Key, Op, Value};
 use crate::color;
+use crate::data;
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
@@ -615,9 +616,6 @@ impl Session {
     /// Name of rx initialization script.
     const INIT: &'static str = "init.rx";
 
-    /// Initial (default) configuration for rx.
-    const CONFIG: &'static [u8] = include_bytes!("../config/init.rx");
-
     /// Create a new un-initialized session.
     pub fn new(
         w: u32,
@@ -682,14 +680,14 @@ impl Session {
             self.source_path(cfg)?;
         } else {
             if let Err(e) = fs::create_dir_all(dir)
-                .and_then(|_| fs::write(&cfg, Self::CONFIG))
+                .and_then(|_| fs::write(&cfg, data::CONFIG))
             {
                 warn!(
                     "Warning: couldn't create configuration file {:?}: {}",
                     cfg, e
                 );
             }
-            self.source_reader(io::BufReader::new(Self::CONFIG), "<init>")?;
+            self.source_reader(io::BufReader::new(data::CONFIG), "<init>")?;
         }
         self.source_dir(cwd).ok();
 

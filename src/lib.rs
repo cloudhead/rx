@@ -2,9 +2,11 @@
 mod brush;
 mod cmd;
 mod color;
+mod data;
 mod font;
 mod framebuffer2d;
 mod gpu;
+mod image;
 mod palette;
 mod platform;
 mod renderer;
@@ -79,7 +81,7 @@ pub fn init<'a, P: AsRef<Path>>(
 
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(win.raw_handle());
-    let mut renderer = Renderer::new(&mut r, win_w, win_h, resources);
+    let mut renderer = Renderer::new(&mut r, win_size, resources);
 
     if let Err(e) = session.edit(paths) {
         session.message(
