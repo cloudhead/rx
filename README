@@ -116,6 +116,16 @@ USAGE
     4. Zoom in/out with `.` and `,`.
     5. Draw something great!
     6. Type `:w animation.png` to save it.
+    
+  Keys
+
+    `e` - erase
+    `u` and `r` - undo and redo
+    `[` and `]` - pencil size
+    `x` - switch foreground and background color
+    `z` - center view
+    `,` - and `.` - zoom in and out
+    `/` - reset zoom
 
 SUPPORT
 
