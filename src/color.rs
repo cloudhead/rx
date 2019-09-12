@@ -1,0 +1,15 @@
+use rgx::kit::Rgba8;
+
+pub const WHITE: Rgba8 = rgb(0xff, 0xff, 0xff);
+pub const BLACK: Rgba8 = rgb(0x00, 0x00, 0x00);
+pub const GREY: Rgba8 = rgb(0x88, 0x88, 0x88);
+pub const DARK_GREY: Rgba8 = rgb(0x55, 0x55, 0x55);
+pub const LIGHT_GREY: Rgba8 = rgb(0xaa, 0xaa, 0xaa);
+pub const RED: Rgba8 = rgb(0xff, 0x33, 0x66);
+pub const YELLOW: Rgba8 = rgb(0xff, 0xff, 0x66);
+pub const LIGHT_GREEN: Rgba8 = rgb(0xbb, 0xff, 0xee);
+pub const GREEN: Rgba8 = rgb(0x55, 0xff, 0x55);
+
+const fn rgb(r: u8, g: u8, b: u8) -> Rgba8 {
+    Rgba8 { r, g, b, a: 0xff }
+}

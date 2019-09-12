@@ -1,4 +1,5 @@
 use crate::brush::BrushMode;
+use crate::color;
 use crate::font::{Font, TextBatch};
 use crate::framebuffer2d;
 use crate::gpu;
@@ -269,7 +270,7 @@ impl Renderer {
             ),
             left_margin,
             self.height as f32 - self::MARGIN - self::LINE_HEIGHT,
-            Rgba8::new(0xaa, 0xaa, 0xaa, 0xff),
+            color::LIGHT_GREY,
         );
 
         for (i, (display, kb)) in session
@@ -280,17 +281,12 @@ impl Renderer {
         {
             let y = self.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
 
-            text.add(
-                display,
-                left_margin,
-                y,
-                Rgba8::new(0xb1, 0x3e, 0x53, 0xff),
-            );
+            text.add(display, left_margin, y, color::RED);
             text.add(
                 &format!("{}", kb.command),
                 left_margin + column_offset,
                 y,
-                Rgba8::new(0xaa, 0xaa, 0xaa, 0xff),
+                color::LIGHT_GREY,
             );
         }
         for (i, l) in session::HELP.lines().enumerate() {
@@ -300,7 +296,7 @@ impl Renderer {
                 l,
                 left_margin + column_offset * 3. + 64.,
                 y,
-                Rgba8::new(0x94, 0xb0, 0xc2, 0xff),
+                color::LIGHT_GREEN,
             );
         }
         let buf = text.finish(&r);
@@ -658,7 +654,7 @@ impl Renderer {
                 &format!("{}x{}x{}", v.fw, v.fh, v.animation.len()),
                 session.offset.x + v.offset.x,
                 session.offset.y + v.offset.y - self::LINE_HEIGHT,
-                Rgba8::new(0x88, 0x88, 0x88, 0xff),
+                color::GREY,
             );
         }
 
@@ -848,7 +844,7 @@ impl Renderer {
             // Draw disabled brush
             } else {
                 let color = if brush.is_set(BrushMode::Erase) {
-                    Rgba8::new(128, 128, 128, 255)
+                    color::GREY
                 } else {
                     session.fg
                 };

@@ -2,6 +2,7 @@
 use crate::brush::*;
 use crate::cmd;
 use crate::cmd::{Command, CommandLine, Key, Op, Value};
+use crate::color;
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
@@ -267,13 +268,13 @@ impl MessageType {
     /// Returns the color associated with a `MessageType`.
     fn color(&self) -> Rgba8 {
         match *self {
-            MessageType::Info => Rgba8::new(200, 200, 200, 255),
-            MessageType::Hint => Rgba8::new(100, 100, 100, 255),
-            MessageType::Echo => Rgba8::new(190, 255, 230, 255),
-            MessageType::Error => Rgba8::new(255, 50, 100, 255),
-            MessageType::Warning => Rgba8::new(255, 255, 100, 255),
-            MessageType::Replay => Rgba8::new(255, 255, 255, 160),
-            MessageType::Okay => Rgba8::new(90, 255, 90, 255),
+            MessageType::Info => color::LIGHT_GREY,
+            MessageType::Hint => color::DARK_GREY,
+            MessageType::Echo => color::LIGHT_GREEN,
+            MessageType::Error => color::RED,
+            MessageType::Warning => color::YELLOW,
+            MessageType::Replay => color::GREY,
+            MessageType::Okay => color::GREEN,
         }
     }
 }
@@ -639,8 +640,8 @@ impl Session {
             paused: false,
             hover_color: None,
             hover_view: None,
-            fg: Rgba8::WHITE,
-            bg: Rgba8::BLACK,
+            fg: color::WHITE,
+            bg: color::BLACK,
             settings: Settings::default(),
             settings_changed: HashSet::new(),
             views: ViewManager::new(),

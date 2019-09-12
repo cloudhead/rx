@@ -1,6 +1,7 @@
 #![deny(clippy::all)]
 mod brush;
 mod cmd;
+mod color;
 mod font;
 mod framebuffer2d;
 mod gpu;
