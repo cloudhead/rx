@@ -1,4 +1,5 @@
 #![deny(clippy::all)]
+mod alloc;
 mod brush;
 mod cmd;
 mod color;
@@ -48,8 +49,12 @@ use env_logger;
 
 use directories as dirs;
 
+use std::alloc::System;
 use std::path::Path;
 use std::time;
+
+#[global_allocator]
+pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 
 pub struct Options<'a> {
     pub log: &'a str,

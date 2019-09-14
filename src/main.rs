@@ -3,6 +3,8 @@ use log;
 use rx;
 
 fn main() {
+    rx::ALLOCATOR.reset();
+
     let matches = App::new("rx")
         .version("0.1.0")
         .author("Alexis Sellier <self@cloudhead.io>")

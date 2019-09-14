@@ -667,11 +667,15 @@ impl Renderer {
         }
 
         if session.settings["debug"].is_set() {
+            let mem = crate::ALLOCATOR.allocated();
+
             // Frame-time
             let txt = &format!(
-                "{:3.2}ms {:3.2}ms",
+                "{:3.2}ms {:3.2}ms {}MB {}KB",
                 avg_frametime.as_micros() as f64 / 1000.,
-                session.avg_time.as_micros() as f64 / 1000.
+                session.avg_time.as_micros() as f64 / 1000.,
+                mem / (1024 * 1024),
+                mem / 1024 % (1024),
             );
             text.add(
                 txt,
