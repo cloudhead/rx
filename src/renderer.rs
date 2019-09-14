@@ -507,7 +507,7 @@ impl Renderer {
 
             r.read(fb, move |data| {
                 if let Some(s) = resources.lock_mut().data.get_mut(&id) {
-                    s.push(data.to_owned(), fw, fh, nframes);
+                    s.push(data, fw, fh, nframes);
                 }
             });
         }
@@ -554,12 +554,13 @@ impl Renderer {
             // in the view buffer.
             let tw = u32::min(sw, vw);
             let th = u32::min(sh, vh);
+            let pixels = snapshot.pixels();
 
             r.prepare(&[
                 Op::Clear(&view_data.fb, Rgba::TRANSPARENT),
                 Op::Transfer(
                     &view_data.fb,
-                    snapshot.pixels.as_slice(),
+                    pixels.as_slice(),
                     sw, // Source width
                     sh, // Source height
                     tw, // Transfer width
@@ -568,7 +569,7 @@ impl Renderer {
             ]);
             self.view_data.insert(v.id, view_data);
         } else if v.is_damaged() {
-            r.prepare(&[Op::Fill(fb, snapshot.pixels.as_slice())]);
+            r.prepare(&[Op::Fill(fb, snapshot.pixels().as_slice())]);
         }
     }
 
@@ -609,8 +610,9 @@ impl Renderer {
             let view_data =
                 ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, r);
 
-            assert!(!s.pixels.is_empty());
-            r.prepare(&[Op::Fill(&view_data.fb, &s.pixels)]);
+            let pixels = s.pixels();
+            debug_assert!(!pixels.is_empty());
+            r.prepare(&[Op::Fill(&view_data.fb, &pixels)]);
 
             self.view_data.insert(*id, view_data);
         }

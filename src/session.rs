@@ -1099,7 +1099,7 @@ impl Session {
             height as u32,
         );
 
-        self.resources.add_view(id, width, height, pixels);
+        self.resources.add_view(id, width, height, &pixels);
         self.organize_views();
         self.edit_view(id);
         self.message(
@@ -2111,10 +2111,10 @@ impl Session {
         let resources = self.resources.lock();
         let snapshot = resources.get_snapshot(&v);
 
-        assert!(snapshot.pixels.len() % std::mem::size_of::<Bgra8>() == 0);
+        assert!(snapshot.len() % std::mem::size_of::<Bgra8>() == 0);
 
-        let (head, pixels, tail) =
-            unsafe { snapshot.pixels.align_to::<Bgra8>() };
+        let pixels = snapshot.pixels();
+        let (head, pixels, tail) = unsafe { pixels.align_to::<Bgra8>() };
 
         assert!(head.is_empty());
         assert!(tail.is_empty());

@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io;
+use std::mem;
 use std::path::Path;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time;
@@ -85,10 +86,9 @@ impl ResourceManager {
 
     pub fn add_blank_view(&mut self, id: ViewId, w: u32, h: u32) {
         let len = w as usize * h as usize * 4;
-        let mut pixels = Vec::with_capacity(len);
-        pixels.resize(len, 0);
+        let pixels = vec![0; len];
 
-        self.add_view(id, w, h, pixels);
+        self.add_view(id, w, h, &pixels);
     }
 
     pub fn load_image<P: AsRef<Path>>(
@@ -131,8 +131,8 @@ impl ResourceManager {
         encoder.set_depth(png::BitDepth::Eight);
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
-        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.pixels.len());
-        for rgba in snapshot.pixels.chunks(4) {
+        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.len());
+        for rgba in snapshot.pixels().chunks(mem::size_of::<Rgba8>()) {
             match rgba {
                 &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
                 _ => {
@@ -156,8 +156,6 @@ impl ResourceManager {
         path: P,
         frame_delay: time::Duration,
     ) -> io::Result<usize> {
-        use std::mem;
-
         // The gif encoder expects the frame delay in units of 10ms.
         let frame_delay = frame_delay.as_millis() / 10;
         // If the passed in delay is larger than a `u16` can hold,
@@ -170,8 +168,8 @@ impl ResourceManager {
         let nframes = snapshot.nframes;
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
-        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.pixels.len());
-        for rgba in snapshot.pixels.chunks(mem::size_of::<Rgba8>()) {
+        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.len());
+        for rgba in snapshot.pixels().chunks(mem::size_of::<Rgba8>()) {
             match rgba {
                 &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
                 _ => {
@@ -222,7 +220,7 @@ impl ResourceManager {
         Ok(frame_nbytes * nframes)
     }
 
-    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: Vec<u8>) {
+    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: &[u8]) {
         self.resources
             .write()
             .unwrap()
@@ -238,7 +236,7 @@ pub struct SnapshotList {
 }
 
 impl SnapshotList {
-    fn new(pixels: Vec<u8>, fw: u32, fh: u32) -> Self {
+    fn new(pixels: &[u8], fw: u32, fh: u32) -> Self {
         Self {
             list: NonEmpty::new(Snapshot::new(
                 SnapshotId(0),
@@ -263,7 +261,7 @@ impl SnapshotList {
             .expect("there must always be a current snapshot")
     }
 
-    pub fn push(&mut self, pixels: Vec<u8>, fw: u32, fh: u32, nframes: usize) {
+    pub fn push(&mut self, pixels: &[u8], fw: u32, fh: u32, nframes: usize) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
         // If we try to add a snapshot when we're not at the
@@ -323,7 +321,7 @@ impl Default for SnapshotId {
 #[derive(Debug)]
 pub struct Snapshot {
     pub id: SnapshotId,
-    pub pixels: Vec<u8>,
+    pub pixels: Compressed<Vec<u8>>,
     pub fw: u32,
     pub fh: u32,
     pub nframes: usize,
@@ -332,11 +330,14 @@ pub struct Snapshot {
 impl Snapshot {
     pub fn new(
         id: SnapshotId,
-        pixels: Vec<u8>,
+        pixels: &[u8],
         fw: u32,
         fh: u32,
         nframes: usize,
     ) -> Self {
+        let pixels = Compressed::from(pixels)
+            .expect("compressing snapshot shouldn't result in an error");
+
         Self {
             id,
             fw,
@@ -346,11 +347,42 @@ impl Snapshot {
         }
     }
 
+    pub fn pixels(&self) -> Vec<u8> {
+        self.pixels
+            .decompress(self.bytesize())
+            .expect("decompressing snapshot shouldn't result in an error")
+    }
+
+    pub fn len(&self) -> usize {
+        self.width() as usize * self.height() as usize
+    }
+
+    pub fn bytesize(&self) -> usize {
+        self.len() * std::mem::size_of::<Rgba8>()
+    }
+
     pub fn width(&self) -> u32 {
         self.fw * self.nframes as u32
     }
 
     pub fn height(&self) -> u32 {
         self.fh
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug)]
+pub struct Compressed<T>(T);
+
+impl Compressed<Vec<u8>> {
+    fn from(input: &[u8]) -> snap::Result<Self> {
+        let mut enc = snap::Encoder::new();
+        enc.compress_vec(input).map(Self)
+    }
+
+    fn decompress(&self, cap: usize) -> snap::Result<Vec<u8>> {
+        let mut dec = snap::Decoder::new();
+        dec.decompress_vec(&self.0)
     }
 }
