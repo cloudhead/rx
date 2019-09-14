@@ -321,7 +321,7 @@ impl Default for SnapshotId {
 #[derive(Debug)]
 pub struct Snapshot {
     pub id: SnapshotId,
-    pub pixels: Compressed<Vec<u8>>,
+    pub pixels: Compressed<Box<[u8]>>,
     pub fw: u32,
     pub fh: u32,
     pub nframes: usize,
@@ -349,16 +349,12 @@ impl Snapshot {
 
     pub fn pixels(&self) -> Vec<u8> {
         self.pixels
-            .decompress(self.bytesize())
+            .decompress()
             .expect("decompressing snapshot shouldn't result in an error")
     }
 
     pub fn len(&self) -> usize {
         self.width() as usize * self.height() as usize
-    }
-
-    pub fn bytesize(&self) -> usize {
-        self.len() * std::mem::size_of::<Rgba8>()
     }
 
     pub fn width(&self) -> u32 {
@@ -375,13 +371,13 @@ impl Snapshot {
 #[derive(Debug)]
 pub struct Compressed<T>(T);
 
-impl Compressed<Vec<u8>> {
+impl Compressed<Box<[u8]>> {
     fn from(input: &[u8]) -> snap::Result<Self> {
         let mut enc = snap::Encoder::new();
-        enc.compress_vec(input).map(Self)
+        enc.compress_vec(input).map(|v| Self(v.into_boxed_slice()))
     }
 
-    fn decompress(&self, cap: usize) -> snap::Result<Vec<u8>> {
+    fn decompress(&self) -> snap::Result<Vec<u8>> {
         let mut dec = snap::Decoder::new();
         dec.decompress_vec(&self.0)
     }
