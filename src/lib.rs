@@ -144,10 +144,10 @@ pub fn init<'a, P: AsRef<Path>>(
                 w.set_cursor_visible(true);
             }
             platform::WindowEvent::Ready => {
-                let frame_delay: f64 =
-                    session.settings["frame_delay"].float64();
+                let input_delay: f64 =
+                    session.settings["input/delay"].float64();
                 std::thread::sleep(time::Duration::from_micros(
-                    (frame_delay * 1000.) as u64,
+                    (input_delay * 1000.) as u64,
                 ));
 
                 let delta = last.elapsed();

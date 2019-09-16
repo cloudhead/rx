@@ -58,7 +58,7 @@ SETTINGS
 debug             on/off        Debug mode
 checker           on/off        Alpha checker toggle
 vsync             on/off        Vertical sync toggle
-frame_delay       0.0..32.0     Delay between render frames (ms)
+input/delay       0.0..32.0     Delay between render frames (ms)
 scale             1.0..4.0      UI scale
 animation         on/off        View animation toggle
 animation/delay   1..1000       View animation delay (ms)
@@ -410,6 +410,8 @@ pub struct Settings {
 }
 
 impl Settings {
+    const DEPRECATED: &'static [&'static str] = &["frame_delay"];
+
     /// Presentation mode.
     pub fn present_mode(&self) -> PresentMode {
         if self["vsync"].is_set() {
@@ -451,10 +453,13 @@ impl Default for Settings {
                 "debug" => Value::Bool(false),
                 "checker" => Value::Bool(false),
                 "vsync" => Value::Bool(false),
-                "frame_delay" => Value::Float(8.0),
+                "input/delay" => Value::Float(8.0),
                 "scale" => Value::Float(1.0),
                 "animation" => Value::Bool(true),
-                "animation/delay" => Value::U32(160)
+                "animation/delay" => Value::U32(160),
+
+                // Deprecated.
+                "frame_delay" => Value::Float(0.0)
             },
         }
     }
@@ -1898,6 +1903,16 @@ impl Session {
                 }
             }
             Command::Set(ref k, ref v) => {
+                if Settings::DEPRECATED.contains(&k.as_str()) {
+                    self.message(
+                        format!(
+                            "Warning: the setting `{}` has been deprecated",
+                            k
+                        ),
+                        MessageType::Warning,
+                    );
+                    return;
+                }
                 match self.settings.set(k, v.clone()) {
                     Err(e) => {
                         self.message(
