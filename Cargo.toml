@@ -29,3 +29,8 @@ raw-window-handle = "0.1.0"
 
 [dependencies.rgx]
 version = "0.1.4"
+
+[patch.crates-io]
+# Rendy 0.4.0 has a bug which leads to texture corruption. We use a patched
+# fork while waiting for the new release to be published.
+rendy-memory = { version = "0.4.0", git = "https://github.com/cloudhead/rendy" }
