@@ -1,10 +1,9 @@
-use crate::kit::shape2d;
 use crate::kit::shape2d::{Fill, Shape, Stroke};
 use crate::kit::Origin;
 use crate::view::ViewCoords;
 
 use rgx::core::{Rect, Rgba8};
-use rgx::math::{Point2, Vector2};
+use rgx::math::{Point2, Vector2, Zero};
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -29,6 +28,8 @@ pub enum BrushMode {
     Erase,
     /// Draw on all frames at once.
     Multi,
+    /// Pixel-perfect mode.
+    Perfect,
 }
 
 impl fmt::Display for BrushMode {
@@ -36,6 +37,7 @@ impl fmt::Display for BrushMode {
         match self {
             Self::Erase => "erase".fmt(f),
             Self::Multi => "multi".fmt(f),
+            Self::Perfect => "perfect".fmt(f),
         }
     }
 }
@@ -47,6 +49,12 @@ pub struct Brush {
     pub size: usize,
     /// Current brush state.
     pub state: BrushState,
+    /// Current brush stroke.
+    pub stroke: Vec<Point2<i32>>,
+    /// Current stroke color.
+    pub color: Rgba8,
+    /// Brush offsets, used for `BrushMode::Multi`.
+    pub offsets: Vec<Vector2<i32>>,
 
     /// Currently active brush modes.
     modes: BTreeSet<BrushMode>,
@@ -61,6 +69,9 @@ impl Default for Brush {
         Self {
             size: 1,
             state: BrushState::NotDrawing,
+            stroke: Vec::with_capacity(32),
+            offsets: vec![Vector2::zero()],
+            color: Rgba8::TRANSPARENT,
             modes: BTreeSet::new(),
             curr: Point2::new(0, 0),
             prev: Point2::new(0, 0),
@@ -89,26 +100,32 @@ impl Brush {
         self.modes.clear();
     }
 
+    /// Run every frame by the session.
+    pub fn update(&mut self) {
+        if self.state == BrushState::DrawEnded {
+            self.state = BrushState::NotDrawing;
+            self.stroke.clear();
+        }
+    }
+
     /// Start drawing. Called when input is first pressed.
     pub fn start_drawing(
         &mut self,
         p: ViewCoords<i32>,
         color: Rgba8,
         offsets: &[Vector2<i32>],
-        canvas: &mut shape2d::Batch,
     ) {
+        assert!(!offsets.is_empty(), "offsets should never be empty");
+
         self.state = BrushState::DrawStarted;
-        self.draw(p, color, offsets, canvas);
+        self.color = color;
+        self.offsets = offsets.to_owned();
+        self.stroke = Vec::with_capacity(32);
+        self.draw(p);
     }
 
     /// Draw. Called while input is pressed.
-    pub fn draw(
-        &mut self,
-        p: ViewCoords<i32>,
-        color: Rgba8,
-        offsets: &[Vector2<i32>],
-        canvas: &mut shape2d::Batch,
-    ) {
+    pub fn draw(&mut self, p: ViewCoords<i32>) {
         if self.state == BrushState::DrawStarted {
             self.prev = *p;
         } else {
@@ -116,12 +133,11 @@ impl Brush {
         }
         self.curr = *p;
 
-        if offsets.is_empty() {
-            self.paint(self.prev, self.curr, color, canvas);
-        } else {
-            for off in offsets.iter().cloned() {
-                self.paint(self.prev + off, self.curr + off, color, canvas);
-            }
+        Brush::line(self.prev, self.curr, &mut self.stroke);
+        self.stroke.dedup();
+
+        if self.is_set(BrushMode::Perfect) {
+            self.stroke = Brush::filter(&self.stroke);
         }
     }
 
@@ -134,7 +150,7 @@ impl Brush {
     /// position with the given parameters. Takes an `Origin` which describes
     /// whether to align the position to the bottom-left of the shape, or the
     /// center.
-    pub fn stroke(
+    pub fn shape(
         &self,
         p: Point2<f32>,
         stroke: Stroke,
@@ -163,58 +179,70 @@ impl Brush {
 
     ///////////////////////////////////////////////////////////////////////////
 
-    /// Paint a stroke between two points, onto the given canvas.
-    /// Uses Bresenham's line algorithm.
-    fn paint(
-        &self,
+    /// Draw a line between two points. Uses Bresenham's line algorithm.
+    fn line(
         mut p0: Point2<i32>,
         p1: Point2<i32>,
-        color: Rgba8,
-        canvas: &mut shape2d::Batch,
+        canvas: &mut Vec<Point2<i32>>,
     ) {
-        let fill = Fill::Solid(color.into());
+        let dx = i32::abs(p1.x - p0.x);
+        let dy = i32::abs(p1.y - p0.y);
+        let sx = if p0.x < p1.x { 1 } else { -1 };
+        let sy = if p0.y < p1.y { 1 } else { -1 };
 
-        if self.state > BrushState::DrawStarted {
-            let dx = i32::abs(p1.x - p0.x);
-            let dy = i32::abs(p1.y - p0.y);
-            let sx = if p0.x < p1.x { 1 } else { -1 };
-            let sy = if p0.y < p1.y { 1 } else { -1 };
+        let mut err1 = (if dx > dy { dx } else { -dy }) / 2;
+        let mut err2;
 
-            let mut err1 = (if dx > dy { dx } else { -dy }) / 2;
-            let mut err2;
+        loop {
+            canvas.push(p0);
 
-            loop {
-                canvas.add(self.stroke(
-                    Point2::new(p0.x as f32, p0.y as f32),
-                    Stroke::NONE,
-                    fill,
-                    1.0,
-                    Origin::BottomLeft,
-                ));
+            if p0 == p1 {
+                break;
+            }
 
-                if p0 == p1 {
-                    break;
-                }
+            err2 = err1;
 
-                err2 = err1;
+            if err2 > -dx {
+                err1 -= dy;
+                p0.x += sx;
+            }
+            if err2 < dy {
+                err1 += dx;
+                p0.y += sy;
+            }
+        }
+    }
 
-                if err2 > -dx {
-                    err1 -= dy;
-                    p0.x += sx;
-                }
-                if err2 < dy {
-                    err1 += dx;
-                    p0.y += sy;
+    /// Filter a brush stroke to remove 'L' shapes. This is often called
+    /// *pixel perfect* mode.
+    fn filter(stroke: &[Point2<i32>]) -> Vec<Point2<i32>> {
+        let mut filtered = Vec::with_capacity(stroke.len());
+
+        if stroke.len() <= 2 {
+            return stroke.to_owned();
+        }
+
+        let mut iter = (0..stroke.len()).into_iter();
+        if let Some(i) = iter.next() {
+            filtered.push(stroke[i]);
+        }
+        while let Some(i) = iter.next() {
+            let p = stroke[i];
+
+            if let Some(prev) = stroke.get(i - 1) {
+                if let Some(next) = stroke.get(i + 1) {
+                    if (prev.y == p.y && next.y != p.y && next.x == p.x)
+                        || (prev.x == p.x && next.x != p.x && next.y == p.y)
+                    {
+                        if let Some(i) = iter.next() {
+                            filtered.push(stroke[i]);
+                        }
+                        continue;
+                    }
                 }
             }
-        } else {
-            canvas.add(self.stroke(
-                Point2::new(p0.x as f32, p0.y as f32),
-                Stroke::NONE,
-                fill,
-                1.0,
-                Origin::BottomLeft,
-            ));
+            filtered.push(p);
         }
+        filtered
     }
 }

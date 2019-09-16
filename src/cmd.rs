@@ -639,6 +639,7 @@ impl<'a> Parse<'a> for BrushMode {
         match id {
             "erase" => Ok((BrushMode::Erase, p)),
             "multi" => Ok((BrushMode::Multi, p)),
+            "perfect" => Ok((BrushMode::Perfect, p)),
             mode => Err(Error::new(format!("unknown brush mode '{}'", mode))),
         }
     }

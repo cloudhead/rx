@@ -36,6 +36,8 @@ set debug = off                                               --  Turn off debug
 set vsync = off                                               --  Turn off Vsync
 set frame_delay = 8.0                                         --  Set frame delay to 8 milliseconds
 
+brush/set perfect                                             --  Set brush to "pixel-perfect" mode
+
 -------------------
 -- Color palette --
 -------------------

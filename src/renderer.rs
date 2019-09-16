@@ -1,4 +1,4 @@
-use crate::brush::BrushMode;
+use crate::brush::{Brush, BrushMode, BrushState};
 use crate::color;
 use crate::data;
 use crate::font::{Font, TextBatch};
@@ -18,7 +18,7 @@ use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
 use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
-use rgx::math::{Matrix4, Vector2};
+use rgx::math::{Matrix4, Point2, Vector2};
 
 use std::collections::{BTreeMap, HashSet};
 use std::time;
@@ -105,10 +105,15 @@ impl Cursors {
 pub struct ViewData {
     /// View framebuffer. Brush strokes and edits are written to this buffer.
     fb: core::Framebuffer,
+    /// View staging framebuffer. Brush strokes are rendered here first, before
+    /// being rendered to the "real" framebuffer.
+    staging_fb: core::Framebuffer,
     /// Vertex buffer. This holds the vertices that form the view quad.
     vb: core::VertexBuffer,
-    /// Texture/sampler binding for the view.
+    /// Texture/sampler binding for the "real" framebuffer.
     binding: core::BindingGroup,
+    /// Texture/sampler binding for the staging framebuffer.
+    staging_binding: core::BindingGroup,
     /// Animation quad.
     anim_vb: Option<core::VertexBuffer>,
     /// Animation texture/sampler binding.
@@ -123,16 +128,23 @@ impl ViewData {
         sprite2d: &sprite2d::Pipeline,
         r: &core::Renderer,
     ) -> Self {
-        let fb = r.framebuffer(w, h);
         let sampler = r.sampler(Filter::Nearest, Filter::Nearest);
-        let binding = framebuffer2d.binding(r, &fb, &sampler);
-        let anim_binding = sprite2d.binding(r, &fb.texture, &sampler);
         let vb = framebuffer2d::Pipeline::vertex_buffer(w, h, r);
+
+        let fb = r.framebuffer(w, h);
+        let binding = framebuffer2d.binding(r, &fb, &sampler);
+
+        let staging_fb = r.framebuffer(w, h);
+        let staging_binding = framebuffer2d.binding(r, &staging_fb, &sampler);
+
+        let anim_binding = sprite2d.binding(r, &fb.texture, &sampler);
 
         ViewData {
             fb,
             vb,
             binding,
+            staging_fb,
+            staging_binding,
             anim_vb: None,
             anim_binding,
         }
@@ -335,7 +347,6 @@ impl Renderer {
         avg_frametime: &time::Duration,
         r: &mut core::Renderer,
         textures: &mut core::SwapChain,
-        draw: &shape2d::Batch,
     ) {
         if !session.is_running {
             return;
@@ -357,6 +368,22 @@ impl Renderer {
             self.checker.texture.w,
             self.checker.texture.h,
         );
+        let mut paint_batch = shape2d::Batch::new();
+
+        if let Tool::Brush(ref b) = session.tool {
+            for off in &b.offsets {
+                for pixel in &b.stroke {
+                    let p = *pixel + *off;
+                    paint_batch.add(b.shape(
+                        Point2::new(p.x as f32, p.y as f32),
+                        Stroke::NONE,
+                        Fill::Solid(b.color.into()),
+                        1.0,
+                        Origin::BottomLeft,
+                    ));
+                }
+            }
+        }
 
         Self::draw_brush(&session, &mut ui_batch);
         Self::draw_ui(&session, avg_frametime, &mut ui_batch, &mut text_batch);
@@ -369,10 +396,10 @@ impl Renderer {
         let cursor_buf = cursor_batch.finish(&r);
         let checker_buf = checker_batch.finish(&r);
         let text_buf = text_batch.finish(&r);
-        let draw_buf = if draw.is_empty() {
+        let paint_buf = if paint_batch.is_empty() {
             None
         } else {
-            Some(draw.buffer(&r))
+            Some(paint_batch.finish(&r))
         };
 
         let v = session.active_view();
@@ -421,24 +448,28 @@ impl Renderer {
         }
 
         // Render brush strokes to view framebuffers.
-        if let Some(draw_buf) = draw_buf {
-            let ViewData { fb: view_fb, .. } =
-                self.view_data.get(&session.views.active_id).unwrap();
-
-            r.update_pipeline(&self.brush2d, Matrix4::identity(), &mut f);
-            r.update_pipeline(&self.const2d, Matrix4::identity(), &mut f);
-
-            let mut p = f.pass(PassOp::Load(), view_fb);
-
-            // FIXME: There must be a better way.
+        if let Some(ref paint_buf) = paint_buf {
             if let Tool::Brush(ref b) = session.tool {
-                if b.is_set(BrushMode::Erase) {
-                    p.set_pipeline(&self.const2d);
-                } else {
-                    p.set_pipeline(&self.brush2d);
+                if b.state != BrushState::NotDrawing {
+                    r.update_pipeline(
+                        &self.brush2d,
+                        Matrix4::identity(),
+                        &mut f,
+                    );
+                    r.update_pipeline(
+                        &self.const2d,
+                        Matrix4::identity(),
+                        &mut f,
+                    );
+
+                    let view_data = self
+                        .view_data
+                        .get(&session.views.active_id)
+                        .expect("the view data for the active view must exist");
+
+                    self.render_brush_strokes(paint_buf, view_data, b, &mut f);
                 }
             }
-            p.draw_buffer(&draw_buf);
         }
 
         {
@@ -454,6 +485,14 @@ impl Renderer {
                 // Draw view framebuffers to screen framebuffer.
                 let mut p = f.pass(PassOp::Load(), &self.screen_fb);
                 self.render_views(&mut p);
+
+                if let Tool::Brush(ref b) = session.tool {
+                    if paint_buf.is_some() && !b.is_set(BrushMode::Erase) {
+                        let v = self.view_data.get(&v.id).unwrap();
+                        p.set_binding(&v.staging_binding, &[]);
+                        p.draw_buffer(&v.vb);
+                    }
+                }
             }
 
             // Draw view animations to screen framebuffer.
@@ -838,7 +877,7 @@ impl Renderer {
                             (i as f32 * v.fw as f32 * v.zoom).floor(),
                             0.,
                         );
-                        batch.add(brush.stroke(
+                        batch.add(brush.shape(
                             *(s + offset),
                             stroke,
                             fill,
@@ -847,7 +886,7 @@ impl Renderer {
                         ));
                     }
                 } else {
-                    batch.add(brush.stroke(
+                    batch.add(brush.shape(
                         *s,
                         stroke,
                         fill,
@@ -862,7 +901,7 @@ impl Renderer {
                 } else {
                     session.fg
                 };
-                batch.add(brush.stroke(
+                batch.add(brush.shape(
                     *p,
                     Stroke::new(1.0, color.into()),
                     Fill::Empty(),
@@ -899,6 +938,39 @@ impl Renderer {
                 p.draw(vb, &v.anim_binding);
             }
         }
+    }
+
+    fn render_brush_strokes(
+        &self,
+        paint_buf: &core::VertexBuffer,
+        view_data: &ViewData,
+        brush: &Brush,
+        f: &mut core::Frame,
+    ) {
+        debug_assert!(brush.state != BrushState::NotDrawing);
+
+        let ViewData { fb, staging_fb, .. } = view_data;
+
+        let mut p = match brush.state {
+            // If we're erasing, we can't use the staging framebuffer, since we
+            // need to be replacing pixels on the real buffer.
+            _ if brush.is_set(BrushMode::Erase) => f.pass(PassOp::Load(), fb),
+
+            // As long as we haven't finished drawing, render into the staging buffer.
+            BrushState::DrawStarted | BrushState::Drawing => {
+                f.pass(PassOp::Clear(Rgba::TRANSPARENT), staging_fb)
+            }
+            // Once we're done drawing, we can render into the real buffer.
+            BrushState::DrawEnded => f.pass(PassOp::Load(), fb),
+            BrushState::NotDrawing => unreachable!(),
+        };
+
+        if brush.is_set(BrushMode::Erase) {
+            p.set_pipeline(&self.const2d);
+        } else {
+            p.set_pipeline(&self.brush2d);
+        }
+        p.draw_buffer(&paint_buf);
     }
 
     pub fn handle_resized(

@@ -12,7 +12,6 @@ use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{PresentMode, Rect};
-use rgx::kit::shape2d;
 use rgx::kit::Rgba8;
 use rgx::math::*;
 
@@ -710,13 +709,16 @@ impl Session {
     pub fn update(
         &mut self,
         events: &mut Vec<platform::WindowEvent>,
-        out: &mut shape2d::Batch,
         delta: time::Duration,
         avg_time: time::Duration,
     ) {
         self.dirty = false;
         self.settings_changed.clear();
         self.avg_time = avg_time;
+
+        if let Tool::Brush(ref mut b) = self.tool {
+            b.update();
+        }
 
         for (_, v) in self.views.iter_mut() {
             v.okay();
@@ -730,18 +732,13 @@ impl Session {
             match event {
                 WindowEvent::CursorMoved { position, .. } => {
                     let scale: f64 = self.settings["scale"].float64();
-                    self.handle_cursor_moved(
-                        SessionCoords::new(
-                            (position.x / scale).floor() as f32,
-                            self.height
-                                - (position.y / scale).floor() as f32
-                                - 1.,
-                        ),
-                        out,
-                    );
+                    self.handle_cursor_moved(SessionCoords::new(
+                        (position.x / scale).floor() as f32,
+                        self.height - (position.y / scale).floor() as f32 - 1.,
+                    ));
                 }
                 WindowEvent::MouseInput { state, button, .. } => {
-                    self.handle_mouse_input(button, state, out);
+                    self.handle_mouse_input(button, state);
                 }
                 WindowEvent::KeyboardInput(input) => {
                     self.handle_keyboard_input(input);
@@ -1232,7 +1229,6 @@ impl Session {
         &mut self,
         button: platform::MouseButton,
         state: platform::InputState,
-        out: &mut shape2d::Batch,
     ) {
         if button != platform::MouseButton::Left {
             return;
@@ -1268,15 +1264,7 @@ impl Session {
 
                 match self.mode {
                     Mode::Normal => match self.tool {
-                        // TODO: This whole block of code is duplicated in
-                        // `handle_cursor_moved`.
                         Tool::Brush(ref mut brush) => {
-                            let color = if brush.is_set(BrushMode::Erase) {
-                                Rgba8::TRANSPARENT
-                            } else {
-                                self.fg
-                            };
-
                             let offsets: Vec<_> = if brush
                                 .is_set(BrushMode::Multi)
                             {
@@ -1286,9 +1274,16 @@ impl Session {
                                     })
                                     .collect()
                             } else {
-                                Vec::new()
+                                vec![Vector2::zero()]
                             };
-                            brush.start_drawing(p.into(), color, &offsets, out);
+
+                            let color = if brush.is_set(BrushMode::Erase) {
+                                Rgba8::TRANSPARENT
+                            } else {
+                                self.fg
+                            };
+
+                            brush.start_drawing(p.into(), color, &offsets);
                         }
                         Tool::Sampler => {
                             self.sample_color();
@@ -1329,11 +1324,7 @@ impl Session {
         }
     }
 
-    pub fn handle_cursor_moved(
-        &mut self,
-        cursor: SessionCoords,
-        out: &mut shape2d::Batch,
-    ) {
+    pub fn handle_cursor_moved(&mut self, cursor: SessionCoords) {
         self.record_macro(format!("cursor/move {} {}", cursor.x, cursor.y));
         self.palette.handle_cursor_moved(cursor);
 
@@ -1347,15 +1338,11 @@ impl Session {
         }
 
         let p = self.active_view_coords(cursor);
-        let (nframes, fw, frame_index, vw, vh) = {
+        let prev_p = self.active_view_coords(self.cursor);
+
+        let (vw, vh) = {
             let v = self.active_view();
-            (
-                v.animation.len(),
-                v.fw,
-                i32::max(0, (p.x / v.fw as f32) as i32),
-                v.width(),
-                v.height(),
-            )
+            (v.width(), v.height())
         };
         if let Some(color) = self.palette.hover {
             self.hover_color = Some(color);
@@ -1367,36 +1354,26 @@ impl Session {
         match self.mode {
             Mode::Normal => match self.tool {
                 Tool::Brush(ref mut brush) => {
-                    if brush.state == BrushState::DrawStarted
-                        || brush.state == BrushState::Drawing
-                    {
-                        brush.state = BrushState::Drawing;
+                    if p != prev_p {
+                        match brush.state {
+                            BrushState::DrawStarted | BrushState::Drawing => {
+                                brush.state = BrushState::Drawing;
 
-                        let color = if brush.is_set(BrushMode::Erase) {
-                            Rgba8::TRANSPARENT
-                        } else {
-                            self.fg
-                        };
+                                let mut p: ViewCoords<i32> = p.into();
 
-                        let mut p: ViewCoords<i32> = p.into();
-
-                        if brush.is_set(BrushMode::Multi) {
-                            p.clamp(Rect::new(
-                                (brush.size / 2) as i32,
-                                (brush.size / 2) as i32,
-                                vw as i32 - (brush.size / 2) as i32 - 1,
-                                vh as i32 - (brush.size / 2) as i32 - 1,
-                            ));
-                            let offsets: Vec<_> = (0..nframes as i32
-                                - frame_index)
-                                .map(|i| {
-                                    Vector2::new((i as u32 * fw) as i32, 0)
-                                })
-                                .collect();
-
-                            brush.draw(p, color, &offsets, out);
-                        } else {
-                            brush.draw(p, color, &[], out);
+                                if brush.is_set(BrushMode::Multi) {
+                                    p.clamp(Rect::new(
+                                        (brush.size / 2) as i32,
+                                        (brush.size / 2) as i32,
+                                        vw as i32 - (brush.size / 2) as i32 - 1,
+                                        vh as i32 - (brush.size / 2) as i32 - 1,
+                                    ));
+                                    brush.draw(p);
+                                } else {
+                                    brush.draw(p);
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }

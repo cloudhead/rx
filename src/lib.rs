@@ -40,7 +40,6 @@ use view::FileStatus;
 use rgx;
 use rgx::core;
 use rgx::kit;
-use rgx::kit::shape2d;
 
 #[macro_use]
 extern crate log;
@@ -114,7 +113,6 @@ pub fn init<'a, P: AsRef<Path>>(
 
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();
-    let mut canvas = shape2d::Batch::new();
     let mut session_events = Vec::with_capacity(16);
     let mut last = time::Instant::now();
 
@@ -156,14 +154,11 @@ pub fn init<'a, P: AsRef<Path>>(
                 last = time::Instant::now();
 
                 update_timer.run(|avg| {
-                    session.update(
-                        &mut session_events,
-                        &mut canvas,
-                        delta,
-                        avg,
-                    );
+                    session.update(&mut session_events, delta, avg);
                 });
-                w.request_redraw();
+                render_timer.run(|avg| {
+                    renderer.frame(&session, &avg, &mut r, &mut swap_chain);
+                });
 
                 if session.settings_changed.contains("scale") {
                     self::resize(
@@ -189,15 +184,8 @@ pub fn init<'a, P: AsRef<Path>>(
             }
             platform::WindowEvent::RedrawRequested => {
                 render_timer.run(|avg| {
-                    renderer.frame(
-                        &session,
-                        &avg,
-                        &mut r,
-                        &mut swap_chain,
-                        &canvas,
-                    );
+                    renderer.frame(&session, &avg, &mut r, &mut swap_chain);
                 });
-                canvas.clear();
             }
             event => {
                 session_events.push(event);
