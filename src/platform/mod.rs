@@ -43,6 +43,12 @@ pub enum WindowEvent {
     /// The position of the window has changed. Contains the window's new position.
     Moved(LogicalPosition),
 
+    /// The window was minimized.
+    Minimized,
+
+    /// The window was restored after having been minimized.
+    Restored,
+
     /// The window has been requested to close.
     CloseRequested,
 
@@ -88,6 +94,29 @@ pub enum WindowEvent {
 
     /// No-op event, for events we don't handle.
     Noop,
+}
+
+impl WindowEvent {
+    /// Events that are triggered by user input.
+    pub fn is_input(&self) -> bool {
+        match self {
+            Self::Resized(_)
+            | Self::Moved(_)
+            | Self::Minimized
+            | Self::Restored
+            | Self::CloseRequested
+            | Self::Destroyed
+            | Self::ReceivedCharacter(_)
+            | Self::Focused(_)
+            | Self::KeyboardInput(_)
+            | Self::CursorMoved { .. }
+            | Self::CursorEntered
+            | Self::CursorLeft
+            | Self::MouseInput { .. }
+            | Self::HiDpiFactorChanged(_) => true,
+            _ => false,
+        }
+    }
 }
 
 /// Describes a keyboard input event.
@@ -354,6 +383,10 @@ impl LogicalSize {
         let width = self.width * dpi_factor;
         let height = self.height * dpi_factor;
         PhysicalSize::new(width, height)
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.width < 1. || self.height < 1.
     }
 }
 

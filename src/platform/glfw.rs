@@ -147,6 +147,8 @@ impl From<glfw::WindowEvent> for WindowEvent {
             Glfw::Size(w, h) => {
                 WindowEvent::Resized(LogicalSize::new(w as f64, h as f64))
             }
+            Glfw::Iconify(true) => WindowEvent::Minimized,
+            Glfw::Iconify(false) => WindowEvent::Restored,
             Glfw::Close => WindowEvent::CloseRequested,
             Glfw::Refresh => WindowEvent::RedrawRequested,
             Glfw::Pos(x, y) => {

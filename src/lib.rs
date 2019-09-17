@@ -31,6 +31,7 @@ compile_error!(
      available backends are: 'vulkan', 'metal', 'dx11' and 'dx12'"
 );
 
+use platform::WindowEvent;
 use renderer::Renderer;
 use resources::ResourceManager;
 use session::*;
@@ -117,33 +118,37 @@ pub fn init<'a, P: AsRef<Path>>(
     let mut last = time::Instant::now();
 
     platform::run(win, events, move |w, event| {
-        if event != platform::WindowEvent::Ready
-            && event != platform::WindowEvent::RedrawRequested
-        {
+        if event.is_input() {
             debug!("event: {:?}", event);
         }
 
         match event {
-            platform::WindowEvent::Resized(size) => {
+            WindowEvent::Resized(size) => {
                 logical = size;
 
-                self::resize(
-                    &mut session,
-                    &mut renderer,
-                    &mut r,
-                    &mut swap_chain,
-                    size,
-                    hidpi_factor,
-                    present_mode,
-                );
+                // Pause the session if our window size is zero.
+                // This happens on *windows* when the window is minimized.
+                session.paused = size.is_zero();
+
+                if !session.paused {
+                    self::resize(
+                        &mut session,
+                        &mut renderer,
+                        &mut r,
+                        &mut swap_chain,
+                        size,
+                        hidpi_factor,
+                        present_mode,
+                    );
+                }
             }
-            platform::WindowEvent::CursorEntered { .. } => {
+            WindowEvent::CursorEntered { .. } => {
                 w.set_cursor_visible(false);
             }
-            platform::WindowEvent::CursorLeft { .. } => {
+            WindowEvent::CursorLeft { .. } => {
                 w.set_cursor_visible(true);
             }
-            platform::WindowEvent::Ready => {
+            WindowEvent::Ready => {
                 let input_delay: f64 =
                     session.settings["input/delay"].float64();
                 std::thread::sleep(time::Duration::from_micros(
@@ -152,6 +157,12 @@ pub fn init<'a, P: AsRef<Path>>(
 
                 let delta = last.elapsed();
                 last = time::Instant::now();
+
+                // If we're paused, we want to keep the timer running to not get a
+                // "jump" when we unpause, but skip session updates and rendering.
+                if session.paused {
+                    return platform::ControlFlow::Continue;
+                }
 
                 update_timer.run(|avg| {
                     session.update(&mut session_events, delta, avg);
@@ -182,10 +193,21 @@ pub fn init<'a, P: AsRef<Path>>(
                     );
                 }
             }
-            platform::WindowEvent::RedrawRequested => {
-                render_timer.run(|avg| {
-                    renderer.frame(&session, &avg, &mut r, &mut swap_chain);
-                });
+            WindowEvent::Minimized => {
+                session.paused = true;
+            }
+            WindowEvent::Restored => {
+                session.paused = false;
+            }
+            WindowEvent::Focused(focused) => {
+                session.paused = !focused;
+            }
+            WindowEvent::RedrawRequested => {
+                if !session.paused {
+                    render_timer.run(|avg| {
+                        renderer.frame(&session, &avg, &mut r, &mut swap_chain);
+                    });
+                }
             }
             event => {
                 session_events.push(event);
@@ -211,9 +233,9 @@ fn resize(
     present_mode: core::PresentMode,
 ) {
     let scale: f64 = session.settings["scale"].float64();
-    let virtual_size =
+    let logical_size =
         platform::LogicalSize::new(size.width / scale, size.height / scale);
-    session.handle_resized(virtual_size);
+    session.handle_resized(logical_size);
 
     let physical = size.to_physical(hidpi_factor);
     *swap_chain = r.swap_chain(
@@ -221,5 +243,5 @@ fn resize(
         physical.height as u32,
         present_mode,
     );
-    renderer.handle_resized(virtual_size, &r);
+    renderer.handle_resized(logical_size, &r);
 }
