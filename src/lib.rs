@@ -128,9 +128,11 @@ pub fn init<'a, P: AsRef<Path>>(
 
                 // Pause the session if our window size is zero.
                 // This happens on *windows* when the window is minimized.
-                session.paused = size.is_zero();
+                if size.is_zero() {
+                    session.transition(State::Paused);
+                } else {
+                    session.transition(State::Running);
 
-                if !session.paused {
                     self::resize(
                         &mut session,
                         &mut renderer,
@@ -160,7 +162,7 @@ pub fn init<'a, P: AsRef<Path>>(
 
                 // If we're paused, we want to keep the timer running to not get a
                 // "jump" when we unpause, but skip session updates and rendering.
-                if session.paused {
+                if session.state == State::Paused {
                     return platform::ControlFlow::Continue;
                 }
 
@@ -194,16 +196,19 @@ pub fn init<'a, P: AsRef<Path>>(
                 }
             }
             WindowEvent::Minimized => {
-                session.paused = true;
+                session.transition(State::Paused);
             }
             WindowEvent::Restored => {
-                session.paused = false;
+                session.transition(State::Running);
             }
-            WindowEvent::Focused(focused) => {
-                session.paused = !focused;
+            WindowEvent::Focused(true) => {
+                session.transition(State::Running);
+            }
+            WindowEvent::Focused(false) => {
+                session.transition(State::Paused);
             }
             WindowEvent::RedrawRequested => {
-                if !session.paused {
+                if session.state == State::Running {
                     render_timer.run(|avg| {
                         renderer.frame(&session, &avg, &mut r, &mut swap_chain);
                     });
@@ -214,10 +219,10 @@ pub fn init<'a, P: AsRef<Path>>(
             }
         }
 
-        if session.is_running {
-            platform::ControlFlow::Continue
-        } else {
+        if session.state == State::Closing {
             platform::ControlFlow::Exit
+        } else {
+            platform::ControlFlow::Continue
         }
     });
     Ok(())

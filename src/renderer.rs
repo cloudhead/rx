@@ -348,7 +348,7 @@ impl Renderer {
         r: &mut core::Renderer,
         textures: &mut core::SwapChain,
     ) {
-        if !session.is_running {
+        if session.state != session::State::Running {
             return;
         }
         if session.mode == Mode::Help {
@@ -1012,7 +1012,7 @@ impl Renderer {
     }
 
     fn update_view_animations(&mut self, s: &Session, r: &core::Renderer) {
-        if s.paused || !s.settings["animation"].is_set() {
+        if !s.settings["animation"].is_set() {
             return;
         }
         for (id, v) in s.views.iter() {

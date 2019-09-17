@@ -176,6 +176,19 @@ impl fmt::Display for Mode {
     }
 }
 
+/// Session state.
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum State {
+    /// The session is initializing.
+    Initializing,
+    /// The session is running normally.
+    Running,
+    /// The session is paused. Inputs are not processed.
+    Paused,
+    /// The session is being shut down.
+    Closing,
+}
+
 /// An editing tool.
 #[derive(Debug, Clone)]
 pub enum Tool {
@@ -481,10 +494,10 @@ impl std::ops::Index<&str> for Settings {
 ///
 /// Stores all relevant session state.
 pub struct Session {
-    /// Whether the session is running or not.
-    pub is_running: bool,
     /// The current session `Mode`.
     pub mode: Mode,
+    /// The current session `State`.
+    pub state: State,
 
     /// The width of the session workspace.
     pub width: f32,
@@ -525,8 +538,6 @@ pub struct Session {
     /// The list of all active key bindings.
     pub key_bindings: KeyBindings,
 
-    /// Set to `true` if animations are paused.
-    pub paused: bool,
     /// Current pixel selection.
     pub selection: Rect<f32>,
 
@@ -629,7 +640,7 @@ impl Session {
         base_dirs: dirs::ProjectDirs,
     ) -> Self {
         Self {
-            is_running: false,
+            state: State::Initializing,
             width: w as f32,
             height: h as f32,
             hidpi_factor,
@@ -639,7 +650,6 @@ impl Session {
             tool: Tool::Brush(Brush::default()),
             prev_tool: None,
             mouse_down: false,
-            paused: false,
             hover_color: None,
             hover_view: None,
             fg: color::WHITE,
@@ -674,7 +684,7 @@ impl Session {
 
     /// Initialize a session.
     pub fn init(mut self) -> std::io::Result<Self> {
-        self.is_running = true;
+        self.transition(State::Running);
 
         let cwd = std::env::current_dir()?;
         let dir = self.base_dirs.config_dir();
@@ -707,6 +717,21 @@ impl Session {
         self.edit_view(id);
 
         self.dirty = true;
+    }
+
+    /// Transition to a new state. Only allows valid state transitions.
+    pub fn transition(&mut self, to: State) {
+        let state = match (self.state, to) {
+            (State::Initializing, State::Running)
+            | (State::Running, State::Paused)
+            | (State::Paused, State::Running)
+            | (State::Paused, State::Closing)
+            | (State::Running, State::Closing) => to,
+            _ => self.state,
+        };
+        debug!("state: {:?} -> {:?}", self.state, state);
+
+        self.state = state;
     }
 
     /// Update the session by processing new user events and advancing
@@ -770,7 +795,7 @@ impl Session {
 
     /// Quit the session.
     pub fn quit(&mut self) {
-        self.is_running = false;
+        self.transition(State::Closing);
     }
 
     /// Return the session offset as a transformation matrix.
