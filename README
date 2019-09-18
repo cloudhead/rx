@@ -28,7 +28,7 @@ OVERVIEW
 
 GOALS
 
-  * Minimal UI. Clean aesthetics.
+  * Minimal UI. Clean aesthetics. No clutter.
   * Everything that should be controlled by the keyboard, is.
   * Extensible and scriptable with a simple command-based language.
   * Familiar to anyone with vi(m) knowledge.
@@ -36,6 +36,7 @@ GOALS
   * Optimized for advanced users. No hand-holding. vi-like philosophy.
   * Small, hackable codebase. At most 10 KLOC with only a handful of direct dependencies.
   * First-class Linux support.
+  * CPU & memory efficient.
 
 FEATURES
 
@@ -60,7 +61,7 @@ PLATFORM SUPPORT
 
   * Linux     (vulkan)         [GOOD]
   * macOS     (metal)          [GOOD]
-  * Windows   (dx11/dx12)      [UNTESTED]
+  * Windows   (vulkan)         [OKAY]
 
 BUILD DEPENDENCIES
 
@@ -74,9 +75,8 @@ INSTALLATION
 
     $ cargo install --git https://github.com/cloudhead/rx --locked --features <backend>
 
-  where <backend> is one of 'vulkan', 'metal', 'dx11' or 'dx12'.
-  See the PLATFORM SUPPORT section for which feature to enable on
-  your platform.
+  where <backend> is either 'vulkan' or 'metal'.  See the PLATFORM
+  SUPPORT section for which feature to enable on your platform.
 
   This will download `rx` and install it under `~/.cargo/bin/rx`.
   If you prefer a different install location, you can specify it
@@ -86,12 +86,13 @@ INSTALLATION
 CONFIGURATION
 
   Configuring `rx` involves editing the `init.rx` script, which is found in a
-  different location depending on your platform. On Linux, this is in the XDG
-  config directory, eg. `~/.config/rx/init.rx` by default, while on macOS this
-  is in the `~/Library/Preferences` folder.
+  platform-dependent location. On Linux, this is in the XDG config directory,
+  eg. `~/.config/rx/init.rx`, while on macOS this is in the
+  `~/Library/Preferences` folder. If a config file isn't found, the default
+  configuration (`config/init.rx`) will be written.
 
-  To get the exact path config is loaded from, enter `:echo config/dir` from
-  within `rx`.
+  To get the exact location of the config directory, enter `:echo config/dir`
+  from inside `rx`.
 
 USAGE
 
