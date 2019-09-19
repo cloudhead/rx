@@ -485,14 +485,6 @@ impl Renderer {
                 // Draw view framebuffers to screen framebuffer.
                 let mut p = f.pass(PassOp::Load(), &self.screen_fb);
                 self.render_views(&mut p);
-
-                if let Tool::Brush(ref b) = session.tool {
-                    if paint_buf.is_some() && !b.is_set(BrushMode::Erase) {
-                        let v = self.view_data.get(&v.id).unwrap();
-                        p.set_binding(&v.staging_binding, &[]);
-                        p.draw_buffer(&v.vb);
-                    }
-                }
             }
 
             // Draw view animations to screen framebuffer.
@@ -926,6 +918,9 @@ impl Renderer {
             // message?
             p.set_binding(&self.view_transforms_buf.binding, &[off]);
             p.set_binding(&v.binding, &[]);
+            p.draw_buffer(&v.vb);
+
+            p.set_binding(&v.staging_binding, &[]);
             p.draw_buffer(&v.vb);
         }
     }
