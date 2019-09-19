@@ -9,7 +9,7 @@ use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::screen2d;
 use crate::session::{self, Mode, Rgb8, Session, Tool};
-use crate::view::{View, ViewId, ViewOp};
+use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
 use rgx::core::{AbstractPipeline, Blending, Filter, Op, PassOp, Rect, Rgba};
@@ -498,7 +498,7 @@ impl Renderer {
             // Draw view animations to screen framebuffer.
             if session.settings["animation"].is_set() {
                 let mut p = f.pass(PassOp::Load(), &self.screen_fb);
-                self.render_view_animations(&mut p);
+                self.render_view_animations(&session.views, &mut p);
             }
         }
 
@@ -930,12 +930,16 @@ impl Renderer {
         }
     }
 
-    fn render_view_animations(&self, p: &mut core::Pass) {
+    fn render_view_animations(&self, views: &ViewManager, p: &mut core::Pass) {
         p.set_pipeline(&self.sprite2d);
 
-        for (_, v) in self.view_data.iter() {
+        for (id, v) in self.view_data.iter() {
             if let Some(ref vb) = v.anim_vb {
-                p.draw(vb, &v.anim_binding);
+                if let Some(view) = views.get(id) {
+                    if view.animation.len() > 1 {
+                        p.draw(vb, &v.anim_binding);
+                    }
+                }
             }
         }
     }
