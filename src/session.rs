@@ -821,6 +821,91 @@ impl Session {
 
     ////////////////////////////////////////////////////////////////////////////
 
+    /// Pan the view by a relative amount.
+    fn pan(&mut self, x: f32, y: f32) {
+        self.offset.x += x;
+        self.offset.y += y;
+
+        self.cursor_dirty();
+    }
+
+    /// Set the user cursor to the given position.
+    fn set_cursor(&mut self, cursor: SessionCoords) {
+        if self.cursor == cursor {
+            return;
+        }
+
+        let p = self.active_view_coords(cursor);
+        let prev_p = self.active_view_coords(self.cursor);
+        let (vw, vh) = self.active_view().size();
+
+        match self.mode {
+            Mode::Normal => match self.tool {
+                Tool::Brush(ref mut brush) => {
+                    if p != prev_p {
+                        match brush.state {
+                            BrushState::DrawStarted | BrushState::Drawing => {
+                                brush.state = BrushState::Drawing;
+
+                                let mut p: ViewCoords<i32> = p.into();
+
+                                if brush.is_set(BrushMode::Multi) {
+                                    p.clamp(Rect::new(
+                                        (brush.size / 2) as i32,
+                                        (brush.size / 2) as i32,
+                                        vw as i32 - (brush.size / 2) as i32 - 1,
+                                        vh as i32 - (brush.size / 2) as i32 - 1,
+                                    ));
+                                    brush.draw(p);
+                                } else {
+                                    brush.draw(p);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Tool::Pan => {
+                    self.pan(
+                        cursor.x - self.cursor.x,
+                        cursor.y - self.cursor.y,
+                    );
+                }
+                Tool::Sampler => {}
+            },
+            Mode::Visual => {}
+            _ => {}
+        }
+        self.cursor = cursor;
+        self.cursor_dirty();
+    }
+
+    /// Re-compute state related to the cursor position. This is useful
+    /// when the cursor hasn't moved relative to the session, but things
+    /// within the session have moved relative to the cursor.
+    fn cursor_dirty(&mut self) {
+        let cursor = self.cursor;
+
+        self.palette.handle_cursor_moved(cursor);
+
+        self.hover_view = None;
+        self.hover_color = None;
+
+        for (_, v) in self.views.iter_mut() {
+            v.handle_cursor_moved(cursor - self.offset);
+            if v.hover {
+                self.hover_view = Some(v.id);
+            }
+        }
+
+        if let Some(color) = self.palette.hover {
+            self.hover_color = Some(color);
+        } else if let Some(v) = self.hover_view {
+            let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
+            self.hover_color = Some(self.color_at(v, p));
+        }
+    }
+
     /// Called when settings have been changed.
     fn setting_changed(&mut self, name: &str, old: &Value, new: &Value) {
         debug!("set `{}`: {} -> {}", name, old, new);
@@ -1203,6 +1288,7 @@ impl Session {
             v.offset.y = offset;
             offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
         }
+        self.cursor_dirty();
     }
 
     fn undo(&mut self, id: ViewId) {
@@ -1333,7 +1419,6 @@ impl Session {
                     if v.hover {
                         let id = id.clone();
                         self.views.activate(id);
-                        self.center_active_view_v();
                         return;
                     }
                 }
@@ -1356,67 +1441,7 @@ impl Session {
 
     pub fn handle_cursor_moved(&mut self, cursor: SessionCoords) {
         self.record_macro(format!("cursor/move {} {}", cursor.x, cursor.y));
-        self.palette.handle_cursor_moved(cursor);
-
-        self.hover_view = None;
-        self.hover_color = None;
-        for (_, v) in self.views.iter_mut() {
-            v.handle_cursor_moved(cursor - self.offset);
-            if v.hover {
-                self.hover_view = Some(v.id);
-            }
-        }
-
-        let p = self.active_view_coords(cursor);
-        let prev_p = self.active_view_coords(self.cursor);
-
-        let (vw, vh) = {
-            let v = self.active_view();
-            (v.width(), v.height())
-        };
-        if let Some(color) = self.palette.hover {
-            self.hover_color = Some(color);
-        } else if let Some(v) = self.hover_view {
-            let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
-            self.hover_color = Some(self.color_at(v, p));
-        }
-
-        match self.mode {
-            Mode::Normal => match self.tool {
-                Tool::Brush(ref mut brush) => {
-                    if p != prev_p {
-                        match brush.state {
-                            BrushState::DrawStarted | BrushState::Drawing => {
-                                brush.state = BrushState::Drawing;
-
-                                let mut p: ViewCoords<i32> = p.into();
-
-                                if brush.is_set(BrushMode::Multi) {
-                                    p.clamp(Rect::new(
-                                        (brush.size / 2) as i32,
-                                        (brush.size / 2) as i32,
-                                        vw as i32 - (brush.size / 2) as i32 - 1,
-                                        vh as i32 - (brush.size / 2) as i32 - 1,
-                                    ));
-                                    brush.draw(p);
-                                } else {
-                                    brush.draw(p);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Tool::Pan => {
-                    self.offset.x += cursor.x - self.cursor.x;
-                    self.offset.y += cursor.y - self.cursor.y;
-                }
-                Tool::Sampler => {}
-            },
-            Mode::Visual => {}
-            _ => {}
-        }
-        self.cursor = cursor;
+        self.set_cursor(cursor);
     }
 
     pub fn handle_received_character(&mut self, c: char) {
@@ -1581,6 +1606,7 @@ impl Session {
         self.offset.y =
             (self.height / 2. - v.height() as f32 / 2. * v.zoom - v.offset.y)
                 .floor();
+        self.cursor_dirty();
     }
 
     /// Horizontally center the active view in the workspace.
@@ -1589,6 +1615,7 @@ impl Session {
         self.offset.x =
             (self.width / 2. - v.width() as f32 * v.zoom / 2. - v.offset.x)
                 .floor();
+        self.cursor_dirty();
     }
 
     /// Center the active view in the workspace.
@@ -1855,8 +1882,10 @@ impl Session {
                 }
             },
             Command::Pan(x, y) => {
-                self.offset.x -= (x * Self::PAN_PIXELS) as f32;
-                self.offset.y -= (y * Self::PAN_PIXELS) as f32;
+                self.pan(
+                    -(x * Self::PAN_PIXELS) as f32,
+                    -(y * Self::PAN_PIXELS) as f32,
+                );
             }
             Command::ViewNext => {
                 let id = self.views.active_id;

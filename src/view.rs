@@ -159,6 +159,11 @@ impl View {
         self.fh
     }
 
+    /// View width and height.
+    pub fn size(&self) -> (u32, u32) {
+        (self.width(), self.height())
+    }
+
     /// View file name, if any.
     pub fn file_name(&self) -> Option<&PathBuf> {
         match self.file_status {
