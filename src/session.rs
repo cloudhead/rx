@@ -887,23 +887,23 @@ impl Session {
         let cursor = self.cursor;
 
         self.palette.handle_cursor_moved(cursor);
-
         self.hover_view = None;
-        self.hover_color = None;
 
         for (_, v) in self.views.iter_mut() {
-            v.handle_cursor_moved(cursor - self.offset);
-            if v.hover {
+            if v.contains(cursor - self.offset) {
                 self.hover_view = Some(v.id);
+                break;
             }
         }
 
-        if let Some(color) = self.palette.hover {
-            self.hover_color = Some(color);
+        self.hover_color = if self.palette.hover.is_some() {
+            self.palette.hover
         } else if let Some(v) = self.hover_view {
             let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
-            self.hover_color = Some(self.color_at(v, p));
-        }
+            Some(self.color_at(v, p))
+        } else {
+            None
+        };
     }
 
     /// Called when settings have been changed.

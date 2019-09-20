@@ -105,8 +105,6 @@ pub struct View {
     pub flip_x: bool,
     /// Whether the view is flipped in the Y axis.
     pub flip_y: bool,
-    /// Whether the cursor is hovering over this view.
-    pub hover: bool,
     /// Status of the file displayed by this view.
     pub file_status: FileStatus,
     /// State of the view.
@@ -138,7 +136,6 @@ impl View {
             ops: Vec::new(),
             flip_x: false,
             flip_y: false,
-            hover: false,
             file_status: fs,
             animation: Animation::new(
                 &[Rect::origin(fw as f32, fh as f32)],
@@ -343,11 +340,6 @@ impl View {
     /// Check whether the given snapshot has been saved to disk.
     pub fn is_snapshot_saved(&self, id: SnapshotId) -> bool {
         self.saved_snapshot == Some(id)
-    }
-
-    /// Handle cursor movement.
-    pub fn handle_cursor_moved(&mut self, cursor: SessionCoords) {
-        self.hover = self.contains(cursor);
     }
 
     ////////////////////////////////////////////////////////////////////////////
