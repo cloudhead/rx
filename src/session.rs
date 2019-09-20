@@ -1349,13 +1349,11 @@ impl Session {
         if button != platform::MouseButton::Left {
             return;
         }
-        let is_cursor_active = self.active_view().hover;
-
         if state == platform::InputState::Pressed {
             self.mouse_down = true;
             self.record_macro(format!("cursor/down"));
 
-            // Click on palette
+            // Click on palette.
             if let Some(color) = self.palette.hover {
                 if self.mode == Mode::Command {
                     self.cmdline.puts(&Rgb8::from(color).to_string());
@@ -1365,62 +1363,60 @@ impl Session {
                 return;
             }
 
-            // Click on active view
-            if is_cursor_active {
+            // Click on a view.
+            if let Some(id) = self.hover_view {
+                // Clicking on a view is one way to get out of command mode.
                 if self.mode == Mode::Command {
                     self.cmdline_hide();
                     return;
                 }
+                if id == self.views.active_id {
+                    let p = self.active_view_coords(self.cursor);
+                    let (nframes, fw, frame_index) = {
+                        let v = self.active_view();
+                        (v.animation.len(), v.fw, (p.x as u32 / v.fw) as i32)
+                    };
 
-                let p = self.active_view_coords(self.cursor);
-                let (nframes, fw, frame_index) = {
-                    let v = self.active_view();
-                    (v.animation.len(), v.fw, (p.x as u32 / v.fw) as i32)
-                };
+                    match self.mode {
+                        Mode::Normal => match self.tool {
+                            Tool::Brush(ref mut brush) => {
+                                let offsets: Vec<_> =
+                                    if brush.is_set(BrushMode::Multi) {
+                                        (0..nframes as i32 - frame_index)
+                                            .map(|i| {
+                                                Vector2::new(
+                                                    (i as u32 * fw) as i32,
+                                                    0,
+                                                )
+                                            })
+                                            .collect()
+                                    } else {
+                                        vec![Vector2::zero()]
+                                    };
 
-                match self.mode {
-                    Mode::Normal => match self.tool {
-                        Tool::Brush(ref mut brush) => {
-                            let offsets: Vec<_> = if brush
-                                .is_set(BrushMode::Multi)
-                            {
-                                (0..nframes as i32 - frame_index)
-                                    .map(|i| {
-                                        Vector2::new((i as u32 * fw) as i32, 0)
-                                    })
-                                    .collect()
-                            } else {
-                                vec![Vector2::zero()]
-                            };
+                                let color = if brush.is_set(BrushMode::Erase) {
+                                    Rgba8::TRANSPARENT
+                                } else {
+                                    self.fg
+                                };
 
-                            let color = if brush.is_set(BrushMode::Erase) {
-                                Rgba8::TRANSPARENT
-                            } else {
-                                self.fg
-                            };
-
-                            brush.start_drawing(p.into(), color, &offsets);
+                                brush.start_drawing(p.into(), color, &offsets);
+                            }
+                            Tool::Sampler => {
+                                self.sample_color();
+                            }
+                            Tool::Pan => {}
+                        },
+                        Mode::Command => {
+                            // TODO
                         }
-                        Tool::Sampler => {
-                            self.sample_color();
+                        Mode::Visual => {
+                            // TODO
                         }
-                        Tool::Pan => {}
-                    },
-                    Mode::Command => {
-                        // TODO
+                        Mode::Present | Mode::Help => {}
                     }
-                    Mode::Visual => {
-                        // TODO
-                    }
-                    Mode::Present | Mode::Help => {}
-                }
-            } else {
-                for (id, v) in self.views.iter() {
-                    if v.hover {
-                        let id = id.clone();
-                        self.views.activate(id);
-                        return;
-                    }
+                } else {
+                    self.views.activate(id);
                 }
             }
         } else if state == platform::InputState::Released {
