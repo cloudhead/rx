@@ -643,7 +643,11 @@ impl Renderer {
 
             let pixels = s.pixels();
             debug_assert!(!pixels.is_empty());
-            r.prepare(&[Op::Fill(&view_data.fb, &pixels)]);
+            r.prepare(&[
+                Op::Clear(&view_data.fb, Rgba::TRANSPARENT),
+                Op::Clear(&view_data.staging_fb, Rgba::TRANSPARENT),
+                Op::Fill(&view_data.fb, &pixels),
+            ]);
 
             self.view_data.insert(*id, view_data);
         }
