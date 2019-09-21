@@ -1033,6 +1033,11 @@ impl Session {
         self.view_mut(self.views.active_id)
     }
 
+    /// Check whether a view is active.
+    pub fn is_active(&self, id: &ViewId) -> bool {
+        &self.views.active_id == id
+    }
+
     /// Convert session coordinates to view coordinates of the given view.
     pub fn view_coords(&self, v: ViewId, p: SessionCoords) -> ViewCoords<f32> {
         let v = self.view(v);
@@ -1370,7 +1375,7 @@ impl Session {
                     self.cmdline_hide();
                     return;
                 }
-                if id == self.views.active_id {
+                if self.is_active(&id) {
                     let p = self.active_view_coords(self.cursor);
                     let (nframes, fw, frame_index) = {
                         let v = self.active_view();
@@ -1738,7 +1743,7 @@ impl Session {
             Command::Quit => match &self.active_view().file_status {
                 FileStatus::Modified(_) | FileStatus::New(_) => {
                     self.message(
-                        "Error: no write since last change",
+                        "Error: no write since last change (enter `:q!` to quit without saving)",
                         MessageType::Error,
                     );
                 }

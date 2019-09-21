@@ -663,27 +663,20 @@ impl Renderer {
         canvas: &mut shape2d::Batch,
         text: &mut TextBatch,
     ) {
-        for (_, v) in session.views.iter() {
+        for (id, v) in session.views.iter() {
+            let offset = v.offset + session.offset;
+
             // Frame lines
             for n in 0..v.animation.len() {
                 let n = n as f32;
+                let x = n * v.zoom * v.fw as f32 + offset.x;
                 canvas.add(Shape::Line(
-                    // TODO: This shouldn't be so painful.
-                    Line::new(
-                        n * v.zoom * v.fw as f32
-                            + v.offset.x
-                            + session.offset.x,
-                        session.offset.y + v.offset.y,
-                        n * v.zoom * v.fw as f32
-                            + v.offset.x
-                            + session.offset.x,
-                        v.zoom * v.fh as f32 + v.offset.y + session.offset.y,
-                    ),
+                    Line::new(x, offset.y, x, v.zoom * v.fh as f32 + offset.y),
                     Stroke::new(1.0, Rgba::new(0.4, 0.4, 0.4, 1.0)),
                 ));
             }
             // View border
-            let border_color = if v.id == session.views.active_id {
+            let border_color = if session.is_active(&id) {
                 Rgba::WHITE
             } else {
                 Rgba::new(0.5, 0.5, 0.5, 1.0)
@@ -697,8 +690,8 @@ impl Renderer {
             // View info
             text.add(
                 &format!("{}x{}x{}", v.fw, v.fh, v.animation.len()),
-                session.offset.x + v.offset.x,
-                session.offset.y + v.offset.y - self::LINE_HEIGHT,
+                offset.x,
+                offset.y - self::LINE_HEIGHT,
                 color::GREY,
             );
         }
