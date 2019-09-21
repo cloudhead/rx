@@ -725,36 +725,46 @@ impl Renderer {
 
         {
             // Session status
-            let cursor = session.active_view_coords(session.cursor);
-            let hover_color = session
-                .hover_color
-                .map_or(String::new(), |c| Rgb8::from(c).to_string());
-            text.add(
-                &format!("{:>4},{:<4} {}", cursor.x, cursor.y, hover_color),
-                session.width - MARGIN - 36. * 8.,
-                MARGIN + self::LINE_HEIGHT,
-                Rgba8::WHITE,
-            );
             text.add(
                 &format!("{:>5}%", (session.active_view().zoom * 100.) as u32),
                 session.width - MARGIN - 6. * 8.,
                 MARGIN + self::LINE_HEIGHT,
                 Rgba8::WHITE,
             );
-            // Fg color
-            canvas.add(Shape::Rectangle(
-                Rect::origin(11., 11.)
-                    .translate(300., self::LINE_HEIGHT + self::MARGIN + 2.),
-                Stroke::new(1.0, Rgba::WHITE),
-                Fill::Solid(session.fg.into()),
-            ));
-            // Bg color
-            canvas.add(Shape::Rectangle(
-                Rect::origin(11., 11.)
-                    .translate(330., self::LINE_HEIGHT + self::MARGIN + 2.),
-                Stroke::new(1.0, Rgba::WHITE),
-                Fill::Solid(session.bg.into()),
-            ));
+
+            if session.width >= 400. {
+                let cursor = session.active_view_coords(session.cursor);
+                let hover_color = session
+                    .hover_color
+                    .map_or(String::new(), |c| Rgb8::from(c).to_string());
+                text.add(
+                    &format!("{:>4},{:<4} {}", cursor.x, cursor.y, hover_color),
+                    session.width * 0.5,
+                    MARGIN + self::LINE_HEIGHT,
+                    Rgba8::WHITE,
+                );
+
+                if session.width >= 600. {
+                    // Fg color
+                    canvas.add(Shape::Rectangle(
+                        Rect::origin(11., 11.).translate(
+                            session.width * 0.4,
+                            self::LINE_HEIGHT + self::MARGIN + 2.,
+                        ),
+                        Stroke::new(1.0, Rgba::WHITE),
+                        Fill::Solid(session.fg.into()),
+                    ));
+                    // Bg color
+                    canvas.add(Shape::Rectangle(
+                        Rect::origin(11., 11.).translate(
+                            session.width * 0.4 + 25.,
+                            self::LINE_HEIGHT + self::MARGIN + 2.,
+                        ),
+                        Stroke::new(1.0, Rgba::WHITE),
+                        Fill::Solid(session.bg.into()),
+                    ));
+                }
+            }
         }
 
         // Command-line & message
