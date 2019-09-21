@@ -667,7 +667,7 @@ impl Renderer {
             let offset = v.offset + session.offset;
 
             // Frame lines
-            for n in 0..v.animation.len() {
+            for n in 1..v.animation.len() {
                 let n = n as f32;
                 let x = n * v.zoom * v.fw as f32 + offset.x;
                 canvas.add(Shape::Line(
