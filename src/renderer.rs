@@ -53,9 +53,11 @@ pub struct Renderer {
     /// Pipeline for eraser strokes and other use-cases that require
     /// "constant" blending.
     const2d: kit::shape2d::Pipeline,
+
     /// Pipeline used to render to the screen/window.
     screen2d: screen2d::Pipeline,
-
+    /// Screen framebuffer. Everything seen by the user is rendered here first.
+    /// This allows us to do things like UI scaling.
     screen_fb: core::Framebuffer,
     screen_vb: core::VertexBuffer,
     screen_binding: core::BindingGroup,

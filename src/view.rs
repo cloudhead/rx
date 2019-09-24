@@ -67,6 +67,17 @@ impl Into<ViewCoords<u32>> for ViewCoords<f32> {
     }
 }
 
+/// View extent information.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ViewExtent {
+    /// Frame width.
+    pub fw: u32,
+    /// Frame height.
+    pub fh: u32,
+    /// Number of frames.
+    pub nframes: usize,
+}
+
 /// Current state of the view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewState {
@@ -335,6 +346,15 @@ impl View {
     /// Return the file status as a string.
     pub fn status(&self) -> String {
         self.file_status.to_string()
+    }
+
+    /// Return the view extent.
+    pub fn extent(&self) -> ViewExtent {
+        ViewExtent {
+            fw: self.fw,
+            fh: self.fh,
+            nframes: self.animation.len(),
+        }
     }
 
     /// Check whether the given snapshot has been saved to disk.
