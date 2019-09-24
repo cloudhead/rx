@@ -408,7 +408,9 @@ impl Renderer {
 
         // When switching views, or when the view is dirty (eg. it has been resized),
         // we have to resize the brush pipelines, for the brush strokes to
-        // render properly in the view framebuffer.
+        // render properly in the view framebuffer. When a snapshot is restored,
+        // the view size might also have changed, and therefore we resize
+        // on "damaged" too.
         if v.id != self.active_view_id || v.is_dirty() || v.is_damaged() {
             self.resize_brush_pipelines(v.width(), v.height());
             self.active_view_id = v.id;
