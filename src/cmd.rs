@@ -640,6 +640,8 @@ impl<'a> Parse<'a> for BrushMode {
             "erase" => Ok((BrushMode::Erase, p)),
             "multi" => Ok((BrushMode::Multi, p)),
             "perfect" => Ok((BrushMode::Perfect, p)),
+            "xsym" => Ok((BrushMode::XSym, p)),
+            "ysym" => Ok((BrushMode::YSym, p)),
             mode => Err(Error::new(format!("unknown brush mode '{}'", mode))),
         }
     }

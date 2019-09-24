@@ -30,6 +30,10 @@ pub enum BrushMode {
     Multi,
     /// Pixel-perfect mode.
     Perfect,
+    /// X-Symmetry mode.
+    XSym,
+    /// Y-Symmetry mode.
+    YSym,
 }
 
 impl fmt::Display for BrushMode {
@@ -38,6 +42,8 @@ impl fmt::Display for BrushMode {
             Self::Erase => "erase".fmt(f),
             Self::Multi => "multi".fmt(f),
             Self::Perfect => "perfect".fmt(f),
+            Self::XSym => "x-sym".fmt(f),
+            Self::YSym => "y-sym".fmt(f),
         }
     }
 }
@@ -163,24 +169,38 @@ impl Brush {
             BrushState::DrawStarted(extent)
             | BrushState::Drawing(extent)
             | BrushState::DrawEnded(extent) => {
-                let ViewExtent { fw, nframes, .. } = extent;
-                let stroke = self.stroke.clone();
+                let ViewExtent { fw, fh, nframes } = extent;
+                let mut pixels = self.stroke.clone();
+
+                if self.is_set(BrushMode::YSym) {
+                    for p in pixels.clone().iter() {
+                        pixels.push(Point2::new(p.x, fh as i32 - p.y));
+                    }
+                }
+
+                if self.is_set(BrushMode::XSym) {
+                    for p in pixels.clone().iter() {
+                        let frame_index = p.x / fw as i32;
+
+                        pixels.push(Point2::new(
+                            (frame_index + 1) * fw as i32
+                                - (p.x - frame_index * fw as i32),
+                            p.y,
+                        ));
+                    }
+                }
 
                 if self.is_set(BrushMode::Multi) {
-                    let mut pixels = Vec::new();
-
-                    for p in stroke {
+                    for p in pixels.clone().iter() {
                         let frame_index = (p.x as u32 / fw) as i32;
                         for i in 0..nframes as i32 - frame_index {
                             pixels.push(
-                                p + Vector2::new((i as u32 * fw) as i32, 0),
+                                *p + Vector2::new((i as u32 * fw) as i32, 0),
                             );
                         }
                     }
-                    pixels
-                } else {
-                    stroke
                 }
+                pixels
             }
             _ => Vec::new(),
         };
