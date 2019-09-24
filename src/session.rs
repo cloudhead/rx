@@ -844,9 +844,8 @@ impl Session {
                 Tool::Brush(ref mut brush) => {
                     if p != prev_p {
                         match brush.state {
-                            BrushState::DrawStarted | BrushState::Drawing => {
-                                brush.state = BrushState::Drawing;
-
+                            BrushState::DrawStarted { .. }
+                            | BrushState::Drawing { .. } => {
                                 let mut p: ViewCoords<i32> = p.into();
 
                                 if brush.is_set(BrushMode::Multi) {
@@ -1376,36 +1375,19 @@ impl Session {
                     return;
                 }
                 if self.is_active(&id) {
-                    let p = self.active_view_coords(self.cursor);
-                    let (nframes, fw, frame_index) = {
-                        let v = self.active_view();
-                        (v.animation.len(), v.fw, (p.x as u32 / v.fw) as i32)
-                    };
+                    let v = self.active_view();
+                    let p = self.view_coords(v.id, self.cursor);
+                    let extent = v.extent();
 
                     match self.mode {
                         Mode::Normal => match self.tool {
                             Tool::Brush(ref mut brush) => {
-                                let offsets: Vec<_> =
-                                    if brush.is_set(BrushMode::Multi) {
-                                        (0..nframes as i32 - frame_index)
-                                            .map(|i| {
-                                                Vector2::new(
-                                                    (i as u32 * fw) as i32,
-                                                    0,
-                                                )
-                                            })
-                                            .collect()
-                                    } else {
-                                        vec![Vector2::zero()]
-                                    };
-
                                 let color = if brush.is_set(BrushMode::Erase) {
                                     Rgba8::TRANSPARENT
                                 } else {
                                     self.fg
                                 };
-
-                                brush.start_drawing(p.into(), color, &offsets);
+                                brush.start_drawing(p.into(), color, extent);
                             }
                             Tool::Sampler => {
                                 self.sample_color();
@@ -1430,7 +1412,8 @@ impl Session {
 
             if let Tool::Brush(ref mut brush) = self.tool {
                 match brush.state {
-                    BrushState::Drawing | BrushState::DrawStarted => {
+                    BrushState::Drawing { .. }
+                    | BrushState::DrawStarted { .. } => {
                         brush.stop_drawing();
                         self.active_view_mut().touch();
                     }

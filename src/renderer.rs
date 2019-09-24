@@ -18,7 +18,7 @@ use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
 use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
-use rgx::math::{Matrix4, Point2, Vector2};
+use rgx::math::{Matrix4, Vector2};
 
 use std::collections::{BTreeMap, HashSet};
 use std::time;
@@ -373,17 +373,17 @@ impl Renderer {
         let mut paint_batch = shape2d::Batch::new();
 
         if let Tool::Brush(ref b) = session.tool {
-            for off in &b.offsets {
-                for pixel in &b.stroke {
-                    let p = *pixel + *off;
-                    paint_batch.add(b.shape(
-                        Point2::new(p.x as f32, p.y as f32),
-                        Stroke::NONE,
-                        Fill::Solid(b.color.into()),
-                        1.0,
-                        Origin::BottomLeft,
-                    ));
-                }
+            for shape in b
+                .output(
+                    Stroke::NONE,
+                    Fill::Solid(b.color.into()),
+                    1.0,
+                    Origin::BottomLeft,
+                )
+                .iter()
+                .cloned()
+            {
+                paint_batch.add(shape);
             }
         }
 
@@ -965,11 +965,11 @@ impl Renderer {
             _ if brush.is_set(BrushMode::Erase) => f.pass(PassOp::Load(), fb),
 
             // As long as we haven't finished drawing, render into the staging buffer.
-            BrushState::DrawStarted | BrushState::Drawing => {
+            BrushState::DrawStarted(_) | BrushState::Drawing(_) => {
                 f.pass(PassOp::Clear(Rgba::TRANSPARENT), staging_fb)
             }
             // Once we're done drawing, we can render into the real buffer.
-            BrushState::DrawEnded => f.pass(PassOp::Load(), fb),
+            BrushState::DrawEnded(_) => f.pass(PassOp::Load(), fb),
             BrushState::NotDrawing => unreachable!(),
         };
 

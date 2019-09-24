@@ -1,24 +1,24 @@
 use crate::kit::shape2d::{Fill, Shape, Stroke};
 use crate::kit::Origin;
-use crate::view::ViewCoords;
+use crate::view::{ViewCoords, ViewExtent};
 
 use rgx::core::{Rect, Rgba8};
-use rgx::math::{Point2, Vector2, Zero};
+use rgx::math::{Point2, Vector2};
 
 use std::collections::BTreeSet;
 use std::fmt;
 
 /// Input state of the brush.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum BrushState {
     /// Not currently drawing.
-    NotDrawing = 0,
+    NotDrawing,
     /// Drawing has just started.
-    DrawStarted = 1,
+    DrawStarted(ViewExtent),
     /// Drawing.
-    Drawing = 2,
+    Drawing(ViewExtent),
     /// Drawing has just ended.
-    DrawEnded = 3,
+    DrawEnded(ViewExtent),
 }
 
 /// Brush mode. Any number of these modes can be active at once.
@@ -53,8 +53,6 @@ pub struct Brush {
     pub stroke: Vec<Point2<i32>>,
     /// Current stroke color.
     pub color: Rgba8,
-    /// Brush offsets, used for `BrushMode::Multi`.
-    pub offsets: Vec<Vector2<i32>>,
 
     /// Currently active brush modes.
     modes: BTreeSet<BrushMode>,
@@ -70,7 +68,6 @@ impl Default for Brush {
             size: 1,
             state: BrushState::NotDrawing,
             stroke: Vec::with_capacity(32),
-            offsets: vec![Vector2::zero()],
             color: Rgba8::TRANSPARENT,
             modes: BTreeSet::new(),
             curr: Point2::new(0, 0),
@@ -102,7 +99,7 @@ impl Brush {
 
     /// Run every frame by the session.
     pub fn update(&mut self) {
-        if self.state == BrushState::DrawEnded {
+        if let BrushState::DrawEnded(_) = self.state {
             self.state = BrushState::NotDrawing;
             self.stroke.clear();
         }
@@ -113,24 +110,21 @@ impl Brush {
         &mut self,
         p: ViewCoords<i32>,
         color: Rgba8,
-        offsets: &[Vector2<i32>],
+        extent: ViewExtent,
     ) {
-        assert!(!offsets.is_empty(), "offsets should never be empty");
-
-        self.state = BrushState::DrawStarted;
+        self.state = BrushState::DrawStarted(extent);
         self.color = color;
-        self.offsets = offsets.to_owned();
         self.stroke = Vec::with_capacity(32);
         self.draw(p);
     }
 
     /// Draw. Called while input is pressed.
     pub fn draw(&mut self, p: ViewCoords<i32>) {
-        if self.state == BrushState::DrawStarted {
-            self.prev = *p;
+        self.prev = if let BrushState::DrawStarted(_) = self.state {
+            *p
         } else {
-            self.prev = self.curr;
-        }
+            self.curr
+        };
         self.curr = *p;
 
         Brush::line(self.prev, self.curr, &mut self.stroke);
@@ -139,11 +133,70 @@ impl Brush {
         if self.is_set(BrushMode::Perfect) {
             self.stroke = Brush::filter(&self.stroke);
         }
-    }
 
+        match self.state {
+            BrushState::Drawing(_) => {}
+            BrushState::DrawStarted(extent) => {
+                self.state = BrushState::Drawing(extent);
+            }
+            _ => unreachable!(),
+        }
+    }
     /// Stop drawing. Called when input is released.
     pub fn stop_drawing(&mut self) {
-        self.state = BrushState::DrawEnded;
+        match self.state {
+            BrushState::DrawStarted(ex) | BrushState::Drawing(ex) => {
+                self.state = BrushState::DrawEnded(ex);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn output(
+        &self,
+        stroke: Stroke,
+        fill: Fill,
+        scale: f32,
+        origin: Origin,
+    ) -> Vec<Shape> {
+        let pixels = match self.state {
+            BrushState::DrawStarted(extent)
+            | BrushState::Drawing(extent)
+            | BrushState::DrawEnded(extent) => {
+                let ViewExtent { fw, nframes, .. } = extent;
+                let stroke = self.stroke.clone();
+
+                if self.is_set(BrushMode::Multi) {
+                    let mut pixels = Vec::new();
+
+                    for p in stroke {
+                        let frame_index = (p.x as u32 / fw) as i32;
+                        for i in 0..nframes as i32 - frame_index {
+                            pixels.push(
+                                p + Vector2::new((i as u32 * fw) as i32, 0),
+                            );
+                        }
+                    }
+                    pixels
+                } else {
+                    stroke
+                }
+            }
+            _ => Vec::new(),
+        };
+
+        pixels
+            .iter()
+            .map(|p| {
+                self.shape(
+                    Point2::new(p.x as f32, p.y as f32),
+                    stroke,
+                    fill,
+                    scale,
+                    origin.clone(),
+                )
+            })
+            .collect()
     }
 
     /// Return the shape that should be painted when the brush is at the given
