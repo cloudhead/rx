@@ -409,7 +409,7 @@ impl Renderer {
         // When switching views, or when the view is dirty (eg. it has been resized),
         // we have to resize the brush pipelines, for the brush strokes to
         // render properly in the view framebuffer.
-        if v.id != self.active_view_id || v.is_dirty() {
+        if v.id != self.active_view_id || v.is_dirty() || v.is_damaged() {
             self.resize_brush_pipelines(v.width(), v.height());
             self.active_view_id = v.id;
         }
@@ -452,6 +452,19 @@ impl Renderer {
         // Render brush strokes to view framebuffers.
         if let Some(ref paint_buf) = paint_buf {
             if let Tool::Brush(ref b) = session.tool {
+                let view_data = self
+                    .view_data
+                    .get(&session.views.active_id)
+                    .expect("the view data for the active view must exist");
+
+                if let BrushState::DrawEnded(_) = b.state {
+                    // Use a render pass to clear the staging buffer.
+                    f.pass(
+                        PassOp::Clear(Rgba::TRANSPARENT),
+                        &view_data.staging_fb,
+                    );
+                }
+
                 if b.state != BrushState::NotDrawing {
                     r.update_pipeline(
                         &self.brush2d,
@@ -463,11 +476,6 @@ impl Renderer {
                         Matrix4::identity(),
                         &mut f,
                     );
-
-                    let view_data = self
-                        .view_data
-                        .get(&session.views.active_id)
-                        .expect("the view data for the active view must exist");
 
                     self.render_brush_strokes(paint_buf, view_data, b, &mut f);
                 }
@@ -591,6 +599,7 @@ impl Renderer {
 
             r.prepare(&[
                 Op::Clear(&view_data.fb, Rgba::TRANSPARENT),
+                Op::Clear(&view_data.staging_fb, Rgba::TRANSPARENT),
                 Op::Transfer(
                     &view_data.fb,
                     pixels.as_slice(),
