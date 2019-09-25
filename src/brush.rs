@@ -148,6 +148,7 @@ impl Brush {
             _ => unreachable!(),
         }
     }
+
     /// Stop drawing. Called when input is released.
     pub fn stop_drawing(&mut self) {
         match self.state {
@@ -158,6 +159,45 @@ impl Brush {
         }
     }
 
+    /// Expand a point into all brush heads.
+    pub fn expand(
+        &self,
+        p: ViewCoords<i32>,
+        extent: ViewExtent,
+    ) -> Vec<ViewCoords<i32>> {
+        let mut pixels = vec![*p];
+        let ViewExtent { fw, fh, nframes } = extent;
+
+        if self.is_set(BrushMode::XSym) {
+            for p in pixels.clone() {
+                let frame_index = p.x / fw as i32;
+
+                pixels.push(Point2::new(
+                    (frame_index + 1) * fw as i32
+                        - (p.x - frame_index * fw as i32)
+                        - 1,
+                    p.y,
+                ));
+            }
+        }
+        if self.is_set(BrushMode::YSym) {
+            for p in pixels.clone() {
+                pixels.push(Point2::new(p.x, fh as i32 - p.y - 1));
+            }
+        }
+        if self.is_set(BrushMode::Multi) {
+            for p in pixels.clone() {
+                let frame_index = p.x / fw as i32;
+                for i in 0..nframes as i32 - frame_index {
+                    let offset = Vector2::new((i as u32 * fw) as i32, 0);
+                    pixels.push(p + offset);
+                }
+            }
+        }
+        pixels.iter().map(|p| ViewCoords::new(p.x, p.y)).collect()
+    }
+
+    /// Return the brush's output strokes as shapes.
     pub fn output(
         &self,
         stroke: Stroke,
@@ -165,58 +205,33 @@ impl Brush {
         scale: f32,
         origin: Origin,
     ) -> Vec<Shape> {
-        let pixels = match self.state {
+        match self.state {
             BrushState::DrawStarted(extent)
             | BrushState::Drawing(extent)
             | BrushState::DrawEnded(extent) => {
-                let ViewExtent { fw, fh, nframes } = extent;
-                let mut pixels = self.stroke.clone();
+                let mut pixels = Vec::new();
 
-                if self.is_set(BrushMode::YSym) {
-                    for p in pixels.clone().iter() {
-                        pixels.push(Point2::new(p.x, fh as i32 - p.y));
-                    }
-                }
-
-                if self.is_set(BrushMode::XSym) {
-                    for p in pixels.clone().iter() {
-                        let frame_index = p.x / fw as i32;
-
-                        pixels.push(Point2::new(
-                            (frame_index + 1) * fw as i32
-                                - (p.x - frame_index * fw as i32),
-                            p.y,
-                        ));
-                    }
-                }
-
-                if self.is_set(BrushMode::Multi) {
-                    for p in pixels.clone().iter() {
-                        let frame_index = (p.x as u32 / fw) as i32;
-                        for i in 0..nframes as i32 - frame_index {
-                            pixels.push(
-                                *p + Vector2::new((i as u32 * fw) as i32, 0),
-                            );
-                        }
-                    }
+                for p in &self.stroke {
+                    pixels.extend_from_slice(
+                        self.expand(ViewCoords::new(p.x, p.y), extent)
+                            .as_slice(),
+                    );
                 }
                 pixels
+                    .iter()
+                    .map(|p| {
+                        self.shape(
+                            Point2::new(p.x as f32, p.y as f32),
+                            stroke,
+                            fill,
+                            scale,
+                            origin.clone(),
+                        )
+                    })
+                    .collect()
             }
             _ => Vec::new(),
-        };
-
-        pixels
-            .iter()
-            .map(|p| {
-                self.shape(
-                    Point2::new(p.x as f32, p.y as f32),
-                    stroke,
-                    fill,
-                    scale,
-                    origin.clone(),
-                )
-            })
-            .collect()
+        }
     }
 
     /// Return the shape that should be painted when the brush is at the given

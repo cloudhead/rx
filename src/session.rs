@@ -805,6 +805,7 @@ impl Session {
 
     /// Snap the given session coordinates to the pixel grid.
     /// This only has an effect at zoom levels greater than `1.0`.
+    #[allow(dead_code)]
     pub fn snap(
         &self,
         p: SessionCoords,
@@ -1053,6 +1054,27 @@ impl Session {
         }
 
         ViewCoords::new(p.x.floor(), p.y.floor())
+    }
+
+    /// Convert view coordinates to session coordinates.
+    pub fn session_coords(
+        &self,
+        v: ViewId,
+        p: ViewCoords<f32>,
+    ) -> SessionCoords {
+        let v = self.view(v);
+
+        let p = Point2::new(p.x * v.zoom, p.y * v.zoom);
+        let p = p + self.offset + v.offset;
+
+        if v.flip_x {
+            unimplemented!();
+        }
+        if v.flip_y {
+            unimplemented!();
+        }
+
+        SessionCoords::new(p.x, p.y).floor()
     }
 
     /// Convert session coordinates to view coordinates of the active view.

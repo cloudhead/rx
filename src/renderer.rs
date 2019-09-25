@@ -869,7 +869,6 @@ impl Renderer {
         if let Tool::Brush(ref brush) = session.tool {
             let v = session.active_view();
             let p = session.cursor;
-            let s = session.snap(p, v.offset.x, v.offset.y, v.zoom);
 
             // Draw enabled brush
             if v.contains(p - session.offset) {
@@ -879,27 +878,10 @@ impl Renderer {
                     (Stroke::NONE, Fill::Solid(session.fg.into()))
                 };
 
-                if brush.is_set(BrushMode::Multi) {
-                    let view_coords =
-                        session.active_view_coords(session.cursor);
-                    let frame_index = (view_coords.x as u32 / v.fw) as usize;
-
-                    for i in 0..v.animation.len() - frame_index {
-                        let offset = Vector2::new(
-                            (i as f32 * v.fw as f32 * v.zoom).floor(),
-                            0.,
-                        );
-                        batch.add(brush.shape(
-                            *(s + offset),
-                            stroke,
-                            fill,
-                            v.zoom,
-                            Origin::BottomLeft,
-                        ));
-                    }
-                } else {
+                let view_coords = session.active_view_coords(session.cursor);
+                for p in brush.expand(view_coords.into(), v.extent()) {
                     batch.add(brush.shape(
-                        *s,
+                        *session.session_coords(v.id, p.into()),
                         stroke,
                         fill,
                         v.zoom,

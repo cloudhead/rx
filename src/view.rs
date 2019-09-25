@@ -61,6 +61,12 @@ impl Into<ViewCoords<i32>> for ViewCoords<f32> {
     }
 }
 
+impl Into<ViewCoords<f32>> for ViewCoords<i32> {
+    fn into(self) -> ViewCoords<f32> {
+        ViewCoords::new(self.x as f32, self.y as f32)
+    }
+}
+
 impl Into<ViewCoords<u32>> for ViewCoords<f32> {
     fn into(self) -> ViewCoords<u32> {
         ViewCoords::new(self.x.round() as u32, self.y.round() as u32)
