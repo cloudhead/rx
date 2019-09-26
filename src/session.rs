@@ -1774,7 +1774,7 @@ impl Session {
                 }
             }
             Command::Brush => {
-                self.tool = Tool::Brush(Brush::default());
+                self.unimplemented();
             }
             Command::BrushSize(op) => {
                 if let Tool::Brush(ref mut b) = self.tool {

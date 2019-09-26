@@ -454,7 +454,6 @@ impl<'a> Parse<'a> for Command {
                     Err(Error::new("couldn't parse zoom parameter"))
                 }
             }
-            "brush" => Ok((Command::Brush, p)),
             "brush/size" => {
                 let (c, p) = p.parse::<char>()?;
                 match c {
