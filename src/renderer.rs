@@ -285,7 +285,7 @@ impl Renderer {
         text.add(
             &format!(
                 "rx v{}: help ({} to exit)",
-                session::VERSION,
+                crate::VERSION,
                 platform::Key::Escape,
             ),
             left_margin,

@@ -7,14 +7,12 @@
 
       git tag -s vX.X.X
 
-  2. Update the version in `.config/init.rx`
-  3. Update the version in `src/main.rs`
-  4. Update the version in Cargo.toml
-  5. Push tags:
+  2. Update the version constant in `src/lib.rs`
+  3. Update the version in Cargo.toml
+  4. Push tags:
 
       git push --tags
 
-  6. Publish crate:
+  5. Publish crate:
 
-      cargo package
       cargo publish

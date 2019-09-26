@@ -6,7 +6,7 @@ fn main() {
     rx::ALLOCATOR.reset();
 
     let matches = App::new("rx")
-        .version("0.1.0")
+        .version(&*format!("v{}", rx::VERSION))
         .author("Alexis Sellier <self@cloudhead.io>")
         .about("An Extensible Pixel Editor")
         .arg(

@@ -53,6 +53,9 @@ use std::alloc::System;
 use std::path::Path;
 use std::time;
 
+/// Program version.
+pub const VERSION: &'static str = "0.1.0";
+
 #[global_allocator]
 pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 

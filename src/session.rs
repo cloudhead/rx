@@ -26,9 +26,6 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time;
 
-/// `rx` version string.
-pub const VERSION: &'static str = "0.1.0";
-
 /// Help string.
 pub const HELP: &'static str = r#"
 :help                    Toggle this help
@@ -694,6 +691,7 @@ impl Session {
             self.source_reader(io::BufReader::new(data::CONFIG), "<init>")?;
         }
         self.source_dir(cwd).ok();
+        self.message(format!("rx v{}", crate::VERSION), MessageType::Echo);
 
         Ok(self)
     }
