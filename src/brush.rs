@@ -42,8 +42,8 @@ impl fmt::Display for BrushMode {
             Self::Erase => "erase".fmt(f),
             Self::Multi => "multi".fmt(f),
             Self::Perfect => "perfect".fmt(f),
-            Self::XSym => "x-sym".fmt(f),
-            Self::YSym => "y-sym".fmt(f),
+            Self::XSym => "xsym".fmt(f),
+            Self::YSym => "ysym".fmt(f),
         }
     }
 }
