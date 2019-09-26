@@ -480,6 +480,13 @@ impl<'a> Parse<'a> for Command {
             "v/next" => Ok((Command::ViewNext, p)),
             "v/prev" => Ok((Command::ViewPrev, p)),
             "v/center" => Ok((Command::ViewCenter, p)),
+            "v/clear" => {
+                if let Ok((rgba, p)) = p.clone().parse::<Rgba8>() {
+                    Ok((Command::Fill(rgba), p))
+                } else {
+                    Ok((Command::Fill(Rgba8::TRANSPARENT), p))
+                }
+            }
             "pan" => {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;
                 Ok((Command::Pan(x, y), p))

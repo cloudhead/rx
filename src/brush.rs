@@ -225,7 +225,7 @@ impl Brush {
                             stroke,
                             fill,
                             scale,
-                            origin.clone(),
+                            origin,
                         )
                     })
                     .collect()

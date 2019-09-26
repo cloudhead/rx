@@ -12,7 +12,7 @@ use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{PresentMode, Rect};
-use rgx::kit::Rgba8;
+use rgx::kit::{Bgra8, Rgba8};
 use rgx::math::*;
 
 use directories as dirs;
@@ -63,16 +63,6 @@ scale             1.0..4.0      UI scale
 animation         on/off        View animation toggle
 animation/delay   1..1000       View animation delay (ms)
 "#;
-
-/// A BGRA color, used when dealing with framebuffers.
-#[repr(C)]
-#[derive(Copy, Clone)]
-struct Bgra8 {
-    b: u8,
-    g: u8,
-    r: u8,
-    a: u8,
-}
 
 /// An RGB 8-bit color. Used when the alpha value isn't used.
 #[repr(C)]
