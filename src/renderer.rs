@@ -626,6 +626,9 @@ impl Renderer {
 
         for op in &v.ops {
             match op {
+                ViewOp::Clear(color) => {
+                    r.prepare(&[Op::Clear(fb, (*color).into())]);
+                }
                 ViewOp::Blit(src, dst) => {
                     r.prepare(&[Op::Blit(fb, *src, *dst)]);
                 }

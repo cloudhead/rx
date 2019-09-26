@@ -1877,6 +1877,9 @@ impl Session {
                     }
                 }
             },
+            Command::Fill(color) => {
+                self.active_view_mut().clear(color);
+            }
             Command::Pan(x, y) => {
                 self.pan(
                     -(x * Self::PAN_PIXELS) as f32,

@@ -2,7 +2,7 @@ use crate::resources::SnapshotId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
 
-use rgx::core::Rect;
+use rgx::core::{Rect, Rgba8};
 use rgx::kit::Animation;
 use rgx::math::*;
 
@@ -101,6 +101,8 @@ pub enum ViewState {
 pub enum ViewOp {
     /// Copy an area of the view to another area.
     Blit(Rect<f32>, Rect<f32>),
+    /// Clear to a color.
+    Clear(Rgba8),
 }
 
 /// A view on a sprite or image.
@@ -247,6 +249,12 @@ impl View {
     /// Resize view frames to the given size.
     pub fn resize_frames(&mut self, fw: u32, fh: u32) {
         self.reset(fw, fh, self.animation.len());
+    }
+
+    /// Clear the view to a color.
+    pub fn clear(&mut self, color: Rgba8) {
+        self.ops.push(ViewOp::Clear(color));
+        self.damaged();
     }
 
     /// Reset the view by providing frame size and number of frames.
