@@ -49,6 +49,8 @@ pub const HELP: &'static str = r#"
 :f/clone                 Clone the last frame and add it to the view
 :p/clear                 Clear the palette
 :p/add <color>           Add <color> to the palette, eg. #ff0011
+:brush/set <mode>        Set brush mode, eg. `xsym` and `ysym` for symmetry
+:brush/unset <mode>      Unset brush mode
 
 SETTINGS
 
