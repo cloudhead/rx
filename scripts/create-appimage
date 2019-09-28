@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+linuxdeploy \
+  --executable=target/release/rx \
+  --desktop-file=rx.desktop \
+  --icon-file=rx.png \
+  --appdir=AppDir
+appimagetool --no-appstream --sign AppDir

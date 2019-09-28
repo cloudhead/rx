@@ -4,3 +4,5 @@ flamegraph.svg
 /target
 /images
 **/*.rs.bk
+*.AppImage
+AppDir
