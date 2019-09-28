@@ -65,11 +65,17 @@ PLATFORM SUPPORT
 
 BUILD DEPENDENCIES
 
-  * rust & cargo (https://www.rust-lang.org/tools/install)
+  * rust (https://www.rust-lang.org/tools/install)
 
-INSTALLATION
+  macOS
 
-  Before proceeding, make sure the build dependencies have been installed.
+    * `Xcode` and the `Xcode Command Line Tools` are required.
+      The latter can be obtained by running `xcode-select --install`
+    * CMake might be required. You can install it with `brew install cmake`.
+
+BUILD & INSTALLATION
+
+  Before proceeding, make sure the BUILD DEPENDENCIES have been installed.
 
   Then, run:
 
