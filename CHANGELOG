@@ -1,0 +1,35 @@
+0.1.0
+
+  Initial release
+
+0.2.0
+
+  New features
+
+    * UI scaling via `:set scale = <float>`
+    * GIF export
+    * New brush mode `multi`, for drawing on all frames at once
+    * New brush mode `perfect`, for pixel-perfect drawing
+    * New brush mode `xsym`, for x-axis symmetry drawing
+    * New brush mode `ysym`, for y-axis symmetry drawing
+    * New command `:f/remove` to remove frame
+    * New command `:f/clone [<index>]` to clone frame
+    * New command `:v/clear [<color>]` to clear a view
+    * New command `:toggle <setting>` to toggle a setting on and off
+    * New command `:help`
+    * New setting `:set animation = on/off` to show/hide animations
+    * Color under cursor is displayed in status bar
+    * GLFW backend
+
+    * [windows] Windows support
+
+  Changes
+
+    * Click on view to make it active
+    * Better support for toggle-like key bindings
+    * Default palette is included in binary
+    * Default config is written to disk if not found
+    * Much lower memory consumption for undo history
+
+    * [macOS] Better retina support
+    * [macOS] Quit with Command + Q
