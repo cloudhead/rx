@@ -586,7 +586,7 @@ impl Session {
     pub const DEFAULT_VIEW_H: u32 = 128;
 
     /// Supported image formats for writing.
-    const SUPPORTED_FORMATS: &'static [&'static str] = &["png", "gif"];
+    const SUPPORTED_FORMATS: &'static [&'static str] = &["png", "gif", "bmp"];
     /// Minimum margin between views, in pixels.
     const VIEW_MARGIN: f32 = 24.;
     /// Size of palette cells, in pixels.
@@ -1133,7 +1133,7 @@ impl Session {
     ) -> io::Result<()> {
         let ext = path.as_ref().extension().ok_or(io::Error::new(
             io::ErrorKind::Other,
-            "file path requires an extension (.gif or .png)",
+            "file path requires an extension (.gif or .png or .bmp)",
         ))?;
         let ext = ext.to_str().ok_or(io::Error::new(
             io::ErrorKind::Other,
@@ -1187,7 +1187,7 @@ impl Session {
         debug!("load: {:?}", path);
 
         if let Some(ext) = path.extension() {
-            if ext != "png" {
+            if ext != "png" && ext != "bmp" {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
                     "trying to load file with unsupported extension",

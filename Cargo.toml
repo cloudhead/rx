@@ -26,6 +26,7 @@ snap = "0.2.5"
 log = "0.4.6"
 directories = "2.0.2"
 raw-window-handle = "0.1.0"
+image = "0.22.2"
 
 [dependencies.rgx]
 version = "0.1.5"
