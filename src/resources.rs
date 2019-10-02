@@ -131,7 +131,7 @@ impl ResourceManager {
         encoder.set_depth(png::BitDepth::Eight);
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
-        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.len());
+        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.size);
         for rgba in snapshot.pixels().chunks(mem::size_of::<Rgba8>()) {
             match rgba {
                 &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
@@ -168,7 +168,7 @@ impl ResourceManager {
         let nframes = snapshot.nframes;
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
-        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.len());
+        let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.size);
         for rgba in snapshot.pixels().chunks(mem::size_of::<Rgba8>()) {
             match rgba {
                 &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
@@ -325,6 +325,7 @@ pub struct Snapshot {
     pub fw: u32,
     pub fh: u32,
     pub nframes: usize,
+    pub size: usize,
 }
 
 impl Snapshot {
@@ -335,14 +336,21 @@ impl Snapshot {
         fh: u32,
         nframes: usize,
     ) -> Self {
+        let size = pixels.len();
         let pixels = Compressed::from(pixels)
             .expect("compressing snapshot shouldn't result in an error");
+
+        debug_assert!(
+            (fw * fh) as usize * nframes * mem::size_of::<Rgba8>() == size,
+            "the pixel buffer has the expected size"
+        );
 
         Self {
             id,
             fw,
             fh,
             nframes,
+            size,
             pixels,
         }
     }
@@ -351,10 +359,6 @@ impl Snapshot {
         self.pixels
             .decompress()
             .expect("decompressing snapshot shouldn't result in an error")
-    }
-
-    pub fn len(&self) -> usize {
-        self.width() as usize * self.height() as usize
     }
 
     pub fn width(&self) -> u32 {
