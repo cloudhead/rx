@@ -1,7 +1,11 @@
 [Desktop Entry]
+Version=1.0
+Type=Application
 Name=rx
+Comment=A modern & extensible pixel editor
+TryExec=rx
 Exec=rx
 Icon=rx
-Comment=A modern & extensible pixel editor
-Type=Application
-Categories=Utility;
+Categories=Graphics;2DGraphics;RasterGraphics;
+Terminal=false
+MimeType=image/png;
