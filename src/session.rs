@@ -890,7 +890,7 @@ impl Session {
             self.palette.hover
         } else if let Some(v) = self.hover_view {
             let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
-            Some(self.color_at(v, p))
+            self.color_at(v, p)
         } else {
             None
         };
@@ -2152,11 +2152,9 @@ impl Session {
     }
 
     /// Get the color at the given view coordinate.
-    fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Rgba8 {
+    fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Option<Rgba8> {
         let resources = self.resources.lock();
         let snapshot = resources.get_snapshot(&v);
-
-        assert!(snapshot.len() % std::mem::size_of::<Bgra8>() == 0);
 
         let pixels = snapshot.pixels();
         let (head, pixels, tail) = unsafe { pixels.align_to::<Bgra8>() };
@@ -2164,11 +2162,17 @@ impl Session {
         assert!(head.is_empty());
         assert!(tail.is_empty());
 
-        let index =
-            ((snapshot.height() - p.y - 1) * snapshot.width() + p.x) as usize;
-        let bgra = pixels[index];
+        let y_offset = snapshot
+            .height()
+            .checked_sub(p.y)
+            .and_then(|x| x.checked_sub(1));
+        let index = y_offset.map(|y| (y * snapshot.width() + p.x) as usize);
 
-        Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a)
+        if let Some(bgra) = index.and_then(|idx| pixels.get(idx)) {
+            Some(Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a))
+        } else {
+            None
+        }
     }
 
     fn sample_color(&mut self) {
