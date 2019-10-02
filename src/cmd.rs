@@ -5,7 +5,10 @@ use crate::session::Mode;
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
 
+use directories as dirs;
+
 use std::fmt;
+use std::path::Path;
 use std::result;
 use std::str::FromStr;
 use std::time;
@@ -378,7 +381,7 @@ impl<'a> Parse<'a> for Command {
                     Ok((Command::Write(None), p))
                 } else {
                     let (path, p) = p.word()?;
-                    Ok((Command::Write(Some(path.to_string())), p))
+                    Ok((Command::Write(Some(p.path(path))), p))
                 }
             }
             "e" => {
@@ -390,7 +393,7 @@ impl<'a> Parse<'a> for Command {
 
                     loop {
                         if let Ok((path, p)) = q.clone().word() {
-                            edits.push(path.to_string());
+                            edits.push(p.path(path));
                             let (_, p) = p.whitespace()?;
                             q = p;
                         } else {
@@ -441,7 +444,7 @@ impl<'a> Parse<'a> for Command {
             }
             "source" => {
                 let (path, p) = p.word()?;
-                Ok((Command::Source(path.to_string()), p))
+                Ok((Command::Source(p.path(path)), p))
             }
             "zoom" => {
                 if let Ok((_, p)) = p.clone().sigil('+') {
@@ -682,6 +685,28 @@ impl<'a> Parser<'a> {
         } else {
             Err(Error::new(format!("extraneaous input: `{}`", p.input)))
         }
+    }
+
+    fn path<P: AsRef<Path>>(&self, path: P) -> String {
+            let mut path = path.as_ref();
+
+            // for Linux and BSD and MacOS
+            if cfg!(unix) && path.starts_with("~") {
+                if let Some(base_dirs) = dirs::BaseDirs::new() {
+
+                    let home = base_dirs.home_dir().to_str().unwrap().to_owned();
+
+                    if path == Path::new("~") {
+                        return home;
+                    }
+
+                    path = &path.strip_prefix("~").unwrap();
+                    return Path::new(&home).join(path).to_str().unwrap().to_owned();
+                }
+            }
+
+            // for Windows and other platforms
+            path.to_str().unwrap().to_owned()
     }
 
     fn peek(&self) -> Option<char> {
