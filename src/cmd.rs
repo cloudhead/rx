@@ -380,8 +380,8 @@ impl<'a> Parse<'a> for Command {
                 if p.is_empty() {
                     Ok((Command::Write(None), p))
                 } else {
-                    let (path, p) = p.word()?;
-                    Ok((Command::Write(Some(p.path(path))), p))
+                    let (path, p) = p.path()?;
+                    Ok((Command::Write(Some(path)), p))
                 }
             }
             "e" => {
@@ -392,8 +392,8 @@ impl<'a> Parse<'a> for Command {
                     let mut edits = Vec::new();
 
                     loop {
-                        if let Ok((path, p)) = q.clone().word() {
-                            edits.push(p.path(path));
+                        if let Ok((path, p)) = q.clone().path() {
+                            edits.push(path);
                             let (_, p) = p.whitespace()?;
                             q = p;
                         } else {
@@ -443,8 +443,8 @@ impl<'a> Parse<'a> for Command {
                 }
             }
             "source" => {
-                let (path, p) = p.word()?;
-                Ok((Command::Source(p.path(path)), p))
+                let (path, p) = p.path()?;
+                Ok((Command::Source(path), p))
             }
             "zoom" => {
                 if let Ok((_, p)) = p.clone().sigil('+') {
@@ -687,8 +687,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn path<P: AsRef<Path>>(&self, path: P) -> String {
-            let mut path = path.as_ref();
+    fn path(self) -> Result<'a, String> {
+            let raw_command = self.expect(|c| !c.is_whitespace());
+            if raw_command.is_err() {
+                return Err(Error::new(format!("invalid or empty input")))
+            }
+
+            let (path_as_str, parser) = raw_command.unwrap();
+            let mut path = Path::new(path_as_str);
 
             // for Linux and BSD and MacOS
             if cfg!(unix) && path.starts_with("~") {
@@ -697,16 +703,16 @@ impl<'a> Parser<'a> {
                     let home = base_dirs.home_dir().to_str().unwrap().to_owned();
 
                     if path == Path::new("~") {
-                        return home;
+                        return Ok((home, parser));
                     }
 
                     path = &path.strip_prefix("~").unwrap();
-                    return Path::new(&home).join(path).to_str().unwrap().to_owned();
+                    return Ok((Path::new(&home).join(path).to_str().unwrap().to_owned(), parser));
                 }
             }
 
             // for Windows and other platforms
-            path.to_str().unwrap().to_owned()
+            Ok((path.to_str().unwrap().to_owned(), parser))
     }
 
     fn peek(&self) -> Option<char> {
