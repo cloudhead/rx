@@ -1,19 +1,24 @@
 use crate::brush::BrushMode;
+use crate::parser::{Error, Parse, Parser, Result};
 use crate::platform;
 use crate::session::Mode;
 
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
 
-use directories as dirs;
-
 use std::fmt;
-use std::path::Path;
 use std::result;
 use std::str::FromStr;
 use std::time;
 
 pub const COMMENT: char = '-';
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum Op {
+    Incr,
+    Decr,
+    Set(f32),
+}
 
 /// User command. Most of the interactions available to
 /// the user are modeled as commands that are processed
@@ -151,6 +156,8 @@ impl fmt::Display for Command {
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Key {
     Char(char),
@@ -165,6 +172,36 @@ impl fmt::Display for Key {
         }
     }
 }
+
+impl<'a> Parse<'a> for Key {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        if let Ok((_, p)) = p.clone().sigil('<') {
+            let (key, p) = p.alpha()?;
+            let (_, p) = p.sigil('>')?;
+            let virt = match key {
+                "up" => platform::Key::Up,
+                "down" => platform::Key::Down,
+                "left" => platform::Key::Left,
+                "right" => platform::Key::Right,
+                "ctrl" => platform::Key::Control,
+                "shift" => platform::Key::Shift,
+                "space" => platform::Key::Space,
+                "return" => platform::Key::Return,
+                "backspace" => platform::Key::Backspace,
+                "tab" => platform::Key::Tab,
+                other => {
+                    return Err(Error::new(format!("unknown key <{}>", other)))
+                }
+            };
+            Ok((Key::Virtual(virt), p))
+        } else {
+            let (k, p) = p.parse::<platform::Key>()?;
+            Ok((Key::Virtual(k), p))
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
@@ -212,11 +249,34 @@ impl Value {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum Op {
-    Incr,
-    Decr,
-    Set(f32),
+impl<'a> Parse<'a> for Value {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        let c = p.peek();
+
+        if c == Some('"') {
+            let (v, p) = p.string()?;
+            Ok((Value::Str(v.to_string()), p))
+        } else if c == Some('#') {
+            let (v, p) = p.parse::<Rgba8>()?;
+            Ok((Value::Rgba8(v), p))
+        } else if c.map_or(false, |c| c.is_digit(10)) {
+            if let Ok((v, p)) = p.clone().parse::<u32>() {
+                Ok((Value::U32(v), p))
+            } else if let Ok((v, p)) = p.clone().parse::<f64>() {
+                Ok((Value::Float(v), p))
+            } else {
+                let (input, _) = p.until(|c| c.is_whitespace())?;
+                Err(Error::new(format!("malformed number: `{}`", input)))
+            }
+        } else {
+            let (i, p) = p.identifier()?;
+            match i {
+                "on" => Ok((Value::Bool(true), p)),
+                "off" => Ok((Value::Bool(false), p)),
+                _ => Ok((Value::Ident(i.to_string()), p)),
+            }
+        }
+    }
 }
 
 impl fmt::Display for Value {
@@ -233,6 +293,8 @@ impl fmt::Display for Value {
         }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 pub struct CommandLine {
     input: String,
@@ -282,38 +344,6 @@ impl CommandLine {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone)]
-pub struct Error {
-    msg: String,
-}
-
-impl Error {
-    fn new<S: Into<String>>(msg: S) -> Self {
-        Self { msg: msg.into() }
-    }
-
-    #[allow(dead_code)]
-    fn from<S: Into<String>, E: std::error::Error>(msg: S, err: E) -> Self {
-        Self {
-            msg: format!("{}: {}", msg.into(), err),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
-
-impl From<&str> for Error {
-    fn from(input: &str) -> Self {
-        Error::new(input)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.msg.fmt(f)
-    }
-}
-
 impl FromStr for Command {
     type Err = Error;
 
@@ -326,31 +356,6 @@ impl FromStr for Command {
                 Ok(cmd)
             }
             Err(e) => Err(e),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for platform::Key {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (c, p) = p.parse::<char>()?;
-        let key: platform::Key = c.into();
-
-        if key == platform::Key::Unknown {
-            return Err(Error::new(format!("unknown key {:?}", c)));
-        }
-        Ok((key, p))
-    }
-}
-
-impl<'a> Parse<'a> for Mode {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (id, p) = p.identifier()?;
-        match id {
-            "command" => Ok((Mode::Command, p)),
-            "normal" => Ok((Mode::Normal, p)),
-            "visual" => Ok((Mode::Visual, p)),
-            "present" => Ok((Mode::Present, p)),
-            mode => Err(Error::new(format!("unknown mode '{}'", mode))),
         }
     }
 }
@@ -414,7 +419,7 @@ impl<'a> Parse<'a> for Command {
                 } else {
                     let (_, p) = p.sigil('=')?;
                     let (_, p) = p.whitespace()?;
-                    let (v, p) = p.value()?;
+                    let (v, p) = p.parse::<Value>()?;
                     Ok((Command::Set(k.to_string(), v), p))
                 }
             }
@@ -427,7 +432,7 @@ impl<'a> Parse<'a> for Command {
                 Ok((Command::Toggle(k.to_string()), p))
             }
             "echo" => {
-                let (v, p) = p.value()?;
+                let (v, p) = p.parse::<Value>()?;
                 Ok((Command::Echo(v), p))
             }
             "sleep" => {
@@ -538,335 +543,5 @@ impl<'a> Parse<'a> for Command {
                 unrecognized
             ))),
         }
-    }
-}
-
-type Result<'a, T> = result::Result<(T, Parser<'a>), Error>;
-
-#[derive(Debug, Clone)]
-struct Parser<'a> {
-    input: &'a str,
-}
-
-trait Parse<'a>: Sized {
-    fn parse(input: Parser<'a>) -> Result<'a, Self>;
-}
-
-impl<'a> Parse<'a> for u32 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.word()?;
-
-        match u32::from_str(s) {
-            Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing u32")),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for i32 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.word()?;
-
-        match i32::from_str(s) {
-            Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing i32")),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for f64 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.word()?;
-
-        match f64::from_str(s) {
-            Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing f64")),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for (u32, u32) {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (w, p) = p.parse::<u32>()?;
-        let (_, p) = p.whitespace()?;
-        let (h, p) = p.parse::<u32>()?;
-
-        Ok(((w, h), p))
-    }
-}
-
-impl<'a> Parse<'a> for (i32, i32) {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (w, p) = p.parse::<i32>()?;
-        let (_, p) = p.whitespace()?;
-        let (h, p) = p.parse::<i32>()?;
-
-        Ok(((w, h), p))
-    }
-}
-
-impl<'a> Parse<'a> for char {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        if let Some(c) = p.input.chars().next() {
-            Ok((c, Parser::new(&p.input[1..])))
-        } else {
-            Err(Error::new("error parsing char"))
-        }
-    }
-}
-
-impl<'a> Parse<'a> for Key {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        if let Ok((_, p)) = p.clone().sigil('<') {
-            let (key, p) = p.alpha()?;
-            let (_, p) = p.sigil('>')?;
-            let virt = match key {
-                "up" => platform::Key::Up,
-                "down" => platform::Key::Down,
-                "left" => platform::Key::Left,
-                "right" => platform::Key::Right,
-                "ctrl" => platform::Key::Control,
-                "shift" => platform::Key::Shift,
-                "space" => platform::Key::Space,
-                "return" => platform::Key::Return,
-                "backspace" => platform::Key::Backspace,
-                "tab" => platform::Key::Tab,
-                other => {
-                    return Err(Error::new(format!("unknown key <{}>", other)))
-                }
-            };
-            Ok((Key::Virtual(virt), p))
-        } else {
-            let (k, p) = p.parse::<platform::Key>()?;
-            Ok((Key::Virtual(k), p))
-        }
-    }
-}
-
-impl<'a> Parse<'a> for BrushMode {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (id, p) = p.identifier()?;
-        match id {
-            "erase" => Ok((BrushMode::Erase, p)),
-            "multi" => Ok((BrushMode::Multi, p)),
-            "perfect" => Ok((BrushMode::Perfect, p)),
-            "xsym" => Ok((BrushMode::XSym, p)),
-            "ysym" => Ok((BrushMode::YSym, p)),
-            mode => Err(Error::new(format!("unknown brush mode '{}'", mode))),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for Rgba8 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.count(7)?; // Expect 7 characters including the '#'
-
-        match Rgba8::from_str(s) {
-            Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new(format!("malformed color value `{}`", s))),
-        }
-    }
-}
-
-impl<'a> Parser<'a> {
-    fn new(input: &'a str) -> Self {
-        Self { input }
-    }
-
-    fn empty() -> Self {
-        Self { input: "" }
-    }
-
-    fn finish(self) -> Result<'a, ()> {
-        let (_, p) = self.whitespace()?;
-
-        if p.is_empty() {
-            Ok(((), Parser::empty()))
-        } else {
-            Err(Error::new(format!("extraneaous input: `{}`", p.input)))
-        }
-    }
-
-    fn path(self) -> Result<'a, String> {
-            let raw_command = self.expect(|c| !c.is_whitespace());
-            if raw_command.is_err() {
-                return Err(Error::new(format!("invalid or empty input")))
-            }
-
-            let (path_as_str, parser) = raw_command.unwrap();
-            let mut path = Path::new(path_as_str);
-
-            // for Linux and BSD and MacOS
-            if cfg!(unix) && path.starts_with("~") {
-                if let Some(base_dirs) = dirs::BaseDirs::new() {
-
-                    let home = base_dirs.home_dir().to_str().unwrap().to_owned();
-
-                    if path == Path::new("~") {
-                        return Ok((home, parser));
-                    }
-
-                    path = &path.strip_prefix("~").unwrap();
-                    return Ok((Path::new(&home).join(path).to_str().unwrap().to_owned(), parser));
-                }
-            }
-
-            // for Windows and other platforms
-            Ok((path.to_str().unwrap().to_owned(), parser))
-    }
-
-    fn peek(&self) -> Option<char> {
-        self.input.chars().nth(0)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.input.is_empty()
-    }
-
-    fn sigil(self, c: char) -> Result<'a, char> {
-        if self.input.starts_with(c) {
-            Ok((c, Parser::new(&self.input[1..])))
-        } else {
-            Err(Error::new(format!("expected '{}'", c)))
-        }
-    }
-
-    fn string(self) -> Result<'a, &'a str> {
-        let p = self;
-
-        let (_, p) = p.sigil('"')?;
-        let (s, p) = p.until(|c| c == '"')?;
-        let (_, p) = p.sigil('"')?;
-
-        Ok((s, p))
-    }
-
-    fn alpha(self) -> Result<'a, &'a str> {
-        self.expect(|c| c.is_alphanumeric())
-    }
-
-    fn comment(self) -> Result<'a, &'a str> {
-        let p = self;
-
-        let (_, p) = p.whitespace()?;
-        let (_, p) = p.sigil('-')?;
-        let (_, p) = p.sigil('-')?;
-        let (_, p) = p.whitespace()?;
-        let (s, p) = p.leftover()?;
-
-        Ok((s, p))
-    }
-
-    fn leftover(self) -> Result<'a, &'a str> {
-        Ok((self.input, Parser::empty()))
-    }
-
-    fn whitespace(self) -> Result<'a, ()> {
-        self.consume(|c| c.is_whitespace())
-    }
-
-    fn parse<T: Parse<'a>>(self) -> Result<'a, T> {
-        T::parse(self)
-    }
-
-    fn word(self) -> Result<'a, &'a str> {
-        self.expect(|c| !c.is_whitespace())
-    }
-
-    fn count(self, n: usize) -> Result<'a, &'a str> {
-        if self.input.len() >= n {
-            Ok((&self.input[..n], Parser::new(&self.input[n..])))
-        } else {
-            Err(Error::new("reached end of input"))
-        }
-    }
-
-    fn identifier(self) -> Result<'a, &'a str> {
-        self.expect(|c| {
-            (c.is_ascii_lowercase()
-                || c.is_ascii_uppercase()
-                || c.is_ascii_digit()
-                || [':', '/', '_', '+', '-', '!', '?'].contains(&c))
-        })
-    }
-
-    fn value(self) -> Result<'a, Value> {
-        let c = self.peek();
-
-        if c == Some('"') {
-            let (v, p) = self.string()?;
-            Ok((Value::Str(v.to_string()), p))
-        } else if c == Some('#') {
-            let (v, p) = self.parse::<Rgba8>()?;
-            Ok((Value::Rgba8(v), p))
-        } else if c.map_or(false, |c| c.is_digit(10)) {
-            if let Ok((v, p)) = self.clone().parse::<u32>() {
-                Ok((Value::U32(v), p))
-            } else if let Ok((v, p)) = self.clone().parse::<f64>() {
-                Ok((Value::Float(v), p))
-            } else {
-                let (input, _) = self.until(|c| c.is_whitespace())?;
-                Err(Error::new(format!("malformed number: `{}`", input)))
-            }
-        } else {
-            let (i, p) = self.identifier()?;
-            match i {
-                "on" => Ok((Value::Bool(true), p)),
-                "off" => Ok((Value::Bool(false), p)),
-                _ => Ok((Value::Ident(i.to_string()), p)),
-            }
-        }
-    }
-
-    fn consume<P>(self, predicate: P) -> Result<'a, ()>
-    where
-        P: Fn(char) -> bool,
-    {
-        match self.input.find(|c| !predicate(c)) {
-            Some(i) => {
-                let (_, r) = self.input.split_at(i);
-                Ok(((), Parser::new(r)))
-            }
-            None => Ok(((), Parser::empty())),
-        }
-    }
-
-    fn until<P>(self, predicate: P) -> Result<'a, &'a str>
-    where
-        P: Fn(char) -> bool,
-    {
-        if self.input.is_empty() {
-            return Err(Error::new("expected input"));
-        }
-        match self.input.find(predicate) {
-            Some(i) => {
-                let (l, r) = self.input.split_at(i);
-                Ok((l, Parser::new(r)))
-            }
-            None => Ok((self.input, Parser::empty())),
-        }
-    }
-
-    fn expect<P>(self, predicate: P) -> Result<'a, &'a str>
-    where
-        P: Fn(char) -> bool,
-    {
-        if self.is_empty() {
-            return Err(Error::new("expected input"));
-        }
-        if !self.input.is_ascii() {
-            return Err(Error::new("error parsing non-ASCII characters"));
-        }
-
-        let mut index = 0;
-        for (i, c) in self.input.chars().enumerate() {
-            if predicate(c) {
-                index = i;
-            } else {
-                break;
-            }
-        }
-        let (l, r) = self.input.split_at(index + 1);
-        Ok((l, Parser::new(r)))
     }
 }

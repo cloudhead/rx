@@ -9,6 +9,7 @@ mod framebuffer2d;
 mod gpu;
 mod image;
 mod palette;
+mod parser;
 mod platform;
 mod renderer;
 mod resources;
