@@ -4,10 +4,11 @@ use crate::cmd;
 use crate::cmd::{Command, CommandLine, Key, Op, Value};
 use crate::color;
 use crate::data;
+use crate::event::Event;
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
-use crate::platform::{InputState, KeyboardInput, ModifiersState, WindowEvent};
+use crate::platform::{InputState, KeyboardInput, ModifiersState};
 use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
@@ -17,12 +18,13 @@ use rgx::math::*;
 
 use directories as dirs;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
+use std::io::BufRead;
 use std::ops::{Add, Deref, Sub};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time;
 
@@ -90,7 +92,7 @@ impl ToString for Rgb8 {
 
 /// Session coordinates.
 /// Encompasses anything within the window, such as the cursor position.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct SessionCoords(Point2<f32>);
 
 impl SessionCoords {
@@ -193,6 +195,55 @@ pub enum Tool {
 impl Default for Tool {
     fn default() -> Self {
         Tool::Brush(Brush::default())
+    }
+}
+
+/// Execution mode. Controls whether the session is playing or recording
+/// commands.
+#[derive(Debug, Clone)]
+pub enum ExecutionMode {
+    /// Normal execution. User inputs are processed normally.
+    Normal,
+    /// Recording user inputs to log.
+    Recording(Vec<Event>, PathBuf),
+    /// Replaying inputs from log.
+    Replaying(VecDeque<Event>, PathBuf),
+}
+
+impl ExecutionMode {
+    pub fn normal() -> io::Result<Self> {
+        Ok(Self::Normal)
+    }
+
+    pub fn recording<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        Ok(Self::Recording(Vec::new(), path.as_ref().to_path_buf()))
+    }
+
+    pub fn replaying<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        let mut events = VecDeque::new();
+        let path = path.as_ref();
+        let abs_path = path.canonicalize()?;
+
+        match File::open(&path) {
+            Ok(f) => {
+                let r = io::BufReader::new(f);
+                for (i, line) in r.lines().enumerate() {
+                    let line = line?;
+                    let ev = Event::from_str(&line).map_err(|e| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            format!("{}:{}: {}", abs_path.display(), i + 1, e),
+                        )
+                    })?;
+                    events.push_back(ev);
+                }
+                Ok(Self::Replaying(events, path.to_path_buf()))
+            }
+            Err(e) => Err(io::Error::new(
+                e.kind(),
+                format!("{}: {}", path.display(), e),
+            )),
+        }
     }
 }
 
@@ -554,6 +605,9 @@ pub struct Session {
     /// The previous tool, if any.
     pub prev_tool: Option<Tool>,
 
+    /// Execution mode.
+    pub execution: ExecutionMode,
+
     /// Whether session inputs are being throttled.
     throttled: Option<time::Instant>,
     /// Set to `true` if the mouse button is pressed.
@@ -563,10 +617,6 @@ pub struct Session {
     _paste: (),
     #[allow(dead_code)]
     _onion: bool,
-    #[allow(dead_code)]
-    _recording: bool,
-    #[allow(dead_code)]
-    _recording_opts: u32,
     #[allow(dead_code)]
     _grid_w: u32,
     #[allow(dead_code)]
@@ -658,6 +708,7 @@ impl Session {
             resources,
             dirty: true,
             avg_time: time::Duration::from_secs(0),
+            execution: ExecutionMode::Normal,
 
             // Unused
             _onion: false,
@@ -666,13 +717,11 @@ impl Session {
             _grid_w: 0,
             _grid_h: 0,
             _paste: (),
-            _recording: false,
-            _recording_opts: 0,
         }
     }
 
     /// Initialize a session.
-    pub fn init(mut self) -> std::io::Result<Self> {
+    pub fn init(mut self, exec: ExecutionMode) -> std::io::Result<Self> {
         self.transition(State::Running);
 
         let cwd = std::env::current_dir()?;
@@ -694,6 +743,7 @@ impl Session {
         }
         self.source_dir(cwd).ok();
         self.message(format!("rx v{}", crate::VERSION), MessageType::Echo);
+        self.execution = exec;
 
         Ok(self)
     }
@@ -728,7 +778,7 @@ impl Session {
     /// the internal state.
     pub fn update(
         &mut self,
-        events: &mut Vec<platform::WindowEvent>,
+        events: &mut Vec<Event>,
         delta: time::Duration,
         avg_time: time::Duration,
     ) {
@@ -748,33 +798,29 @@ impl Session {
             }
         }
 
-        for event in events.drain(..) {
-            match event {
-                WindowEvent::CursorMoved { position, .. } => {
-                    let scale: f64 = self.settings["scale"].float64();
-                    self.handle_cursor_moved(SessionCoords::new(
-                        (position.x / scale).floor() as f32,
-                        self.height - (position.y / scale).floor() as f32 - 1.,
-                    ));
+        if let ExecutionMode::Replaying(ref mut recording, _) = self.execution {
+            if let Some(event) = recording.pop_front() {
+                self.handle_event(event);
+            } else {
+                self.stop_playing();
+            }
+            for event in events.drain(..) {
+                match event {
+                    Event::KeyboardInput(platform::KeyboardInput {
+                        key: Some(platform::Key::Escape),
+                        ..
+                    }) => {
+                        self.stop_playing();
+                    }
+                    _ => debug!("event (ignored): {:?}", event),
                 }
-                WindowEvent::MouseInput { state, button, .. } => {
-                    self.handle_mouse_input(button, state);
-                }
-                WindowEvent::KeyboardInput(input) => {
-                    self.handle_keyboard_input(input);
-                }
-                WindowEvent::ReceivedCharacter(c) => {
-                    self.handle_received_character(c);
-                }
-                WindowEvent::HiDpiFactorChanged(factor) => {
-                    self.hidpi_factor = factor;
-                }
-                WindowEvent::CloseRequested => {
-                    self.quit();
-                }
-                _ => {}
+            }
+        } else {
+            for event in events.drain(..) {
+                self.handle_event(event);
             }
         }
+
         if self.views.is_empty() {
             self.quit();
         }
@@ -817,56 +863,6 @@ impl Session {
         self.offset.x += x;
         self.offset.y += y;
 
-        self.cursor_dirty();
-    }
-
-    /// Set the user cursor to the given position.
-    fn set_cursor(&mut self, cursor: SessionCoords) {
-        if self.cursor == cursor {
-            return;
-        }
-
-        let p = self.active_view_coords(cursor);
-        let prev_p = self.active_view_coords(self.cursor);
-        let (vw, vh) = self.active_view().size();
-
-        match self.mode {
-            Mode::Normal => match self.tool {
-                Tool::Brush(ref mut brush) => {
-                    if p != prev_p {
-                        match brush.state {
-                            BrushState::DrawStarted { .. }
-                            | BrushState::Drawing { .. } => {
-                                let mut p: ViewCoords<i32> = p.into();
-
-                                if brush.is_set(BrushMode::Multi) {
-                                    p.clamp(Rect::new(
-                                        (brush.size / 2) as i32,
-                                        (brush.size / 2) as i32,
-                                        vw as i32 - (brush.size / 2) as i32 - 1,
-                                        vh as i32 - (brush.size / 2) as i32 - 1,
-                                    ));
-                                    brush.draw(p);
-                                } else {
-                                    brush.draw(p);
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Tool::Pan => {
-                    self.pan(
-                        cursor.x - self.cursor.x,
-                        cursor.y - self.cursor.y,
-                    );
-                }
-                Tool::Sampler => {}
-            },
-            Mode::Visual => {}
-            _ => {}
-        }
-        self.cursor = cursor;
         self.cursor_dirty();
     }
 
@@ -951,8 +947,6 @@ impl Session {
         self.mode = new;
     }
 
-    fn record_macro(&mut self, _cmd: String) {}
-
     ///////////////////////////////////////////////////////////////////////////////
     /// Messages
     ///////////////////////////////////////////////////////////////////////////////
@@ -1026,6 +1020,23 @@ impl Session {
     /// Check whether a view is active.
     pub fn is_active(&self, id: &ViewId) -> bool {
         &self.views.active_id == id
+    }
+
+    /// Convert "logical" window coordinates to session coordinates.
+    /// The window coordinates are always between 0.0 and 1.0.
+    pub fn window_to_session_coords(
+        &self,
+        position: platform::LogicalPosition,
+    ) -> SessionCoords {
+        let (x, y) = (
+            position.x * self.width as f64,
+            position.y * self.height as f64,
+        );
+        let scale: f64 = self.settings["scale"].float64();
+        SessionCoords::new(
+            (x / scale).floor() as f32,
+            self.height - (y / scale).floor() as f32 - 1.,
+        )
     }
 
     /// Convert session coordinates to view coordinates of the given view.
@@ -1348,6 +1359,22 @@ impl Session {
     // Event handlers
     ///////////////////////////////////////////////////////////////////////////
 
+    pub fn handle_event(&mut self, event: Event) {
+        if let ExecutionMode::Recording(ref mut rec, _) = self.execution {
+            rec.push(event.clone());
+        }
+
+        match event {
+            Event::MouseInput(btn, st) => self.handle_mouse_input(btn, st),
+            Event::CursorMoved(position) => {
+                let coords = self.window_to_session_coords(position);
+                self.handle_cursor_moved(coords);
+            }
+            Event::KeyboardInput(input) => self.handle_keyboard_input(input),
+            Event::ReceivedCharacter(c) => self.handle_received_character(c),
+        }
+    }
+
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
         self.width = size.width as f32;
         self.height = size.height as f32;
@@ -1357,7 +1384,7 @@ impl Session {
         self.center_active_view();
     }
 
-    pub fn handle_mouse_input(
+    fn handle_mouse_input(
         &mut self,
         button: platform::MouseButton,
         state: platform::InputState,
@@ -1367,7 +1394,6 @@ impl Session {
         }
         if state == platform::InputState::Pressed {
             self.mouse_down = true;
-            self.record_macro(format!("cursor/down"));
 
             // Click on palette.
             if let Some(color) = self.palette.hover {
@@ -1420,7 +1446,6 @@ impl Session {
             }
         } else if state == platform::InputState::Released {
             self.mouse_down = false;
-            self.record_macro(format!("cursor/up"));
 
             if let Tool::Brush(ref mut brush) = self.tool {
                 match brush.state {
@@ -1435,12 +1460,56 @@ impl Session {
         }
     }
 
-    pub fn handle_cursor_moved(&mut self, cursor: SessionCoords) {
-        self.record_macro(format!("cursor/move {} {}", cursor.x, cursor.y));
-        self.set_cursor(cursor);
+    fn handle_cursor_moved(&mut self, cursor: SessionCoords) {
+        if self.cursor == cursor {
+            return;
+        }
+
+        let p = self.active_view_coords(cursor);
+        let prev_p = self.active_view_coords(self.cursor);
+        let (vw, vh) = self.active_view().size();
+
+        match self.mode {
+            Mode::Normal => match self.tool {
+                Tool::Brush(ref mut brush) => {
+                    if p != prev_p {
+                        match brush.state {
+                            BrushState::DrawStarted { .. }
+                            | BrushState::Drawing { .. } => {
+                                let mut p: ViewCoords<i32> = p.into();
+
+                                if brush.is_set(BrushMode::Multi) {
+                                    p.clamp(Rect::new(
+                                        (brush.size / 2) as i32,
+                                        (brush.size / 2) as i32,
+                                        vw as i32 - (brush.size / 2) as i32 - 1,
+                                        vh as i32 - (brush.size / 2) as i32 - 1,
+                                    ));
+                                    brush.draw(p);
+                                } else {
+                                    brush.draw(p);
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Tool::Pan => {
+                    self.pan(
+                        cursor.x - self.cursor.x,
+                        cursor.y - self.cursor.y,
+                    );
+                }
+                Tool::Sampler => {}
+            },
+            Mode::Visual => {}
+            _ => {}
+        }
+        self.cursor = cursor;
+        self.cursor_dirty();
     }
 
-    pub fn handle_received_character(&mut self, c: char) {
+    fn handle_received_character(&mut self, c: char) {
         if self.mode == Mode::Command {
             if c.is_control() {
                 return;
@@ -1450,17 +1519,10 @@ impl Session {
                 return;
             }
             self.cmdline_handle_input(c);
-        } else if let Some(kb) = self.key_bindings.find(
-            Key::Char(c),
-            platform::ModifiersState::default(),
-            platform::InputState::Pressed,
-            &self.mode,
-        ) {
-            self.command(kb.command);
         }
     }
 
-    pub fn handle_keyboard_input(&mut self, input: platform::KeyboardInput) {
+    fn handle_keyboard_input(&mut self, input: platform::KeyboardInput) {
         let KeyboardInput {
             state,
             modifiers,
@@ -1535,6 +1597,13 @@ impl Session {
                 // either way.
                 if !kb.is_toggle || kb.is_toggle && !repeat {
                     self.command(kb.command);
+                }
+                return;
+            }
+
+            if let ExecutionMode::Recording(_, _) = self.execution {
+                if key == platform::Key::Escape && modifiers.ctrl {
+                    self.stop_recording();
                 }
             }
         }
@@ -1724,9 +1793,6 @@ impl Session {
         // minimum time between them.
         if self.throttle(&cmd) {
             return;
-        }
-        if cmd != Command::Noop {
-            self.message_clear();
         }
 
         debug!("command: {:?}", cmd);
@@ -2133,6 +2199,30 @@ impl Session {
             }
             _ => false,
         }
+    }
+
+    fn stop_recording(&mut self) {
+        if let ExecutionMode::Recording(events, path) = &self.execution {
+            if let Ok(mut f) = File::create(path) {
+                use std::io::Write;
+
+                for ev in events.clone() {
+                    if let Err(e) = writeln!(&mut f, "{}", String::from(ev)) {
+                        panic!("error while saving recording: {}", e);
+                    }
+                }
+                #[allow(mutable_borrow_reservation_conflict)]
+                self.message(
+                    format!("recording saved to {:?}", path),
+                    MessageType::Info,
+                );
+                self.execution = ExecutionMode::Normal;
+            }
+        }
+    }
+
+    fn stop_playing(&mut self) {
+        self.execution = ExecutionMode::Normal;
     }
 
     ///////////////////////////////////////////////////////////////////////////

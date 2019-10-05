@@ -1,6 +1,9 @@
-use clap::{App, Arg};
-use log;
 use rx;
+use rx::session;
+
+use clap::{App, Arg};
+
+use std::process;
 
 fn main() {
     rx::ALLOCATOR.reset();
@@ -8,15 +11,35 @@ fn main() {
     let matches = App::new("rx")
         .version(&*format!("v{}", rx::VERSION))
         .author("Alexis Sellier <self@cloudhead.io>")
-        .about("An Extensible Pixel Editor")
+        .about("A Modern & Extensible Pixel Editor")
         .arg(
             Arg::with_name("v")
                 .short("v")
                 .multiple(true)
                 .help("Sets the verbosity level"),
         )
+        .arg(
+            Arg::with_name("playback")
+                .long("playback")
+                .value_name("FILE")
+                .help("Playback input from a file"),
+        )
+        .arg(
+            Arg::with_name("record")
+                .long("record")
+                .value_name("FILE")
+                .help("Record input to a file"),
+        )
         .arg(Arg::with_name("path").multiple(true))
-        .get_matches();
+        .get_matches_safe()
+        .unwrap_or_else(|e| match e.kind {
+            clap::ErrorKind::HelpDisplayed
+            | clap::ErrorKind::VersionDisplayed => {
+                println!("{}", e.message);
+                process::exit(0);
+            }
+            _ => fatal(e.message),
+        });
 
     let paths = matches
         .values_of("path")
@@ -31,7 +54,28 @@ fn main() {
         _ => "debug",
     };
 
-    if let Err(e) = rx::init(&paths, rx::Options { log }) {
-        log::error!("Error initializing rx: {}", e);
+    if matches.is_present("playback") && matches.is_present("record") {
+        fatal("error: '--playback' and '--record' can't both be specified");
     }
+
+    let exec = if let Some(path) = matches.value_of("playback") {
+        session::ExecutionMode::replaying(path)
+    } else if let Some(path) = matches.value_of("record") {
+        session::ExecutionMode::recording(path)
+    } else {
+        session::ExecutionMode::normal()
+    };
+
+    if let Err(e) = exec {
+        fatal(format!("initialization error: {}", e));
+    } else if let Ok(exec) = exec {
+        if let Err(e) = rx::init(&paths, rx::Options { log, exec }) {
+            fatal(format!("initialization error: {}", e));
+        }
+    }
+}
+
+fn fatal<S: AsRef<str>>(msg: S) -> ! {
+    eprintln!("rx: {}", msg.as_ref());
+    process::exit(1);
 }

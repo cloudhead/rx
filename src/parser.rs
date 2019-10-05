@@ -114,6 +114,16 @@ impl<'a> Parse<'a> for (i32, i32) {
     }
 }
 
+impl<'a> Parse<'a> for (f64, f64) {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        let (x, p) = p.parse::<f64>()?;
+        let (_, p) = p.whitespace()?;
+        let (y, p) = p.parse::<f64>()?;
+
+        Ok(((x, y), p))
+    }
+}
+
 impl<'a> Parse<'a> for char {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         if let Some(c) = p.input.chars().next() {
@@ -147,6 +157,17 @@ impl<'a> Parse<'a> for platform::Key {
             return Err(Error::new(format!("unknown key {:?}", c)));
         }
         Ok((key, p))
+    }
+}
+
+impl<'a> Parse<'a> for platform::InputState {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        let (w, p) = p.word()?;
+        match w {
+            "pressed" => Ok((platform::InputState::Pressed, p)),
+            "released" => Ok((platform::InputState::Released, p)),
+            other => Err(Error::new(format!("unkown input state {:?}", other))),
+        }
     }
 }
 
@@ -238,6 +259,16 @@ impl<'a> Parser<'a> {
         let (_, p) = p.sigil('"')?;
 
         Ok((s, p))
+    }
+
+    pub fn character(self) -> Result<'a, char> {
+        let p = self;
+
+        let (_, p) = p.sigil('\'')?;
+        let (c, p) = p.parse::<char>()?;
+        let (_, p) = p.sigil('\'')?;
+
+        Ok((c, p))
     }
 
     pub fn alpha(self) -> Result<'a, &'a str> {

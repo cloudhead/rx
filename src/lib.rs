@@ -1,9 +1,13 @@
 #![deny(clippy::all)]
+
+pub mod session;
+
 mod alloc;
 mod brush;
 mod cmd;
 mod color;
 mod data;
+mod event;
 mod font;
 mod framebuffer2d;
 mod gpu;
@@ -14,7 +18,6 @@ mod platform;
 mod renderer;
 mod resources;
 mod screen2d;
-mod session;
 mod timer;
 mod view;
 
@@ -32,6 +35,7 @@ compile_error!(
      available backends are: 'vulkan', 'metal', 'dx11' and 'dx12'"
 );
 
+use event::Event;
 use platform::WindowEvent;
 use renderer::Renderer;
 use resources::ResourceManager;
@@ -62,6 +66,7 @@ pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 
 pub struct Options<'a> {
     pub log: &'a str,
+    pub exec: ExecutionMode,
 }
 
 pub fn init<'a, P: AsRef<Path>>(
@@ -86,7 +91,7 @@ pub fn init<'a, P: AsRef<Path>>(
     )?;
     let mut session =
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
-            .init()?;
+            .init(options.exec)?;
 
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(win.raw_handle());
@@ -218,10 +223,30 @@ pub fn init<'a, P: AsRef<Path>>(
                     });
                 }
             }
-            event => {
-                session_events.push(event);
+            WindowEvent::HiDpiFactorChanged(factor) => {
+                session.hidpi_factor = factor;
             }
-        }
+            WindowEvent::CloseRequested => {
+                session.quit();
+            }
+            WindowEvent::CursorMoved { position } => {
+                let relative = platform::LogicalPosition::new(
+                    position.x / session.width as f64,
+                    position.y / session.height as f64,
+                );
+                session_events.push(Event::CursorMoved(relative));
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                session_events.push(Event::MouseInput(button, state));
+            }
+            WindowEvent::KeyboardInput(input) => {
+                session_events.push(Event::KeyboardInput(input));
+            }
+            WindowEvent::ReceivedCharacter(c) => {
+                session_events.push(Event::ReceivedCharacter(c));
+            }
+            _ => {}
+        };
 
         if session.state == State::Closing {
             platform::ControlFlow::Exit

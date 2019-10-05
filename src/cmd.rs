@@ -31,15 +31,8 @@ pub enum Command {
     BrushUnset(BrushMode),
     #[allow(dead_code)]
     Crop(Rect<u32>),
-    #[allow(dead_code)]
-    CursorMove(f32, f32),
-    #[allow(dead_code)]
-    CursorPress,
-    #[allow(dead_code)]
-    CursorRelease,
     Echo(Value),
     Edit(Vec<String>),
-    #[allow(dead_code)]
     Fill(Rgba8),
     ForceQuit,
     ForceQuitAll,
@@ -70,18 +63,14 @@ pub enum Command {
     Slice(Option<usize>),
     Source(String),
     SwapColors,
+
     #[allow(dead_code)]
     TestCheck,
     #[allow(dead_code)]
     TestDigest,
     #[allow(dead_code)]
     TestDiscard,
-    #[allow(dead_code)]
-    TestPlay,
-    #[allow(dead_code)]
-    TestRecord,
-    #[allow(dead_code)]
-    TestSave,
+
     Toggle(String),
     Undo,
     ViewCenter,
@@ -156,18 +145,66 @@ impl fmt::Display for Command {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
+impl From<Command> for String {
+    fn from(cmd: Command) -> Self {
+        match cmd {
+            Command::Brush => format!("brush"),
+            Command::BrushSet(m) => format!("brush/set {}", m),
+            Command::BrushSize(Op::Incr) => format!("brush/size +"),
+            Command::BrushSize(Op::Decr) => format!("brush/size -"),
+            Command::BrushSize(Op::Set(s)) => format!("brush/size {}", s),
+            Command::BrushUnset(m) => format!("brush/unset {}", m),
+            Command::Echo(_) => unimplemented!(),
+            Command::Edit(_) => unimplemented!(),
+            Command::Fill(c) => format!("v/fill {}", c),
+            Command::ForceQuit => format!("q!"),
+            Command::ForceQuitAll => format!("qa!"),
+            Command::Help => format!("help"),
+            Command::Map(_, _) => unimplemented!(),
+            Command::Mode(m) => format!("mode {}", m),
+            Command::AddFrame => format!("f/add"),
+            Command::CloneFrame(i) => format!("f/clone {}", i),
+            Command::RemoveFrame => format!("f/remove"),
+            Command::Noop => format!(""),
+            Command::PaletteAdd(c) => format!("p/add {}", c),
+            Command::PaletteClear => format!("p/clear"),
+            Command::PaletteSample => unimplemented!(),
+            Command::Pan(x, y) => format!("pan {} {}", x, y),
+            Command::Quit => format!("q"),
+            Command::Redo => format!("redo"),
+            Command::ResizeFrame(w, h) => format!("f/resize {} {}", w, h),
+            Command::Sampler(true) => format!("sampler"),
+            Command::Sampler(false) => format!("sampler/off"),
+            Command::Set(s, v) => format!("set {} = {}", s, v),
+            Command::Slice(Some(n)) => format!("slice {}", n),
+            Command::Slice(None) => format!("slice"),
+            Command::Source(path) => format!("source {}", path),
+            Command::SwapColors => format!("swap"),
+            Command::Toggle(s) => format!("toggle {}", s),
+            Command::Undo => format!("undo"),
+            Command::ViewCenter => format!("v/center"),
+            Command::ViewNext => format!("v/next"),
+            Command::ViewPrev => format!("v/prev"),
+            Command::Write(None) => format!("w"),
+            Command::Write(Some(path)) => format!("w {}", path),
+            Command::WriteQuit => format!("wq"),
+            Command::Zoom(Op::Incr) => format!("v/zoom +"),
+            Command::Zoom(Op::Decr) => format!("v/zoom -"),
+            Command::Zoom(Op::Set(z)) => format!("v/zoom {}", z),
+            _ => unimplemented!(),
+        }
+        .to_string()
+    }
+}
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Key {
-    Char(char),
     Virtual(platform::Key),
 }
 
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Key::Char(c) => c.fmt(f),
             Key::Virtual(k) => k.fmt(f),
         }
     }
@@ -184,11 +221,13 @@ impl<'a> Parse<'a> for Key {
                 "left" => platform::Key::Left,
                 "right" => platform::Key::Right,
                 "ctrl" => platform::Key::Control,
+                "alt" => platform::Key::Alt,
                 "shift" => platform::Key::Shift,
                 "space" => platform::Key::Space,
                 "return" => platform::Key::Return,
                 "backspace" => platform::Key::Backspace,
                 "tab" => platform::Key::Tab,
+                "esc" => platform::Key::Escape,
                 other => {
                     return Err(Error::new(format!("unknown key <{}>", other)))
                 }

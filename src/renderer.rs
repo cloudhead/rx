@@ -8,7 +8,7 @@ use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{self, Mode, Rgb8, Session, Tool};
+use crate::session::{self, ExecutionMode, Mode, Rgb8, Session, Tool};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
@@ -738,6 +738,25 @@ impl Renderer {
             MARGIN + self::LINE_HEIGHT,
             Rgba8::WHITE,
         );
+
+        if let ExecutionMode::Recording(_, path) = &session.execution {
+            text.add(
+                &format!(
+                    "* recording: {} (<Ctrl-Esc> to stop)",
+                    path.display()
+                ),
+                MARGIN * 2.,
+                session.height - self::LINE_HEIGHT - MARGIN,
+                color::RED,
+            );
+        } else if let ExecutionMode::Replaying(_, path) = &session.execution {
+            text.add(
+                &format!("> replaying: {} (<Esc> to stop)", path.display()),
+                MARGIN * 2.,
+                session.height - self::LINE_HEIGHT - MARGIN,
+                color::LIGHT_GREEN,
+            );
+        }
 
         {
             // Session status
