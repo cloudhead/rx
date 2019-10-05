@@ -35,6 +35,7 @@ set checker = off                                             --  Turn off alpha
 set debug = off                                               --  Turn off debug mode
 set vsync = off                                               --  Turn off Vsync
 set input/delay = 8.0                                         --  Set frame delay to 8 milliseconds
+set background = #000000                                      --  Set background appearance to black
 
 brush/set perfect                                             --  Set brush to "pixel-perfect" mode
 
