@@ -66,6 +66,7 @@ PLATFORM SUPPORT
 BUILD DEPENDENCIES
 
   * rust (https://www.rust-lang.org/tools/install)
+  * cmake (https://cmake.org/download/)
 
   macOS
 
