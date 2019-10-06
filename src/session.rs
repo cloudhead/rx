@@ -8,7 +8,7 @@ use crate::event::Event;
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
-use crate::platform::{InputState, KeyboardInput, ModifiersState};
+use crate::platform::{InputState, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
@@ -169,8 +169,10 @@ impl fmt::Display for Mode {
 
 /// Session effects. Eg. view creation/destruction.
 /// Anything the renderer might want to know.
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Effect {
+    /// When the session has been resized.
+    SessionResized(LogicalSize),
     /// When a view has been activated.
     ViewActivated(ViewId),
     /// When a view has been added.
@@ -1411,12 +1413,18 @@ impl Session {
     }
 
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
+        if let ExecutionMode::Replaying(_, _) = self.execution {
+            // Don't allow the window to be resized while replaying.
+            return;
+        }
         self.width = size.width as f32;
         self.height = size.height as f32;
 
         // TODO: Reset session cursor coordinates
         self.center_palette();
         self.center_active_view();
+
+        self.effects.push(Effect::SessionResized(size));
     }
 
     fn handle_mouse_input(

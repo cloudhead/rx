@@ -144,7 +144,6 @@ pub fn init<'a, P: AsRef<Path>>(
 
                     self::resize(
                         &mut session,
-                        &mut renderer,
                         &mut r,
                         &mut swap_chain,
                         size,
@@ -190,7 +189,6 @@ pub fn init<'a, P: AsRef<Path>>(
                 if session.settings_changed.contains("scale") {
                     self::resize(
                         &mut session,
-                        &mut renderer,
                         &mut r,
                         &mut swap_chain,
                         logical,
@@ -270,7 +268,6 @@ pub fn init<'a, P: AsRef<Path>>(
 
 fn resize(
     session: &mut Session,
-    renderer: &mut Renderer,
     r: &mut core::Renderer,
     swap_chain: &mut core::SwapChain,
     size: platform::LogicalSize,
@@ -288,5 +285,4 @@ fn resize(
         physical.height as u32,
         present_mode,
     );
-    renderer.handle_resized(logical_size, &r);
 }

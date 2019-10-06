@@ -569,6 +569,9 @@ impl Renderer {
             // the view size might also have changed, and therefore we resize
             // on "damaged" too.
             match eff {
+                Effect::SessionResized(size) => {
+                    self.handle_resized(size, r);
+                }
                 Effect::ViewActivated(id) => {
                     let v = views.get(&id).expect("view must exist");
                     self.resize_brush_pipelines(v.width(), v.height());

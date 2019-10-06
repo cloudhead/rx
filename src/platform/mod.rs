@@ -369,7 +369,7 @@ pub struct LogicalSize {
 }
 
 impl LogicalSize {
-    pub fn new(width: f64, height: f64) -> Self {
+    pub const fn new(width: f64, height: f64) -> Self {
         LogicalSize { width, height }
     }
 
