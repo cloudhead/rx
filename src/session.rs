@@ -1162,6 +1162,12 @@ impl Session {
                 );
             }
         }
+
+        if let Some(id) = self.views.keys().cloned().next_back() {
+            self.organize_views();
+            self.edit_view(id);
+        }
+
         Ok(())
     }
 
@@ -1280,8 +1286,6 @@ impl Session {
 
         self.effects.push(Effect::ViewAdded(id));
         self.resources.add_view(id, width, height, &pixels);
-        self.organize_views();
-        self.edit_view(id);
         self.message(
             format!("\"{}\" {} pixels read", path.display(), width * height),
             MessageType::Info,
