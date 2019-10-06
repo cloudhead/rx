@@ -1307,6 +1307,20 @@ impl Session {
         }
     }
 
+    /// Quit view if it has been saved. Otherwise, display an error.
+    fn quit_view_safe(&mut self, id: ViewId) {
+        let v = self.view(id);
+        match &v.file_status {
+            FileStatus::Modified(_) | FileStatus::New(_) => {
+                self.message(
+                        "Error: no write since last change (enter `:q!` to quit without saving)",
+                        MessageType::Error,
+                    );
+            }
+            _ => self.quit_view(id),
+        }
+    }
+
     /// Save a view as a gif animation.
     fn save_view_gif<P: AsRef<Path>>(
         &mut self,
@@ -1842,17 +1856,16 @@ impl Session {
             Command::Mode(m) => {
                 self.switch_mode(m);
             }
-            Command::Quit => match &self.active_view().file_status {
-                FileStatus::Modified(_) | FileStatus::New(_) => {
-                    self.message(
-                        "Error: no write since last change (enter `:q!` to quit without saving)",
-                        MessageType::Error,
-                    );
+            Command::Quit => {
+                self.quit_view_safe(self.views.active_id);
+            }
+            Command::QuitAll => {
+                // TODO (rust)
+                let ids: Vec<ViewId> = self.views.keys().cloned().collect();
+                for id in ids {
+                    self.quit_view_safe(id);
                 }
-                _ => {
-                    self.command(Command::ForceQuit);
-                }
-            },
+            }
             Command::Help => {
                 if self.mode == Mode::Help {
                     self.switch_mode(Mode::Normal);
@@ -1919,6 +1932,7 @@ impl Session {
                 self.organize_views();
             }
             Command::ForceQuit => self.quit_view(self.views.active_id),
+            Command::ForceQuitAll => self.quit(),
             Command::Echo(ref v) => {
                 let result = match v {
                     Value::Str(s) => Ok(Value::Str(s.clone())),

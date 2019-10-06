@@ -53,6 +53,7 @@ pub enum Command {
     #[allow(dead_code)]
     Play,
     Quit,
+    QuitAll,
     #[allow(dead_code)]
     Record,
     Redo,
@@ -418,6 +419,7 @@ impl<'a> Parse<'a> for Command {
 
         match cmd {
             "q" => Ok((Command::Quit, p)),
+            "qa" => Ok((Command::QuitAll, p)),
             "q!" => Ok((Command::ForceQuit, p)),
             "qa!" => Ok((Command::ForceQuitAll, p)),
             "w" => {
