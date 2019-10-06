@@ -295,7 +295,7 @@ impl Message {
             MessageType::Echo => info!("{}", self),
             MessageType::Error => error!("{}", self),
             MessageType::Warning => warn!("{}", self),
-            MessageType::Replay => trace!("{}", self),
+            MessageType::Replay => debug!("replay: {}", self),
             MessageType::Okay => info!("{}", self),
         }
     }
@@ -813,6 +813,7 @@ impl Session {
 
         if let ExecutionMode::Replaying(ref mut recording, _) = self.execution {
             if let Some(event) = recording.pop_front() {
+                self.message(String::from(event.clone()), MessageType::Replay);
                 self.handle_event(event);
             } else {
                 self.stop_playing();
@@ -1563,8 +1564,6 @@ impl Session {
             key,
             ..
         } = input;
-
-        debug!("{:?}", input);
 
         let mut repeat = false;
 
