@@ -254,7 +254,7 @@ impl View {
     /// Clear the view to a color.
     pub fn clear(&mut self, color: Rgba8) {
         self.ops.push(ViewOp::Clear(color));
-        self.damaged();
+        self.touch();
     }
 
     /// Reset the view by providing frame size and number of frames.
