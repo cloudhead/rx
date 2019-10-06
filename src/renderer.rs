@@ -590,8 +590,6 @@ impl Renderer {
     }
 
     fn handle_view_dirty(&mut self, v: &View, r: &mut core::Renderer) {
-        let resources = self.resources.lock();
-        let snapshot = resources.get_snapshot(&v.id);
         let fb = &self
             .view_data
             .get(&v.id)
@@ -599,26 +597,33 @@ impl Renderer {
             .fb;
 
         let (vw, vh) = (v.width(), v.height());
-        let (sw, sh) = (snapshot.width(), snapshot.height());
 
-        // View size changed. Re-create view resources.
-        // This condition is triggered when the size of the view doesn't match the size
-        // of the view framebuffer. This can happen in two cases:
-        //
-        //   1. The view was resized (it's dirty).
-        //   2. A snapshot was restored with a different size than the view (it's damaged).
-        //
-        // Either way, we handle it equally, by re-creating the view-data and restoring
-        // the current snapshot.
         if fb.width() != vw || fb.height() != vh {
+            // View size changed. Re-create view resources.
+            // This condition is triggered when the size of the view doesn't match the size
+            // of the view framebuffer. This can happen in two cases:
+            //
+            //   1. The view was resized (it's dirty).
+            //   2. A snapshot was restored with a different size than the view (it's damaged).
+            //
+            // Either way, we handle it equally, by re-creating the view-data and restoring
+            // the current snapshot.
             let view_data =
                 ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, r);
+
+            // We don't want the lock to be held when `prepare` is called below,
+            // because in some cases it'll trigger the read-back which claims
+            // a write lock on resources.
+            let (sw, sh, pixels) = {
+                let resources = self.resources.lock();
+                let snapshot = resources.get_snapshot(&v.id);
+                (snapshot.width(), snapshot.height(), snapshot.pixels())
+            };
 
             // Ensure not to transfer more data than can fit
             // in the view buffer.
             let tw = u32::min(sw, vw);
             let th = u32::min(sh, vh);
-            let pixels = snapshot.pixels();
 
             r.prepare(&[
                 Op::Clear(&view_data.fb, Rgba::TRANSPARENT),
@@ -634,7 +639,10 @@ impl Renderer {
             ]);
             self.view_data.insert(v.id, view_data);
         } else if v.is_damaged() {
-            r.prepare(&[Op::Fill(fb, snapshot.pixels().as_slice())]);
+            // View is damaged, but its size hasn't changed. This happens when a snapshot
+            // with the same size as the view was restored.
+            let pixels = self.resources.lock().get_snapshot(&v.id).pixels();
+            r.prepare(&[Op::Fill(fb, pixels.as_slice())]);
         }
     }
 
