@@ -19,10 +19,10 @@ fn main() {
                 .help("Sets the verbosity level"),
         )
         .arg(
-            Arg::with_name("playback")
-                .long("playback")
+            Arg::with_name("replay")
+                .long("replay")
                 .value_name("FILE")
-                .help("Playback input from a file"),
+                .help("Replay input from a file"),
         )
         .arg(
             Arg::with_name("record")
@@ -54,11 +54,11 @@ fn main() {
         _ => "debug",
     };
 
-    if matches.is_present("playback") && matches.is_present("record") {
-        fatal("error: '--playback' and '--record' can't both be specified");
+    if matches.is_present("replay") && matches.is_present("record") {
+        fatal("error: '--replay' and '--record' can't both be specified");
     }
 
-    let exec = if let Some(path) = matches.value_of("playback") {
+    let exec = if let Some(path) = matches.value_of("replay") {
         session::ExecutionMode::replaying(path)
     } else if let Some(path) = matches.value_of("record") {
         session::ExecutionMode::recording(path)
