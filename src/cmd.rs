@@ -9,7 +9,6 @@ use rgx::kit::Rgba8;
 use std::fmt;
 use std::result;
 use std::str::FromStr;
-use std::time;
 
 pub const COMMENT: char = '-';
 
@@ -36,7 +35,6 @@ pub enum Command {
     Fill(Rgba8),
     ForceQuit,
     ForceQuitAll,
-    FullScreen,
     Help,
     Map(Key, Box<(Command, Option<Command>)>),
     Mode(Mode),
@@ -48,37 +46,21 @@ pub enum Command {
     PaletteClear,
     PaletteSample,
     Pan(i32, i32),
-    #[allow(dead_code)]
-    Pause,
-    #[allow(dead_code)]
-    Play,
     Quit,
     QuitAll,
-    #[allow(dead_code)]
-    Record,
     Redo,
     ResizeFrame(u32, u32),
     Sampler(bool),
     Set(String, Value),
-    Sleep(time::Duration),
     Slice(Option<usize>),
     Source(String),
     SwapColors,
-
-    #[allow(dead_code)]
-    TestCheck,
-    #[allow(dead_code)]
-    TestDigest,
-    #[allow(dead_code)]
-    TestDiscard,
-
     Toggle(String),
     Undo,
     ViewCenter,
     ViewNext,
     ViewPrev,
     Write(Option<String>),
-    #[allow(dead_code)]
     WriteQuit,
     Zoom(Op),
 }
@@ -92,6 +74,7 @@ impl fmt::Display for Command {
             Self::BrushSize(Op::Decr) => write!(f, "Decrease brush size"),
             Self::BrushSize(Op::Set(s)) => write!(f, "Set brush size to {}", s),
             Self::BrushUnset(m) => write!(f, "Unset brush `{}` mode", m),
+            Self::Crop(_) => write!(f, "Crop view"),
             Self::Echo(_) => write!(f, "Echo a value"),
             Self::Edit(_) => write!(f, "Edit path(s)"),
             Self::Fill(c) => write!(f, "Fill view with {color}", color = c),
@@ -115,7 +98,9 @@ impl fmt::Display for Command {
             Self::Pan(x, 0) if *x < 0 => write!(f, "Pan workspace left"),
             Self::Pan(0, y) if *y > 0 => write!(f, "Pan workspace up"),
             Self::Pan(0, y) if *y < 0 => write!(f, "Pan workspace down"),
+            Self::Pan(x, y) => write!(f, "Pan workspace by {},{}", x, y),
             Self::Quit => write!(f, "Quit active view"),
+            Self::QuitAll => write!(f, "Quit all views"),
             Self::Redo => write!(f, "Redo view edit"),
             Self::ResizeFrame(_, _) => write!(f, "Resize active view frame"),
             Self::Sampler(_) => write!(f, "Toggle color sampler"),
@@ -141,7 +126,6 @@ impl fmt::Display for Command {
             Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
             Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
             Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
-            _ => write!(f, ""),
         }
     }
 }
@@ -450,7 +434,6 @@ impl<'a> Parse<'a> for Command {
                 }
             }
             "help" => Ok((Command::Help, p)),
-            "fullscreen" => Ok((Command::FullScreen, p)),
             "set" => {
                 let (k, p) = p.identifier()?;
                 let (_, p) = p.whitespace()?;
@@ -475,10 +458,6 @@ impl<'a> Parse<'a> for Command {
             "echo" => {
                 let (v, p) = p.parse::<Value>()?;
                 Ok((Command::Echo(v), p))
-            }
-            "sleep" => {
-                let (ms, p) = p.parse::<u32>()?;
-                Ok((Command::Sleep(time::Duration::from_millis(ms as u64)), p))
             }
             "slice" => {
                 if p.is_empty() {

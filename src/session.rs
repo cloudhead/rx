@@ -2186,11 +2186,8 @@ impl Session {
             Command::Redo => {
                 self.redo(self.views.active_id);
             }
-            _ => {
-                self.message(
-                    format!("Error: command not yet implemented: {:?}", cmd),
-                    MessageType::Error,
-                );
+            Command::Crop(_) => {
+                self.unimplemented();
             }
         };
     }
