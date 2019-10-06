@@ -111,7 +111,7 @@ pub fn init<'a, P: AsRef<Path>>(
         );
     }
 
-    renderer.init(&session, &mut r);
+    renderer.init(session.effects(), &session.views, &mut r);
 
     let physical = win_size.to_physical(hidpi_factor);
     let mut logical = win_size;
@@ -175,11 +175,16 @@ pub fn init<'a, P: AsRef<Path>>(
                     return platform::ControlFlow::Continue;
                 }
 
-                update_timer.run(|avg| {
-                    session.update(&mut session_events, delta, avg);
-                });
+                let effects = update_timer
+                    .run(|avg| session.update(&mut session_events, delta, avg));
                 render_timer.run(|avg| {
-                    renderer.frame(&session, &avg, &mut r, &mut swap_chain);
+                    renderer.frame(
+                        &session,
+                        effects,
+                        &avg,
+                        &mut r,
+                        &mut swap_chain,
+                    );
                 });
 
                 if session.settings_changed.contains("scale") {
@@ -219,7 +224,13 @@ pub fn init<'a, P: AsRef<Path>>(
             WindowEvent::RedrawRequested => {
                 if session.state == State::Running {
                     render_timer.run(|avg| {
-                        renderer.frame(&session, &avg, &mut r, &mut swap_chain);
+                        renderer.frame(
+                            &session,
+                            vec![],
+                            &avg,
+                            &mut r,
+                            &mut swap_chain,
+                        );
                     });
                 }
             }

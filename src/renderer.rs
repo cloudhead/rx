@@ -8,7 +8,7 @@ use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{self, ExecutionMode, Mode, Rgb8, Session, Tool};
+use crate::session::{self, Effect, ExecutionMode, Mode, Rgb8, Session, Tool};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
@@ -20,16 +20,13 @@ use rgx::kit::sprite2d;
 use rgx::kit::{Origin, Rgba8};
 use rgx::math::{Matrix4, Vector2};
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::time;
 
 /// 2D Renderer. Renders the [`Session`] to screen.
 pub struct Renderer {
     /// Window size.
     window: LogicalSize,
-    /// Currently active view. We keep track of this to know when the
-    /// active view in the session has changed.
-    active_view_id: ViewId,
     /// The font used to render text.
     font: Font,
     cursors: Cursors,
@@ -104,7 +101,7 @@ impl Cursors {
 }
 
 /// View data used for rendering.
-pub struct ViewData {
+struct ViewData {
     /// View framebuffer. Brush strokes and edits are written to this buffer.
     fb: core::Framebuffer,
     /// View staging framebuffer. Brush strokes are rendered here first, before
@@ -263,12 +260,16 @@ impl Renderer {
             screen_vb,
             screen_binding,
             view_data: BTreeMap::new(),
-            active_view_id: ViewId::default(),
         }
     }
 
-    pub fn init(&mut self, session: &Session, r: &mut core::Renderer) {
-        self.synchronize_views(session, r);
+    pub fn init(
+        &mut self,
+        effects: Vec<Effect>,
+        views: &ViewManager,
+        r: &mut core::Renderer,
+    ) {
+        self.handle_effects(effects, &views, r);
     }
 
     fn render_help(
@@ -346,6 +347,7 @@ impl Renderer {
     pub fn frame(
         &mut self,
         session: &Session,
+        effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
         r: &mut core::Renderer,
         textures: &mut core::SwapChain,
@@ -357,6 +359,10 @@ impl Renderer {
             self.render_help(session, r, textures);
             return;
         }
+
+        // Handle effects produces by the session.
+        self.handle_effects(effects, &session.views, r);
+
         let present = &textures.next();
 
         let mut ui_batch = shape2d::Batch::new();
@@ -403,27 +409,6 @@ impl Renderer {
         } else {
             Some(paint_batch.finish(&r))
         };
-
-        let v = session.active_view();
-
-        // When switching views, or when the view is dirty (eg. it has been resized),
-        // we have to resize the brush pipelines, for the brush strokes to
-        // render properly in the view framebuffer. When a snapshot is restored,
-        // the view size might also have changed, and therefore we resize
-        // on "damaged" too.
-        if v.id != self.active_view_id || v.is_dirty() || v.is_damaged() {
-            self.resize_brush_pipelines(v.width(), v.height());
-            self.active_view_id = v.id;
-        }
-
-        if session.dirty {
-            self.synchronize_views(session, r);
-        }
-
-        for v in session.views.values().filter(|v| !v.is_okay()) {
-            self.handle_view_dirty(v, r);
-            self.handle_view_ops(v, r);
-        }
 
         // Start the render frame.
         let mut f = r.frame();
@@ -541,6 +526,7 @@ impl Renderer {
         r.submit(f);
 
         // If active view is dirty, record a snapshot of it.
+        let v = session.active_view();
         if v.is_dirty() {
             let id = v.id;
             let nframes = v.animation.len();
@@ -556,7 +542,7 @@ impl Renderer {
         }
     }
 
-    pub fn resize_brush_pipelines(&mut self, w: u32, h: u32) {
+    fn resize_brush_pipelines(&mut self, w: u32, h: u32) {
         assert!(
             self.brush2d.width() == self.const2d.width()
                 && self.brush2d.height() == self.const2d.height(),
@@ -568,7 +554,42 @@ impl Renderer {
         }
     }
 
-    pub fn handle_view_dirty(&mut self, v: &View, r: &mut core::Renderer) {
+    fn handle_effects(
+        &mut self,
+        mut effects: Vec<Effect>,
+        views: &ViewManager,
+        r: &mut core::Renderer,
+    ) {
+        for eff in effects.drain(..) {
+            debug!("handling: {:?}", eff);
+
+            // When switching views, or when the view is dirty (eg. it has been resized),
+            // we have to resize the brush pipelines, for the brush strokes to
+            // render properly in the view framebuffer. When a snapshot is restored,
+            // the view size might also have changed, and therefore we resize
+            // on "damaged" too.
+            match eff {
+                Effect::ViewActivated(id) => {
+                    let v = views.get(&id).expect("view must exist");
+                    self.resize_brush_pipelines(v.width(), v.height());
+                }
+                Effect::ViewAdded(id) => {
+                    self.add_views(&[id], r);
+                }
+                Effect::ViewRemoved(id) => {
+                    self.view_data.remove(&id);
+                }
+                Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
+                    let v = views.get(&id).expect("view must exist");
+                    self.handle_view_dirty(v, r);
+                    self.handle_view_ops(v, r);
+                    self.resize_brush_pipelines(v.width(), v.height());
+                }
+            }
+        }
+    }
+
+    fn handle_view_dirty(&mut self, v: &View, r: &mut core::Renderer) {
         let resources = self.resources.lock();
         let snapshot = resources.get_snapshot(&v.id);
         let fb = &self
@@ -617,7 +638,7 @@ impl Renderer {
         }
     }
 
-    pub fn handle_view_ops(&mut self, v: &View, r: &mut core::Renderer) {
+    fn handle_view_ops(&mut self, v: &View, r: &mut core::Renderer) {
         let fb = &self
             .view_data
             .get(&v.id)
@@ -636,20 +657,8 @@ impl Renderer {
         }
     }
 
-    pub fn synchronize_views(
-        &mut self,
-        session: &Session,
-        r: &mut core::Renderer,
-    ) {
-        let data_keys: HashSet<ViewId> =
-            self.view_data.keys().cloned().collect();
-        let session_keys: HashSet<ViewId> =
-            session.views.keys().cloned().collect();
-
-        let added = session_keys.difference(&data_keys);
-        let removed = data_keys.difference(&session_keys);
-
-        for id in added {
+    fn add_views(&mut self, views: &[ViewId], r: &mut core::Renderer) {
+        for id in views {
             let resources = self.resources.lock();
             let s = resources.get_snapshot(id);
             let (w, h) = (s.width(), s.height());
@@ -666,10 +675,6 @@ impl Renderer {
             ]);
 
             self.view_data.insert(*id, view_data);
-        }
-
-        for id in removed {
-            self.view_data.remove(id);
         }
     }
 
@@ -812,7 +817,7 @@ impl Renderer {
         }
     }
 
-    pub fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
+    fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
         let p = &session.palette;
         for (i, color) in p.colors.iter().cloned().enumerate() {
             let x = if i >= 16 { p.cellsize } else { 0. };

@@ -167,6 +167,22 @@ impl fmt::Display for Mode {
     }
 }
 
+/// Session effects. Eg. view creation/destruction.
+/// Anything the renderer might want to know.
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum Effect {
+    /// When a view has been activated.
+    ViewActivated(ViewId),
+    /// When a view has been added.
+    ViewAdded(ViewId),
+    /// When a view has been removed.
+    ViewRemoved(ViewId),
+    /// When a view has been touched (edited).
+    ViewTouched(ViewId),
+    /// When a view requires re-drawing.
+    ViewDamaged(ViewId),
+}
+
 /// Session state.
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum State {
@@ -588,14 +604,13 @@ pub struct Session {
 
     /// Views loaded in the session.
     pub views: ViewManager,
+    /// Effects produced by the session. Cleared at the beginning of every update.
+    pub effects: Vec<Effect>,
 
     /// The current state of the command line.
     pub cmdline: CommandLine,
     /// The color palette.
     pub palette: Palette,
-
-    /// Set to `true` if a view was added or removed from the session.
-    pub dirty: bool,
 
     /// Average time it takes for a session update.
     pub avg_time: time::Duration,
@@ -696,6 +711,7 @@ impl Session {
             settings: Settings::default(),
             settings_changed: HashSet::new(),
             views: ViewManager::new(),
+            effects: Vec::new(),
             palette: Palette::new(Self::PALETTE_CELL_SIZE),
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
@@ -706,7 +722,6 @@ impl Session {
             selection: Rect::new(0., 0., 0., 0.),
             message: Message::default(),
             resources,
-            dirty: true,
             avg_time: time::Duration::from_secs(0),
             execution: ExecutionMode::Normal,
 
@@ -752,11 +767,10 @@ impl Session {
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
         let id = self.views.add(fs, w, h);
 
+        self.effects.push(Effect::ViewAdded(id));
         self.resources.add_blank_view(id, w, h);
         self.organize_views();
         self.edit_view(id);
-
-        self.dirty = true;
     }
 
     /// Transition to a new state. Only allows valid state transitions.
@@ -781,8 +795,7 @@ impl Session {
         events: &mut Vec<Event>,
         delta: time::Duration,
         avg_time: time::Duration,
-    ) {
-        self.dirty = false;
+    ) -> Vec<Effect> {
         self.settings_changed.clear();
         self.avg_time = avg_time;
 
@@ -823,15 +836,31 @@ impl Session {
 
         if self.views.is_empty() {
             self.quit();
+        } else {
+            for (id, v) in self.views.iter() {
+                if v.is_dirty() {
+                    self.effects.push(Effect::ViewTouched(*id));
+                } else if v.is_damaged() {
+                    self.effects.push(Effect::ViewDamaged(*id));
+                }
+            }
         }
 
         // Make sure we don't have rounding errors
         debug_assert_eq!(self.offset, self.offset.map(|a| a.floor()));
+
+        // Return and drain accumulated effects
+        self.effects()
     }
 
     /// Quit the session.
     pub fn quit(&mut self) {
         self.transition(State::Closing);
+    }
+
+    /// Drain and return effects.
+    pub fn effects(&mut self) -> Vec<Effect> {
+        self.effects.drain(..).collect()
     }
 
     /// Return the session offset as a transformation matrix.
@@ -1015,6 +1044,12 @@ impl Session {
             "fatal: no active view"
         );
         self.view_mut(self.views.active_id)
+    }
+
+    /// Activate a view. This makes the given view the "active" view.
+    pub fn activate(&mut self, id: ViewId) {
+        self.views.activate(id);
+        self.effects.push(Effect::ViewActivated(id));
     }
 
     /// Check whether a view is active.
@@ -1219,7 +1254,7 @@ impl Session {
         {
             // TODO: Reload from disk.
             let id = *id;
-            self.views.activate(id);
+            self.activate(id);
             return Ok(());
         }
 
@@ -1238,6 +1273,7 @@ impl Session {
             height as u32,
         );
 
+        self.effects.push(Effect::ViewAdded(id));
         self.resources.add_view(id, width, height, &pixels);
         self.organize_views();
         self.edit_view(id);
@@ -1245,7 +1281,6 @@ impl Session {
             format!("\"{}\" {} pixels read", path.display(), width * height),
             MessageType::Info,
         );
-        self.dirty = true;
 
         Ok(())
     }
@@ -1256,8 +1291,7 @@ impl Session {
 
         self.views.remove(&id);
         self.resources.remove_view(&id);
-
-        self.dirty = true;
+        self.effects.push(Effect::ViewRemoved(id));
     }
 
     /// Quit the view.
@@ -1292,7 +1326,7 @@ impl Session {
 
     /// Start editing the given view.
     fn edit_view(&mut self, id: ViewId) {
-        self.views.activate(id);
+        self.activate(id);
         self.center_active_view();
     }
 
@@ -1441,7 +1475,7 @@ impl Session {
                         Mode::Present | Mode::Help => {}
                     }
                 } else {
-                    self.views.activate(id);
+                    self.activate(id);
                 }
             }
         } else if state == platform::InputState::Released {
@@ -1957,7 +1991,7 @@ impl Session {
                 if let Some(id) =
                     self.views.range(id..).nth(1).map(|(id, _)| *id)
                 {
-                    self.views.activate(id);
+                    self.activate(id);
                     self.center_active_view_v();
                 }
             }
@@ -1966,7 +2000,7 @@ impl Session {
                 if let Some(id) =
                     self.views.range(..id).next_back().map(|(id, _)| *id)
                 {
-                    self.views.activate(id);
+                    self.activate(id);
                     self.center_active_view_v();
                 }
             }

@@ -16,12 +16,12 @@ impl FrameTimer {
         }
     }
 
-    pub fn run<F>(&mut self, frame: F)
+    pub fn run<F, R>(&mut self, frame: F) -> R
     where
-        F: FnOnce(time::Duration),
+        F: FnOnce(time::Duration) -> R,
     {
         let start = time::Instant::now();
-        frame(self.avg);
+        let result = frame(self.avg);
         let elapsed = start.elapsed();
 
         self.timings.truncate(Self::WINDOW - 1);
@@ -30,5 +30,7 @@ impl FrameTimer {
         let avg =
             self.timings.iter().sum::<u128>() / self.timings.len() as u128;
         self.avg = time::Duration::from_micros(avg as u64);
+
+        result
     }
 }
