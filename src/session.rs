@@ -541,9 +541,6 @@ pub struct Session {
     /// The current session `State`.
     pub state: State,
 
-    /// The background appearance color of the UI.
-    pub background: Rgba8,
-
     /// The width of the session workspace.
     pub width: f32,
     /// The height of the session workspace.
@@ -687,7 +684,6 @@ impl Session {
             state: State::Initializing,
             width: w as f32,
             height: h as f32,
-            background: color::BLACK,
             hidpi_factor,
             cursor: SessionCoords::new(0., 0.),
             base_dirs,

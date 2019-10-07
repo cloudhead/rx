@@ -530,8 +530,8 @@ impl Renderer {
 
         {
             // Present screen framebuffer to screen.
-            let background_appearance_color = Rgba::from(session.settings["background"].color());
-            let mut p = f.pass(PassOp::Clear(background_appearance_color), present);
+            let bg = Rgba::from(session.settings["background"].color());
+            let mut p = f.pass(PassOp::Clear(bg), present);
 
             p.set_pipeline(&self.screen2d);
             p.set_binding(&self.screen_binding, &[]);
