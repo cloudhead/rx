@@ -212,9 +212,11 @@ impl<'a> Parser<'a> {
 
     pub fn path(self) -> Result<'a, String> {
         let (path, parser) = self.word()?;
-        let mut path = Path::new(path);
 
-        // For Linux and BSD and MacOS.
+        let path = Path::new(path);
+        let mut path_string = String::from(path.to_str().unwrap());
+
+        // Linux and BSD and MacOS use ~ to infer the home directory of a given user
         if cfg!(unix) && path.starts_with("~") {
             if let Some(base_dirs) = dirs::BaseDirs::new() {
                 let home = base_dirs.home_dir().to_str().unwrap().to_owned();
@@ -223,16 +225,38 @@ impl<'a> Parser<'a> {
                     return Ok((home, parser));
                 }
 
-                path = &path.strip_prefix("~").unwrap();
-                return Ok((
-                    Path::new(&home).join(path).to_str().unwrap().to_owned(),
-                    parser,
-                ));
+                let suffix = path.strip_prefix("~").unwrap();
+                path_string = Path::new(&home).join(suffix).to_str().unwrap().to_owned();
             }
         }
 
-        // For Windows and other platforms.
-        Ok((path.to_str().unwrap().to_owned(), parser))
+        let filename = match Path::new(&path_string).file_name().is_none() {
+            true => String::from(""),
+            false => Path::new(&path_string).file_name().unwrap().to_str().unwrap().to_owned(),
+        };
+
+        let directory = match Path::new(&path_string).parent().is_none() {
+            true => String::from(""),
+            false => Path::new(&path_string).parent().unwrap().to_str().unwrap().to_owned(),
+        };
+
+        let canonical_directory = match Path::new(&directory).canonicalize().is_err() {
+            true => String::from(""),
+            false => Path::new(&directory).canonicalize().unwrap().to_str().unwrap().to_owned(),
+        };
+
+        let path_str = match directory == "" || canonical_directory == "" {
+
+            // if directory or canonical directory string is empty or an
+            // error occurred, default to simply attempting to use the original
+            // non-canonical path as a last resort
+            true => Path::new(path).to_str().unwrap().to_owned(),
+
+            // otherwise the path likely canonicalized correctly, so use that
+            false => Path::new(&canonical_directory).join(Path::new(&filename)).to_str().unwrap().to_owned(),
+        };
+
+        Ok((path_str.to_string(), parser))
     }
 
     pub fn peek(&self) -> Option<char> {
