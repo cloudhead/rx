@@ -260,6 +260,13 @@ impl Value {
         panic!("expected {:?} to be a `uint`", self);
     }
 
+    pub fn color(&self) -> Rgba8 {
+        if let Value::Rgba8(rgba8) = self {
+            return *rgba8;
+        }
+        panic!("expected {:?} to be a `Rgba8`", self);
+    }
+
     pub fn description(&self) -> &'static str {
         match self {
             Self::Bool(_) => "on / off",

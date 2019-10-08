@@ -56,13 +56,14 @@ pub const HELP: &'static str = r#"
 
 SETTINGS
 
-debug             on/off        Debug mode
-checker           on/off        Alpha checker toggle
-vsync             on/off        Vertical sync toggle
-input/delay       0.0..32.0     Delay between render frames (ms)
-scale             1.0..4.0      UI scale
-animation         on/off        View animation toggle
-animation/delay   1..1000       View animation delay (ms)
+debug             on/off             Debug mode
+checker           on/off             Alpha checker toggle
+vsync             on/off             Vertical sync toggle
+input/delay       0.0..32.0          Delay between render frames (ms)
+scale             1.0..4.0           UI scale
+animation         on/off             View animation toggle
+animation/delay   1..1000            View animation delay (ms)
+background        #000000..#ffffff   Set background appearance to <color>, eg. #ff0011
 "#;
 
 /// An RGB 8-bit color. Used when the alpha value isn't used.
@@ -523,6 +524,7 @@ impl Default for Settings {
             map: hashmap! {
                 "debug" => Value::Bool(false),
                 "checker" => Value::Bool(false),
+                "background" => Value::Rgba8(color::BLACK),
                 "vsync" => Value::Bool(false),
                 "input/delay" => Value::Float(8.0),
                 "scale" => Value::Float(1.0),
