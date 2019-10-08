@@ -22,7 +22,7 @@ pub enum Op {
 /// User command. Most of the interactions available to
 /// the user are modeled as commands that are processed
 /// by the session.
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum Command {
     Brush,
     BrushSet(BrushMode),
@@ -36,7 +36,7 @@ pub enum Command {
     ForceQuit,
     ForceQuitAll,
     Help,
-    Map(Key, Box<(Command, Option<Command>)>),
+    Map(Box<KeyMapping>),
     Mode(Mode),
     AddFrame,
     CloneFrame(i32),
@@ -81,7 +81,7 @@ impl fmt::Display for Command {
             Self::ForceQuit => write!(f, "Quit view without saving"),
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
             Self::Help => write!(f, "Toggle help"),
-            Self::Map(_, _) => write!(f, "Map a key combination to a command"),
+            Self::Map(_) => write!(f, "Map a key combination to a command"),
             Self::Mode(m) => write!(f, "Switch session mode to {}", m),
             Self::AddFrame => write!(f, "Add a blank frame to the view"),
             Self::CloneFrame(i) => {
@@ -145,7 +145,7 @@ impl From<Command> for String {
             Command::ForceQuit => format!("q!"),
             Command::ForceQuitAll => format!("qa!"),
             Command::Help => format!("help"),
-            Command::Map(_, _) => unimplemented!(),
+            Command::Map(_) => format!("map <key> <command> {{<command>}}"),
             Command::Mode(m) => format!("mode {}", m),
             Command::AddFrame => format!("f/add"),
             Command::CloneFrame(i) => format!("f/clone {}", i),
@@ -222,6 +222,44 @@ impl<'a> Parse<'a> for Key {
             let (k, p) = p.parse::<platform::Key>()?;
             Ok((Key::Virtual(k), p))
         }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+#[derive(Debug, Clone)]
+pub struct KeyMapping {
+    pub key: Key,
+    pub press: Command,
+    pub release: Option<Command>,
+    pub modes: Vec<Mode>,
+}
+
+impl KeyMapping {
+    fn parse<'a>(p: Parser<'a>, modes: &[Mode]) -> Result<'a, Self> {
+        let modes = modes.to_vec();
+
+        let (key, p) = p.parse::<Key>()?;
+        let (_, p) = p.whitespace()?;
+        let (press, p) = p.parse::<Command>()?;
+        let (_, p) = p.whitespace()?;
+
+        let (release, p) = if let Ok((_, p)) = p.clone().sigil('{') {
+            let (cmd, p) = p.parse::<Command>()?;
+            let (_, p) = p.sigil('}')?;
+            (Some(cmd), p)
+        } else {
+            (None, p)
+        };
+        Ok((
+            KeyMapping {
+                key,
+                press,
+                release,
+                modes,
+            },
+            p,
+        ))
     }
 }
 
@@ -526,20 +564,18 @@ impl<'a> Parse<'a> for Command {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;
                 Ok((Command::Pan(x, y), p))
             }
+            "vmap" => {
+                let (km, p) = KeyMapping::parse(p, &[Mode::Visual])?;
+                Ok((Command::Map(Box::new(km)), p))
+            }
+            "nmap" => {
+                let (km, p) = KeyMapping::parse(p, &[Mode::Normal])?;
+                Ok((Command::Map(Box::new(km)), p))
+            }
             "map" => {
-                let (key, p) = p.parse::<Key>()?;
-                let (_, p) = p.whitespace()?;
-                let (press, p) = p.parse::<Command>()?;
-                let (_, p) = p.whitespace()?;
-
-                let (release, p) = if let Ok((_, p)) = p.clone().sigil('{') {
-                    let (cmd, p) = p.parse::<Command>()?;
-                    let (_, p) = p.sigil('}')?;
-                    (Some(cmd), p)
-                } else {
-                    (None, p)
-                };
-                Ok((Command::Map(key, Box::new((press, release))), p))
+                let (km, p) =
+                    KeyMapping::parse(p, &[Mode::Normal, Mode::Visual])?;
+                Ok((Command::Map(Box::new(km)), p))
             }
             "p/add" => {
                 let (rgba, p) = p.parse::<Rgba8>()?;

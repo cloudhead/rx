@@ -1,7 +1,7 @@
 ///! Session
 use crate::brush::*;
 use crate::cmd;
-use crate::cmd::{Command, CommandLine, Key, Op, Value};
+use crate::cmd::{Command, CommandLine, Key, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
 use crate::event::Event;
@@ -357,7 +357,7 @@ impl MessageType {
 type Error = String;
 
 /// A key binding.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct KeyBinding {
     /// The `Mode`s this binding applies to.
     pub modes: Vec<Mode>,
@@ -2163,11 +2163,17 @@ impl Session {
                     self.quit_view(self.views.active_id);
                 }
             }
-            Command::Map(key, cmds) => {
-                let (press, release) = *cmds;
+            Command::Map(map) => {
+                let KeyMapping {
+                    key,
+                    press,
+                    release,
+                    modes,
+                } = *map;
+
                 self.key_bindings.add(KeyBinding {
                     key,
-                    modes: vec![Mode::Normal],
+                    modes: modes.clone(),
                     command: press,
                     state: InputState::Pressed,
                     modifiers: platform::ModifiersState::default(),
@@ -2177,7 +2183,7 @@ impl Session {
                 if let Some(cmd) = release {
                     self.key_bindings.add(KeyBinding {
                         key,
-                        modes: vec![Mode::Normal],
+                        modes,
                         command: cmd,
                         state: InputState::Released,
                         modifiers: platform::ModifiersState::default(),
