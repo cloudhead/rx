@@ -729,6 +729,16 @@ impl Renderer {
             );
         }
 
+        if !session.selection.is_empty() {
+            let v = session.active_view();
+            let c = Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88);
+            canvas.add(Shape::Rectangle(
+                session.selection * v.zoom + session.offset + v.offset,
+                Stroke::NONE,
+                Fill::Solid(c.into()),
+            ));
+        }
+
         if session.settings["debug"].is_set() {
             let mem = crate::ALLOCATOR.allocated();
 

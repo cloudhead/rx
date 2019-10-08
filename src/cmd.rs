@@ -51,6 +51,11 @@ pub enum Command {
     Redo,
     ResizeFrame(u32, u32),
     Sampler(bool),
+    SelectionMove(i32, i32),
+    SelectionResize(i32, i32),
+    SelectionExpand,
+    SelectionYank,
+    SelectionFill(Option<Rgba8>),
     Set(String, Value),
     Slice(Option<usize>),
     Source(String),
@@ -126,6 +131,7 @@ impl fmt::Display for Command {
             Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
             Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
             Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
+            _ => write!(f, "..."),
         }
     }
 }
@@ -601,6 +607,19 @@ impl<'a> Parse<'a> for Command {
                 Ok((Command::ResizeFrame(w, h), p))
             }
             "swap" => Ok((Command::SwapColors, p)),
+            "selection/move" => {
+                let ((x, y), p) = p.parse::<(i32, i32)>()?;
+                Ok((Command::SelectionMove(x, y), p))
+            }
+            "selection/yank" => Ok((Command::SelectionYank, p)),
+            "selection/expand" => Ok((Command::SelectionExpand, p)),
+            "selection/fill" => {
+                if let Ok((rgba, p)) = p.clone().parse::<Rgba8>() {
+                    Ok((Command::SelectionFill(Some(rgba)), p))
+                } else {
+                    Ok((Command::SelectionFill(None), p))
+                }
+            }
             unrecognized => Err(Error::new(format!(
                 "unrecognized command ':{}'",
                 unrecognized

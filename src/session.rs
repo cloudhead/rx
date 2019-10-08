@@ -965,6 +965,10 @@ impl Session {
                 self.ignore_received_characters = true;
                 self.cmdline.putc(':');
             }
+            Mode::Visual => {
+                let v = self.active_view();
+                self.selection = Rect::origin(v.fw as f32, v.fh as f32);
+            }
             _ => {}
         }
 
@@ -2201,6 +2205,14 @@ impl Session {
             Command::Crop(_) => {
                 self.unimplemented();
             }
+            Command::SelectionMove(x, y) => {
+                self.selection =
+                    self.selection + Vector2::new(x as f32, y as f32);
+            }
+            Command::SelectionResize(_x, _y) => {}
+            Command::SelectionExpand => {}
+            Command::SelectionYank => {}
+            Command::SelectionFill(_color) => {}
         };
     }
 
