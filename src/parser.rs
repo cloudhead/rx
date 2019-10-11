@@ -214,6 +214,10 @@ impl<'a> Parser<'a> {
         let (path, parser) = self.word()?;
 
         let path = Path::new(path);
+        if path.to_str().is_none() {
+            return Ok((String::from(""), parser));
+        }
+
         let mut path_string = String::from(path.to_str().unwrap());
 
         // Linux and BSD and MacOS use ~ to infer the home directory of a given user
@@ -234,7 +238,7 @@ impl<'a> Parser<'a> {
             .and_then(|directory| directory.canonicalize().ok());
 
         if let (Some(directory), Some(filename)) = (directory, &Path::new(&path_string).file_name()) {
-            path_string = Path::new(&directory).join(Path::new(&filename)).to_str().unwrap().to_string()
+            path_string = Path::new(&directory).join(Path::new(&filename)).to_str().unwrap().to_string();
         }
 
         Ok((path_string, parser))

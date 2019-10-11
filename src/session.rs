@@ -1135,6 +1135,21 @@ impl Session {
         for path in paths {
             let path = path.as_ref();
 
+            let ext = path.extension().ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "file path requires an extension (.gif or .png)",
+            ))?;
+            let ext = ext.to_str().ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "file extension is not valid unicode",
+            ))?;
+            if !Self::SUPPORTED_FORMATS.contains(&ext) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("`{}` is not a supported output format", ext),
+                ));
+            }
+
             if path.is_dir() {
                 for entry in fs::read_dir(path)? {
                     let entry = entry?;
