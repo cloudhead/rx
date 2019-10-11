@@ -1135,29 +1135,26 @@ impl Session {
         for path in paths {
             let path = path.as_ref();
 
-            let ext = path.extension().ok_or(io::Error::new(
-                io::ErrorKind::Other,
-                "file path requires an extension (.gif or .png)",
-            ))?;
-            let ext = ext.to_str().ok_or(io::Error::new(
-                io::ErrorKind::Other,
-                "file extension is not valid unicode",
-            ))?;
-            if !Self::SUPPORTED_FORMATS.contains(&ext) {
+            // by this point the path should be canonicalized, so the path
+            // should not end with a period character
+            if path.to_str().unwrap().ends_with(".") {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    format!("`{}` is not a supported output format", ext),
+                    format!("`{:?}` is not a valid filename", path),
                 ));
             }
 
             if path.is_dir() {
-                for entry in fs::read_dir(path)? {
+                for entry in path.read_dir()? {
                     let entry = entry?;
                     let path = entry.path();
 
                     if path.is_dir() {
                         continue;
                     }
+
+                    // TODO: i think an error occurs here which causes
+                    // the `:e /tmp/` command to crash the program
                     self.load_view(path)?;
                 }
                 self.source_dir(path).ok();
