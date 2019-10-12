@@ -1153,13 +1153,13 @@ impl Session {
                         continue;
                     }
 
-                    // TODO: i think an error occurs here which causes
-                    // the `:e /tmp/` command to crash the program
                     self.load_view(path)?;
                 }
                 self.source_dir(path).ok();
             } else if path.exists() {
                 self.load_view(path)?;
+            } else if !path.exists() && path.with_extension("png").exists() {
+                self.load_view(path.with_extension("png"))?;
             } else {
                 let (w, h) = if !self.views.is_empty() {
                     let v = self.active_view();
