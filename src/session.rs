@@ -949,7 +949,7 @@ impl Session {
 
         match old {
             Mode::Command => {
-                self.selection = Rect::empty();
+                self.selection = Rect::zero();
                 self.cmdline.clear();
             }
             _ => {}
@@ -1618,7 +1618,7 @@ impl Session {
                     if key == platform::Key::Escape
                         && state == InputState::Pressed
                     {
-                        self.selection = Rect::empty();
+                        self.selection = Rect::zero();
                         self.switch_mode(Mode::Normal);
                         return;
                     }
