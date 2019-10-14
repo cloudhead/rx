@@ -599,7 +599,7 @@ pub struct Session {
     pub key_bindings: KeyBindings,
 
     /// Current pixel selection.
-    pub selection: Rect<f32>,
+    pub selection: Rect<i32>,
 
     /// The session's current settings.
     pub settings: Settings,
@@ -640,8 +640,6 @@ pub struct Session {
     _grid_w: u32,
     #[allow(dead_code)]
     _grid_h: u32,
-    #[allow(dead_code)]
-    _mouse_selection: Rect<f32>,
     #[allow(dead_code)]
     _frame_count: u64,
 }
@@ -723,7 +721,7 @@ impl Session {
             cmdline: CommandLine::new(),
             throttled: None,
             mode: Mode::Normal,
-            selection: Rect::new(0., 0., 0., 0.),
+            selection: Rect::zero(),
             message: Message::default(),
             resources,
             avg_time: time::Duration::from_secs(0),
@@ -731,7 +729,6 @@ impl Session {
 
             // Unused
             _onion: false,
-            _mouse_selection: Rect::new(0., 0., 0., 0.),
             _frame_count: 0,
             _grid_w: 0,
             _grid_h: 0,
@@ -967,7 +964,7 @@ impl Session {
             }
             Mode::Visual => {
                 let v = self.active_view();
-                self.selection = Rect::origin(v.fw as f32, v.fh as f32);
+                self.selection = Rect::origin(v.fw as i32, v.fh as i32);
             }
             _ => {}
         }
@@ -2206,8 +2203,7 @@ impl Session {
                 self.unimplemented();
             }
             Command::SelectionMove(x, y) => {
-                self.selection =
-                    self.selection + Vector2::new(x as f32, y as f32);
+                self.selection += Vector2::new(x, y);
             }
             Command::SelectionResize(_x, _y) => {}
             Command::SelectionExpand => {}

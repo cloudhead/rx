@@ -733,7 +733,9 @@ impl Renderer {
             let v = session.active_view();
             let c = Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88);
             canvas.add(Shape::Rectangle(
-                session.selection * v.zoom + session.offset + v.offset,
+                session.selection.map(|n| n as f32) * v.zoom
+                    + session.offset
+                    + v.offset,
                 Stroke::NONE,
                 Fill::Solid(c.into()),
             ));
