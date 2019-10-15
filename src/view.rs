@@ -323,8 +323,15 @@ impl View {
     }
 
     /// Check whether the session coordinates are contained within the view.
+    ///
+    /// Nb. Normally, points on the *top* or *right* border of a rectangle
+    /// are considered "within" that rectangle. However, for views, we
+    /// consider these points **outside** of the view for all practical
+    /// purposess, and thus this function will return `false` for those
+    /// points.
     pub fn contains(&self, p: SessionCoords) -> bool {
-        self.rect().contains(*p)
+        let r = self.rect();
+        Rect::new(r.x1, r.y1, r.x2 - 1.0, r.y2 - 1.0).contains(*p)
     }
 
     /// View has been modified. Called when using the brush on the view,
