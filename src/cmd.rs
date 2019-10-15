@@ -571,11 +571,11 @@ impl<'a> Parse<'a> for Command {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;
                 Ok((Command::Pan(x, y), p))
             }
-            "vmap" => {
+            "map/v" => {
                 let (km, p) = KeyMapping::parse(p, &[Mode::Visual])?;
                 Ok((Command::Map(Box::new(km)), p))
             }
-            "nmap" => {
+            "map/n" => {
                 let (km, p) = KeyMapping::parse(p, &[Mode::Normal])?;
                 Ok((Command::Map(Box::new(km)), p))
             }
