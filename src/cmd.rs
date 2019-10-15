@@ -54,6 +54,7 @@ pub enum Command {
     SelectionMove(i32, i32),
     SelectionResize(i32, i32),
     SelectionExpand,
+    SelectionShrink,
     SelectionYank,
     SelectionFill(Option<Rgba8>),
     Set(String, Value),
@@ -611,8 +612,13 @@ impl<'a> Parse<'a> for Command {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;
                 Ok((Command::SelectionMove(x, y), p))
             }
+            "selection/resize" => {
+                let ((x, y), p) = p.parse::<(i32, i32)>()?;
+                Ok((Command::SelectionResize(x, y), p))
+            }
             "selection/yank" => Ok((Command::SelectionYank, p)),
             "selection/expand" => Ok((Command::SelectionExpand, p)),
+            "selection/shrink" => Ok((Command::SelectionShrink, p)),
             "selection/fill" => {
                 if let Ok((rgba, p)) = p.clone().parse::<Rgba8>() {
                     Ok((Command::SelectionFill(Some(rgba)), p))

@@ -946,7 +946,6 @@ impl Session {
 
         match old {
             Mode::Command => {
-                self.selection = Rect::zero();
                 self.cmdline.clear();
             }
             _ => {}
@@ -963,8 +962,10 @@ impl Session {
                 self.cmdline.putc(':');
             }
             Mode::Visual => {
-                let v = self.active_view();
-                self.selection = Rect::origin(v.fw as i32, v.fh as i32);
+                if self.selection.is_zero() {
+                    let v = self.active_view();
+                    self.selection = Rect::origin(v.fw as i32, v.fh as i32);
+                }
             }
             _ => {}
         }
@@ -2205,8 +2206,34 @@ impl Session {
             Command::SelectionMove(x, y) => {
                 self.selection += Vector2::new(x, y);
             }
-            Command::SelectionResize(_x, _y) => {}
-            Command::SelectionExpand => {}
+            Command::SelectionResize(x, y) => {
+                self.selection.x2 += x;
+                self.selection.y2 += y;
+            }
+            Command::SelectionExpand => {
+                let v = self.active_view();
+
+                let (fw, fh) = (v.fw as i32, v.fh as i32);
+                let (vw, vh) = (v.width() as i32, v.height() as i32);
+
+                let r = Rect::origin(vw, vh);
+                let min = self.selection.min();
+                let max = self.selection.max();
+
+                // If the selection is within the view rectangle, expand it,
+                // otherwise do nothing.
+                if r.contains(min) && r.contains(max) {
+                    let x1 = if min.x % fw == 0 {
+                        min.x - fw
+                    } else {
+                        min.x - min.x % fw
+                    };
+                    let x2 = max.x + (fw - max.x % fw);
+
+                    self.selection = Rect::new(x1, 0, x2, fh).clamped(r);
+                }
+            }
+            Command::SelectionShrink => {}
             Command::SelectionYank => {}
             Command::SelectionFill(_color) => {}
         };
