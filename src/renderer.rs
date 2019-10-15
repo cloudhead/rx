@@ -709,13 +709,15 @@ impl Renderer {
                 ));
             }
             // View border
+            let r = v.rect();
             let border_color = if session.is_active(&id) {
                 Rgba::WHITE
             } else {
                 Rgba::new(0.5, 0.5, 0.5, 1.0)
             };
             canvas.add(Shape::Rectangle(
-                v.rect() + session.offset,
+                Rect::new(r.x1 - 1., r.y1 - 1., r.x2 + 1., r.y2 + 1.)
+                    + session.offset,
                 Stroke::new(1.0, border_color),
                 Fill::Empty(),
             ));
