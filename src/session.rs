@@ -629,8 +629,8 @@ pub struct Session {
 
     /// Whether session inputs are being throttled.
     throttled: Option<time::Instant>,
-    /// Set to `true` if the mouse button is pressed.
-    mouse_down: bool,
+    /// Input state of the mouse.
+    mouse_state: InputState,
 
     #[allow(dead_code)]
     _paste: (),
@@ -705,7 +705,7 @@ impl Session {
             offset: Vector2::zero(),
             tool: Tool::Brush(Brush::default()),
             prev_tool: None,
-            mouse_down: false,
+            mouse_state: InputState::Released,
             hover_color: None,
             hover_view: None,
             fg: color::WHITE,
@@ -970,6 +970,7 @@ impl Session {
             _ => {}
         }
 
+        // Release all keys and mouse buttons when switching modes.
         let pressed: Vec<platform::Key> =
             self.keys_pressed.iter().cloned().collect();
         for k in pressed {
@@ -978,6 +979,12 @@ impl Session {
                 modifiers: ModifiersState::default(),
                 state: InputState::Released,
             });
+        }
+        if self.mouse_state == InputState::Pressed {
+            self.handle_mouse_input(
+                platform::MouseButton::Left,
+                InputState::Released,
+            );
         }
 
         self.mode = new;
@@ -1457,71 +1464,77 @@ impl Session {
         if button != platform::MouseButton::Left {
             return;
         }
-        if state == platform::InputState::Pressed {
-            self.mouse_down = true;
+        self.mouse_state = state;
 
-            // Click on palette.
-            if let Some(color) = self.palette.hover {
-                if self.mode == Mode::Command {
-                    self.cmdline.puts(&Rgb8::from(color).to_string());
-                } else {
-                    self.pick_color(color);
-                }
-                return;
-            }
-
-            // Click on a view.
-            if let Some(id) = self.hover_view {
-                // Clicking on a view is one way to get out of command mode.
-                if self.mode == Mode::Command {
-                    self.cmdline_hide();
+        match state {
+            InputState::Pressed => {
+                // Click on palette.
+                if let Some(color) = self.palette.hover {
+                    if self.mode == Mode::Command {
+                        self.cmdline.puts(&Rgb8::from(color).to_string());
+                    } else {
+                        self.pick_color(color);
+                    }
                     return;
                 }
-                if self.is_active(&id) {
-                    let v = self.active_view();
-                    let p = self.view_coords(v.id, self.cursor);
-                    let extent = v.extent();
 
-                    match self.mode {
-                        Mode::Normal => match self.tool {
-                            Tool::Brush(ref mut brush) => {
-                                let color = if brush.is_set(BrushMode::Erase) {
-                                    Rgba8::TRANSPARENT
-                                } else {
-                                    self.fg
-                                };
-                                brush.start_drawing(p.into(), color, extent);
-                            }
-                            Tool::Sampler => {
-                                self.sample_color();
-                            }
-                            Tool::Pan => {}
-                        },
-                        Mode::Command => {
-                            // TODO
-                        }
-                        Mode::Visual => {
-                            let p = p.map(|n| n as i32);
-                            self.selection =
-                                Rect::new(p.x, p.y, p.x + 1, p.y + 1);
-                        }
-                        Mode::Present | Mode::Help => {}
+                // Click on a view.
+                if let Some(id) = self.hover_view {
+                    // Clicking on a view is one way to get out of command mode.
+                    if self.mode == Mode::Command {
+                        self.cmdline_hide();
+                        return;
                     }
-                } else {
-                    self.activate(id);
+                    if self.is_active(&id) {
+                        let v = self.active_view();
+                        let p = self.view_coords(v.id, self.cursor);
+                        let extent = v.extent();
+
+                        match self.mode {
+                            Mode::Normal => match self.tool {
+                                Tool::Brush(ref mut brush) => {
+                                    let color =
+                                        if brush.is_set(BrushMode::Erase) {
+                                            Rgba8::TRANSPARENT
+                                        } else {
+                                            self.fg
+                                        };
+                                    brush.start_drawing(
+                                        p.into(),
+                                        color,
+                                        extent,
+                                    );
+                                }
+                                Tool::Sampler => {
+                                    self.sample_color();
+                                }
+                                Tool::Pan => {}
+                            },
+                            Mode::Command => {
+                                // TODO
+                            }
+                            Mode::Visual => {
+                                let p = p.map(|n| n as i32);
+                                self.selection =
+                                    Rect::new(p.x, p.y, p.x + 1, p.y + 1);
+                            }
+                            Mode::Present | Mode::Help => {}
+                        }
+                    } else {
+                        self.activate(id);
+                    }
                 }
             }
-        } else if state == platform::InputState::Released {
-            self.mouse_down = false;
-
-            if let Tool::Brush(ref mut brush) = self.tool {
-                match brush.state {
-                    BrushState::Drawing { .. }
-                    | BrushState::DrawStarted { .. } => {
-                        brush.stop_drawing();
-                        self.active_view_mut().touch();
+            InputState::Released => {
+                if let Tool::Brush(ref mut brush) = self.tool {
+                    match brush.state {
+                        BrushState::Drawing { .. }
+                        | BrushState::DrawStarted { .. } => {
+                            brush.stop_drawing();
+                            self.active_view_mut().touch();
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
@@ -1601,7 +1614,7 @@ impl Session {
 
         if let Some(key) = key {
             // While the mouse is down, don't accept keyboard input.
-            if self.mouse_down {
+            if self.mouse_state == InputState::Pressed {
                 return;
             }
 
