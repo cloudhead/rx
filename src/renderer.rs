@@ -697,16 +697,19 @@ impl Renderer {
         text: &mut TextBatch,
     ) {
         if let Some(selection) = session.selection {
+            let fill =
+                Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88);
+            let stroke = color::RED;
+
             let v = session.active_view();
-            let c = Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88);
             let r = selection.normalized();
             canvas.add(Shape::Rectangle(
                 Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1).map(|n| n as f32)
                     * v.zoom
                     + session.offset
                     + v.offset,
-                Stroke::NONE,
-                Fill::Solid(c.into()),
+                Stroke::new(1., stroke.into()),
+                Fill::Solid(fill.into()),
             ));
         }
 
