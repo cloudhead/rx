@@ -919,45 +919,60 @@ impl Renderer {
         if session.palette.hover.is_some() {
             return;
         }
-        if let Tool::Brush(ref brush) = session.tool {
-            let v = session.active_view();
-            let p = session.cursor;
+        let v = session.active_view();
+        let c = session.cursor;
 
-            // Draw enabled brush
-            if v.contains(p - session.offset) {
-                let (stroke, fill) = if brush.is_set(BrushMode::Erase) {
-                    (Stroke::new(1.0, Rgba::WHITE), Fill::Empty())
-                } else {
-                    (Stroke::NONE, Fill::Solid(session.fg.into()))
-                };
-
-                let view_coords = session.active_view_coords(session.cursor);
-                for p in brush.expand(view_coords.into(), v.extent()) {
-                    batch.add(brush.shape(
-                        *session.session_coords(v.id, p.into()),
-                        stroke,
-                        fill,
-                        v.zoom,
-                        Origin::BottomLeft,
+        match session.mode {
+            Mode::Visual => {
+                if v.contains(c - session.offset) {
+                    let z = v.zoom;
+                    let c = session.snap(c, v.offset.x, v.offset.y, z);
+                    batch.add(Shape::Rectangle(
+                        Rect::new(c.x, c.y, c.x + z, c.y + z),
+                        Stroke::new(1.0, color::RED.into()),
+                        Fill::Empty(),
                     ));
                 }
-            // Draw disabled brush
-            } else {
-                let color = if brush.is_set(BrushMode::Erase) {
-                    color::GREY
-                } else {
-                    session.fg
-                };
-                batch.add(brush.shape(
-                    *p,
-                    Stroke::new(1.0, color.into()),
-                    Fill::Empty(),
-                    v.zoom,
-                    Origin::Center,
-                ));
             }
-        } else {
-            // TODO
+            Mode::Normal => {
+                if let Tool::Brush(ref brush) = session.tool {
+                    // Draw enabled brush
+                    if v.contains(c - session.offset) {
+                        let (stroke, fill) = if brush.is_set(BrushMode::Erase) {
+                            (Stroke::new(1.0, Rgba::WHITE), Fill::Empty())
+                        } else {
+                            (Stroke::NONE, Fill::Solid(session.fg.into()))
+                        };
+
+                        let view_coords =
+                            session.active_view_coords(session.cursor);
+                        for p in brush.expand(view_coords.into(), v.extent()) {
+                            batch.add(brush.shape(
+                                *session.session_coords(v.id, p.into()),
+                                stroke,
+                                fill,
+                                v.zoom,
+                                Origin::BottomLeft,
+                            ));
+                        }
+                    // Draw disabled brush
+                    } else {
+                        let color = if brush.is_set(BrushMode::Erase) {
+                            color::GREY
+                        } else {
+                            session.fg
+                        };
+                        batch.add(brush.shape(
+                            *c,
+                            Stroke::new(1.0, color.into()),
+                            Fill::Empty(),
+                            v.zoom,
+                            Origin::Center,
+                        ));
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
