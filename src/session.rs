@@ -1501,7 +1501,9 @@ impl Session {
                             // TODO
                         }
                         Mode::Visual => {
-                            // TODO
+                            let p = p.map(|n| n as i32);
+                            self.selection =
+                                Rect::new(p.x, p.y, p.x + 1, p.y + 1);
                         }
                         Mode::Present | Mode::Help => {}
                     }
