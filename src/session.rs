@@ -599,7 +599,12 @@ pub struct Session {
     pub key_bindings: KeyBindings,
 
     /// Current pixel selection.
-    pub selection: Rect<i32>,
+    ///
+    /// Note that this rectangle represents selected pixels, __not__ selection
+    /// bounds. For example, if we had `Rect::new(0, 0, 0, 0)` here, this would
+    /// be a non-empty selection of *one pixel* at position `0, 0`.  To
+    /// represent an empty selection, this should be set to `None`.
+    pub selection: Option<Rect<i32>>,
 
     /// The session's current settings.
     pub settings: Settings,
@@ -608,7 +613,8 @@ pub struct Session {
 
     /// Views loaded in the session.
     pub views: ViewManager,
-    /// Effects produced by the session. Cleared at the beginning of every update.
+    /// Effects produced by the session. Cleared at the beginning of every
+    /// update.
     pub effects: Vec<Effect>,
 
     /// The current state of the command line.
@@ -721,7 +727,7 @@ impl Session {
             cmdline: CommandLine::new(),
             throttled: None,
             mode: Mode::Normal,
-            selection: Rect::zero(),
+            selection: None,
             message: Message::default(),
             resources,
             avg_time: time::Duration::from_secs(0),
@@ -962,9 +968,10 @@ impl Session {
                 self.cmdline.putc(':');
             }
             Mode::Visual => {
-                if self.selection.is_zero() {
+                if self.selection.is_none() {
                     let v = self.active_view();
-                    self.selection = Rect::origin(v.fw as i32, v.fh as i32);
+                    self.selection =
+                        Some(Rect::origin(v.fw as i32 - 1, v.fh as i32 - 1));
                 }
             }
             _ => {}
@@ -1516,7 +1523,7 @@ impl Session {
                             Mode::Visual => {
                                 let p = p.map(|n| n as i32);
                                 self.selection =
-                                    Rect::new(p.x, p.y, p.x + 1, p.y + 1);
+                                    Some(Rect::new(p.x, p.y, p.x, p.y));
                             }
                             Mode::Present | Mode::Help => {}
                         }
@@ -1582,7 +1589,16 @@ impl Session {
                 }
                 Tool::Sampler => {}
             },
-            Mode::Visual => {}
+            Mode::Visual => {
+                if self.mouse_state == InputState::Pressed {
+                    let c = self.active_view_coords(cursor);
+
+                    if let Some(ref mut s) = self.selection {
+                        s.x2 = c.x as i32;
+                        s.y2 = c.y as i32;
+                    }
+                }
+            }
             _ => {}
         }
         self.cursor = cursor;
@@ -1631,7 +1647,7 @@ impl Session {
                     if key == platform::Key::Escape
                         && state == InputState::Pressed
                     {
-                        self.selection = Rect::zero();
+                        self.selection = None;
                         self.switch_mode(Mode::Normal);
                         return;
                     }
@@ -2219,33 +2235,42 @@ impl Session {
                 self.unimplemented();
             }
             Command::SelectionMove(x, y) => {
-                self.selection += Vector2::new(x, y);
+                if let Some(ref mut s) = self.selection {
+                    *s += Vector2::new(x, y);
+                }
             }
             Command::SelectionResize(x, y) => {
-                self.selection.x2 += x;
-                self.selection.y2 += y;
+                if let Some(ref mut s) = self.selection {
+                    s.x2 += x;
+                    s.y2 += y;
+                }
             }
             Command::SelectionExpand => {
                 let v = self.active_view();
-
                 let (fw, fh) = (v.fw as i32, v.fh as i32);
                 let (vw, vh) = (v.width() as i32, v.height() as i32);
 
-                let r = Rect::origin(vw, vh);
-                let min = self.selection.min();
-                let max = self.selection.max();
+                if let Some(ref mut selection) = self.selection {
+                    // Since the selection rectangle represents selected
+                    // pixels and not bounds, we have to shrink it by one,
+                    // compared to the view rectangle.
+                    let r = Rect::origin(vw - 1, vh - 1);
+                    let min = selection.min();
+                    let max = selection.max();
 
-                // If the selection is within the view rectangle, expand it,
-                // otherwise do nothing.
-                if r.contains(min) && r.contains(max) {
-                    let x1 = if min.x % fw == 0 {
-                        min.x - fw
-                    } else {
-                        min.x - min.x % fw
-                    };
-                    let x2 = max.x + (fw - max.x % fw);
+                    // If the selection is within the view rectangle, expand it,
+                    // otherwise do nothing.
+                    if r.contains(min) && r.contains(max) {
+                        let x1 = if min.x % fw == 0 {
+                            min.x - fw
+                        } else {
+                            min.x - min.x % fw
+                        };
+                        let x2 = max.x + (fw - max.x % (fw - 1)) - 1;
+                        let y2 = fh - 1;
 
-                    self.selection = Rect::new(x1, 0, x2, fh).clamped(r);
+                        *selection = Rect::new(x1, 0, x2, y2).clamped(r);
+                    }
                 }
             }
             Command::SelectionShrink => {}

@@ -696,6 +696,20 @@ impl Renderer {
         canvas: &mut shape2d::Batch,
         text: &mut TextBatch,
     ) {
+        if let Some(selection) = session.selection {
+            let v = session.active_view();
+            let c = Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88);
+            let r = selection.normalized();
+            canvas.add(Shape::Rectangle(
+                Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1).map(|n| n as f32)
+                    * v.zoom
+                    + session.offset
+                    + v.offset,
+                Stroke::NONE,
+                Fill::Solid(c.into()),
+            ));
+        }
+
         for (id, v) in session.views.iter() {
             let offset = v.offset + session.offset;
 
@@ -729,18 +743,6 @@ impl Renderer {
                 offset.y - self::LINE_HEIGHT,
                 color::GREY,
             );
-        }
-
-        if !session.selection.is_empty() {
-            let v = session.active_view();
-            let c = Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88);
-            canvas.add(Shape::Rectangle(
-                session.selection.map(|n| n as f32) * v.zoom
-                    + session.offset
-                    + v.offset,
-                Stroke::NONE,
-                Fill::Solid(c.into()),
-            ));
         }
 
         if session.settings["debug"].is_set() {
