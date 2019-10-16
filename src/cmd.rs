@@ -431,7 +431,8 @@ impl FromStr for Command {
                 p.finish()?; // Make sure we've consumed all the input
                 Ok(cmd)
             }
-            Err(e) => Err(e),
+            // TODO: Use `enum` for error.
+            Err(e) => Err(Error::new(format!("{}:\n\n\t{}\n", e, input))),
         }
     }
 }
