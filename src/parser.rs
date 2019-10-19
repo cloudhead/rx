@@ -5,7 +5,7 @@ use crate::platform;
 use crate::session::Mode;
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::result;
 use std::str::FromStr;
 
@@ -213,35 +213,30 @@ impl<'a> Parser<'a> {
     pub fn path(self) -> Result<'a, String> {
         let (path, parser) = self.word()?;
 
-        let path = Path::new(path);
-        if path.to_str().is_none() {
+        if path == "" {
             return Ok((String::from(""), parser));
         }
 
-        let mut path_string = String::from(path.to_str().unwrap());
+        let mut path = PathBuf::from(path);
 
         // Linux and BSD and MacOS use ~ to infer the home directory of a given user
         if cfg!(unix) && path.starts_with("~") {
             if let Some(base_dirs) = dirs::BaseDirs::new() {
 
-                if path == Path::new("~") {
-                    return Ok((base_dirs.home_dir().to_str().unwrap().to_string(),parser));
-                }
-
                 let suffix = path.strip_prefix("~").unwrap();
-                path_string = base_dirs.home_dir().join(suffix).to_str().unwrap().to_owned();
+                path = base_dirs.home_dir().join(suffix);
             }
         }
 
-        let directory = &Path::new(&path_string)
+        let directory = &path
             .parent()
             .and_then(|directory| directory.canonicalize().ok());
 
-        if let (Some(directory), Some(filename)) = (directory, &Path::new(&path_string).file_name()) {
-            path_string = Path::new(&directory).join(Path::new(&filename)).to_str().unwrap().to_string();
+        if let (Some(directory), Some(filename)) = (directory, &path.file_name()) {
+            path = Path::new(&directory).join(Path::new(&filename));
         }
 
-        Ok((path_string, parser))
+        Ok((path.to_str().unwrap().to_owned(), parser))
     }
 
     pub fn peek(&self) -> Option<char> {
