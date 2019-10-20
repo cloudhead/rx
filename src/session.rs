@@ -134,13 +134,12 @@ impl Sub<Vector2<f32>> for SessionCoords {
 
 /// An editing mode the `Session` can be in.
 /// Some of these modes are inspired by vi.
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum Mode {
     /// Allows the user to paint pixels.
     Normal,
     /// Allows pixels to be selected, copied and manipulated visually.
-    #[allow(dead_code)]
-    Visual,
+    Visual(VisualMode),
     /// Allows commands to be run.
     Command,
     /// Used to present work.
@@ -160,12 +159,18 @@ impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Normal => "normal".fmt(f),
-            Self::Visual => "visual".fmt(f),
+            Self::Visual(_) => "visual".fmt(f),
             Self::Command => "command".fmt(f),
             Self::Present => "present".fmt(f),
             Self::Help => "help".fmt(f),
         }
     }
+}
+
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub enum VisualMode {
+    Selecting,
+    Pasting,
 }
 
 /// Session effects. Eg. view creation/destruction.
@@ -964,7 +969,7 @@ impl Session {
                 self.ignore_received_characters = true;
                 self.cmdline.putc(':');
             }
-            Mode::Visual => {
+            Mode::Visual(_) => {
                 if self.selection.is_none() {
                     let v = self.active_view();
                     self.selection =
@@ -1526,7 +1531,7 @@ impl Session {
                             Mode::Command => {
                                 // TODO
                             }
-                            Mode::Visual => {
+                            Mode::Visual(_) => {
                                 let p = p.map(|n| n as i32);
                                 self.selection =
                                     Some(Rect::new(p.x, p.y, p.x, p.y));
@@ -1595,7 +1600,7 @@ impl Session {
                 }
                 Tool::Sampler => {}
             },
-            Mode::Visual => {
+            Mode::Visual(VisualMode::Selecting) => {
                 if self.mouse_state == InputState::Pressed {
                     let c = self.active_view_coords(cursor);
 
@@ -1649,12 +1654,20 @@ impl Session {
             }
 
             match self.mode {
-                Mode::Visual => {
+                Mode::Visual(VisualMode::Selecting) => {
                     if key == platform::Key::Escape
                         && state == InputState::Pressed
                     {
                         self.selection = None;
                         self.switch_mode(Mode::Normal);
+                        return;
+                    }
+                }
+                Mode::Visual(VisualMode::Pasting) => {
+                    if key == platform::Key::Escape
+                        && state == InputState::Pressed
+                    {
+                        self.switch_mode(Mode::Visual(VisualMode::Selecting));
                         return;
                     }
                 }
@@ -2300,7 +2313,8 @@ impl Session {
                     ));
                     v.yank(Rect::new(s.x1, s.y1, s.x2 + 1, s.y2 + 1));
 
-                    self.selection = None;
+                    self.selection = Some(s);
+                    self.switch_mode(Mode::Visual(VisualMode::Pasting));
                 }
             }
             Command::SelectionFill(_color) => {}

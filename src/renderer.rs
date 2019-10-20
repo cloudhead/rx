@@ -8,7 +8,9 @@ use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{self, Effect, ExecutionMode, Mode, Rgb8, Session, Tool};
+use crate::session::{
+    self, Effect, ExecutionMode, Mode, Rgb8, Session, Tool, VisualMode,
+};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
@@ -408,6 +410,8 @@ impl Renderer {
             self.cursors.texture.w,
             self.cursors.texture.h,
         );
+        let mut paste_batch =
+            sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h);
         let mut checker_batch = sprite2d::Batch::new(
             self.checker.texture.w,
             self.checker.texture.h,
@@ -430,6 +434,7 @@ impl Renderer {
         }
 
         Self::draw_brush(&session, &mut ui_batch);
+        Self::draw_paste(&session, &self.paste, &mut paste_batch);
         Self::draw_ui(&session, avg_frametime, &mut ui_batch, &mut text_batch);
         Self::draw_palette(&session, &mut palette_batch);
         Self::draw_cursor(&session, &mut cursor_batch);
@@ -445,6 +450,11 @@ impl Renderer {
         } else {
             Some(paint_batch.finish(&r))
         };
+        let paste_buf = if paste_batch.size > 0 {
+            Some(paste_batch.finish(&r))
+        } else {
+            None
+        };
 
         // Start the render frame.
         let mut f = r.frame();
@@ -456,6 +466,11 @@ impl Renderer {
             &r,
             &mut f,
         );
+
+        let view_data = self
+            .view_data
+            .get(&session.views.active_id)
+            .expect("the view data for the active view must exist");
 
         r.update_pipeline(&self.shape2d, Matrix4::identity(), &mut f);
         r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
@@ -475,19 +490,6 @@ impl Renderer {
         // Render brush strokes to view framebuffers.
         if let Some(ref paint_buf) = paint_buf {
             if let Tool::Brush(ref b) = session.tool {
-                let view_data = self
-                    .view_data
-                    .get(&session.views.active_id)
-                    .expect("the view data for the active view must exist");
-
-                if let BrushState::DrawEnded(_) = b.state {
-                    // Use a render pass to clear the staging buffer.
-                    f.pass(
-                        PassOp::Clear(Rgba::TRANSPARENT),
-                        &view_data.staging_fb,
-                    );
-                }
-
                 if b.state != BrushState::NotDrawing {
                     r.update_pipeline(
                         &self.brush2d,
@@ -505,12 +507,19 @@ impl Renderer {
             }
         }
 
-        if !self.paste.outputs.is_empty() {
-            let view_data = self
-                .view_data
-                .get(&session.views.active_id)
-                .expect("the view data for the active view must exist");
+        // Draw paste buffer to view staging buffer.
+        if let Some(buf) = paste_buf {
+            r.update_pipeline(&self.paste2d, Matrix4::identity(), &mut f);
 
+            let mut p =
+                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &view_data.staging_fb);
+
+            p.set_pipeline(&self.paste2d);
+            p.draw(&buf, &self.paste.binding);
+        }
+
+        // Draw paste buffer to view framebuffer.
+        if !self.paste.outputs.is_empty() {
             r.update_pipeline(&self.paste2d, Matrix4::identity(), &mut f);
 
             let mut p = f.pass(PassOp::Load(), &view_data.fb);
@@ -578,6 +587,14 @@ impl Renderer {
 
         // Submit frame to device.
         r.submit(f);
+
+        // Always clear the active view staging buffer. We do this because
+        // it may not get drawn to this frame, and hence may remain dirty
+        // from a previous frame.
+        //
+        // We have to do this *after* the frame has been submitted, otherwise
+        // when switching views, the staging buffer isn't cleared.
+        r.prepare(&[Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT)]);
 
         // If active view is dirty, record a snapshot of it.
         let v = session.active_view();
@@ -803,8 +820,12 @@ impl Renderer {
         text: &mut TextBatch,
     ) {
         if let Some(selection) = session.selection {
-            let fill =
-                Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88);
+            let fill = match session.mode {
+                Mode::Visual(VisualMode::Selecting) => {
+                    Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88)
+                }
+                _ => Rgba8::TRANSPARENT,
+            };
             let stroke = color::RED;
 
             let v = session.active_view();
@@ -1002,7 +1023,7 @@ impl Renderer {
         // TODO: Cursor should be greyed out in command mode.
         match session.mode {
             Mode::Present | Mode::Help => {}
-            Mode::Normal | Mode::Command | Mode::Visual => {
+            Mode::Normal | Mode::Command | Mode::Visual(_) => {
                 // When hovering over the palette, switch to the sampler icon
                 // to tell the user that clicking will select the color.
                 let tool = if session.palette.hover.is_some() {
@@ -1026,7 +1047,7 @@ impl Renderer {
         }
     }
 
-    fn draw_brush(session: &Session, batch: &mut shape2d::Batch) {
+    fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
         if session.palette.hover.is_some() {
             return;
         }
@@ -1034,11 +1055,11 @@ impl Renderer {
         let c = session.cursor;
 
         match session.mode {
-            Mode::Visual => {
+            Mode::Visual(VisualMode::Selecting) => {
                 if v.contains(c - session.offset) {
                     let z = v.zoom;
                     let c = session.snap(c, v.offset.x, v.offset.y, z);
-                    batch.add(Shape::Rectangle(
+                    shapes.add(Shape::Rectangle(
                         Rect::new(c.x, c.y, c.x + z, c.y + z),
                         Stroke::new(1.0, color::RED.into()),
                         Fill::Empty(),
@@ -1058,7 +1079,7 @@ impl Renderer {
                         let view_coords =
                             session.active_view_coords(session.cursor);
                         for p in brush.expand(view_coords.into(), v.extent()) {
-                            batch.add(brush.shape(
+                            shapes.add(brush.shape(
                                 *session.session_coords(v.id, p.into()),
                                 stroke,
                                 fill,
@@ -1073,7 +1094,7 @@ impl Renderer {
                         } else {
                             session.fg
                         };
-                        batch.add(brush.shape(
+                        shapes.add(brush.shape(
                             *c,
                             Stroke::new(1.0, color.into()),
                             Fill::Empty(),
@@ -1084,6 +1105,29 @@ impl Renderer {
                 }
             }
             _ => {}
+        }
+    }
+
+    fn draw_paste(
+        session: &Session,
+        paste: &Paste,
+        batch: &mut sprite2d::Batch,
+    ) {
+        if let Mode::Visual(VisualMode::Pasting) = session.mode {
+            if let Some(s) = session.selection {
+                batch.add(
+                    paste.texture.rect(),
+                    Rect::new(
+                        s.x1 as f32,
+                        s.y1 as f32,
+                        s.x2 as f32 + 1.,
+                        s.y2 as f32 + 1.,
+                    ),
+                    Rgba::TRANSPARENT,
+                    0.9,
+                    kit::Repeat::default(),
+                );
+            }
         }
     }
 
