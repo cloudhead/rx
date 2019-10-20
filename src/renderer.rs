@@ -50,6 +50,8 @@ pub struct Renderer {
     /// Pipeline for eraser strokes and other use-cases that require
     /// "constant" blending.
     const2d: kit::shape2d::Pipeline,
+    /// Pipeline for pasting to the view.
+    paste2d: kit::sprite2d::Pipeline,
 
     /// Pipeline used to render to the screen/window.
     screen2d: screen2d::Pipeline,
@@ -64,6 +66,16 @@ pub struct Renderer {
 
     /// View data, such as buffers, bindings etc.
     view_data: BTreeMap<ViewId, ViewData>,
+
+    /// Paste buffer.
+    paste: Paste,
+}
+
+/// Paste buffer.
+struct Paste {
+    binding: core::BindingGroup,
+    texture: core::Texture,
+    outputs: Vec<core::VertexBuffer>,
 }
 
 struct Checker {
@@ -230,6 +242,21 @@ impl Renderer {
             Session::DEFAULT_VIEW_H,
             Blending::constant(),
         );
+        let paste2d: sprite2d::Pipeline = r.pipeline(
+            Session::DEFAULT_VIEW_W,
+            Session::DEFAULT_VIEW_H,
+            Blending::default(),
+        );
+
+        let paste = {
+            let texture = r.texture(1, 1);
+            let binding = paste2d.binding(r, &texture, &sampler);
+            Paste {
+                texture,
+                binding,
+                outputs: Vec::new(),
+            }
+        };
 
         let screen_vb = screen2d::Pipeline::vertex_buffer(r);
         let screen_fb = r.framebuffer(win_w, win_h);
@@ -254,12 +281,14 @@ impl Renderer {
             framebuffer2d,
             brush2d,
             const2d,
+            paste2d,
             screen2d,
             resources,
             screen_fb,
             screen_vb,
             screen_binding,
             view_data: BTreeMap::new(),
+            paste,
         }
     }
 
@@ -362,6 +391,13 @@ impl Renderer {
 
         // Handle effects produces by the session.
         self.handle_effects(effects, &session.views, r);
+
+        // Handle view operations.
+        for v in session.views.values() {
+            if !v.ops.is_empty() {
+                self.handle_view_ops(&v, r);
+            }
+        }
 
         let present = &textures.next();
 
@@ -469,6 +505,23 @@ impl Renderer {
             }
         }
 
+        if !self.paste.outputs.is_empty() {
+            let view_data = self
+                .view_data
+                .get(&session.views.active_id)
+                .expect("the view data for the active view must exist");
+
+            r.update_pipeline(&self.paste2d, Matrix4::identity(), &mut f);
+
+            let mut p = f.pass(PassOp::Load(), &view_data.fb);
+
+            p.set_pipeline(&self.paste2d);
+
+            for out in self.paste.outputs.drain(..) {
+                p.draw(&out, &self.paste.binding);
+            }
+        }
+
         {
             r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
 
@@ -546,12 +599,15 @@ impl Renderer {
     fn resize_brush_pipelines(&mut self, w: u32, h: u32) {
         assert!(
             self.brush2d.width() == self.const2d.width()
-                && self.brush2d.height() == self.const2d.height(),
+                && self.brush2d.height() == self.const2d.height()
+                && self.paste2d.width() == self.const2d.width()
+                && self.paste2d.height() == self.const2d.height(),
             "the view pipelines must always have the same size"
         );
         if self.brush2d.width() != w || self.brush2d.height() != h {
             self.brush2d.resize(w, h);
             self.const2d.resize(w, h);
+            self.paste2d.resize(w, h);
         }
     }
 
@@ -586,7 +642,6 @@ impl Renderer {
                 Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
                     let v = views.get(&id).expect("view must exist");
                     self.handle_view_dirty(v, r);
-                    self.handle_view_ops(v, r);
                     self.resize_brush_pipelines(v.width(), v.height());
                 }
             }
@@ -667,6 +722,55 @@ impl Renderer {
                 }
                 ViewOp::Blit(src, dst) => {
                     r.prepare(&[Op::Blit(fb, *src, *dst)]);
+                }
+                ViewOp::Yank(src) => {
+                    let resources = self.resources.lock();
+                    let (snapshot, pixels) = resources.get_snapshot(&v.id);
+
+                    let w = src.width() as usize;
+                    let h = src.height() as usize;
+
+                    let total_w = snapshot.width() as usize;
+                    let total_h = snapshot.height() as usize;
+
+                    let mut buffer: Vec<Bgra8> = Vec::with_capacity(w * h);
+
+                    for y in (src.y1 as usize..src.y2 as usize).rev() {
+                        let y = total_h - y - 1;
+                        let offset = y * total_w + src.x1 as usize;
+                        let row = &pixels[offset..offset + w];
+
+                        buffer.extend_from_slice(row);
+                    }
+                    let mut pixels: Vec<Rgba8> =
+                        Vec::with_capacity(buffer.len());
+                    for c in buffer.into_iter() {
+                        pixels.push(c.into());
+                    }
+                    assert!(pixels.len() == w * h);
+
+                    self.paste.texture = r.texture(w as u32, h as u32);
+                    self.paste.binding = self.paste2d.binding(
+                        r,
+                        &self.paste.texture,
+                        &self.sampler,
+                    );
+
+                    r.prepare(&[Op::Fill(&self.paste.texture, &pixels)]);
+                }
+                ViewOp::Paste(dst) => {
+                    let buffer = sprite2d::Batch::singleton(
+                        self.paste.texture.w,
+                        self.paste.texture.h,
+                        self.paste.texture.rect(),
+                        dst.map(|n| n as f32),
+                        Rgba::TRANSPARENT,
+                        1.,
+                        kit::Repeat::default(),
+                    )
+                    .finish(&r);
+
+                    self.paste.outputs.push(buffer);
                 }
             }
         }

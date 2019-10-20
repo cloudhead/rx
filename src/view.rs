@@ -84,6 +84,18 @@ pub struct ViewExtent {
     pub nframes: usize,
 }
 
+impl ViewExtent {
+    /// Extent total width.
+    pub fn width(&self) -> u32 {
+        self.fw * self.nframes as u32
+    }
+
+    /// Extent total height.
+    pub fn height(&self) -> u32 {
+        self.fh
+    }
+}
+
 /// Current state of the view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewState {
@@ -97,12 +109,16 @@ pub enum ViewState {
 }
 
 /// A view operation to be carried out by the renderer.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ViewOp {
     /// Copy an area of the view to another area.
     Blit(Rect<f32>, Rect<f32>),
     /// Clear to a color.
     Clear(Rgba8),
+    /// Yank the given area into the paste buffer.
+    Yank(Rect<i32>),
+    /// Blit the paste buffer into the given area.
+    Paste(Rect<i32>),
 }
 
 /// A view on a sprite or image.
@@ -254,6 +270,15 @@ impl View {
     /// Clear the view to a color.
     pub fn clear(&mut self, color: Rgba8) {
         self.ops.push(ViewOp::Clear(color));
+        self.touch();
+    }
+
+    pub fn yank(&mut self, area: Rect<i32>) {
+        self.ops.push(ViewOp::Yank(area));
+    }
+
+    pub fn paste(&mut self, area: Rect<i32>) {
+        self.ops.push(ViewOp::Paste(area));
         self.touch();
     }
 

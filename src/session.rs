@@ -170,7 +170,7 @@ impl fmt::Display for Mode {
 
 /// Session effects. Eg. view creation/destruction.
 /// Anything the renderer might want to know.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Effect {
     /// When the session has been resized.
     SessionResized(LogicalSize),
@@ -639,8 +639,6 @@ pub struct Session {
     mouse_state: InputState,
 
     #[allow(dead_code)]
-    _paste: (),
-    #[allow(dead_code)]
     _onion: bool,
     #[allow(dead_code)]
     _grid_w: u32,
@@ -738,7 +736,6 @@ impl Session {
             _frame_count: 0,
             _grid_w: 0,
             _grid_h: 0,
-            _paste: (),
         }
     }
 
@@ -2283,7 +2280,29 @@ impl Session {
                 }
             }
             Command::SelectionShrink => {}
-            Command::SelectionYank => {}
+            Command::SelectionPaste => {
+                if let Some(s) = self.selection {
+                    let s = s.normalized();
+                    self.active_view_mut().paste(Rect::new(
+                        s.x1,
+                        s.y1,
+                        s.x2 + 1,
+                        s.y2 + 1,
+                    ));
+                }
+            }
+            Command::SelectionYank => {
+                if let Some(s) = self.selection {
+                    let v = self.active_view_mut();
+                    let s = s.normalized().clamped(Rect::origin(
+                        v.width() as i32 - 1,
+                        v.height() as i32 - 1,
+                    ));
+                    v.yank(Rect::new(s.x1, s.y1, s.x2 + 1, s.y2 + 1));
+
+                    self.selection = None;
+                }
+            }
             Command::SelectionFill(_color) => {}
         };
     }

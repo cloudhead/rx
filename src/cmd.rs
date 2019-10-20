@@ -54,6 +54,7 @@ pub enum Command {
     SelectionMove(i32, i32),
     SelectionResize(i32, i32),
     SelectionExpand,
+    SelectionPaste,
     SelectionShrink,
     SelectionYank,
     SelectionFill(Option<Rgba8>),
@@ -432,7 +433,7 @@ impl FromStr for Command {
                 Ok(cmd)
             }
             // TODO: Use `enum` for error.
-            Err(e) => Err(Error::new(format!("{}:\n\n\t{}\n", e, input))),
+            Err(e) => Err(e),
         }
     }
 }
@@ -618,6 +619,7 @@ impl<'a> Parse<'a> for Command {
                 Ok((Command::SelectionResize(x, y), p))
             }
             "selection/yank" => Ok((Command::SelectionYank, p)),
+            "selection/paste" => Ok((Command::SelectionPaste, p)),
             "selection/expand" => Ok((Command::SelectionExpand, p)),
             "selection/shrink" => Ok((Command::SelectionShrink, p)),
             "selection/fill" => {
