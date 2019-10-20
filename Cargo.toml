@@ -28,7 +28,7 @@ directories = "2.0.2"
 raw-window-handle = "0.1.0"
 
 [dependencies.rgx]
-version = "0.1.7"
+version = "0.1.8"
 
 [patch.crates-io]
 # Rendy 0.4.0 has a bug which leads to texture corruption. We use a patched

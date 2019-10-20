@@ -1,7 +1,7 @@
 use crate::image;
 use crate::view::ViewId;
 
-use rgx::core::Rgba8;
+use rgx::core::{Bgra8, Rgba8};
 use rgx::nonempty::NonEmpty;
 
 use gif::{self, SetParameter};
@@ -131,17 +131,11 @@ impl ResourceManager {
         encoder.set_depth(png::BitDepth::Eight);
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
+        // TODO: (perf) Can this be made faster?
         let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for rgba in snapshot.pixels().chunks(mem::size_of::<Rgba8>()) {
-            match rgba {
-                &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
-                _ => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid pixel buffer size",
-                    ))
-                }
-            }
+        for bgra in snapshot.pixels() {
+            let rgba: Rgba8 = bgra.into();
+            pixels.extend_from_slice(&[rgba.r, rgba.g, rgba.b, rgba.a]);
         }
 
         let mut writer = encoder.write_header()?;
@@ -169,16 +163,9 @@ impl ResourceManager {
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
         let mut pixels: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for rgba in snapshot.pixels().chunks(mem::size_of::<Rgba8>()) {
-            match rgba {
-                &[b, g, r, a] => pixels.extend_from_slice(&[r, g, b, a]),
-                _ => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid pixel buffer size",
-                    ))
-                }
-            }
+        for bgra in snapshot.pixels() {
+            let rgba: Rgba8 = bgra.into();
+            pixels.extend_from_slice(&[rgba.r, rgba.g, rgba.b, rgba.a]);
         }
 
         let (fw, fh) = (snapshot.fw as usize, snapshot.fh as usize);
@@ -355,10 +342,15 @@ impl Snapshot {
         }
     }
 
-    pub fn pixels(&self) -> Vec<u8> {
-        self.pixels
-            .decompress()
-            .expect("decompressing snapshot shouldn't result in an error")
+    pub fn pixels(&self) -> Vec<Bgra8> {
+        // TODO: (perf) Any way not to clone here?
+        Bgra8::align(
+            &self
+                .pixels
+                .decompress()
+                .expect("decompressing snapshot shouldn't result in an error"),
+        )
+        .to_owned()
     }
 
     pub fn width(&self) -> u32 {

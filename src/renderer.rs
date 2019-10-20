@@ -17,7 +17,7 @@ use rgx::kit;
 use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
 use rgx::kit::sprite2d;
-use rgx::kit::{Origin, Rgba8};
+use rgx::kit::{Bgra8, Origin, Rgba8};
 use rgx::math::{Matrix4, Vector2};
 
 use std::collections::BTreeMap;
@@ -236,9 +236,9 @@ impl Renderer {
         let screen_binding = screen2d.binding(r, &screen_fb, &sampler);
 
         r.prepare(&[
-            Op::Fill(&font.texture, font_img.as_slice()),
-            Op::Fill(&cursors.texture, cursors_img.as_slice()),
-            Op::Fill(&checker.texture, &checker_img),
+            Op::Fill(&font.texture, Rgba8::align(&font_img)),
+            Op::Fill(&cursors.texture, Rgba8::align(&cursors_img)),
+            Op::Fill(&checker.texture, Rgba8::align(&checker_img)),
         ]);
 
         Self {
@@ -630,15 +630,14 @@ impl Renderer {
             let th = u32::min(sh, vh);
 
             r.prepare(&[
-                Op::Clear(&view_data.fb, Rgba::TRANSPARENT),
-                Op::Clear(&view_data.staging_fb, Rgba::TRANSPARENT),
+                Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
+                Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Transfer(
                     &view_data.fb,
                     pixels.as_slice(),
                     sw, // Source width
                     sh, // Source height
-                    tw, // Transfer width
-                    th, // Transfer height
+                    Rect::origin(tw as i32, th as i32),
                 ),
             ]);
             self.view_data.insert(v.id, view_data);
@@ -681,8 +680,8 @@ impl Renderer {
             let pixels = s.pixels();
             debug_assert!(!pixels.is_empty());
             r.prepare(&[
-                Op::Clear(&view_data.fb, Rgba::TRANSPARENT),
-                Op::Clear(&view_data.staging_fb, Rgba::TRANSPARENT),
+                Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
+                Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Fill(&view_data.fb, &pixels),
             ]);
 
