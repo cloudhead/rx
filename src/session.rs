@@ -13,7 +13,7 @@ use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{PresentMode, Rect};
-use rgx::kit::{Bgra8, Rgba8};
+use rgx::kit::Rgba8;
 use rgx::math::*;
 
 use directories as dirs;
@@ -2386,11 +2386,6 @@ impl Session {
         let snapshot = resources.get_snapshot(&v);
 
         let pixels = snapshot.pixels();
-        let (head, pixels, tail) = unsafe { pixels.align_to::<Bgra8>() };
-
-        assert!(head.is_empty());
-        assert!(tail.is_empty());
-
         let y_offset = snapshot
             .height()
             .checked_sub(p.y)
