@@ -1022,8 +1022,8 @@ impl Renderer {
     fn draw_cursor(session: &Session, batch: &mut sprite2d::Batch) {
         // TODO: Cursor should be greyed out in command mode.
         match session.mode {
-            Mode::Present | Mode::Help => {}
-            Mode::Normal | Mode::Command | Mode::Visual(_) => {
+            Mode::Present | Mode::Help | Mode::Visual(_) => {}
+            Mode::Normal | Mode::Command => {
                 // When hovering over the palette, switch to the sampler icon
                 // to tell the user that clicking will select the color.
                 let tool = if session.palette.hover.is_some() {

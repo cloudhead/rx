@@ -18,12 +18,12 @@ map    z             :v/center                                 --  Center active
 map    u             :undo                                     --  Undo active view edit
 map    r             :redo                                     --  Redo active view edit
 map    x             :swap                                     --  Swap foreground/background colors
-map    b             :brush                                    --  Reset brush
-map    e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
-map    <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (hold)
+map/n  b             :brush                                    --  Reset brush
+map/n  e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
+map/n  <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (hold)
 map/n  ]             :brush/size +                             --  Increase brush size
 map/n  [             :brush/size -                             --  Decrease brush size
-map    <ctrl>        :sampler {:sampler/off}                   --  Sample color (hold)
+map/n  <ctrl>        :sampler {:sampler/off}                   --  Sample color (hold)
 map    <up>          :pan  0  1                                --  Pan view up
 map    <down>        :pan  0 -1                                --  Pan view down
 map    <left>        :pan -1  0                                --  Pan view left
