@@ -2294,7 +2294,9 @@ impl Session {
             }
             Command::SelectionShrink => {}
             Command::SelectionPaste => {
-                if let Some(s) = self.selection {
+                if let (Mode::Visual(VisualMode::Pasting), Some(s)) =
+                    (self.mode, self.selection)
+                {
                     let s = s.normalized();
                     self.active_view_mut().paste(Rect::new(
                         s.x1,
@@ -2305,7 +2307,9 @@ impl Session {
                 }
             }
             Command::SelectionYank => {
-                if let Some(s) = self.selection {
+                if let (Mode::Visual(VisualMode::Selecting), Some(s)) =
+                    (self.mode, self.selection)
+                {
                     let v = self.active_view_mut();
                     let s = s.normalized().clamped(Rect::origin(
                         v.width() as i32 - 1,
