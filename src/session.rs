@@ -2304,6 +2304,8 @@ impl Session {
                         s.x2 + 1,
                         s.y2 + 1,
                     ));
+                } else {
+                    // TODO: Enter paste mode?
                 }
             }
             Command::SelectionYank => {
