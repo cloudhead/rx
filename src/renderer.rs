@@ -818,6 +818,8 @@ impl Renderer {
         canvas: &mut shape2d::Batch,
         text: &mut TextBatch,
     ) {
+        let view = session.active_view();
+
         if let Some(selection) = session.selection {
             let fill = match session.mode {
                 Mode::Visual(VisualMode::Selecting) => {
@@ -827,13 +829,12 @@ impl Renderer {
             };
             let stroke = color::RED;
 
-            let v = session.active_view();
             let r = selection.normalized();
             canvas.add(Shape::Rectangle(
                 Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1).map(|n| n as f32)
-                    * v.zoom
+                    * view.zoom
                     + session.offset
-                    + v.offset,
+                    + view.offset,
                 Stroke::new(1., stroke.into()),
                 Fill::Solid(fill.into()),
             ));
@@ -895,7 +896,7 @@ impl Renderer {
 
         // Active view status
         text.add(
-            &session.active_view().status(),
+            &view.status(),
             MARGIN,
             MARGIN + self::LINE_HEIGHT,
             Rgba8::WHITE,
@@ -923,14 +924,14 @@ impl Renderer {
         {
             // Session status
             text.add(
-                &format!("{:>5}%", (session.active_view().zoom * 100.) as u32),
+                &format!("{:>5}%", (view.zoom * 100.) as u32),
                 session.width - MARGIN - 6. * 8.,
                 MARGIN + self::LINE_HEIGHT,
                 Rgba8::WHITE,
             );
 
             if session.width >= 400. {
-                let cursor = session.active_view_coords(session.cursor);
+                let cursor = session.view_coords(view.id, session.cursor);
                 let hover_color = session
                     .hover_color
                     .map_or(String::new(), |c| Rgb8::from(c).to_string());
