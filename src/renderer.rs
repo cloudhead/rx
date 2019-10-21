@@ -830,12 +830,23 @@ impl Renderer {
             let stroke = color::RED;
 
             let r = selection.normalized();
+            let r = Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1);
+            let offset = session.offset + view.offset;
+
             canvas.add(Shape::Rectangle(
-                Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1).map(|n| n as f32)
-                    * view.zoom
-                    + session.offset
-                    + view.offset,
+                r.map(|n| n as f32) * view.zoom + offset,
                 Stroke::new(1., stroke.into()),
+                Fill::Empty(),
+            ));
+            canvas.add(Shape::Rectangle(
+                r.clamped(Rect::origin(
+                    view.width() as i32,
+                    view.height() as i32,
+                ))
+                .map(|n| n as f32)
+                    * view.zoom
+                    + offset,
+                Stroke::NONE,
                 Fill::Solid(fill.into()),
             ));
         }
