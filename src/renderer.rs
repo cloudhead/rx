@@ -467,9 +467,10 @@ impl Renderer {
             &mut f,
         );
 
+        let v = session.active_view();
         let view_data = self
             .view_data
-            .get(&session.views.active_id)
+            .get(&v.id)
             .expect("the view data for the active view must exist");
 
         r.update_pipeline(&self.shape2d, Matrix4::identity(), &mut f);
@@ -597,17 +598,15 @@ impl Renderer {
         r.prepare(&[Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT)]);
 
         // If active view is dirty, record a snapshot of it.
-        let v = session.active_view();
         if v.is_dirty() {
             let id = v.id;
-            let nframes = v.animation.len();
-            let fb = &self.view_data.get(&id).unwrap().fb;
+            let extent = v.extent();
             let resources = self.resources.clone();
-            let (fw, fh) = (v.fw, v.fh);
 
-            r.read(fb, move |data| {
+            r.read(&view_data.fb, move |data| {
                 if let Some(s) = resources.lock_mut().get_view_mut(&id) {
-                    s.push_snapshot(data, fw, fh, nframes);
+                    // TODO: This function should just take a `ViewExtent`.
+                    s.push_snapshot(data, extent.fw, extent.fh, extent.nframes);
                 }
             });
         }
