@@ -829,8 +829,7 @@ impl Renderer {
             };
             let stroke = color::RED;
 
-            let r = selection.normalized();
-            let r = Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1);
+            let r = selection.bounds();
             let offset = session.offset + view.offset;
 
             canvas.add(Shape::Rectangle(
@@ -1033,7 +1032,20 @@ impl Renderer {
     fn draw_cursor(session: &Session, batch: &mut sprite2d::Batch) {
         // TODO: Cursor should be greyed out in command mode.
         match session.mode {
-            Mode::Present | Mode::Help | Mode::Visual(_) => {}
+            Mode::Present | Mode::Help => {}
+            Mode::Visual(_) => {
+                if let Some(rect) = Cursors::rect(&Tool::default()) {
+                    let offset = Cursors::offset(&Tool::default());
+                    let cursor = session.cursor;
+                    batch.add(
+                        rect,
+                        rect.translate(cursor.x, cursor.y) + offset,
+                        Rgba::TRANSPARENT,
+                        1.,
+                        kit::Repeat::default(),
+                    );
+                }
+            }
             Mode::Normal | Mode::Command => {
                 // When hovering over the palette, switch to the sampler icon
                 // to tell the user that clicking will select the color.
