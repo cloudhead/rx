@@ -403,6 +403,11 @@ impl View {
         }
     }
 
+    /// Return the view bounds, as an origin-anchored rectangle.
+    pub fn bounds(&self) -> Rect<i32> {
+        Rect::origin(self.width() as i32, self.height() as i32)
+    }
+
     /// Check whether the given snapshot has been saved to disk.
     pub fn is_snapshot_saved(&self, id: SnapshotId) -> bool {
         self.saved_snapshot == Some(id)

@@ -1108,8 +1108,15 @@ impl Session {
 
     /// Activate a view. This makes the given view the "active" view.
     pub fn activate(&mut self, id: ViewId) {
+        if self.views.active_id == id {
+            return;
+        }
         self.views.activate(id);
         self.effects.push(Effect::ViewActivated(id));
+
+        if let Mode::Visual(VisualMode::Selecting) = self.mode {
+            self.selection = None;
+        }
     }
 
     /// Check whether a view is active.
@@ -1582,6 +1589,14 @@ impl Session {
                     } else {
                         self.activate(id);
                     }
+                } else {
+                    // Clicking outside a view...
+                    match self.mode {
+                        Mode::Visual(_) => {
+                            self.selection = None;
+                        }
+                        _ => {}
+                    }
                 }
             }
             InputState::Released => {
@@ -2031,6 +2046,13 @@ impl Session {
                 let v = self.active_view_mut();
                 v.resize_frames(fw, fh);
                 v.touch();
+
+                let r = v.bounds();
+                if let Some(s) = &self.selection {
+                    if !r.contains(s.min()) && !r.contains(s.max()) {
+                        self.selection = None;
+                    }
+                }
 
                 self.organize_views();
             }
