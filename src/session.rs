@@ -173,6 +173,48 @@ pub enum VisualMode {
     Pasting,
 }
 
+/// A pixel selection within a view.
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+pub struct Selection(Rect<i32>);
+
+impl Selection {
+    /// Create a new selection from a rectangle.
+    pub fn new(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
+        Self(Rect::new(x1, y1, x2 - 1, y2 - 1))
+    }
+
+    /// Create a new selection from a rectangle.
+    pub fn from(r: Rect<i32>) -> Self {
+        Self::new(r.x1, r.y1, r.x2, r.y2)
+    }
+
+    /// Return the selection bounds as a non-empty rectangle. This function
+    /// will never return an empty rectangle.
+    pub fn bounds(&self) -> Rect<i32> {
+        let r = self.normalized();
+        Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1)
+    }
+
+    /// Translate the selection rectangle.
+    pub fn translate(&mut self, x: i32, y: i32) {
+        self.0 += Vector2::new(x, y)
+    }
+
+    /// Resize the selection by a certain amount.
+    pub fn resize(&mut self, x: i32, y: i32) {
+        self.0.x2 += x;
+        self.0.y2 += y;
+    }
+}
+
+impl Deref for Selection {
+    type Target = Rect<i32>;
+
+    fn deref(&self) -> &Rect<i32> {
+        &self.0
+    }
+}
+
 /// Session effects. Eg. view creation/destruction.
 /// Anything the renderer might want to know.
 #[derive(Clone, Debug)]
@@ -604,12 +646,7 @@ pub struct Session {
     pub key_bindings: KeyBindings,
 
     /// Current pixel selection.
-    ///
-    /// Note that this rectangle represents selected pixels, __not__ selection
-    /// bounds. For example, if we had `Rect::new(0, 0, 0, 0)` here, this would
-    /// be a non-empty selection of *one pixel* at position `0, 0`.  To
-    /// represent an empty selection, this should be set to `None`.
-    pub selection: Option<Rect<i32>>,
+    pub selection: Option<Selection>,
 
     /// The session's current settings.
     pub settings: Settings,
@@ -630,7 +667,7 @@ pub struct Session {
     /// Average time it takes for a session update.
     pub avg_time: time::Duration,
 
-    /// The current tool.
+    /// The current tool. Only used in `Normal` mode.
     pub tool: Tool,
     /// The previous tool, if any.
     pub prev_tool: Option<Tool>,
@@ -973,7 +1010,7 @@ impl Session {
                 if self.selection.is_none() {
                     let v = self.active_view();
                     self.selection =
-                        Some(Rect::origin(v.fw as i32 - 1, v.fh as i32 - 1));
+                        Some(Selection::new(0, 0, v.fw as i32, v.fh as i32));
                 }
             }
             _ => {}
@@ -1533,8 +1570,12 @@ impl Session {
                             }
                             Mode::Visual(_) => {
                                 let p = p.map(|n| n as i32);
-                                self.selection =
-                                    Some(Rect::new(p.x, p.y, p.x, p.y));
+                                self.selection = Some(Selection::new(
+                                    p.x,
+                                    p.y,
+                                    p.x + 1,
+                                    p.y + 1,
+                                ));
                             }
                             Mode::Present | Mode::Help => {}
                         }
@@ -1605,8 +1646,12 @@ impl Session {
                     let c = self.active_view_coords(cursor);
 
                     if let Some(ref mut s) = self.selection {
-                        s.x2 = c.x as i32;
-                        s.y2 = c.y as i32;
+                        *s = Selection::new(
+                            s.x1,
+                            s.y1,
+                            c.x as i32 + 1,
+                            c.y as i32 + 1,
+                        );
                     }
                 }
             }
@@ -2255,13 +2300,12 @@ impl Session {
             }
             Command::SelectionMove(x, y) => {
                 if let Some(ref mut s) = self.selection {
-                    *s += Vector2::new(x, y);
+                    s.translate(x, y);
                 }
             }
             Command::SelectionResize(x, y) => {
                 if let Some(ref mut s) = self.selection {
-                    s.x2 += x;
-                    s.y2 += y;
+                    s.resize(x, y);
                 }
             }
             Command::SelectionExpand => {
@@ -2273,7 +2317,7 @@ impl Session {
                     // Since the selection rectangle represents selected
                     // pixels and not bounds, we have to shrink it by one,
                     // compared to the view rectangle.
-                    let r = Rect::origin(vw - 1, vh - 1);
+                    let r = Rect::origin(vw, vh);
                     let min = selection.min();
                     let max = selection.max();
 
@@ -2285,10 +2329,12 @@ impl Session {
                         } else {
                             min.x - min.x % fw
                         };
-                        let x2 = max.x + (fw - max.x % (fw - 1)) - 1;
-                        let y2 = fh - 1;
+                        let x2 = max.x + (fw - max.x % fw);
+                        let y2 = fh;
 
-                        *selection = Rect::new(x1, 0, x2, y2).clamped(r);
+                        *selection = Selection::from(
+                            Rect::new(x1, 0, x2, y2).clamped(r),
+                        );
                     }
                 }
             }
@@ -2297,13 +2343,7 @@ impl Session {
                 if let (Mode::Visual(VisualMode::Pasting), Some(s)) =
                     (self.mode, self.selection)
                 {
-                    let s = s.normalized();
-                    self.active_view_mut().paste(Rect::new(
-                        s.x1,
-                        s.y1,
-                        s.x2 + 1,
-                        s.y2 + 1,
-                    ));
+                    self.active_view_mut().paste(s.bounds());
                 } else {
                     // TODO: Enter paste mode?
                 }
@@ -2313,13 +2353,13 @@ impl Session {
                     (self.mode, self.selection)
                 {
                     let v = self.active_view_mut();
-                    let s = s.normalized().clamped(Rect::origin(
-                        v.width() as i32 - 1,
-                        v.height() as i32 - 1,
+                    let s = s.bounds().clamped(Rect::origin(
+                        v.width() as i32,
+                        v.height() as i32,
                     ));
-                    v.yank(Rect::new(s.x1, s.y1, s.x2 + 1, s.y2 + 1));
+                    v.yank(s);
 
-                    self.selection = Some(s);
+                    self.selection = Some(Selection::from(s));
                     self.switch_mode(Mode::Visual(VisualMode::Pasting));
                 }
             }
