@@ -1135,15 +1135,6 @@ impl Session {
         for path in paths {
             let path = path.as_ref();
 
-            // by this point the path should be canonicalized, so the path
-            // should not end with a period character
-            if path.to_str().unwrap().ends_with(".") {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!("`{:?}` is not a valid filename", path),
-                ));
-            }
-
             if path.is_dir() {
                 for entry in path.read_dir()? {
                     let entry = entry?;
