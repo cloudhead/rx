@@ -1120,6 +1120,17 @@ impl Session {
 
         if let Mode::Visual(VisualMode::Selecting) = self.mode {
             self.selection = None;
+        } else if let Mode::Visual(VisualMode::Pasting) = self.mode {
+            // When pasting, if the selection fits in the activated
+            // view, we allow it to transfer. Otherwise we switch
+            // back to selection mode.
+            if let Some(s) = self.selection {
+                let r = self.active_view().bounds();
+                if !r.contains(s.min()) || !r.contains(s.max()) {
+                    self.selection = None;
+                    self.mode = Mode::Visual(VisualMode::Selecting);
+                }
+            }
         }
     }
 
