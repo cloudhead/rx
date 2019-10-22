@@ -590,7 +590,11 @@ impl<'a> Parse<'a> for Command {
             "map" => {
                 let (km, p) = KeyMapping::parse(
                     p,
-                    &[Mode::Normal, Mode::Visual(VisualMode::Selecting)],
+                    &[
+                        Mode::Normal,
+                        Mode::Visual(VisualMode::Selecting),
+                        Mode::Visual(VisualMode::Pasting),
+                    ],
                 )?;
                 Ok((Command::Map(Box::new(km)), p))
             }

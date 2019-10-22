@@ -825,6 +825,7 @@ impl Renderer {
                 Mode::Visual(VisualMode::Selecting) => {
                     Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88)
                 }
+                // TODO: Handle different modes differently.
                 _ => Rgba8::TRANSPARENT,
             };
             let stroke = color::RED;
