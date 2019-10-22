@@ -603,6 +603,8 @@ impl std::ops::Index<&str> for Settings {
 pub struct Session {
     /// The current session `Mode`.
     pub mode: Mode,
+    /// The previous `Mode`.
+    pub prev_mode: Option<Mode>,
     /// The current session `State`.
     pub state: State,
 
@@ -767,6 +769,7 @@ impl Session {
             cmdline: CommandLine::new(),
             throttled: None,
             mode: Mode::Normal,
+            prev_mode: None,
             selection: None,
             message: Message::default(),
             resources,
@@ -1033,6 +1036,7 @@ impl Session {
             );
         }
 
+        self.prev_mode = Some(self.mode);
         self.mode = new;
     }
 
@@ -2390,10 +2394,7 @@ impl Session {
     }
 
     fn cmdline_hide(&mut self) {
-        // XXX: When visual mode is implemented, we'll have to switch
-        // back to whatever the *previous* mode is - either Normal or
-        // Visual.
-        self.switch_mode(Mode::Normal);
+        self.switch_mode(self.prev_mode.unwrap_or(Mode::Normal));
     }
 
     fn cmdline_handle_backspace(&mut self) {
