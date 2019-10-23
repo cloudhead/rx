@@ -833,11 +833,31 @@ impl Renderer {
             let r = selection.bounds();
             let offset = session.offset + view.offset;
 
+            {
+                // Selection dimensions.
+                let s = selection;
+                let z = view.zoom;
+                let t = format!("{}x{}", r.width(), r.height());
+                let x = if s.x2 > s.x1 {
+                    (s.x2 + 1) as f32 * z - t.len() as f32 * self::GLYPH_WIDTH
+                } else {
+                    (s.x2 as f32) * z
+                };
+                let y = if s.y2 >= s.y1 {
+                    (s.y2 + 1) as f32 * z + 1.
+                } else {
+                    (s.y2) as f32 * z - self::LINE_HEIGHT + 1.
+                };
+                text.add(&t, x + offset.x, y + offset.y, stroke);
+            }
+
+            // Selection stroke.
             canvas.add(Shape::Rectangle(
                 r.map(|n| n as f32) * view.zoom + offset,
                 Stroke::new(1., stroke.into()),
                 Fill::Empty(),
             ));
+            // Selection fill.
             canvas.add(Shape::Rectangle(
                 r.clamped(Rect::origin(
                     view.width() as i32,
