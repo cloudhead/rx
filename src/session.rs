@@ -1152,18 +1152,21 @@ impl Session {
             let path = path.as_ref();
 
             if path.is_dir() {
-                for entry in fs::read_dir(path)? {
+                for entry in path.read_dir()? {
                     let entry = entry?;
                     let path = entry.path();
 
                     if path.is_dir() {
                         continue;
                     }
+
                     self.load_view(path)?;
                 }
                 self.source_dir(path).ok();
             } else if path.exists() {
                 self.load_view(path)?;
+            } else if !path.exists() && path.with_extension("png").exists() {
+                self.load_view(path.with_extension("png"))?;
             } else {
                 let (w, h) = if !self.views.is_empty() {
                     let v = self.active_view();

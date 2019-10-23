@@ -5,7 +5,7 @@ use crate::platform;
 use crate::session::Mode;
 
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::result;
 use std::str::FromStr;
 
@@ -212,27 +212,38 @@ impl<'a> Parser<'a> {
 
     pub fn path(self) -> Result<'a, String> {
         let (path, parser) = self.word()?;
-        let mut path = Path::new(path);
 
-        // For Linux and BSD and MacOS.
-        if cfg!(unix) && path.starts_with("~") {
-            if let Some(base_dirs) = dirs::BaseDirs::new() {
-                let home = base_dirs.home_dir().to_str().unwrap().to_owned();
+        if path == "" {
+            return Ok((String::from(""), parser));
+        }
 
-                if path == Path::new("~") {
-                    return Ok((home, parser));
+        let mut path = PathBuf::from(path);
+
+        // Linux and BSD and MacOS use ~ to infer the home directory of a given user
+        if cfg!(unix) {
+            if let Ok(suffix) = path.strip_prefix("~") {
+                if let Some(base_dirs) = dirs::BaseDirs::new() {
+                    path = base_dirs.home_dir().join(suffix);
                 }
-
-                path = &path.strip_prefix("~").unwrap();
-                return Ok((
-                    Path::new(&home).join(path).to_str().unwrap().to_owned(),
-                    parser,
-                ));
             }
         }
 
-        // For Windows and other platforms.
-        Ok((path.to_str().unwrap().to_owned(), parser))
+        let directory = &path
+            .parent()
+            .and_then(|directory| directory.canonicalize().ok());
+
+        if let (Some(directory), Some(filename)) = (directory, &path.file_name()) {
+            path = Path::new(&directory).join(Path::new(&filename));
+        }
+
+        match path.to_str() {
+            Some(p) => {
+                Ok((p.to_string(), parser))
+            },
+            None => {
+                Err(Error::new(format!("invalid path: {:?}", path)))
+            }
+        }
     }
 
     pub fn peek(&self) -> Option<char> {
