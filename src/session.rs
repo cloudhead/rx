@@ -1610,7 +1610,7 @@ impl Session {
                 } else {
                     // Clicking outside a view...
                     match self.mode {
-                        Mode::Visual(_) => {
+                        Mode::Visual(VisualMode::Selecting) => {
                             self.selection = None;
                         }
                         _ => {}
