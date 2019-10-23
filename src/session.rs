@@ -1455,6 +1455,17 @@ impl Session {
         self.cursor_dirty();
     }
 
+    /// Check the current selection and invalidate it if necessary.
+    fn check_selection(&mut self) {
+        let v = self.active_view();
+        let r = v.bounds();
+        if let Some(s) = &self.selection {
+            if !r.contains(s.min()) && !r.contains(s.max()) {
+                self.selection = None;
+            }
+        }
+    }
+
     fn undo(&mut self, id: ViewId) {
         self.restore_view_snapshot(id, true);
     }
@@ -2075,13 +2086,7 @@ impl Session {
                 v.resize_frames(fw, fh);
                 v.touch();
 
-                let r = v.bounds();
-                if let Some(s) = &self.selection {
-                    if !r.contains(s.min()) && !r.contains(s.max()) {
-                        self.selection = None;
-                    }
-                }
-
+                self.check_selection();
                 self.organize_views();
             }
             Command::ForceQuit => self.quit_view(self.views.active_id),
@@ -2201,8 +2206,8 @@ impl Session {
                 }
             }
             Command::RemoveFrame => {
-                let v = self.active_view_mut();
-                v.shrink();
+                self.active_view_mut().shrink();
+                self.check_selection();
             }
             Command::Slice(None) => {
                 let v = self.active_view_mut();
