@@ -220,11 +220,11 @@ impl<'a> Parser<'a> {
         let mut path = PathBuf::from(path);
 
         // Linux and BSD and MacOS use ~ to infer the home directory of a given user
-        if cfg!(unix) && path.starts_with("~") {
-            if let Some(base_dirs) = dirs::BaseDirs::new() {
-
-                let suffix = path.strip_prefix("~").unwrap();
-                path = base_dirs.home_dir().join(suffix);
+        if cfg!(unix) {
+            if let Ok(suffix) = path.strip_prefix("~") {
+                if let Some(base_dirs) = dirs::BaseDirs::new() {
+                    path = base_dirs.home_dir().join(suffix);
+                }
             }
         }
 
@@ -236,7 +236,14 @@ impl<'a> Parser<'a> {
             path = Path::new(&directory).join(Path::new(&filename));
         }
 
-        Ok((path.to_str().unwrap().to_owned(), parser))
+        match path.to_str() {
+            Some(path_as_str) => {
+                Ok((path_as_str.to_string(), parser))
+            },
+            None => {
+                Err(Error::new(format!("unable to convert Path into a String: `{:?}`", path)))
+            }
+        }
     }
 
     pub fn peek(&self) -> Option<char> {
