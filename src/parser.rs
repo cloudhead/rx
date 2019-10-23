@@ -237,11 +237,11 @@ impl<'a> Parser<'a> {
         }
 
         match path.to_str() {
-            Some(path_as_str) => {
-                Ok((path_as_str.to_string(), parser))
+            Some(p) => {
+                Ok((p.to_string(), parser))
             },
             None => {
-                Err(Error::new(format!("unable to convert Path into a String: `{:?}`", path)))
+                Err(Error::new(format!("invalid path: {:?}", path)))
             }
         }
     }
