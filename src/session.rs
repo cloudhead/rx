@@ -1590,7 +1590,7 @@ impl Session {
                             Mode::Command => {
                                 // TODO
                             }
-                            Mode::Visual(_) => {
+                            Mode::Visual(VisualMode::Selecting) => {
                                 let p = p.map(|n| n as i32);
                                 self.selection = Some(Selection::new(
                                     p.x,
@@ -1598,6 +1598,9 @@ impl Session {
                                     p.x + 1,
                                     p.y + 1,
                                 ));
+                            }
+                            Mode::Visual(VisualMode::Pasting) => {
+                                self.command(Command::SelectionPaste);
                             }
                             Mode::Present | Mode::Help => {}
                         }
@@ -1683,6 +1686,16 @@ impl Session {
                             c.y as i32 + 1,
                         );
                     }
+                }
+            }
+            Mode::Visual(VisualMode::Pasting) => {
+                // Center paste selection on cursor.
+                let c = self.active_view_coords(cursor);
+                if let Some(ref mut s) = self.selection {
+                    let r = s.bounds();
+                    let (w, h) = (r.width(), r.height());
+                    let (x, y) = (c.x as i32 - w / 2, c.y as i32 - h / 2);
+                    *s = Selection::new(x, y, x + w, y + h);
                 }
             }
             _ => {}
