@@ -536,8 +536,8 @@ impl Renderer {
             let (fw, fh) = (v.fw, v.fh);
 
             r.read(fb, move |data| {
-                if let Some(s) = resources.lock_mut().data.get_mut(&id) {
-                    s.push(data, fw, fh, nframes);
+                if let Some(s) = resources.lock_mut().get_view_mut(&id) {
+                    s.push_snapshot(data, fw, fh, nframes);
                 }
             });
         }

@@ -1406,8 +1406,14 @@ impl Session {
         let snapshot = self
             .resources
             .lock_mut()
-            .get_snapshots_mut(&id)
-            .and_then(|s| if backwards { s.prev() } else { s.next() })
+            .get_view_mut(&id)
+            .and_then(|s| {
+                if backwards {
+                    s.prev_snapshot()
+                } else {
+                    s.next_snapshot()
+                }
+            })
             .map(|s| (s.id, s.fw, s.fh, s.nframes));
 
         if let Some((sid, fw, fh, nframes)) = snapshot {

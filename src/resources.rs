@@ -20,11 +20,11 @@ use std::time;
 const GIF_ENCODING_SPEED: i32 = 10;
 
 pub struct ResourceManager {
-    pub resources: Arc<RwLock<Resources>>,
+    resources: Arc<RwLock<Resources>>,
 }
 
 pub struct Resources {
-    pub data: BTreeMap<ViewId, SnapshotList>,
+    data: BTreeMap<ViewId, ViewResources>,
 }
 
 impl Resources {
@@ -35,26 +35,26 @@ impl Resources {
     }
 
     pub fn get_snapshot(&self, id: &ViewId) -> &Snapshot {
-        self.data.get(id).map(|r| r.current()).expect(&format!(
-            "view #{} must exist and have an associated snapshot",
-            id
-        ))
-    }
-
-    pub fn get_snapshot_mut(&mut self, id: &ViewId) -> &mut Snapshot {
         self.data
-            .get_mut(id)
-            .map(|r| r.current_mut())
+            .get(id)
+            .map(|r| r.current_snapshot())
             .expect(&format!(
                 "view #{} must exist and have an associated snapshot",
                 id
             ))
     }
 
-    pub fn get_snapshots_mut(
-        &mut self,
-        id: &ViewId,
-    ) -> Option<&mut SnapshotList> {
+    pub fn get_snapshot_mut(&mut self, id: &ViewId) -> &mut Snapshot {
+        self.data
+            .get_mut(id)
+            .map(|r| r.current_snapshot_mut())
+            .expect(&format!(
+                "view #{} must exist and have an associated snapshot",
+                id
+            ))
+    }
+
+    pub fn get_view_mut(&mut self, id: &ViewId) -> Option<&mut ViewResources> {
         self.data.get_mut(id)
     }
 }
@@ -212,55 +212,63 @@ impl ResourceManager {
             .write()
             .unwrap()
             .data
-            .insert(id, SnapshotList::new(pixels, fw, fh));
+            .insert(id, ViewResources::new(pixels, fw, fh));
     }
 }
 
 #[derive(Debug)]
-pub struct SnapshotList {
-    list: NonEmpty<Snapshot>,
-    current: usize,
+pub struct ViewResources {
+    /// Non empty list of view snapshots.
+    snapshots: NonEmpty<Snapshot>,
+    /// Current view snapshot.
+    snapshot: usize,
 }
 
-impl SnapshotList {
+impl ViewResources {
     fn new(pixels: &[u8], fw: u32, fh: u32) -> Self {
         Self {
-            list: NonEmpty::new(Snapshot::new(
+            snapshots: NonEmpty::new(Snapshot::new(
                 SnapshotId(0),
                 pixels,
                 fw,
                 fh,
                 1,
             )),
-            current: 0,
+            snapshot: 0,
         }
     }
 
-    pub fn current(&self) -> &Snapshot {
-        self.list
-            .get(self.current)
+    pub fn current_snapshot(&self) -> &Snapshot {
+        self.snapshots
+            .get(self.snapshot)
             .expect("there must always be a current snapshot")
     }
 
-    pub fn current_mut(&mut self) -> &mut Snapshot {
-        self.list
-            .get_mut(self.current)
+    pub fn current_snapshot_mut(&mut self) -> &mut Snapshot {
+        self.snapshots
+            .get_mut(self.snapshot)
             .expect("there must always be a current snapshot")
     }
 
-    pub fn push(&mut self, pixels: &[u8], fw: u32, fh: u32, nframes: usize) {
+    pub fn push_snapshot(
+        &mut self,
+        pixels: &[u8],
+        fw: u32,
+        fh: u32,
+        nframes: usize,
+    ) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
         // If we try to add a snapshot when we're not at the
         // latest, we have to clear the list forward.
-        if self.current != self.list.len() - 1 {
-            self.list.truncate(self.current + 1);
-            self.current = self.list.len() - 1;
+        if self.snapshot != self.snapshots.len() - 1 {
+            self.snapshots.truncate(self.snapshot + 1);
+            self.snapshot = self.snapshots.len() - 1;
         }
-        self.current += 1;
+        self.snapshot += 1;
 
-        self.list.push(Snapshot::new(
-            SnapshotId(self.current),
+        self.snapshots.push(Snapshot::new(
+            SnapshotId(self.snapshot),
             pixels,
             fw,
             fh,
@@ -268,21 +276,21 @@ impl SnapshotList {
         ));
     }
 
-    pub fn prev(&mut self) -> Option<&Snapshot> {
-        if self.current == 0 {
+    pub fn prev_snapshot(&mut self) -> Option<&Snapshot> {
+        if self.snapshot == 0 {
             return None;
         }
-        if let Some(snapshot) = self.list.get(self.current - 1) {
-            self.current -= 1;
+        if let Some(snapshot) = self.snapshots.get(self.snapshot - 1) {
+            self.snapshot -= 1;
             Some(snapshot)
         } else {
             None
         }
     }
 
-    pub fn next(&mut self) -> Option<&Snapshot> {
-        if let Some(snapshot) = self.list.get(self.current + 1) {
-            self.current += 1;
+    pub fn next_snapshot(&mut self) -> Option<&Snapshot> {
+        if let Some(snapshot) = self.snapshots.get(self.snapshot + 1) {
+            self.snapshot += 1;
             Some(snapshot)
         } else {
             None
