@@ -620,8 +620,8 @@ impl Renderer {
             // a write lock on resources.
             let (sw, sh, pixels) = {
                 let resources = self.resources.lock();
-                let snapshot = resources.get_snapshot(&v.id);
-                (snapshot.width(), snapshot.height(), snapshot.pixels())
+                let (snapshot, pixels) = resources.get_snapshot(&v.id);
+                (snapshot.width(), snapshot.height(), pixels.to_owned())
             };
 
             // Ensure not to transfer more data than can fit
@@ -634,7 +634,7 @@ impl Renderer {
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Transfer(
                     &view_data.fb,
-                    pixels.as_slice(),
+                    &*pixels,
                     sw, // Source width
                     sh, // Source height
                     Rect::origin(tw as i32, th as i32),
@@ -644,8 +644,12 @@ impl Renderer {
         } else if v.is_damaged() {
             // View is damaged, but its size hasn't changed. This happens when a snapshot
             // with the same size as the view was restored.
-            let pixels = self.resources.lock().get_snapshot(&v.id).pixels();
-            r.prepare(&[Op::Fill(fb, pixels.as_slice())]);
+            let pixels = {
+                let rs = self.resources.lock();
+                let (_, pixels) = rs.get_snapshot(&v.id);
+                pixels.to_owned()
+            };
+            r.prepare(&[Op::Fill(fb, &*pixels)]);
         }
     }
 
@@ -671,13 +675,12 @@ impl Renderer {
     fn add_views(&mut self, views: &[ViewId], r: &mut core::Renderer) {
         for id in views {
             let resources = self.resources.lock();
-            let s = resources.get_snapshot(id);
+            let (s, pixels) = resources.get_snapshot(id);
             let (w, h) = (s.width(), s.height());
 
             let view_data =
                 ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, r);
 
-            let pixels = s.pixels();
             debug_assert!(!pixels.is_empty());
             r.prepare(&[
                 Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
