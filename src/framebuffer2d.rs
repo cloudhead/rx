@@ -1,20 +1,16 @@
 use rgx::core;
 use rgx::core::*;
-use rgx::kit;
 use rgx::math::*;
 
 pub struct Pipeline {
     pub pipeline: core::Pipeline,
 
-    width: u32,
-    height: u32,
-    ortho: Matrix4<f32>,
     bindings: core::BindingGroup,
     buf: core::UniformBuffer,
 }
 
 impl<'a> core::AbstractPipeline<'a> for Pipeline {
-    type PrepareContext = ();
+    type PrepareContext = Matrix4<f32>;
     type Uniforms = Matrix4<f32>;
 
     fn description() -> core::PipelineDescription<'a> {
@@ -49,24 +45,16 @@ impl<'a> core::AbstractPipeline<'a> for Pipeline {
         }
     }
 
-    fn setup(
-        pipeline: core::Pipeline,
-        dev: &core::Device,
-        width: u32,
-        height: u32,
-    ) -> Self {
-        let ortho = kit::ortho(width, height);
-        let buf = dev.create_uniform_buffer(&[ortho]);
+    fn setup(pipeline: core::Pipeline, dev: &core::Device) -> Self {
+        let m: Matrix4<f32> = Matrix4::identity();
+        let buf = dev.create_uniform_buffer(&[m]);
         let bindings =
             dev.create_binding_group(&pipeline.layout.sets[0], &[&buf]);
 
         Self {
             pipeline,
-            ortho,
             buf,
             bindings,
-            width,
-            height,
         }
     }
 
@@ -77,23 +65,9 @@ impl<'a> core::AbstractPipeline<'a> for Pipeline {
 
     fn prepare(
         &'a self,
-        _ctx: (),
+        ortho: Matrix4<f32>,
     ) -> Option<(&'a core::UniformBuffer, Vec<Matrix4<f32>>)> {
-        Some((&self.buf, vec![self.ortho]))
-    }
-
-    fn resize(&mut self, w: u32, h: u32) {
-        self.width = w;
-        self.height = h;
-        self.ortho = kit::ortho(w, h);
-    }
-
-    fn width(&self) -> u32 {
-        self.width
-    }
-
-    fn height(&self) -> u32 {
-        self.height
+        Some((&self.buf, vec![ortho]))
     }
 }
 

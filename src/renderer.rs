@@ -14,7 +14,7 @@ use crate::session::{
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
-use rgx::core::{AbstractPipeline, Blending, Filter, Op, PassOp, Rect, Rgba};
+use rgx::core::{Blending, Filter, Op, PassOp, Rect, Rgba};
 use rgx::kit;
 use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
@@ -180,14 +180,11 @@ impl Renderer {
     ) -> Self {
         let (win_w, win_h) = (window.width as u32, window.height as u32);
 
-        let sprite2d: kit::sprite2d::Pipeline =
-            r.pipeline(win_w, win_h, Blending::default());
-        let shape2d: kit::shape2d::Pipeline =
-            r.pipeline(win_w, win_h, Blending::default());
+        let sprite2d: kit::sprite2d::Pipeline = r.pipeline(Blending::default());
+        let shape2d: kit::shape2d::Pipeline = r.pipeline(Blending::default());
         let framebuffer2d: framebuffer2d::Pipeline =
-            r.pipeline(win_w, win_h, Blending::default());
-        let screen2d: screen2d::Pipeline =
-            r.pipeline(win_w, win_h, Blending::default());
+            r.pipeline(Blending::default());
+        let screen2d: screen2d::Pipeline = r.pipeline(Blending::default());
 
         let sampler = r.sampler(Filter::Nearest, Filter::Nearest);
 
@@ -234,21 +231,9 @@ impl Renderer {
             (Checker { texture, binding }, texels)
         };
 
-        let brush2d = r.pipeline(
-            Session::DEFAULT_VIEW_W,
-            Session::DEFAULT_VIEW_H,
-            Blending::default(),
-        );
-        let const2d = r.pipeline(
-            Session::DEFAULT_VIEW_W,
-            Session::DEFAULT_VIEW_H,
-            Blending::constant(),
-        );
-        let paste2d: sprite2d::Pipeline = r.pipeline(
-            Session::DEFAULT_VIEW_W,
-            Session::DEFAULT_VIEW_H,
-            Blending::default(),
-        );
+        let brush2d = r.pipeline(Blending::default());
+        let const2d = r.pipeline(Blending::constant());
+        let paste2d: sprite2d::Pipeline = r.pipeline(Blending::default());
 
         let paste = {
             let texture = r.texture(1, 1);
@@ -264,7 +249,7 @@ impl Renderer {
         let screen_fb = r.framebuffer(win_w, win_h);
         let screen_binding = screen2d.binding(r, &screen_fb, &sampler);
 
-        r.prepare(&[
+        r.submit(&[
             Op::Fill(&font.texture, Rgba8::align(&font_img)),
             Op::Fill(&cursors.texture, Rgba8::align(&cursors_img)),
             Op::Fill(&checker.texture, Rgba8::align(&checker_img)),
@@ -356,7 +341,13 @@ impl Renderer {
         let buf = text.finish(&r);
 
         let mut f = r.frame();
-        r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
+
+        r.update_pipeline(
+            &self.sprite2d,
+            kit::ortho(out.width, out.height),
+            &mut f,
+        );
+
         {
             let mut p =
                 f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
@@ -372,7 +363,7 @@ impl Renderer {
             p.draw_buffer(&self.screen_vb)
         }
         // Submit frame for presenting.
-        r.submit(f);
+        r.present(f);
     }
 
     pub fn frame(
@@ -473,9 +464,21 @@ impl Renderer {
             .get(&v.id)
             .expect("the view data for the active view must exist");
 
-        r.update_pipeline(&self.shape2d, Matrix4::identity(), &mut f);
-        r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
-        r.update_pipeline(&self.framebuffer2d, (), &mut f);
+        r.update_pipeline(
+            &self.shape2d,
+            kit::ortho(present.width, present.height),
+            &mut f,
+        );
+        r.update_pipeline(
+            &self.sprite2d,
+            kit::ortho(present.width, present.height),
+            &mut f,
+        );
+        r.update_pipeline(
+            &self.framebuffer2d,
+            kit::ortho(present.width, present.height),
+            &mut f,
+        );
 
         {
             let mut p =
@@ -494,12 +497,12 @@ impl Renderer {
                 if b.state != BrushState::NotDrawing {
                     r.update_pipeline(
                         &self.brush2d,
-                        Matrix4::identity(),
+                        kit::ortho(v.width(), v.height()),
                         &mut f,
                     );
                     r.update_pipeline(
                         &self.const2d,
-                        Matrix4::identity(),
+                        kit::ortho(v.width(), v.height()),
                         &mut f,
                     );
 
@@ -510,7 +513,11 @@ impl Renderer {
 
         // Draw paste buffer to view staging buffer.
         if let Some(buf) = paste_buf {
-            r.update_pipeline(&self.paste2d, Matrix4::identity(), &mut f);
+            r.update_pipeline(
+                &self.paste2d,
+                kit::ortho(v.width(), v.height()),
+                &mut f,
+            );
 
             let mut p =
                 f.pass(PassOp::Clear(Rgba::TRANSPARENT), &view_data.staging_fb);
@@ -521,8 +528,6 @@ impl Renderer {
 
         // Draw paste buffer to view framebuffer.
         if !self.paste.outputs.is_empty() {
-            r.update_pipeline(&self.paste2d, Matrix4::identity(), &mut f);
-
             let mut p = f.pass(PassOp::Load(), &view_data.fb);
 
             p.set_pipeline(&self.paste2d);
@@ -533,7 +538,11 @@ impl Renderer {
         }
 
         {
-            r.update_pipeline(&self.sprite2d, session.transform(), &mut f);
+            r.update_pipeline(
+                &self.sprite2d,
+                kit::ortho(present.width, present.height) * session.transform(),
+                &mut f,
+            );
 
             // NOTE: We should be able to use the same render pass for both
             // of the following operations, but strangely enough, this yields
@@ -555,7 +564,11 @@ impl Renderer {
         }
 
         {
-            r.update_pipeline(&self.sprite2d, Matrix4::identity(), &mut f);
+            r.update_pipeline(
+                &self.sprite2d,
+                kit::ortho(present.width, present.height),
+                &mut f,
+            );
 
             let mut p = f.pass(PassOp::Load(), &self.screen_fb);
 
@@ -587,7 +600,7 @@ impl Renderer {
         }
 
         // Submit frame to device.
-        r.submit(f);
+        r.present(f);
 
         // Always clear the active view staging buffer. We do this because
         // it may not get drawn to this frame, and hence may remain dirty
@@ -595,7 +608,7 @@ impl Renderer {
         //
         // We have to do this *after* the frame has been submitted, otherwise
         // when switching views, the staging buffer isn't cleared.
-        r.prepare(&[Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT)]);
+        r.submit(&[Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT)]);
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
@@ -609,21 +622,6 @@ impl Renderer {
                     s.push_snapshot(data, extent.fw, extent.fh, extent.nframes);
                 }
             });
-        }
-    }
-
-    fn resize_brush_pipelines(&mut self, w: u32, h: u32) {
-        assert!(
-            self.brush2d.width() == self.const2d.width()
-                && self.brush2d.height() == self.const2d.height()
-                && self.paste2d.width() == self.const2d.width()
-                && self.paste2d.height() == self.const2d.height(),
-            "the view pipelines must always have the same size"
-        );
-        if self.brush2d.width() != w || self.brush2d.height() != h {
-            self.brush2d.resize(w, h);
-            self.const2d.resize(w, h);
-            self.paste2d.resize(w, h);
         }
     }
 
@@ -645,10 +643,7 @@ impl Renderer {
                 Effect::SessionResized(size) => {
                     self.handle_resized(size, r);
                 }
-                Effect::ViewActivated(id) => {
-                    let v = views.get(&id).expect("view must exist");
-                    self.resize_brush_pipelines(v.width(), v.height());
-                }
+                Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
                     self.add_views(&[id], r);
                 }
@@ -658,7 +653,6 @@ impl Renderer {
                 Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
                     let v = views.get(&id).expect("view must exist");
                     self.handle_view_dirty(v, r);
-                    self.resize_brush_pipelines(v.width(), v.height());
                 }
             }
         }
@@ -686,7 +680,7 @@ impl Renderer {
             let view_data =
                 ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, r);
 
-            // We don't want the lock to be held when `prepare` is called below,
+            // We don't want the lock to be held when `submit` is called below,
             // because in some cases it'll trigger the read-back which claims
             // a write lock on resources.
             let (sw, sh, pixels) = {
@@ -700,7 +694,7 @@ impl Renderer {
             let tw = u32::min(sw, vw);
             let th = u32::min(sh, vh);
 
-            r.prepare(&[
+            r.submit(&[
                 Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Transfer(
@@ -720,7 +714,7 @@ impl Renderer {
                 let (_, pixels) = rs.get_snapshot(&v.id);
                 pixels.to_owned()
             };
-            r.prepare(&[Op::Fill(fb, &*pixels)]);
+            r.submit(&[Op::Fill(fb, &*pixels)]);
         }
     }
 
@@ -734,10 +728,10 @@ impl Renderer {
         for op in &v.ops {
             match op {
                 ViewOp::Clear(color) => {
-                    r.prepare(&[Op::Clear(fb, (*color).into())]);
+                    r.submit(&[Op::Clear(fb, (*color).into())]);
                 }
                 ViewOp::Blit(src, dst) => {
-                    r.prepare(&[Op::Blit(fb, *src, *dst)]);
+                    r.submit(&[Op::Blit(fb, *src, *dst)]);
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
@@ -772,7 +766,7 @@ impl Renderer {
                         &self.sampler,
                     );
 
-                    r.prepare(&[Op::Fill(&self.paste.texture, &pixels)]);
+                    r.submit(&[Op::Fill(&self.paste.texture, &pixels)]);
                 }
                 ViewOp::Paste(dst) => {
                     let buffer = sprite2d::Batch::singleton(
@@ -802,7 +796,7 @@ impl Renderer {
                 ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, r);
 
             debug_assert!(!pixels.is_empty());
-            r.prepare(&[
+            r.submit(&[
                 Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Fill(&view_data.fb, &pixels),
@@ -976,7 +970,7 @@ impl Renderer {
                 if session.width >= 600. {
                     // Fg color
                     canvas.add(Shape::Rectangle(
-                        Rect::origin(11., 11.).translate(
+                        Rect::origin(11., 11.).with_origin(
                             session.width * 0.4,
                             self::LINE_HEIGHT + self::MARGIN + 2.,
                         ),
@@ -985,7 +979,7 @@ impl Renderer {
                     ));
                     // Bg color
                     canvas.add(Shape::Rectangle(
-                        Rect::origin(11., 11.).translate(
+                        Rect::origin(11., 11.).with_origin(
                             session.width * 0.4 + 25.,
                             self::LINE_HEIGHT + self::MARGIN + 2.,
                         ),
@@ -1060,7 +1054,7 @@ impl Renderer {
                     let cursor = session.cursor;
                     batch.add(
                         rect,
-                        rect.translate(cursor.x, cursor.y) + offset,
+                        rect.with_origin(cursor.x, cursor.y) + offset,
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -1081,7 +1075,7 @@ impl Renderer {
                     let cursor = session.cursor;
                     batch.add(
                         rect,
-                        rect.translate(cursor.x, cursor.y) + offset,
+                        rect.with_origin(cursor.x, cursor.y) + offset,
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -1249,11 +1243,6 @@ impl Renderer {
         let (w, h) = (size.width as u32, size.height as u32);
 
         self.window = size;
-        self.framebuffer2d.resize(w, h);
-        self.sprite2d.resize(w, h);
-        self.shape2d.resize(w, h);
-        self.screen2d.resize(w, h);
-
         self.screen_fb = r.framebuffer(w, h);
         self.screen_binding =
             self.screen2d.binding(r, &self.screen_fb, &self.sampler);

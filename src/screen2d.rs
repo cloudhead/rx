@@ -3,8 +3,6 @@ use rgx::core::*;
 
 pub struct Pipeline {
     pipeline: core::Pipeline,
-    width: u32,
-    height: u32,
 }
 
 impl<'a> AbstractPipeline<'a> for Pipeline {
@@ -30,17 +28,8 @@ impl<'a> AbstractPipeline<'a> for Pipeline {
         }
     }
 
-    fn setup(
-        pipeline: core::Pipeline,
-        _dev: &Device,
-        width: u32,
-        height: u32,
-    ) -> Self {
-        Self {
-            pipeline,
-            width,
-            height,
-        }
+    fn setup(pipeline: core::Pipeline, _dev: &Device) -> Self {
+        Self { pipeline }
     }
 
     fn apply(&self, pass: &mut Pass) {
@@ -49,19 +38,6 @@ impl<'a> AbstractPipeline<'a> for Pipeline {
 
     fn prepare(&'a self, _ctx: ()) -> Option<(&'a UniformBuffer, Vec<()>)> {
         None
-    }
-
-    fn resize(&mut self, w: u32, h: u32) {
-        self.width = w;
-        self.height = h;
-    }
-
-    fn width(&self) -> u32 {
-        self.width
-    }
-
-    fn height(&self) -> u32 {
-        self.height
     }
 }
 
