@@ -191,7 +191,7 @@ impl Selection {
     /// Return the selection bounds as a non-empty rectangle. This function
     /// will never return an empty rectangle.
     pub fn bounds(&self) -> Rect<i32> {
-        let r = self.normalized();
+        let r = self.abs();
         Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1)
     }
 
