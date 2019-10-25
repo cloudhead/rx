@@ -177,7 +177,7 @@ impl<'a> Parse<'a> for Mode {
         match id {
             "command" => Ok((Mode::Command, p)),
             "normal" => Ok((Mode::Normal, p)),
-            "visual" => Ok((Mode::Visual(VisualMode::Selecting), p)),
+            "visual" => Ok((Mode::Visual(VisualMode::default()), p)),
             "present" => Ok((Mode::Present, p)),
             mode => Err(Error::new(format!("unknown mode '{}'", mode))),
         }
