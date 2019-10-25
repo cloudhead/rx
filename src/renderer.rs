@@ -816,7 +816,7 @@ impl Renderer {
 
         if let Some(selection) = session.selection {
             let fill = match session.mode {
-                Mode::Visual(VisualMode::Selecting) => {
+                Mode::Visual(VisualMode::Selecting { .. }) => {
                     Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88)
                 }
                 // TODO: Handle different modes differently.
@@ -824,7 +824,7 @@ impl Renderer {
             };
             let stroke = color::RED;
 
-            let r = selection.bounds();
+            let r = selection.abs().bounds();
             let offset = session.offset + view.offset;
 
             {
@@ -1093,7 +1093,7 @@ impl Renderer {
         let c = session.cursor;
 
         match session.mode {
-            Mode::Visual(VisualMode::Selecting) => {
+            Mode::Visual(VisualMode::Selecting { .. }) => {
                 if v.contains(c - session.offset) {
                     let z = v.zoom;
                     let c = session.snap(c, v.offset.x, v.offset.y, z);

@@ -577,7 +577,7 @@ impl<'a> Parse<'a> for Command {
                 let (km, p) = KeyMapping::parse(
                     p,
                     &[
-                        Mode::Visual(VisualMode::Selecting),
+                        Mode::Visual(VisualMode::selecting()),
                         Mode::Visual(VisualMode::Pasting),
                     ],
                 )?;
@@ -592,7 +592,7 @@ impl<'a> Parse<'a> for Command {
                     p,
                     &[
                         Mode::Normal,
-                        Mode::Visual(VisualMode::Selecting),
+                        Mode::Visual(VisualMode::selecting()),
                         Mode::Visual(VisualMode::Pasting),
                     ],
                 )?;

@@ -169,8 +169,20 @@ impl fmt::Display for Mode {
 
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum VisualMode {
-    Selecting,
+    Selecting { dragging: bool },
     Pasting,
+}
+
+impl VisualMode {
+    pub fn selecting() -> Self {
+        Self::Selecting { dragging: false }
+    }
+}
+
+impl Default for VisualMode {
+    fn default() -> Self {
+        Self::selecting()
+    }
 }
 
 /// A pixel selection within a view.
@@ -191,8 +203,12 @@ impl Selection {
     /// Return the selection bounds as a non-empty rectangle. This function
     /// will never return an empty rectangle.
     pub fn bounds(&self) -> Rect<i32> {
-        let r = self.abs();
-        Rect::new(r.x1, r.y1, r.x2 + 1, r.y2 + 1)
+        Rect::new(self.x1, self.y1, self.x2 + 1, self.y2 + 1)
+    }
+
+    /// Return the absolute selection.
+    pub fn abs(&self) -> Selection {
+        Self(self.0.abs())
     }
 
     /// Translate the selection rectangle.
@@ -1118,7 +1134,7 @@ impl Session {
         self.views.activate(id);
         self.effects.push(Effect::ViewActivated(id));
 
-        if let Mode::Visual(VisualMode::Selecting) = self.mode {
+        if let Mode::Visual(VisualMode::Selecting { .. }) = self.mode {
             self.selection = None;
         } else if let Mode::Visual(VisualMode::Pasting) = self.mode {
             // When pasting, if the selection fits in the activated
@@ -1128,7 +1144,7 @@ impl Session {
                 let r = self.active_view().bounds();
                 if !r.contains(s.min()) || !r.contains(s.max()) {
                     self.selection = None;
-                    self.mode = Mode::Visual(VisualMode::Selecting);
+                    self.mode = Mode::Visual(VisualMode::default());
                 }
             }
         }
@@ -1601,14 +1617,22 @@ impl Session {
                             Mode::Command => {
                                 // TODO
                             }
-                            Mode::Visual(VisualMode::Selecting) => {
+                            Mode::Visual(VisualMode::Selecting {
+                                ref mut dragging,
+                            }) => {
                                 let p = p.map(|n| n as i32);
-                                self.selection = Some(Selection::new(
-                                    p.x,
-                                    p.y,
-                                    p.x + 1,
-                                    p.y + 1,
-                                ));
+                                if let Some(s) = self.selection {
+                                    if s.abs().bounds().contains(p) {
+                                        *dragging = true;
+                                    } else {
+                                        self.selection = Some(Selection::new(
+                                            p.x,
+                                            p.y,
+                                            p.x + 1,
+                                            p.y + 1,
+                                        ));
+                                    }
+                                }
                             }
                             Mode::Visual(VisualMode::Pasting) => {
                                 self.command(Command::SelectionPaste);
@@ -1621,25 +1645,31 @@ impl Session {
                 } else {
                     // Clicking outside a view...
                     match self.mode {
-                        Mode::Visual(VisualMode::Selecting) => {
+                        Mode::Visual(VisualMode::Selecting { .. }) => {
                             self.selection = None;
                         }
                         _ => {}
                     }
                 }
             }
-            InputState::Released => {
-                if let Tool::Brush(ref mut brush) = self.tool {
-                    match brush.state {
-                        BrushState::Drawing { .. }
-                        | BrushState::DrawStarted { .. } => {
-                            brush.stop_drawing();
-                            self.active_view_mut().touch();
+            InputState::Released => match self.mode {
+                Mode::Visual(VisualMode::Selecting { ref mut dragging }) => {
+                    *dragging = false;
+                }
+                Mode::Normal => {
+                    if let Tool::Brush(ref mut brush) = self.tool {
+                        match brush.state {
+                            BrushState::Drawing { .. }
+                            | BrushState::DrawStarted { .. } => {
+                                brush.stop_drawing();
+                                self.active_view_mut().touch();
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
-            }
+                _ => {}
+            },
         }
     }
 
@@ -1685,17 +1715,27 @@ impl Session {
                 }
                 Tool::Sampler => {}
             },
-            Mode::Visual(VisualMode::Selecting) => {
+            Mode::Visual(VisualMode::Selecting { dragging: false }) => {
                 if self.mouse_state == InputState::Pressed {
-                    let c = self.active_view_coords(cursor);
-
                     if let Some(ref mut s) = self.selection {
                         *s = Selection::new(
                             s.x1,
                             s.y1,
-                            c.x as i32 + 1,
-                            c.y as i32 + 1,
+                            p.x as i32 + 1,
+                            p.y as i32 + 1,
                         );
+                    }
+                }
+            }
+            Mode::Visual(VisualMode::Selecting { dragging: true }) => {
+                if self.mouse_state == InputState::Pressed && p != prev_p {
+                    if let Some(ref mut s) = self.selection {
+                        // TODO: (rgx) Better API.
+                        let delta = *p - Vector2::new(prev_p.x, prev_p.y);
+                        let delta =
+                            Vector2::new(delta.x as i32, delta.y as i32);
+
+                        *s = Selection::from(s.bounds() + delta);
                     }
                 }
             }
@@ -1703,7 +1743,7 @@ impl Session {
                 // Center paste selection on cursor.
                 let c = self.active_view_coords(cursor);
                 if let Some(ref mut s) = self.selection {
-                    let r = s.bounds();
+                    let r = s.abs().bounds();
                     let (w, h) = (r.width(), r.height());
                     let (x, y) = (c.x as i32 - w / 2, c.y as i32 - h / 2);
                     *s = Selection::new(x, y, x + w, y + h);
@@ -1753,7 +1793,7 @@ impl Session {
             }
 
             match self.mode {
-                Mode::Visual(VisualMode::Selecting) => {
+                Mode::Visual(VisualMode::Selecting { .. }) => {
                     if key == platform::Key::Escape
                         && state == InputState::Pressed
                     {
@@ -1766,7 +1806,7 @@ impl Session {
                     if key == platform::Key::Escape
                         && state == InputState::Pressed
                     {
-                        self.switch_mode(Mode::Visual(VisualMode::Selecting));
+                        self.switch_mode(Mode::Visual(VisualMode::default()));
                         return;
                     }
                 }
@@ -2398,17 +2438,17 @@ impl Session {
                 if let (Mode::Visual(VisualMode::Pasting), Some(s)) =
                     (self.mode, self.selection)
                 {
-                    self.active_view_mut().paste(s.bounds());
+                    self.active_view_mut().paste(s.abs().bounds());
                 } else {
                     // TODO: Enter paste mode?
                 }
             }
             Command::SelectionYank => {
-                if let (Mode::Visual(VisualMode::Selecting), Some(s)) =
+                if let (Mode::Visual(VisualMode::Selecting { .. }), Some(s)) =
                     (self.mode, self.selection)
                 {
                     let v = self.active_view_mut();
-                    let s = s.bounds().clamped(Rect::origin(
+                    let s = s.abs().bounds().clamped(Rect::origin(
                         v.width() as i32,
                         v.height() as i32,
                     ));
