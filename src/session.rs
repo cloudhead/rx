@@ -1046,13 +1046,7 @@ impl Session {
                 self.ignore_received_characters = true;
                 self.cmdline.putc(':');
             }
-            Mode::Visual(_) => {
-                if self.selection.is_none() {
-                    let v = self.active_view();
-                    self.selection =
-                        Some(Selection::new(0, 0, v.fw as i32, v.fh as i32));
-                }
-            }
+            Mode::Visual(_) => {}
             _ => {}
         }
 
@@ -2460,6 +2454,8 @@ impl Session {
                             Rect::new(x1, 0, x2, y2).clamped(r),
                         );
                     }
+                } else {
+                    self.selection = Some(Selection::new(0, 0, fw, fh));
                 }
             }
             Command::SelectionShrink => {}
