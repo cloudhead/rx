@@ -463,22 +463,11 @@ impl Renderer {
             .view_data
             .get(&v.id)
             .expect("the view data for the active view must exist");
+        let ortho = kit::ortho(present.width, present.height);
 
-        r.update_pipeline(
-            &self.shape2d,
-            kit::ortho(present.width, present.height),
-            &mut f,
-        );
-        r.update_pipeline(
-            &self.sprite2d,
-            kit::ortho(present.width, present.height),
-            &mut f,
-        );
-        r.update_pipeline(
-            &self.framebuffer2d,
-            kit::ortho(present.width, present.height),
-            &mut f,
-        );
+        r.update_pipeline(&self.shape2d, ortho, &mut f);
+        r.update_pipeline(&self.sprite2d, ortho, &mut f);
+        r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
 
         {
             let mut p =
@@ -540,7 +529,7 @@ impl Renderer {
         {
             r.update_pipeline(
                 &self.sprite2d,
-                kit::ortho(present.width, present.height) * session.transform(),
+                ortho * session.transform(),
                 &mut f,
             );
 
@@ -564,11 +553,7 @@ impl Renderer {
         }
 
         {
-            r.update_pipeline(
-                &self.sprite2d,
-                kit::ortho(present.width, present.height),
-                &mut f,
-            );
+            r.update_pipeline(&self.sprite2d, ortho, &mut f);
 
             let mut p = f.pass(PassOp::Load(), &self.screen_fb);
 
