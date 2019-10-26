@@ -8,6 +8,7 @@ use std::process;
 fn main() {
     rx::ALLOCATOR.reset();
 
+    let mut options = rx::Options::default();
     let matches = App::new("rx")
         .version(&*format!("v{}", rx::VERSION))
         .author("Alexis Sellier <self@cloudhead.io>")
@@ -17,6 +18,18 @@ fn main() {
                 .short("v")
                 .multiple(true)
                 .help("Sets the verbosity level"),
+        )
+        .arg(
+            Arg::with_name("width")
+                .long("width")
+                .takes_value(true)
+                .help("Sets the window width"),
+        )
+        .arg(
+            Arg::with_name("height")
+                .long("height")
+                .takes_value(true)
+                .help("Sets the window height"),
         )
         .arg(
             Arg::with_name("replay")
@@ -41,11 +54,15 @@ fn main() {
             _ => fatal(e.message),
         });
 
+    if matches.is_present("replay") && matches.is_present("record") {
+        fatal("error: '--replay' and '--record' can't both be specified");
+    }
+
     let paths = matches
         .values_of("path")
         .map_or(Vec::new(), |m| m.collect::<Vec<_>>());
 
-    let log = match matches.occurrences_of("v") {
+    options.log = match matches.occurrences_of("v") {
         0 => "rx=warn",
         1 => "rx=info,error",
         2 => "rx=debug,error",
@@ -54,24 +71,45 @@ fn main() {
         _ => "debug",
     };
 
-    if matches.is_present("replay") && matches.is_present("record") {
-        fatal("error: '--replay' and '--record' can't both be specified");
+    if let Some(w) = matches.value_of("width") {
+        match w.parse::<u32>() {
+            Ok(w) => {
+                options.width = w;
+            }
+            Err(_) => fatal("error: couldn't parse `--width` value specified"),
+        }
+    }
+    if let Some(h) = matches.value_of("height") {
+        match h.parse::<u32>() {
+            Ok(h) => {
+                options.height = h;
+            }
+            Err(_) => fatal("error: couldn't parse `--height` value specified"),
+        }
     }
 
-    let exec = if let Some(path) = matches.value_of("replay") {
-        session::ExecutionMode::replaying(path)
+    if let Some(path) = matches.value_of("replay") {
+        match session::ExecutionMode::replaying(path) {
+            Err(e) => {
+                fatal(format!("initialization error: {}", e));
+            }
+            Ok(exec) => {
+                options.exec = exec;
+            }
+        }
     } else if let Some(path) = matches.value_of("record") {
-        session::ExecutionMode::recording(path)
-    } else {
-        session::ExecutionMode::normal()
+        match session::ExecutionMode::recording(path) {
+            Err(e) => {
+                fatal(format!("initialization error: {}", e));
+            }
+            Ok(exec) => {
+                options.exec = exec;
+            }
+        }
     };
 
-    if let Err(e) = exec {
-        fatal(format!("initialization error: {}", e));
-    } else if let Ok(exec) = exec {
-        if let Err(e) = rx::init(&paths, rx::Options { log, exec }) {
-            fatal(format!("initialization error: {}", e));
-        }
+    if let Err(e) = rx::init(&paths, options) {
+        fatal(format!("error: initializing: {}", e));
     }
 }
 

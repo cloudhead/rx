@@ -11,7 +11,12 @@ use std::{io, sync};
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn init(title: &str, hints: &[WindowHint]) -> io::Result<(Window, Events)> {
+pub fn init(
+    title: &str,
+    w: u32,
+    h: u32,
+    hints: &[WindowHint],
+) -> io::Result<(Window, Events)> {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
@@ -26,7 +31,7 @@ pub fn init(title: &str, hints: &[WindowHint]) -> io::Result<(Window, Events)> {
     }
 
     let (mut window, events) = glfw
-        .create_window(800, 600, title, glfw::WindowMode::Windowed)
+        .create_window(w, h, title, glfw::WindowMode::Windowed)
         .ok_or(io::Error::new(
             io::ErrorKind::Other,
             "glfw: error creating window",

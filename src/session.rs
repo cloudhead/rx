@@ -333,6 +333,12 @@ impl ExecutionMode {
     }
 }
 
+impl Default for ExecutionMode {
+    fn default() -> Self {
+        ExecutionMode::Normal
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 /// A generic direction that can be used for things that go backward

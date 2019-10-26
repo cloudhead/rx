@@ -67,6 +67,19 @@ pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 pub struct Options<'a> {
     pub log: &'a str,
     pub exec: ExecutionMode,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl<'a> Default for Options<'a> {
+    fn default() -> Self {
+        Self {
+            log: "rx=warn",
+            exec: ExecutionMode::default(),
+            width: 1280,
+            height: 720,
+        }
+    }
 }
 
 pub fn init<'a, P: AsRef<Path>>(
@@ -85,7 +98,8 @@ pub fn init<'a, P: AsRef<Path>>(
             &[WindowHint::Resizable(false)]
         }
     };
-    let (win, events) = platform::init("rx", hints)?;
+    let (win, events) =
+        platform::init("rx", options.width, options.height, hints)?;
 
     let hidpi_factor = win.hidpi_factor();
     let win_size = win.size()?;

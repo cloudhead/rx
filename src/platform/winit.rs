@@ -65,7 +65,12 @@ impl Window {
     }
 }
 
-pub fn init(title: &str, hints: &[WindowHint]) -> io::Result<(Window, Events)> {
+pub fn init(
+    title: &str,
+    w: u32,
+    h: u32,
+    hints: &[WindowHint],
+) -> io::Result<(Window, Events)> {
     let events = Events {
         handle: winit::event_loop::EventLoop::new(),
     };
@@ -81,6 +86,7 @@ pub fn init(title: &str, hints: &[WindowHint]) -> io::Result<(Window, Events)> {
 
     let handle = winit::window::WindowBuilder::new()
         .with_title(title)
+        .with_inner_size(winit::dpi::LogicalSize::new(w as f64, h as f64))
         .with_resizable(resizable)
         .build(&events.handle)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;

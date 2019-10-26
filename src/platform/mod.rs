@@ -18,9 +18,11 @@ mod backend;
 /// Initialize the platform.
 pub fn init(
     title: &str,
+    w: u32,
+    h: u32,
     hints: &[WindowHint],
 ) -> io::Result<(backend::Window, backend::Events)> {
-    backend::init(title, hints)
+    backend::init(title, w, h, hints)
 }
 
 /// Run the main event loop.
