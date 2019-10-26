@@ -874,7 +874,7 @@ impl Renderer {
                 let x = n * v.zoom * v.fw as f32 + offset.x;
                 canvas.add(Shape::Line(
                     Line::new(x, offset.y, x, v.zoom * v.fh as f32 + offset.y),
-                    Stroke::new(1.0, Rgba::new(0.4, 0.4, 0.4, 1.0)),
+                    Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
                 ));
             }
             // View border
