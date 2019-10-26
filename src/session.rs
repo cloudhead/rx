@@ -159,7 +159,11 @@ impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Normal => "normal".fmt(f),
-            Self::Visual(_) => "visual".fmt(f),
+            Self::Visual(VisualMode::Selecting { dragging: true }) => {
+                "visual (dragging)".fmt(f)
+            }
+            Self::Visual(VisualMode::Selecting { .. }) => "visual".fmt(f),
+            Self::Visual(VisualMode::Pasting) => "visual (pasting)".fmt(f),
             Self::Command => "command".fmt(f),
             Self::Present => "present".fmt(f),
             Self::Help => "help".fmt(f),
