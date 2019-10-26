@@ -243,17 +243,15 @@ impl<'a> Parser<'a> {
             .parent()
             .and_then(|directory| directory.canonicalize().ok());
 
-        if let (Some(directory), Some(filename)) = (directory, &path.file_name()) {
+        if let (Some(directory), Some(filename)) =
+            (directory, &path.file_name())
+        {
             path = Path::new(&directory).join(Path::new(&filename));
         }
 
         match path.to_str() {
-            Some(p) => {
-                Ok((p.to_string(), parser))
-            },
-            None => {
-                Err(Error::new(format!("invalid path: {:?}", path)))
-            }
+            Some(p) => Ok((p.to_string(), parser)),
+            None => Err(Error::new(format!("invalid path: {:?}", path))),
         }
     }
 
