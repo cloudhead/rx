@@ -1,68 +1,57 @@
 use rx;
 use rx::session;
 
-use clap::{App, Arg};
+use pico_args;
 
 use std::process;
 
+const HELP: &'static str = r#"
+A Modern & Extensible Pixel Editor
+Alexis Sellier <self@cloudhead.io>
+
+USAGE
+    rx [OPTIONS] [<path>..]
+
+OPTIONS
+    -h, --help           Prints help
+    -V, --version        Prints version
+
+    --verbosity <level>  Set verbosity level (0-5)
+    --record <file>      Record user input to a file
+    --replay <file>      Replay user input from a file
+    --width <width>      Set the window width
+    --height <height>    Set the window height
+"#;
+
 fn main() {
+    if let Err(e) = self::execute(pico_args::Arguments::from_env()) {
+        eprintln!("rx: error: {}", e.as_ref());
+        process::exit(1);
+    }
+}
+
+fn execute(
+    mut args: pico_args::Arguments,
+) -> Result<(), Box<dyn std::error::Error>> {
     rx::ALLOCATOR.reset();
 
-    let mut options = rx::Options::default();
-    let matches = App::new("rx")
-        .version(&*format!("v{}", rx::VERSION))
-        .author("Alexis Sellier <self@cloudhead.io>")
-        .about("A Modern & Extensible Pixel Editor")
-        .arg(
-            Arg::with_name("v")
-                .short("v")
-                .multiple(true)
-                .help("Sets the verbosity level"),
-        )
-        .arg(
-            Arg::with_name("width")
-                .long("width")
-                .takes_value(true)
-                .help("Sets the window width"),
-        )
-        .arg(
-            Arg::with_name("height")
-                .long("height")
-                .takes_value(true)
-                .help("Sets the window height"),
-        )
-        .arg(
-            Arg::with_name("replay")
-                .long("replay")
-                .value_name("FILE")
-                .help("Replay input from a file"),
-        )
-        .arg(
-            Arg::with_name("record")
-                .long("record")
-                .value_name("FILE")
-                .help("Record input to a file"),
-        )
-        .arg(Arg::with_name("path").multiple(true))
-        .get_matches_safe()
-        .unwrap_or_else(|e| match e.kind {
-            clap::ErrorKind::HelpDisplayed
-            | clap::ErrorKind::VersionDisplayed => {
-                println!("{}", e.message);
-                process::exit(0);
-            }
-            _ => fatal(e.message),
-        });
+    let default = rx::Options::default();
 
-    if matches.is_present("replay") && matches.is_present("record") {
-        fatal("error: '--replay' and '--record' can't both be specified");
+    if args.contains(["-h", "--help"]) {
+        println!("rx v{}{}", rx::VERSION, HELP);
+        return Ok(());
     }
 
-    let paths = matches
-        .values_of("path")
-        .map_or(Vec::new(), |m| m.collect::<Vec<_>>());
+    if args.contains(["-V", "--version"]) {
+        println!("rx v{}", rx::VERSION);
+        return Ok(());
+    }
 
-    options.log = match matches.occurrences_of("v") {
+    if args.contains("--replay") && args.contains("--record") {
+        return Err("'--replay' and '--record' can't both be specified".into());
+    }
+
+    let log = match args.opt_value_from_str("--verbosity")?.unwrap_or(0) {
         0 => "rx=warn",
         1 => "rx=info,error",
         2 => "rx=debug,error",
@@ -71,49 +60,27 @@ fn main() {
         _ => "debug",
     };
 
-    if let Some(w) = matches.value_of("width") {
-        match w.parse::<u32>() {
-            Ok(w) => {
-                options.width = w;
-            }
-            Err(_) => fatal("error: couldn't parse `--width` value specified"),
-        }
-    }
-    if let Some(h) = matches.value_of("height") {
-        match h.parse::<u32>() {
-            Ok(h) => {
-                options.height = h;
-            }
-            Err(_) => fatal("error: couldn't parse `--height` value specified"),
-        }
-    }
+    let exec =
+        if let Some(path) = args.opt_value_from_str::<_, String>("--replay")? {
+            session::ExecutionMode::replaying(path)?
+        } else if let Some(path) =
+            args.opt_value_from_str::<_, String>("--record")?
+        {
+            session::ExecutionMode::recording(path)?
+        } else {
+            default.exec
+        };
 
-    if let Some(path) = matches.value_of("replay") {
-        match session::ExecutionMode::replaying(path) {
-            Err(e) => {
-                fatal(format!("initialization error: {}", e));
-            }
-            Ok(exec) => {
-                options.exec = exec;
-            }
-        }
-    } else if let Some(path) = matches.value_of("record") {
-        match session::ExecutionMode::recording(path) {
-            Err(e) => {
-                fatal(format!("initialization error: {}", e));
-            }
-            Ok(exec) => {
-                options.exec = exec;
-            }
-        }
+    let options = rx::Options {
+        exec,
+        log,
+        width: args.opt_value_from_str("--width")?.unwrap_or(default.width),
+        height: args
+            .opt_value_from_str("--height")?
+            .unwrap_or(default.height),
     };
 
-    if let Err(e) = rx::init(&paths, options) {
-        fatal(format!("error: initializing: {}", e));
-    }
-}
+    let paths = args.free()?;
 
-fn fatal<S: AsRef<str>>(msg: S) -> ! {
-    eprintln!("rx: {}", msg.as_ref());
-    process::exit(1);
+    rx::init(&paths, options).map_err(|e| e.into())
 }
