@@ -1642,17 +1642,17 @@ impl Session {
                                 ref mut dragging,
                             }) => {
                                 let p = p.map(|n| n as i32);
-                                if let Some(s) = self.selection {
+                                let unit =
+                                    Selection::new(p.x, p.y, p.x + 1, p.y + 1);
+
+                                if let Some(s) = &mut self.selection {
                                     if s.abs().bounds().contains(p) {
                                         *dragging = true;
                                     } else {
-                                        self.selection = Some(Selection::new(
-                                            p.x,
-                                            p.y,
-                                            p.x + 1,
-                                            p.y + 1,
-                                        ));
+                                        self.selection = Some(unit);
                                     }
+                                } else {
+                                    self.selection = Some(unit);
                                 }
                             }
                             Mode::Visual(VisualMode::Pasting) => {
@@ -1666,8 +1666,11 @@ impl Session {
                 } else {
                     // Clicking outside a view...
                     match self.mode {
-                        Mode::Visual(VisualMode::Selecting { .. }) => {
+                        Mode::Visual(VisualMode::Selecting {
+                            ref mut dragging,
+                        }) => {
                             self.selection = None;
+                            *dragging = false;
                         }
                         _ => {}
                     }
@@ -1749,14 +1752,19 @@ impl Session {
                 }
             }
             Mode::Visual(VisualMode::Selecting { dragging: true }) => {
+                let view = self.active_view().bounds();
+
                 if self.mouse_state == InputState::Pressed && p != prev_p {
                     if let Some(ref mut s) = self.selection {
                         // TODO: (rgx) Better API.
                         let delta = *p - Vector2::new(prev_p.x, prev_p.y);
                         let delta =
                             Vector2::new(delta.x as i32, delta.y as i32);
+                        let t = Selection::from(s.bounds() + delta);
 
-                        *s = Selection::from(s.bounds() + delta);
+                        if view.intersects(t.abs().bounds()) {
+                            *s = t;
+                        }
                     }
                 }
             }
@@ -2463,7 +2471,7 @@ impl Session {
                     let mut t = s.clone();
                     t.translate(fw * i32::from(dir), 0);
 
-                    if r.contains(t.min()) || r.contains(t.max()) {
+                    if r.intersects(t.abs().bounds()) {
                         *s = t;
                     }
                 }
