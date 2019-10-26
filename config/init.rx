@@ -40,6 +40,8 @@ map/v  [             :selection/shrink
 map/v  <space>       :selection/fill
 map/v  y             :selection/yank
 map/v  p             :selection/paste
+map/v  w             :selection/jump +
+map/v  b             :selection/jump -
 
 set scale = 1.0                                               --  Set interface scale to 100%
 set checker = off                                             --  Turn off alpha checker

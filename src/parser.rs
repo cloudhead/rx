@@ -2,7 +2,7 @@
 
 use crate::brush::BrushMode;
 use crate::platform;
-use crate::session::{Mode, VisualMode};
+use crate::session::{Direction, Mode, VisualMode};
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -180,6 +180,17 @@ impl<'a> Parse<'a> for Mode {
             "visual" => Ok((Mode::Visual(VisualMode::default()), p)),
             "present" => Ok((Mode::Present, p)),
             mode => Err(Error::new(format!("unknown mode '{}'", mode))),
+        }
+    }
+}
+
+impl<'a> Parse<'a> for Direction {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        let (c, p) = p.parse::<char>()?;
+        match c {
+            '+' => Ok((Direction::Forward, p)),
+            '-' => Ok((Direction::Backward, p)),
+            _ => Err(Error::new("direction must be either `+` or `-`")),
         }
     }
 }
