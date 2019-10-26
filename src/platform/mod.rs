@@ -16,8 +16,11 @@ mod backend;
 mod backend;
 
 /// Initialize the platform.
-pub fn init(title: &str) -> io::Result<(backend::Window, backend::Events)> {
-    backend::init(title)
+pub fn init(
+    title: &str,
+    hints: &[WindowHint],
+) -> io::Result<(backend::Window, backend::Events)> {
+    backend::init(title, hints)
 }
 
 /// Run the main event loop.
@@ -32,6 +35,11 @@ where
 pub enum ControlFlow {
     Continue,
     Exit,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum WindowHint {
+    Resizable(bool),
 }
 
 /// Describes an event from a `Window`.

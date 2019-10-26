@@ -36,7 +36,7 @@ compile_error!(
 );
 
 use event::Event;
-use platform::WindowEvent;
+use platform::{WindowEvent, WindowHint};
 use renderer::Renderer;
 use resources::ResourceManager;
 use session::*;
@@ -79,7 +79,13 @@ pub fn init<'a, P: AsRef<Path>>(
     logger.parse_filters(options.log);
     logger.init();
 
-    let (win, events) = platform::init("rx")?;
+    let hints = match options.exec {
+        ExecutionMode::Normal => &[WindowHint::Resizable(true)],
+        ExecutionMode::Replaying { .. } | ExecutionMode::Recording { .. } => {
+            &[WindowHint::Resizable(false)]
+        }
+    };
+    let (win, events) = platform::init("rx", hints)?;
 
     let hidpi_factor = win.hidpi_factor();
     let win_size = win.size()?;

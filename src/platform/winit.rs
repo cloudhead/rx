@@ -2,7 +2,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use crate::platform::{
     ControlFlow, InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
-    ModifiersState, MouseButton, WindowEvent,
+    ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use winit;
@@ -65,14 +65,23 @@ impl Window {
     }
 }
 
-pub fn init(title: &str) -> io::Result<(Window, Events)> {
+pub fn init(title: &str, hints: &[WindowHint]) -> io::Result<(Window, Events)> {
     let events = Events {
         handle: winit::event_loop::EventLoop::new(),
     };
+    let mut resizable = true;
+
+    for h in hints {
+        match h {
+            WindowHint::Resizable(r) => {
+                resizable = *r;
+            }
+        }
+    }
 
     let handle = winit::window::WindowBuilder::new()
         .with_title(title)
-        .with_resizable(true)
+        .with_resizable(resizable)
         .build(&events.handle)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 

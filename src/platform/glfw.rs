@@ -2,7 +2,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 use crate::platform::{
     ControlFlow, InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
-    ModifiersState, MouseButton, WindowEvent,
+    ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use glfw;
@@ -11,7 +11,7 @@ use std::{io, sync};
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn init(title: &str) -> io::Result<(Window, Events)> {
+pub fn init(title: &str, hints: &[WindowHint]) -> io::Result<(Window, Events)> {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
@@ -20,6 +20,10 @@ pub fn init(title: &str) -> io::Result<(Window, Events)> {
     glfw.window_hint(glfw::WindowHint::Focused(true));
     glfw.window_hint(glfw::WindowHint::RefreshRate(None));
     glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
+
+    for hint in hints {
+        glfw.window_hint((*hint).into());
+    }
 
     let (mut window, events) = glfw
         .create_window(800, 600, title, glfw::WindowMode::Windowed)
@@ -111,6 +115,14 @@ impl Window {
     pub fn size(&self) -> io::Result<LogicalSize> {
         let (w, h) = self.handle.get_size();
         Ok(LogicalSize::new(w as f64, h as f64))
+    }
+}
+
+impl Into<glfw::WindowHint> for WindowHint {
+    fn into(self) -> glfw::WindowHint {
+        match self {
+            Self::Resizable(b) => glfw::WindowHint::Resizable(b),
+        }
     }
 }
 
