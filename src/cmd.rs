@@ -1,7 +1,7 @@
 use crate::brush::BrushMode;
 use crate::parser::{Error, Parse, Parser, Result};
 use crate::platform;
-use crate::session::{Mode, VisualMode};
+use crate::session::{Direction, Mode, VisualMode};
 
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
@@ -58,6 +58,7 @@ pub enum Command {
     SelectionShrink,
     SelectionYank,
     SelectionFill(Option<Rgba8>),
+    SelectionJump(Direction),
     Set(String, Value),
     Slice(Option<usize>),
     Source(String),
@@ -634,6 +635,10 @@ impl<'a> Parse<'a> for Command {
             "selection/paste" => Ok((Command::SelectionPaste, p)),
             "selection/expand" => Ok((Command::SelectionExpand, p)),
             "selection/shrink" => Ok((Command::SelectionShrink, p)),
+            "selection/jump" => {
+                let (dir, p) = p.parse::<Direction>()?;
+                Ok((Command::SelectionJump(dir), p))
+            }
             "selection/fill" => {
                 if let Ok((rgba, p)) = p.clone().parse::<Rgba8>() {
                     Ok((Command::SelectionFill(Some(rgba)), p))

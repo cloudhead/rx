@@ -331,6 +331,23 @@ impl ExecutionMode {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+/// A generic direction that can be used for things that go backward
+/// and forward.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Direction {
+    Backward,
+    Forward,
+}
+
+impl From<Direction> for i32 {
+    fn from(dir: Direction) -> i32 {
+        match dir {
+            Direction::Backward => -1,
+            Direction::Forward => 1,
+        }
+    }
+}
+
 /// A message to the user, displayed in the session.
 pub struct Message {
     /// The message string.
@@ -1483,20 +1500,20 @@ impl Session {
     }
 
     fn undo(&mut self, id: ViewId) {
-        self.restore_view_snapshot(id, true);
+        self.restore_view_snapshot(id, Direction::Backward);
     }
 
     fn redo(&mut self, id: ViewId) {
-        self.restore_view_snapshot(id, false);
+        self.restore_view_snapshot(id, Direction::Forward);
     }
 
-    fn restore_view_snapshot(&mut self, id: ViewId, backwards: bool) {
+    fn restore_view_snapshot(&mut self, id: ViewId, dir: Direction) {
         let snapshot = self
             .resources
             .lock_mut()
             .get_view_mut(&id)
             .and_then(|s| {
-                if backwards {
+                if dir == Direction::Backward {
                     s.prev_snapshot()
                 } else {
                     s.next_snapshot()
@@ -2434,6 +2451,19 @@ impl Session {
                 }
             }
             Command::SelectionShrink => {}
+            Command::SelectionJump(dir) => {
+                let v = self.active_view();
+                let r = v.bounds();
+                let fw = v.extent().fw as i32;
+                if let Some(s) = &mut self.selection {
+                    let mut t = s.clone();
+                    t.translate(fw * i32::from(dir), 0);
+
+                    if r.contains(t.min()) || r.contains(t.max()) {
+                        *s = t;
+                    }
+                }
+            }
             Command::SelectionPaste => {
                 if let (Mode::Visual(VisualMode::Pasting), Some(s)) =
                     (self.mode, self.selection)
