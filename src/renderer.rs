@@ -344,7 +344,7 @@ impl Renderer {
 
         r.update_pipeline(
             &self.sprite2d,
-            kit::ortho(out.width, out.height),
+            kit::ortho(self.window.width as u32, self.window.height as u32),
             &mut f,
         );
 
@@ -463,7 +463,8 @@ impl Renderer {
             .view_data
             .get(&v.id)
             .expect("the view data for the active view must exist");
-        let ortho = kit::ortho(present.width, present.height);
+        let ortho =
+            kit::ortho(self.window.width as u32, self.window.height as u32);
 
         r.update_pipeline(&self.shape2d, ortho, &mut f);
         r.update_pipeline(&self.sprite2d, ortho, &mut f);
