@@ -2438,16 +2438,14 @@ impl Session {
                 let (vw, vh) = (v.width() as i32, v.height() as i32);
 
                 if let Some(ref mut selection) = self.selection {
-                    // Since the selection rectangle represents selected
-                    // pixels and not bounds, we have to shrink it by one,
-                    // compared to the view rectangle.
                     let r = Rect::origin(vw, vh);
-                    let min = selection.min();
-                    let max = selection.max();
+                    let s = selection.bounds();
+                    let min = s.min();
+                    let max = s.max();
 
                     // If the selection is within the view rectangle, expand it,
                     // otherwise do nothing.
-                    if r.contains(min) && r.contains(max) {
+                    if r.contains(min) && r.contains(max.map(|n| n - 1)) {
                         let x1 = if min.x % fw == 0 {
                             min.x - fw
                         } else {
