@@ -52,7 +52,7 @@ fn execute(
     }
 
     let log = match args.opt_value_from_str("--verbosity")?.unwrap_or(0) {
-        0 => "rx=warn",
+        0 => "rx=info",
         1 => "rx=info,error",
         2 => "rx=debug,error",
         3 => "rx=debug,error",
