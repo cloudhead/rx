@@ -485,22 +485,20 @@ impl Renderer {
         }
 
         // Render brush strokes to view framebuffers.
-        if let Some(ref paint_buf) = paint_buf {
-            if let Tool::Brush(ref b) = session.tool {
-                if b.state != BrushState::NotDrawing {
-                    r.update_pipeline(
-                        &self.brush2d,
-                        kit::ortho(v.width(), v.height()),
-                        &mut f,
-                    );
-                    r.update_pipeline(
-                        &self.const2d,
-                        kit::ortho(v.width(), v.height()),
-                        &mut f,
-                    );
+        if let (Some(paint_buf), Tool::Brush(b)) = (&paint_buf, &session.tool) {
+            if b.state != BrushState::NotDrawing {
+                r.update_pipeline(
+                    &self.brush2d,
+                    kit::ortho(v.width(), v.height()),
+                    &mut f,
+                );
+                r.update_pipeline(
+                    &self.const2d,
+                    kit::ortho(v.width(), v.height()),
+                    &mut f,
+                );
 
-                    self.render_brush_strokes(paint_buf, view_data, b, &mut f);
-                }
+                self.render_brush_strokes(paint_buf, view_data, b, &mut f);
             }
         }
 
@@ -995,28 +993,30 @@ impl Renderer {
         avg_frametime: &time::Duration,
         text: &mut TextBatch,
     ) {
-        if let ExecutionMode::Recording { path, .. } = &session.execution {
-            text.add(
-                &format!("* recording: {} (<End> to stop)", path.display()),
-                MARGIN * 2.,
-                session.height - self::LINE_HEIGHT - MARGIN,
-                color::RED,
-            );
-        } else if let ExecutionMode::Replaying { events, path, .. } =
-            &session.execution
-        {
-            if let Some(event) = events.front() {
+        match &session.execution {
+            ExecutionMode::Recording { path, .. } => {
                 text.add(
-                    &format!(
-                        "> replaying: {}: {:48} (<Esc> to stop)",
-                        path.display(),
-                        String::from(event.clone()),
-                    ),
+                    &format!("* recording: {} (<End> to stop)", path.display()),
                     MARGIN * 2.,
                     session.height - self::LINE_HEIGHT - MARGIN,
-                    color::LIGHT_GREEN,
+                    color::RED,
                 );
             }
+            ExecutionMode::Replaying { events, path, .. } => {
+                if let Some(event) = events.front() {
+                    text.add(
+                        &format!(
+                            "> replaying: {}: {:48} (<Esc> to stop)",
+                            path.display(),
+                            String::from(event.clone()),
+                        ),
+                        MARGIN * 2.,
+                        session.height - self::LINE_HEIGHT - MARGIN,
+                        color::LIGHT_GREEN,
+                    );
+                }
+            }
+            ExecutionMode::Normal => {}
         }
 
         if session.settings["debug"].is_set() {
@@ -1200,21 +1200,21 @@ impl Renderer {
         paste: &Paste,
         batch: &mut sprite2d::Batch,
     ) {
-        if let Mode::Visual(VisualMode::Pasting) = session.mode {
-            if let Some(s) = session.selection {
-                batch.add(
-                    paste.texture.rect(),
-                    Rect::new(
-                        s.x1 as f32,
-                        s.y1 as f32,
-                        s.x2 as f32 + 1.,
-                        s.y2 as f32 + 1.,
-                    ),
-                    Rgba::TRANSPARENT,
-                    0.9,
-                    kit::Repeat::default(),
-                );
-            }
+        if let (Mode::Visual(VisualMode::Pasting), Some(s)) =
+            (session.mode, session.selection)
+        {
+            batch.add(
+                paste.texture.rect(),
+                Rect::new(
+                    s.x1 as f32,
+                    s.y1 as f32,
+                    s.x2 as f32 + 1.,
+                    s.y2 as f32 + 1.,
+                ),
+                Rgba::TRANSPARENT,
+                0.9,
+                kit::Repeat::default(),
+            );
         }
     }
 
@@ -1241,11 +1241,9 @@ impl Renderer {
         p.set_pipeline(&self.sprite2d);
 
         for (id, v) in self.view_data.iter() {
-            if let Some(ref vb) = v.anim_vb {
-                if let Some(view) = views.get(id) {
-                    if view.animation.len() > 1 {
-                        p.draw(vb, &v.anim_binding);
-                    }
+            if let (Some(vb), Some(view)) = (&v.anim_vb, views.get(id)) {
+                if view.animation.len() > 1 {
+                    p.draw(vb, &v.anim_binding);
                 }
             }
         }

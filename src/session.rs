@@ -1223,19 +1223,23 @@ impl Session {
         self.views.activate(id);
         self.effects.push(Effect::ViewActivated(id));
 
-        if let Mode::Visual(VisualMode::Selecting { .. }) = self.mode {
-            self.selection = None;
-        } else if let Mode::Visual(VisualMode::Pasting) = self.mode {
-            // When pasting, if the selection fits in the activated
-            // view, we allow it to transfer. Otherwise we switch
-            // back to selection mode.
-            if let Some(s) = self.selection {
-                let r = self.active_view().bounds();
-                if !r.contains(s.min()) || !r.contains(s.max()) {
-                    self.selection = None;
-                    self.mode = Mode::Visual(VisualMode::default());
+        match self.mode {
+            Mode::Visual(VisualMode::Selecting { .. }) => {
+                self.selection = None;
+            }
+            Mode::Visual(VisualMode::Pasting) => {
+                // When pasting, if the selection fits in the activated
+                // view, we allow it to transfer. Otherwise we switch
+                // back to selection mode.
+                if let Some(s) = self.selection {
+                    let r = self.active_view().bounds();
+                    if !r.contains(s.min()) || !r.contains(s.max()) {
+                        self.selection = None;
+                        self.mode = Mode::Visual(VisualMode::default());
+                    }
                 }
             }
+            _ => {}
         }
     }
 
@@ -1428,18 +1432,20 @@ impl Session {
 
         debug!("load: {:?}", path);
 
-        if let Some(ext) = path.extension() {
-            if ext != "png" {
+        match path.extension() {
+            Some(ext) if ext != "png" => {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
                     "trying to load file with unsupported extension",
                 ));
             }
-        } else {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "trying to load file with no extension",
-            ));
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "trying to load file with no extension",
+                ));
+            }
+            _ => {}
         }
 
         // View is already loaded.
@@ -1602,14 +1608,16 @@ impl Session {
             // If the snapshot was saved to disk, we mark the view as saved too.
             // Otherwise, if the view was saved before restoring the snapshot,
             // we mark it as modified.
-            if let FileStatus::Modified(ref f) = v.file_status {
-                if v.is_snapshot_saved(sid) {
+            match v.file_status {
+                FileStatus::Modified(ref f) if v.is_snapshot_saved(sid) => {
                     v.file_status = FileStatus::Saved(f.clone());
                 }
-            } else if let FileStatus::Saved(ref f) = v.file_status {
-                v.file_status = FileStatus::Modified(f.clone());
-            } else {
-                // TODO
+                FileStatus::Saved(ref f) => {
+                    v.file_status = FileStatus::Modified(f.clone());
+                }
+                _ => {
+                    // TODO
+                }
             }
         }
     }
@@ -1781,27 +1789,25 @@ impl Session {
 
         match self.mode {
             Mode::Normal => match self.tool {
-                Tool::Brush(ref mut brush) => {
-                    if p != prev_p {
-                        match brush.state {
-                            BrushState::DrawStarted { .. }
-                            | BrushState::Drawing { .. } => {
-                                let mut p: ViewCoords<i32> = p.into();
+                Tool::Brush(ref mut brush) if p != prev_p => {
+                    match brush.state {
+                        BrushState::DrawStarted { .. }
+                        | BrushState::Drawing { .. } => {
+                            let mut p: ViewCoords<i32> = p.into();
 
-                                if brush.is_set(BrushMode::Multi) {
-                                    p.clamp(Rect::new(
-                                        (brush.size / 2) as i32,
-                                        (brush.size / 2) as i32,
-                                        vw as i32 - (brush.size / 2) as i32 - 1,
-                                        vh as i32 - (brush.size / 2) as i32 - 1,
-                                    ));
-                                    brush.draw(p);
-                                } else {
-                                    brush.draw(p);
-                                }
+                            if brush.is_set(BrushMode::Multi) {
+                                p.clamp(Rect::new(
+                                    (brush.size / 2) as i32,
+                                    (brush.size / 2) as i32,
+                                    vw as i32 - (brush.size / 2) as i32 - 1,
+                                    vh as i32 - (brush.size / 2) as i32 - 1,
+                                ));
+                                brush.draw(p);
+                            } else {
+                                brush.draw(p);
                             }
-                            _ => {}
                         }
+                        _ => {}
                     }
                 }
                 Tool::Pan => {
@@ -1811,6 +1817,7 @@ impl Session {
                     );
                 }
                 Tool::Sampler => {}
+                _ => {}
             },
             Mode::Visual(VisualMode::Selecting { dragging: false }) => {
                 if self.mouse_state == InputState::Pressed {
