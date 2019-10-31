@@ -677,6 +677,9 @@ pub struct Session {
     /// The session background color.
     pub bg: Rgba8,
 
+    /// The current frame number.
+    frame_number: u64,
+
     /// Directories in which user configuration is stored.
     base_dirs: dirs::ProjectDirs,
 
@@ -731,8 +734,6 @@ pub struct Session {
     _grid_w: u32,
     #[allow(dead_code)]
     _grid_h: u32,
-    #[allow(dead_code)]
-    _frame_count: u64,
 }
 
 impl Session {
@@ -818,10 +819,10 @@ impl Session {
             resources,
             avg_time: time::Duration::from_secs(0),
             execution: ExecutionMode::Normal,
+            frame_number: 0,
 
             // Unused
             _onion: false,
-            _frame_count: 0,
             _grid_w: 0,
             _grid_h: 0,
         }
@@ -938,6 +939,8 @@ impl Session {
                 }
             }
         }
+
+        self.frame_number += 1;
 
         // Make sure we don't have rounding errors
         debug_assert_eq!(self.offset, self.offset.map(|a| a.floor()));
