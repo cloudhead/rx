@@ -64,6 +64,7 @@ pub const VERSION: &'static str = "0.2.0";
 #[global_allocator]
 pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 
+#[derive(Debug)]
 pub struct Options<'a> {
     pub log: &'a str,
     pub exec: ExecutionMode,

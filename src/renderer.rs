@@ -6,7 +6,7 @@ use crate::framebuffer2d;
 use crate::gpu;
 use crate::image;
 use crate::platform::{self, LogicalSize};
-use crate::resources::ResourceManager;
+use crate::resources::{ResourceManager, VerifyResult};
 use crate::screen2d;
 use crate::session::{
     self, Effect, ExecutionMode, Mode, Rgb8, Session, Tool, VisualMode,
@@ -397,6 +397,7 @@ impl Renderer {
         let mut ui_batch = shape2d::Batch::new();
         let mut palette_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
+        let mut overlay_batch = TextBatch::new(&self.font);
         let mut cursor_batch = sprite2d::Batch::new(
             self.cursors.texture.w,
             self.cursors.texture.h,
@@ -426,7 +427,8 @@ impl Renderer {
 
         Self::draw_brush(&session, &mut ui_batch);
         Self::draw_paste(&session, &self.paste, &mut paste_batch);
-        Self::draw_ui(&session, avg_frametime, &mut ui_batch, &mut text_batch);
+        Self::draw_ui(&session, &mut ui_batch, &mut text_batch);
+        Self::draw_overlay(&session, avg_frametime, &mut overlay_batch);
         Self::draw_palette(&session, &mut palette_batch);
         Self::draw_cursor(&session, &mut cursor_batch);
         Self::draw_checker(&session, &mut checker_batch);
@@ -436,6 +438,7 @@ impl Renderer {
         let cursor_buf = cursor_batch.finish(&r);
         let checker_buf = checker_batch.finish(&r);
         let text_buf = text_batch.finish(&r);
+        let overlay_buf = overlay_batch.finish(&r);
         let paint_buf = if paint_batch.is_empty() {
             None
         } else {
@@ -585,6 +588,13 @@ impl Renderer {
             p.draw_buffer(&self.screen_vb)
         }
 
+        {
+            let mut p = f.pass(PassOp::Load(), present);
+
+            p.set_pipeline(&self.sprite2d);
+            p.draw(&overlay_buf, &self.font.binding);
+        }
+
         // Submit frame to device.
         r.present(f);
 
@@ -608,6 +618,37 @@ impl Renderer {
                     s.push_snapshot(data, extent.fw, extent.fh, extent.nframes);
                 }
             });
+        }
+
+        let exec = &session.execution;
+        if !exec.is_normal() {
+            let resources = self.resources.clone();
+
+            match exec {
+                &ExecutionMode::Recording { .. } => {
+                    r.read(&self.screen_fb, move |data| {
+                        resources.lock_mut().record_screen(data);
+                    });
+                }
+                &ExecutionMode::Replaying { .. } => {
+                    r.read(&self.screen_fb, move |data| {
+                        match resources.lock_mut().verify_screen(data) {
+                            VerifyResult::Okay(actual) => {
+                                info!("replaying: {} <okay>", actual);
+                            }
+                            VerifyResult::Failure(actual, expected) => {
+                                error!("replaying: {} != {}", actual, expected);
+                                // TODO: Stop replaying
+                            }
+                            VerifyResult::EOF => {
+                                error!("replaying: EOF");
+                            }
+                            VerifyResult::Stale { .. } => {}
+                        }
+                    });
+                }
+                _ => {}
+            }
         }
     }
 
@@ -796,7 +837,6 @@ impl Renderer {
 
     fn draw_ui(
         session: &Session,
-        avg_frametime: &time::Duration,
         canvas: &mut shape2d::Batch,
         text: &mut TextBatch,
     ) {
@@ -888,26 +928,6 @@ impl Renderer {
             );
         }
 
-        if session.settings["debug"].is_set() {
-            let mem = crate::ALLOCATOR.allocated();
-
-            // Frame-time
-            let txt = &format!(
-                "{:3.2}ms {:3.2}ms {}MB {}KB {}",
-                avg_frametime.as_micros() as f64 / 1000.,
-                session.avg_time.as_micros() as f64 / 1000.,
-                mem / (1024 * 1024),
-                mem / 1024 % (1024),
-                session.mode,
-            );
-            text.add(
-                txt,
-                MARGIN,
-                session.height - MARGIN - self::LINE_HEIGHT,
-                Rgba8::WHITE,
-            );
-        }
-
         // Active view status
         text.add(
             &view.status(),
@@ -915,25 +935,6 @@ impl Renderer {
             MARGIN + self::LINE_HEIGHT,
             Rgba8::WHITE,
         );
-
-        if let ExecutionMode::Recording(_, path) = &session.execution {
-            text.add(
-                &format!(
-                    "* recording: {} (<Ctrl-Esc> to stop)",
-                    path.display()
-                ),
-                MARGIN * 2.,
-                session.height - self::LINE_HEIGHT - MARGIN,
-                color::RED,
-            );
-        } else if let ExecutionMode::Replaying(_, path) = &session.execution {
-            text.add(
-                &format!("> replaying: {} (<Esc> to stop)", path.display()),
-                MARGIN * 2.,
-                session.height - self::LINE_HEIGHT - MARGIN,
-                color::LIGHT_GREEN,
-            );
-        }
 
         {
             // Session status
@@ -983,9 +984,68 @@ impl Renderer {
         if session.mode == Mode::Command {
             let s = format!("{}", &session.cmdline.input());
             text.add(&s, MARGIN, MARGIN, Rgba8::WHITE);
-        } else {
+        } else if !session.message.is_replay() {
             let s = format!("{}", &session.message);
             text.add(&s, MARGIN, MARGIN, session.message.color());
+        }
+    }
+
+    fn draw_overlay(
+        session: &Session,
+        avg_frametime: &time::Duration,
+        text: &mut TextBatch,
+    ) {
+        if let ExecutionMode::Recording { path, .. } = &session.execution {
+            text.add(
+                &format!("* recording: {} (<End> to stop)", path.display()),
+                MARGIN * 2.,
+                session.height - self::LINE_HEIGHT - MARGIN,
+                color::RED,
+            );
+        } else if let ExecutionMode::Replaying { events, path, .. } =
+            &session.execution
+        {
+            if let Some(event) = events.front() {
+                text.add(
+                    &format!(
+                        "> replaying: {}: {:48} (<Esc> to stop)",
+                        path.display(),
+                        String::from(event.clone()),
+                    ),
+                    MARGIN * 2.,
+                    session.height - self::LINE_HEIGHT - MARGIN,
+                    color::LIGHT_GREEN,
+                );
+            }
+        }
+
+        if session.settings["debug"].is_set() {
+            let mem = crate::ALLOCATOR.allocated();
+
+            // Frame-time
+            let txt = &format!(
+                "{:3.2}ms {:3.2}ms {}MB {}KB {}",
+                avg_frametime.as_micros() as f64 / 1000.,
+                session.avg_time.as_micros() as f64 / 1000.,
+                mem / (1024 * 1024),
+                mem / 1024 % (1024),
+                session.mode,
+            );
+            text.add(
+                txt,
+                MARGIN,
+                session.height - MARGIN - self::LINE_HEIGHT,
+                Rgba8::WHITE,
+            );
+        }
+
+        if session.message.is_replay() {
+            text.add(
+                &format!("{}", session.message),
+                MARGIN,
+                MARGIN,
+                session.message.color(),
+            );
         }
     }
 

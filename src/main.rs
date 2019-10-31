@@ -3,6 +3,7 @@ use rx::session;
 
 use pico_args;
 
+use std::path::PathBuf;
 use std::process;
 
 const HELP: &'static str = r#"
@@ -47,7 +48,15 @@ fn execute(
         return Ok(());
     }
 
-    if args.contains("--replay") && args.contains("--record") {
+    let width = args.opt_value_from_str("--width")?.unwrap_or(default.width);
+    let height = args
+        .opt_value_from_str("--height")?
+        .unwrap_or(default.height);
+    let test = args.contains("--test");
+    let replay = args.opt_value_from_str::<_, PathBuf>("--replay")?;
+    let record = args.opt_value_from_str::<_, PathBuf>("--record")?;
+
+    if replay.is_some() && record.is_some() {
         return Err("'--replay' and '--record' can't both be specified".into());
     }
 
@@ -60,27 +69,21 @@ fn execute(
         _ => "debug",
     };
 
-    let exec =
-        if let Some(path) = args.opt_value_from_str::<_, String>("--replay")? {
-            session::ExecutionMode::replaying(path)?
-        } else if let Some(path) =
-            args.opt_value_from_str::<_, String>("--record")?
-        {
-            session::ExecutionMode::recording(path)?
-        } else {
-            default.exec
-        };
+    let exec = if let Some(path) = replay {
+        session::ExecutionMode::replaying(path.with_extension("log"), test)?
+    } else if let Some(path) = record {
+        session::ExecutionMode::recording(path.with_extension("log"), test)?
+    } else {
+        default.exec
+    };
 
     let options = rx::Options {
         exec,
         log,
-        width: args.opt_value_from_str("--width")?.unwrap_or(default.width),
-        height: args
-            .opt_value_from_str("--height")?
-            .unwrap_or(default.height),
+        width,
+        height,
     };
 
     let paths = args.free()?;
-
     rx::init(&paths, options).map_err(|e| e.into())
 }

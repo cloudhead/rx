@@ -26,6 +26,8 @@ snap = "0.2.5"
 log = "0.4.6"
 directories = "2.0.2"
 raw-window-handle = "0.1.0"
+meowhash = "0.1.2"
+digest = "0.8.1"
 
 [dependencies.rgx]
 version = "0.2.0"

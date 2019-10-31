@@ -221,6 +221,7 @@ impl<'a> Parse<'a> for Key {
                 "return" => platform::Key::Return,
                 "backspace" => platform::Key::Backspace,
                 "tab" => platform::Key::Tab,
+                "end" => platform::Key::End,
                 "esc" => platform::Key::Escape,
                 other => {
                     return Err(Error::new(format!("unknown key <{}>", other)))

@@ -4,12 +4,12 @@ use crate::cmd;
 use crate::cmd::{Command, CommandLine, Key, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
-use crate::event::Event;
+use crate::event::{Event, TimedEvent};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
 use crate::platform::{InputState, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::ResourceManager;
+use crate::resources::{Hash, ResourceManager};
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{PresentMode, Rect};
@@ -27,6 +27,7 @@ use std::ops::{Add, Deref, Sub};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time;
+use std::time::Instant;
 
 /// Help string.
 pub const HELP: &'static str = r#"
@@ -291,9 +292,27 @@ pub enum ExecutionMode {
     /// Normal execution. User inputs are processed normally.
     Normal,
     /// Recording user inputs to log.
-    Recording(Vec<Event>, PathBuf),
+    Recording {
+        /// Events being recorded.
+        events: Vec<TimedEvent>,
+        /// Start time of recording.
+        start: time::Instant,
+        /// Path to save recording to.
+        path: PathBuf,
+        /// Whether this is a test recording.
+        test: bool,
+    },
     /// Replaying inputs from log.
-    Replaying(VecDeque<Event>, PathBuf),
+    Replaying {
+        /// Events being replayed.
+        events: VecDeque<TimedEvent>,
+        /// Start time of the playback.
+        start: time::Instant,
+        /// Path to read events from.
+        path: PathBuf,
+        /// Whether this is a test replay.
+        test: bool,
+    },
 }
 
 impl ExecutionMode {
@@ -301,11 +320,16 @@ impl ExecutionMode {
         Ok(Self::Normal)
     }
 
-    pub fn recording<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        Ok(Self::Recording(Vec::new(), path.as_ref().to_path_buf()))
+    pub fn recording<P: AsRef<Path>>(path: P, test: bool) -> io::Result<Self> {
+        Ok(Self::Recording {
+            events: Vec::new(),
+            start: Instant::now(),
+            path: path.as_ref().to_path_buf(),
+            test,
+        })
     }
 
-    pub fn replaying<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+    pub fn replaying<P: AsRef<Path>>(path: P, test: bool) -> io::Result<Self> {
         let mut events = VecDeque::new();
         let path = path.as_ref();
         let abs_path = path.canonicalize()?;
@@ -315,7 +339,7 @@ impl ExecutionMode {
                 let r = io::BufReader::new(f);
                 for (i, line) in r.lines().enumerate() {
                     let line = line?;
-                    let ev = Event::from_str(&line).map_err(|e| {
+                    let ev = TimedEvent::from_str(&line).map_err(|e| {
                         io::Error::new(
                             io::ErrorKind::InvalidInput,
                             format!("{}:{}: {}", abs_path.display(), i + 1, e),
@@ -323,12 +347,25 @@ impl ExecutionMode {
                     })?;
                     events.push_back(ev);
                 }
-                Ok(Self::Replaying(events, path.to_path_buf()))
+                Ok(Self::Replaying {
+                    events,
+                    start: Instant::now(),
+                    path: path.to_path_buf(),
+                    test,
+                })
             }
             Err(e) => Err(io::Error::new(
                 e.kind(),
                 format!("{}: {}", path.display(), e),
             )),
+        }
+    }
+
+    pub fn is_normal(&self) -> bool {
+        if let ExecutionMode::Normal = self {
+            true
+        } else {
+            false
         }
     }
 }
@@ -380,6 +417,10 @@ impl Message {
         self.message_type.color()
     }
 
+    pub fn is_replay(&self) -> bool {
+        self.message_type == MessageType::Replay
+    }
+
     /// Log a message to stdout/stderr.
     fn log(&self) {
         match self.message_type {
@@ -388,7 +429,7 @@ impl Message {
             MessageType::Echo => info!("{}", self),
             MessageType::Error => error!("{}", self),
             MessageType::Warning => warn!("{}", self),
-            MessageType::Replay => debug!("replay: {}", self),
+            MessageType::Replay => info!("{}", self),
             MessageType::Okay => info!("{}", self),
         }
     }
@@ -418,9 +459,8 @@ pub enum MessageType {
     /// An error message.
     Error,
     /// Non-critical warning.
-    #[allow(dead_code)]
     Warning,
-    #[allow(dead_code)]
+    /// Replay-related message.
     Replay,
     #[allow(dead_code)]
     Okay,
@@ -853,6 +893,19 @@ impl Session {
         self.message(format!("rx v{}", crate::VERSION), MessageType::Echo);
         self.execution = exec;
 
+        if let ExecutionMode::Replaying { path, .. } = &self.execution {
+            if let Ok(f) = File::open(path.with_extension("digest")) {
+                let r = io::BufReader::new(f);
+                let mut resources = self.resources.lock_mut();
+                for line in r.lines() {
+                    let line = line?;
+                    let hash = Hash::from_str(line.as_str()).map_err(|e| {
+                        io::Error::new(io::ErrorKind::InvalidInput, e)
+                    })?;
+                    resources.load_screen(hash);
+                }
+            }
+        }
         Ok(self)
     }
 
@@ -904,13 +957,25 @@ impl Session {
             }
         }
 
-        if let ExecutionMode::Replaying(ref mut recording, _) = self.execution {
-            if let Some(event) = recording.pop_front() {
-                self.message(String::from(event.clone()), MessageType::Replay);
-                self.handle_event(event);
-            } else {
-                self.stop_playing();
+        if let ExecutionMode::Replaying {
+            events: recording, ..
+        } = &mut self.execution
+        {
+            {
+                let frame = self.frame_number;
+                let end = recording.iter().position(|t| t.frame != frame);
+
+                recording
+                    .drain(..end.unwrap_or(recording.len()))
+                    .collect::<Vec<TimedEvent>>()
+                    .into_iter()
+                    .for_each(|t| self.handle_event(t.event));
+
+                if end.is_none() {
+                    self.stop_playing();
+                }
             }
+
             for event in events.drain(..) {
                 match event {
                     Event::KeyboardInput(platform::KeyboardInput {
@@ -1554,8 +1619,17 @@ impl Session {
     ///////////////////////////////////////////////////////////////////////////
 
     pub fn handle_event(&mut self, event: Event) {
-        if let ExecutionMode::Recording(ref mut rec, _) = self.execution {
-            rec.push(event.clone());
+        if let ExecutionMode::Recording {
+            ref mut events,
+            start,
+            ..
+        } = self.execution
+        {
+            events.push(TimedEvent::new(
+                self.frame_number,
+                start.elapsed(),
+                event.clone(),
+            ));
         }
 
         match event {
@@ -1570,10 +1644,6 @@ impl Session {
     }
 
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
-        if let ExecutionMode::Replaying(_, _) = self.execution {
-            // Don't allow the window to be resized while replaying.
-            return;
-        }
         self.width = size.width as f32;
         self.height = size.height as f32;
 
@@ -1885,8 +1955,10 @@ impl Session {
                 return;
             }
 
-            if let ExecutionMode::Recording(_, _) = self.execution {
-                if key == platform::Key::Escape && modifiers.ctrl {
+            if let ExecutionMode::Recording { events, .. } = &mut self.execution
+            {
+                if key == platform::Key::End {
+                    events.pop(); // Discard this key event.
                     self.stop_recording();
                 }
             }
@@ -2566,7 +2638,14 @@ impl Session {
     }
 
     fn stop_recording(&mut self) {
-        if let ExecutionMode::Recording(events, path) = &self.execution {
+        // TODO: (rust) Style
+        let result = if let ExecutionMode::Recording {
+            events,
+            path,
+            test,
+            ..
+        } = &self.execution
+        {
             if let Ok(mut f) = File::create(path) {
                 use std::io::Write;
 
@@ -2575,18 +2654,40 @@ impl Session {
                         panic!("error while saving recording: {}", e);
                     }
                 }
-                #[allow(mutable_borrow_reservation_conflict)]
+
+                if let Ok(mut f) = File::create(path.with_extension("digest")) {
+                    let resources = self.resources.lock();
+                    let screens = resources.screens();
+                    for digest in screens {
+                        if let Err(e) = writeln!(&mut f, "{}", digest) {
+                            panic!("error while saving recording: {}", e);
+                        }
+                    }
+                }
+            }
+            Some((path.clone(), *test))
+        } else {
+            None
+        };
+
+        match result {
+            Some((path, test)) => {
                 self.message(
-                    format!("recording saved to {:?}", path),
-                    MessageType::Info,
+                    format!("Recording saved to {:?}", path),
+                    MessageType::Replay,
                 );
                 self.execution = ExecutionMode::Normal;
+                if test {
+                    self.quit();
+                }
             }
+            None => {}
         }
     }
 
     fn stop_playing(&mut self) {
         self.execution = ExecutionMode::Normal;
+        self.message(format!("Replay ended"), MessageType::Replay);
     }
 
     ///////////////////////////////////////////////////////////////////////////
