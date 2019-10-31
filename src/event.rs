@@ -3,6 +3,57 @@ use crate::parser;
 use crate::platform;
 
 use std::str::FromStr;
+use std::time;
+
+#[derive(Debug, Clone)]
+pub struct TimedEvent {
+    pub frame: u64,
+    pub delta: time::Duration,
+    pub event: Event,
+}
+
+impl TimedEvent {
+    pub fn new(frame: u64, delta: time::Duration, event: Event) -> Self {
+        TimedEvent {
+            frame,
+            delta,
+            event,
+        }
+    }
+}
+
+impl From<TimedEvent> for String {
+    fn from(te: TimedEvent) -> String {
+        format!(
+            "{:05} {:07} {}",
+            te.frame,
+            te.delta.as_millis(),
+            String::from(te.event)
+        )
+    }
+}
+
+impl FromStr for TimedEvent {
+    type Err = parser::Error;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let p = parser::Parser::new(input);
+        let (f, p) = p.parse::<u32>()?;
+        let (_, p) = p.whitespace()?;
+        let (d, p) = p.parse::<u32>()?;
+        let (_, p) = p.whitespace()?;
+        let (l, p) = p.leftover()?;
+        let (_, _) = p.finish()?;
+
+        let e = Event::from_str(l)?;
+
+        Ok(TimedEvent {
+            frame: f as u64,
+            delta: time::Duration::from_millis(d as u64),
+            event: e,
+        })
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Event {
