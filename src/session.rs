@@ -1053,7 +1053,7 @@ impl Session {
                 // text input to the command line. To avoid this, we have to ignore
                 // all such input until the end of the current upate.
                 self.ignore_received_characters = true;
-                self.cmdline.putc(':');
+                self.cmdline_handle_input(':');
             }
             Mode::Visual(_) => {}
             _ => {}
