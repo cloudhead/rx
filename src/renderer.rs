@@ -720,38 +720,40 @@ impl Renderer {
                     r.submit(&[Op::Blit(fb, *src, *dst)]);
                 }
                 ViewOp::Yank(src) => {
-                    let resources = self.resources.lock();
-                    let (snapshot, pixels) = resources.get_snapshot(&v.id);
+                    let pixels = {
+                        let resources = self.resources.lock();
+                        let (snapshot, pixels) = resources.get_snapshot(&v.id);
 
-                    let w = src.width() as usize;
-                    let h = src.height() as usize;
+                        let w = src.width() as usize;
+                        let h = src.height() as usize;
 
-                    let total_w = snapshot.width() as usize;
-                    let total_h = snapshot.height() as usize;
+                        let total_w = snapshot.width() as usize;
+                        let total_h = snapshot.height() as usize;
 
-                    let mut buffer: Vec<Bgra8> = Vec::with_capacity(w * h);
+                        let mut buffer: Vec<Bgra8> = Vec::with_capacity(w * h);
 
-                    for y in (src.y1 as usize..src.y2 as usize).rev() {
-                        let y = total_h - y - 1;
-                        let offset = y * total_w + src.x1 as usize;
-                        let row = &pixels[offset..offset + w];
+                        for y in (src.y1 as usize..src.y2 as usize).rev() {
+                            let y = total_h - y - 1;
+                            let offset = y * total_w + src.x1 as usize;
+                            let row = &pixels[offset..offset + w];
 
-                        buffer.extend_from_slice(row);
-                    }
-                    let mut pixels: Vec<Rgba8> =
-                        Vec::with_capacity(buffer.len());
-                    for c in buffer.into_iter() {
-                        pixels.push(c.into());
-                    }
-                    assert!(pixels.len() == w * h);
+                            buffer.extend_from_slice(row);
+                        }
+                        let mut pixels: Vec<Rgba8> =
+                            Vec::with_capacity(buffer.len());
+                        for c in buffer.into_iter() {
+                            pixels.push(c.into());
+                        }
+                        assert!(pixels.len() == w * h);
 
-                    self.paste.texture = r.texture(w as u32, h as u32);
-                    self.paste.binding = self.paste2d.binding(
-                        r,
-                        &self.paste.texture,
-                        &self.sampler,
-                    );
-
+                        self.paste.texture = r.texture(w as u32, h as u32);
+                        self.paste.binding = self.paste2d.binding(
+                            r,
+                            &self.paste.texture,
+                            &self.sampler,
+                        );
+                        pixels
+                    };
                     r.submit(&[Op::Fill(&self.paste.texture, &pixels)]);
                 }
                 ViewOp::Paste(dst) => {
