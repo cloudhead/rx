@@ -1162,7 +1162,16 @@ impl Session {
                 self.ignore_received_characters = true;
                 self.cmdline_handle_input(':');
             }
-            Mode::Visual(_) => {}
+            Mode::Visual(_) => {
+                if self.selection.is_none()
+                    && self.hover_view == Some(self.views.active_id)
+                {
+                    let p =
+                        self.active_view_coords(self.cursor).map(|n| n as i32);
+                    self.selection =
+                        Some(Selection::new(p.x, p.y, p.x + 1, p.y + 1));
+                }
+            }
             _ => {}
         }
 
