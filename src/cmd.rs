@@ -57,6 +57,7 @@ pub enum Command {
     SelectionPaste,
     SelectionShrink,
     SelectionYank,
+    SelectionDelete,
     SelectionFill(Option<Rgba8>),
     SelectionJump(Direction),
     Set(String, Value),
@@ -633,6 +634,7 @@ impl<'a> Parse<'a> for Command {
                 Ok((Command::SelectionResize(x, y), p))
             }
             "selection/yank" => Ok((Command::SelectionYank, p)),
+            "selection/delete" => Ok((Command::SelectionDelete, p)),
             "selection/paste" => Ok((Command::SelectionPaste, p)),
             "selection/expand" => Ok((Command::SelectionExpand, p)),
             "selection/shrink" => Ok((Command::SelectionShrink, p)),

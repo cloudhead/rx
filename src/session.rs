@@ -2643,6 +2643,23 @@ impl Session {
                     self.switch_mode(Mode::Visual(VisualMode::Pasting));
                 }
             }
+            Command::SelectionDelete => {
+                // To mimick the behavior of `vi`, we yank the selection
+                // before deleting it.
+                self.command(Command::SelectionYank);
+
+                if let Some(s) = self.selection {
+                    self.effects.extend_from_slice(&[
+                        Effect::ViewBlendingChanged(Blending::constant()),
+                        Effect::ViewPaintFinal(vec![Shape::Rectangle(
+                            s.abs().bounds().map(|n| n as f32),
+                            Stroke::NONE,
+                            Fill::Solid(Rgba8::TRANSPARENT.into()),
+                        )]),
+                    ]);
+                    self.active_view_mut().touch();
+                }
+            }
             Command::SelectionFill(color) => {
                 if let Some(s) = self.selection {
                     self.effects.push(Effect::ViewPaintFinal(vec![
@@ -2672,6 +2689,9 @@ impl Session {
 
     fn cmdline_handle_enter(&mut self) {
         let input = self.cmdline.input();
+        // Always hide the command line before executing the command,
+        // because commands will often require being in a specific mode, eg.
+        // visual mode for commands that run on selections.
         self.cmdline_hide();
 
         if input.is_empty() {

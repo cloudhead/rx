@@ -39,6 +39,7 @@ map/v  ]             :selection/expand
 map/v  [             :selection/shrink
 map/v  <space>       :selection/fill
 map/v  y             :selection/yank
+map/v  d             :selection/delete
 map/v  p             :selection/paste
 map/v  w             :selection/jump +
 map/v  b             :selection/jump -
