@@ -8,3 +8,5 @@ jobs:
 cache: cargo
 script:
   - cargo check --features vulkan
+before_install:
+  - sudo apt-get -y install xorg-dev
