@@ -2624,7 +2624,17 @@ impl Session {
                     self.switch_mode(Mode::Visual(VisualMode::Pasting));
                 }
             }
-            Command::SelectionFill(_color) => {}
+            Command::SelectionFill(color) => {
+                if let Some(s) = self.selection {
+                    self.effects.push(Effect::ViewPaintFinal(vec![
+                        Shape::Rectangle(
+                            s.abs().bounds().map(|n| n as f32),
+                            Stroke::NONE,
+                            Fill::Solid(color.unwrap_or(self.fg).into()),
+                        ),
+                    ]));
+                }
+            }
         };
     }
 
