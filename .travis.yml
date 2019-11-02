@@ -1,0 +1,10 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+jobs:
+  fast_finish: true
+cache: cargo
+script:
+  - cargo check --features vulkan
