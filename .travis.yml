@@ -1,0 +1,12 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+jobs:
+  fast_finish: true
+cache: cargo
+script:
+  - cargo check --features vulkan
+before_install:
+  - sudo apt-get -y install xorg-dev
