@@ -2652,6 +2652,7 @@ impl Session {
                             Fill::Solid(color.unwrap_or(self.fg).into()),
                         ),
                     ]));
+                    self.active_view_mut().touch();
                 }
             }
         };
