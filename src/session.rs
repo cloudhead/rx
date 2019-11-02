@@ -1670,6 +1670,7 @@ impl Session {
                     // TODO
                 }
             }
+            self.cursor_dirty();
         }
     }
 
