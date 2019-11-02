@@ -5,7 +5,7 @@ use crate::platform;
 use crate::session::{Direction, Mode, VisualMode};
 
 use std::fmt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::result;
 use std::str::FromStr;
 
