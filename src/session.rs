@@ -2115,7 +2115,7 @@ impl Session {
         for (i, zoom) in lvls.iter().enumerate() {
             if view.zoom <= *zoom {
                 if let Some(z) = lvls.get(i + 1) {
-                    self.zoom(*z);
+                    self.zoom(*z, None);
                 } else {
                     self.message(
                         "Maximum zoom level reached",
@@ -2140,7 +2140,7 @@ impl Session {
                         MessageType::Hint,
                     );
                 } else if let Some(z) = lvls.get(i - 1) {
-                    self.zoom(*z);
+                    self.zoom(*z, None);
                 } else {
                     unreachable!();
                 }
@@ -2149,14 +2149,16 @@ impl Session {
         }
     }
 
-    /// Set the active view zoom.
-    fn zoom(&mut self, z: f32) {
-        let px = self.cursor.x - self.offset.x;
-        let py = self.cursor.y - self.offset.y;
+    /// Set the active view zoom. Optionally takes a center
+    /// to zoom to. Otherwise zooms towards cursor.
+    fn zoom(&mut self, z: f32, center: Option<Point2<f32>>) {
+        let center = center
+            .map(|s| SessionCoords::new(s.x, s.y))
+            .unwrap_or(self.cursor);
+        let px = center.x - self.offset.x;
+        let py = center.y - self.offset.y;
 
-        let cursor = self.cursor;
-
-        let within = self.active_view().contains(cursor - self.offset);
+        let within = self.active_view().contains(center - self.offset);
         let zprev = self.active_view().zoom;
 
         debug!("zoom: {} -> {}", zprev, z);
@@ -2167,8 +2169,7 @@ impl Session {
             let nx = (px * zdiff).floor();
             let ny = (py * zdiff).floor();
 
-            let mut offset =
-                Vector2::new(self.cursor.x - nx, self.cursor.y - ny);
+            let mut offset = Vector2::new(center.x - nx, center.y - ny);
 
             let v = self.active_view_mut();
 
@@ -2354,7 +2355,7 @@ impl Session {
                             MessageType::Error,
                         );
                     } else {
-                        self.zoom(z);
+                        self.zoom(z, None);
                     }
                 }
             },
