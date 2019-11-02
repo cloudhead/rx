@@ -35,6 +35,7 @@ compile_error!(
      available backends are: 'vulkan', 'metal', 'dx11' and 'dx12'"
 );
 
+use cmd::Value;
 use event::Event;
 use platform::{WindowEvent, WindowHint};
 use renderer::Renderer;
@@ -93,9 +94,9 @@ pub fn init<'a, P: AsRef<Path>>(
     logger.parse_filters(options.log);
     logger.init();
 
-    let hints = match options.exec {
-        ExecutionMode::Normal => &[WindowHint::Resizable(true)],
-        ExecutionMode::Replaying { .. } | ExecutionMode::Recording { .. } => {
+    let hints = match &options.exec {
+        &ExecutionMode::Normal => &[WindowHint::Resizable(true)],
+        &ExecutionMode::Replaying { .. } | ExecutionMode::Recording { .. } => {
             &[WindowHint::Resizable(false)]
         }
     };
@@ -112,7 +113,18 @@ pub fn init<'a, P: AsRef<Path>>(
     )?;
     let mut session =
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
-            .init(options.exec)?;
+            .init(options.exec.clone())?;
+
+    if let ExecutionMode::Replaying { test: true, .. } = options.exec {
+        session
+            .settings
+            .set("input/delay", Value::Float(0.0))
+            .expect("'input/delay' is a float");
+        session
+            .settings
+            .set("vsync", Value::Bool(false))
+            .expect("'vsync' is a bool");
+    }
 
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(win.raw_handle());

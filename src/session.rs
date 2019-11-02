@@ -616,6 +616,7 @@ impl KeyBindings {
 ///////////////////////////////////////////////////////////////////////////////
 
 /// A dictionary used to store session settings.
+#[derive(Debug)]
 pub struct Settings {
     map: HashMap<String, Value>,
 }
