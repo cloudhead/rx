@@ -106,6 +106,7 @@ impl Cursors {
             Tool::Sampler => Vector2::new(1., 1.),
             Tool::Brush(_) => Vector2::new(-8., -8.),
             Tool::Pan => Vector2::new(0., 0.),
+            Tool::Move => Vector2::new(-8., -8.),
         }
     }
 
@@ -113,6 +114,7 @@ impl Cursors {
         match t {
             Tool::Sampler => Some(Rect::new(0., 0., 16., 16.)),
             Tool::Brush(_) => Some(Rect::new(16., 0., 32., 16.)),
+            Tool::Move => Some(Rect::new(32., 0., 48., 16.)),
             Tool::Pan => None,
         }
     }
@@ -1104,7 +1106,29 @@ impl Renderer {
         // TODO: Cursor should be greyed out in command mode.
         match session.mode {
             Mode::Present | Mode::Help => {}
-            Mode::Visual(_) => {
+            Mode::Visual(mode) => {
+                if let VisualMode::Selecting { .. } = mode {
+                    let c = session.cursor;
+                    let v = session.active_view();
+                    if v.contains(c - session.offset) {
+                        if session
+                            .is_selected(session.view_coords(v.id, c).into())
+                        {
+                            if let Some(rect) = Cursors::rect(&Tool::Move) {
+                                let offset = Cursors::offset(&Tool::Move);
+                                batch.add(
+                                    rect,
+                                    rect.with_origin(c.x, c.y) + offset,
+                                    Rgba::TRANSPARENT,
+                                    1.,
+                                    kit::Repeat::default(),
+                                );
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 if let Some(rect) = Cursors::rect(&Tool::default()) {
                     let offset = Cursors::offset(&Tool::default());
                     let cursor = session.cursor;
@@ -1150,6 +1174,10 @@ impl Renderer {
 
         match session.mode {
             Mode::Visual(VisualMode::Selecting { .. }) => {
+                if session.is_selected(session.view_coords(v.id, c).into()) {
+                    return;
+                }
+
                 if v.contains(c - session.offset) {
                     let z = v.zoom;
                     let c = session.snap(c, v.offset.x, v.offset.y, z);

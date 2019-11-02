@@ -284,6 +284,8 @@ pub enum Tool {
     /// Used to pan the workspace.
     #[allow(dead_code)]
     Pan,
+    /// Used to move things,
+    Move,
 }
 
 impl Default for Tool {
@@ -1360,6 +1362,15 @@ impl Session {
         self.view_coords(self.views.active_id, p)
     }
 
+    /// Check whether a point is inside the selection, if any.
+    pub fn is_selected(&self, p: ViewCoords<i32>) -> bool {
+        if let Some(s) = self.selection {
+            s.abs().bounds().contains(*p)
+        } else {
+            false
+        }
+    }
+
     /// Edit paths.
     ///
     /// Loads the given files into the session. Returns an error if one of
@@ -1767,6 +1778,7 @@ impl Session {
                                     self.sample_color();
                                 }
                                 Tool::Pan => {}
+                                Tool::Move => {}
                             },
                             Mode::Command => {
                                 // TODO
