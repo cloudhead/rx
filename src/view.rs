@@ -73,6 +73,12 @@ impl Into<ViewCoords<u32>> for ViewCoords<f32> {
     }
 }
 
+impl From<Point2<f32>> for ViewCoords<f32> {
+    fn from(p: Point2<f32>) -> ViewCoords<f32> {
+        ViewCoords::new(p.x, p.y)
+    }
+}
+
 /// View extent information.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ViewExtent {

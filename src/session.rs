@@ -2108,14 +2108,14 @@ impl Session {
     ///////////////////////////////////////////////////////////////////////////
 
     /// Zoom the active view in.
-    fn zoom_in(&mut self) {
+    fn zoom_in(&mut self, center: SessionCoords) {
         let view = self.active_view_mut();
         let lvls = Self::ZOOM_LEVELS;
 
         for (i, zoom) in lvls.iter().enumerate() {
             if view.zoom <= *zoom {
                 if let Some(z) = lvls.get(i + 1) {
-                    self.zoom(*z, None);
+                    self.zoom(*z, center);
                 } else {
                     self.message(
                         "Maximum zoom level reached",
@@ -2128,7 +2128,7 @@ impl Session {
     }
 
     /// Zoom the active view out.
-    fn zoom_out(&mut self) {
+    fn zoom_out(&mut self, center: SessionCoords) {
         let view = self.active_view_mut();
         let lvls = Self::ZOOM_LEVELS;
 
@@ -2140,7 +2140,7 @@ impl Session {
                         MessageType::Hint,
                     );
                 } else if let Some(z) = lvls.get(i - 1) {
-                    self.zoom(*z, None);
+                    self.zoom(*z, center);
                 } else {
                     unreachable!();
                 }
@@ -2151,10 +2151,7 @@ impl Session {
 
     /// Set the active view zoom. Optionally takes a center
     /// to zoom to. Otherwise zooms towards cursor.
-    fn zoom(&mut self, z: f32, center: Option<Point2<f32>>) {
-        let center = center
-            .map(|s| SessionCoords::new(s.x, s.y))
-            .unwrap_or(self.cursor);
+    fn zoom(&mut self, z: f32, center: SessionCoords) {
         let px = center.x - self.offset.x;
         let py = center.y - self.offset.y;
 
@@ -2341,24 +2338,36 @@ impl Session {
             Command::PaletteSample => {
                 self.unimplemented();
             }
-            Command::Zoom(op) => match op {
-                Op::Incr => {
-                    self.zoom_in();
-                }
-                Op::Decr => {
-                    self.zoom_out();
-                }
-                Op::Set(z) => {
-                    if z < 1. || z > Self::MAX_ZOOM {
-                        self.message(
-                            "Error: invalid zoom level",
-                            MessageType::Error,
-                        );
-                    } else {
-                        self.zoom(z, None);
+            Command::Zoom(op) => {
+                let center = self
+                    .selection
+                    .map(|s| {
+                        self.session_coords(
+                            self.views.active_id,
+                            s.bounds().center().map(|n| n as f32).into(),
+                        )
+                    })
+                    .unwrap_or(self.cursor);
+
+                match op {
+                    Op::Incr => {
+                        self.zoom_in(center);
+                    }
+                    Op::Decr => {
+                        self.zoom_out(center);
+                    }
+                    Op::Set(z) => {
+                        if z < 1. || z > Self::MAX_ZOOM {
+                            self.message(
+                                "Error: invalid zoom level",
+                                MessageType::Error,
+                            );
+                        } else {
+                            self.zoom(z, center);
+                        }
                     }
                 }
-            },
+            }
             Command::Fill(color) => {
                 self.active_view_mut().clear(color);
             }
