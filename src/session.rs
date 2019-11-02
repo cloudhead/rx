@@ -12,8 +12,9 @@ use crate::platform::{InputState, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Hash, ResourceManager};
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
-use rgx::core::{PresentMode, Rect};
-use rgx::kit::Rgba8;
+use rgx::core::{Blending, PresentMode, Rect};
+use rgx::kit::shape2d::{Fill, Shape, Stroke};
+use rgx::kit::{Origin, Rgba8};
 use rgx::math::*;
 
 use directories as dirs;
@@ -252,6 +253,12 @@ pub enum Effect {
     ViewTouched(ViewId),
     /// When a view requires re-drawing.
     ViewDamaged(ViewId),
+    /// When the active view is non-permanently painted on.
+    ViewPaintDraft(Vec<Shape>),
+    /// When the active view is painted on.
+    ViewPaintFinal(Vec<Shape>),
+    /// The blend mode used for painting has changed.
+    ViewBlendingChanged(Blending),
 }
 
 /// Session state.
@@ -990,6 +997,41 @@ impl Session {
         } else {
             for event in events.drain(..) {
                 self.handle_event(event);
+            }
+        }
+
+        if let Tool::Brush(ref brush) = self.tool {
+            let output = brush.output(
+                Stroke::NONE,
+                Fill::Solid(brush.color.into()),
+                1.0,
+                Origin::BottomLeft,
+            );
+            if !output.is_empty() {
+                match brush.state {
+                    // If we're erasing, we can't use the staging framebuffer, since we
+                    // need to be replacing pixels on the real buffer.
+                    _ if brush.is_set(BrushMode::Erase) => {
+                        self.effects.extend_from_slice(&[
+                            Effect::ViewBlendingChanged(Blending::constant()),
+                            Effect::ViewPaintFinal(output),
+                        ]);
+                    }
+                    // As long as we haven't finished drawing, render into the staging buffer.
+                    BrushState::DrawStarted(_) | BrushState::Drawing(_) => {
+                        self.effects.push(Effect::ViewPaintDraft(output));
+                    }
+                    // Once we're done drawing, we can render into the real buffer.
+                    BrushState::DrawEnded(_) => {
+                        self.effects.extend_from_slice(&[
+                            Effect::ViewBlendingChanged(Blending::default()),
+                            Effect::ViewPaintFinal(output),
+                        ]);
+                    }
+                    // If the brush output isn't empty, we can't possibly not
+                    // be drawing!
+                    BrushState::NotDrawing => unreachable!(),
+                }
             }
         }
 

@@ -1,4 +1,4 @@
-use crate::brush::{Brush, BrushMode, BrushState};
+use crate::brush::BrushMode;
 use crate::color;
 use crate::data;
 use crate::font::{Font, TextBatch};
@@ -71,6 +71,10 @@ pub struct Renderer {
 
     /// Paste buffer.
     paste: Paste,
+
+    final_batch: shape2d::Batch,
+    staging_batch: shape2d::Batch,
+    blending: Blending,
 }
 
 /// Paste buffer.
@@ -276,6 +280,9 @@ impl Renderer {
             screen_binding,
             view_data: BTreeMap::new(),
             paste,
+            staging_batch: shape2d::Batch::new(),
+            final_batch: shape2d::Batch::new(),
+            blending: Blending::default(),
         }
     }
 
@@ -382,15 +389,8 @@ impl Renderer {
             return;
         }
 
-        // Handle effects produces by the session.
-        self.handle_effects(effects, &session.views, r);
-
-        // Handle view operations.
-        for v in session.views.values() {
-            if !v.ops.is_empty() {
-                self.handle_view_ops(&v, r);
-            }
-        }
+        self.staging_batch.clear();
+        self.final_batch.clear();
 
         let present = &textures.next();
 
@@ -408,20 +408,14 @@ impl Renderer {
             self.checker.texture.w,
             self.checker.texture.h,
         );
-        let mut paint_batch = shape2d::Batch::new();
 
-        if let Tool::Brush(ref b) = session.tool {
-            for shape in b
-                .output(
-                    Stroke::NONE,
-                    Fill::Solid(b.color.into()),
-                    1.0,
-                    Origin::BottomLeft,
-                )
-                .iter()
-                .cloned()
-            {
-                paint_batch.add(shape);
+        // Handle effects produced by the session.
+        self.handle_effects(effects, &session.views, r);
+
+        // Handle view operations.
+        for v in session.views.values() {
+            if !v.ops.is_empty() {
+                self.handle_view_ops(&v, r);
             }
         }
 
@@ -439,15 +433,20 @@ impl Renderer {
         let checker_buf = checker_batch.finish(&r);
         let text_buf = text_batch.finish(&r);
         let overlay_buf = overlay_batch.finish(&r);
-        let paint_buf = if paint_batch.is_empty() {
+        let staging_buf = if self.staging_batch.is_empty() {
             None
         } else {
-            Some(paint_batch.finish(&r))
+            Some(self.staging_batch.buffer(&r))
         };
-        let paste_buf = if paste_batch.size > 0 {
-            Some(paste_batch.finish(&r))
-        } else {
+        let final_buf = if self.final_batch.is_empty() {
             None
+        } else {
+            Some(self.final_batch.buffer(&r))
+        };
+        let paste_buf = if paste_batch.is_empty() {
+            None
+        } else {
+            Some(paste_batch.finish(&r))
         };
 
         // Start the render frame.
@@ -466,6 +465,7 @@ impl Renderer {
             .view_data
             .get(&v.id)
             .expect("the view data for the active view must exist");
+        let view_ortho = kit::ortho(v.width(), v.height());
         let ortho =
             kit::ortho(self.window.width as u32, self.window.height as u32);
 
@@ -484,31 +484,29 @@ impl Renderer {
             }
         }
 
-        // Render brush strokes to view framebuffers.
-        if let (Some(paint_buf), Tool::Brush(b)) = (&paint_buf, &session.tool) {
-            if b.state != BrushState::NotDrawing {
-                r.update_pipeline(
-                    &self.brush2d,
-                    kit::ortho(v.width(), v.height()),
-                    &mut f,
-                );
-                r.update_pipeline(
-                    &self.const2d,
-                    kit::ortho(v.width(), v.height()),
-                    &mut f,
-                );
+        {
+            r.update_pipeline(&self.brush2d, view_ortho, &mut f);
+            r.update_pipeline(&self.const2d, view_ortho, &mut f);
 
-                self.render_brush_strokes(paint_buf, view_data, b, &mut f);
+            // Render brush strokes to view staging framebuffers.
+            if let Some(buf) = &staging_buf {
+                let mut p = f.pass(
+                    PassOp::Clear(Rgba::TRANSPARENT),
+                    &view_data.staging_fb,
+                );
+                self.render_brush_strokes(buf, &Blending::default(), &mut p);
+            }
+
+            // Render brush strokes to view framebuffers.
+            if let Some(buf) = &final_buf {
+                let mut p = f.pass(PassOp::Load(), &view_data.fb);
+                self.render_brush_strokes(buf, &self.blending, &mut p);
             }
         }
 
         // Draw paste buffer to view staging buffer.
         if let Some(buf) = paste_buf {
-            r.update_pipeline(
-                &self.paste2d,
-                kit::ortho(v.width(), v.height()),
-                &mut f,
-            );
+            r.update_pipeline(&self.paste2d, view_ortho, &mut f);
 
             let mut p =
                 f.pass(PassOp::Clear(Rgba::TRANSPARENT), &view_data.staging_fb);
@@ -678,6 +676,15 @@ impl Renderer {
                 Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
                     let v = views.get(&id).expect("view must exist");
                     self.handle_view_dirty(v, r);
+                }
+                Effect::ViewBlendingChanged(blending) => {
+                    self.blending = blending;
+                }
+                Effect::ViewPaintDraft(shapes) => {
+                    shapes.into_iter().for_each(|s| self.staging_batch.add(s));
+                }
+                Effect::ViewPaintFinal(shapes) => {
+                    shapes.into_iter().for_each(|s| self.final_batch.add(s));
                 }
             }
         }
@@ -1252,29 +1259,10 @@ impl Renderer {
     fn render_brush_strokes(
         &self,
         paint_buf: &core::VertexBuffer,
-        view_data: &ViewData,
-        brush: &Brush,
-        f: &mut core::Frame,
+        blending: &Blending,
+        p: &mut core::Pass,
     ) {
-        debug_assert!(brush.state != BrushState::NotDrawing);
-
-        let ViewData { fb, staging_fb, .. } = view_data;
-
-        let mut p = match brush.state {
-            // If we're erasing, we can't use the staging framebuffer, since we
-            // need to be replacing pixels on the real buffer.
-            _ if brush.is_set(BrushMode::Erase) => f.pass(PassOp::Load(), fb),
-
-            // As long as we haven't finished drawing, render into the staging buffer.
-            BrushState::DrawStarted(_) | BrushState::Drawing(_) => {
-                f.pass(PassOp::Clear(Rgba::TRANSPARENT), staging_fb)
-            }
-            // Once we're done drawing, we can render into the real buffer.
-            BrushState::DrawEnded(_) => f.pass(PassOp::Load(), fb),
-            BrushState::NotDrawing => unreachable!(),
-        };
-
-        if brush.is_set(BrushMode::Erase) {
+        if blending == &Blending::constant() {
             p.set_pipeline(&self.const2d);
         } else {
             p.set_pipeline(&self.brush2d);
