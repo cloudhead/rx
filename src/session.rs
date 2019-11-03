@@ -980,7 +980,20 @@ impl Session {
             }
         }
 
-        self.frame_number += 1;
+        if let Execution::Replaying {
+            events: recording,
+            digest: true,
+            ..
+        } = exec
+        {
+            // Skip to the next event frame to speed up replay.
+            self.frame_number = recording
+                .front()
+                .map(|e| e.frame)
+                .unwrap_or(self.frame_number + 1);
+        } else {
+            self.frame_number += 1;
+        }
 
         // Make sure we don't have rounding errors
         debug_assert_eq!(self.offset, self.offset.map(|a| a.floor()));
