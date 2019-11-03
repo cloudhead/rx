@@ -318,10 +318,6 @@ pub fn init<'a, P: AsRef<Path>>(
         }
     });
 
-    // NOTE: The following code is only reachable when using the
-    // GLFW backend. With the Winit backend, `platform::run`
-    // never returns.
-
     match exit {
         ExitReason::Normal => Ok(()),
         ExitReason::Error => {

@@ -6,35 +6,43 @@ use crate::platform::{
 };
 
 use winit;
+// We only support desktop platforms.
+use winit::platform::desktop::EventLoopExtDesktop;
 
 use std::io;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn run<F, T>(mut win: Window, events: Events, mut callback: F) -> T
+pub fn run<F, T>(mut win: Window, mut events: Events, mut callback: F) -> T
 where
     F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow<T>,
     T: Default,
 {
+    let mut exit = T::default();
+
     events
         .handle
-        .run(move |event, _, control_flow| match event {
+        .run_return(|event, _, control_flow| match event {
             winit::event::Event::WindowEvent { event, .. } => {
-                if let ControlFlow::Exit(_) = callback(&mut win, event.into()) {
+                if let ControlFlow::Exit(r) = callback(&mut win, event.into()) {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
+                    exit = r;
                 }
             }
             winit::event::Event::EventsCleared => {
-                if let ControlFlow::Exit(_) =
+                if let ControlFlow::Exit(r) =
                     callback(&mut win, WindowEvent::Ready)
                 {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
+                    exit = r;
                 }
             }
             _ => {
                 *control_flow = winit::event_loop::ControlFlow::Poll;
             }
         });
+
+    exit
 }
 
 pub struct Events {
