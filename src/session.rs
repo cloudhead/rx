@@ -5,11 +5,12 @@ use crate::cmd::{Command, CommandLine, Key, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
+use crate::execution::*;
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform;
 use crate::platform::{InputState, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::{Hash, ResourceManager};
+use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{Blending, PresentMode, Rect};
@@ -19,16 +20,16 @@ use rgx::math::*;
 
 use directories as dirs;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::{self, File};
 use std::io;
-use std::io::BufRead;
 use std::ops::{Add, Deref, Sub};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::rc::Rc;
 use std::str::FromStr;
 use std::time;
-use std::time::Instant;
 
 /// Help string.
 pub const HELP: &'static str = r#"
@@ -291,97 +292,6 @@ pub enum Tool {
 impl Default for Tool {
     fn default() -> Self {
         Tool::Brush(Brush::default())
-    }
-}
-
-/// Execution mode. Controls whether the session is playing or recording
-/// commands.
-#[derive(Debug, Clone)]
-pub enum ExecutionMode {
-    /// Normal execution. User inputs are processed normally.
-    Normal,
-    /// Recording user inputs to log.
-    Recording {
-        /// Events being recorded.
-        events: Vec<TimedEvent>,
-        /// Start time of recording.
-        start: time::Instant,
-        /// Path to save recording to.
-        path: PathBuf,
-        /// Whether this is a test recording.
-        test: bool,
-    },
-    /// Replaying inputs from log.
-    Replaying {
-        /// Events being replayed.
-        events: VecDeque<TimedEvent>,
-        /// Start time of the playback.
-        start: time::Instant,
-        /// Path to read events from.
-        path: PathBuf,
-        /// Whether this is a test replay.
-        test: bool,
-    },
-}
-
-impl ExecutionMode {
-    pub fn normal() -> io::Result<Self> {
-        Ok(Self::Normal)
-    }
-
-    pub fn recording<P: AsRef<Path>>(path: P, test: bool) -> io::Result<Self> {
-        Ok(Self::Recording {
-            events: Vec::new(),
-            start: Instant::now(),
-            path: path.as_ref().to_path_buf(),
-            test,
-        })
-    }
-
-    pub fn replaying<P: AsRef<Path>>(path: P, test: bool) -> io::Result<Self> {
-        let mut events = VecDeque::new();
-        let path = path.as_ref();
-        let abs_path = path.canonicalize()?;
-
-        match File::open(&path) {
-            Ok(f) => {
-                let r = io::BufReader::new(f);
-                for (i, line) in r.lines().enumerate() {
-                    let line = line?;
-                    let ev = TimedEvent::from_str(&line).map_err(|e| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            format!("{}:{}: {}", abs_path.display(), i + 1, e),
-                        )
-                    })?;
-                    events.push_back(ev);
-                }
-                Ok(Self::Replaying {
-                    events,
-                    start: Instant::now(),
-                    path: path.to_path_buf(),
-                    test,
-                })
-            }
-            Err(e) => Err(io::Error::new(
-                e.kind(),
-                format!("{}: {}", path.display(), e),
-            )),
-        }
-    }
-
-    pub fn is_normal(&self) -> bool {
-        if let ExecutionMode::Normal = self {
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl Default for ExecutionMode {
-    fn default() -> Self {
-        ExecutionMode::Normal
     }
 }
 
@@ -770,9 +680,6 @@ pub struct Session {
     /// The previous tool, if any.
     pub prev_tool: Option<Tool>,
 
-    /// Execution mode.
-    pub execution: ExecutionMode,
-
     /// Whether session inputs are being throttled.
     throttled: Option<time::Instant>,
     /// Input state of the mouse.
@@ -868,7 +775,6 @@ impl Session {
             message: Message::default(),
             resources,
             avg_time: time::Duration::from_secs(0),
-            execution: ExecutionMode::Normal,
             frame_number: 0,
 
             // Unused
@@ -879,7 +785,7 @@ impl Session {
     }
 
     /// Initialize a session.
-    pub fn init(mut self, exec: ExecutionMode) -> std::io::Result<Self> {
+    pub fn init(mut self, _exec: Execution) -> std::io::Result<Self> {
         self.transition(State::Running);
 
         let cwd = std::env::current_dir()?;
@@ -901,21 +807,7 @@ impl Session {
         }
         self.source_dir(cwd).ok();
         self.message(format!("rx v{}", crate::VERSION), MessageType::Echo);
-        self.execution = exec;
 
-        if let ExecutionMode::Replaying { path, .. } = &self.execution {
-            if let Ok(f) = File::open(path.with_extension("digest")) {
-                let r = io::BufReader::new(f);
-                let mut resources = self.resources.lock_mut();
-                for line in r.lines() {
-                    let line = line?;
-                    let hash = Hash::from_str(line.as_str()).map_err(|e| {
-                        io::Error::new(io::ErrorKind::InvalidInput, e)
-                    })?;
-                    resources.load_screen(hash);
-                }
-            }
-        }
         Ok(self)
     }
 
@@ -949,6 +841,7 @@ impl Session {
     pub fn update(
         &mut self,
         events: &mut Vec<Event>,
+        exec: Rc<RefCell<Execution>>,
         delta: time::Duration,
         avg_time: time::Duration,
     ) -> Vec<Effect> {
@@ -967,9 +860,11 @@ impl Session {
             }
         }
 
-        if let ExecutionMode::Replaying {
+        let exec = &mut *exec.borrow_mut();
+
+        if let Execution::Replaying {
             events: recording, ..
-        } = &mut self.execution
+        } = exec
         {
             {
                 let frame = self.frame_number;
@@ -979,10 +874,11 @@ impl Session {
                     .drain(..end.unwrap_or(recording.len()))
                     .collect::<Vec<TimedEvent>>()
                     .into_iter()
-                    .for_each(|t| self.handle_event(t.event));
+                    .for_each(|t| self.handle_event(t.event, exec));
 
                 if end.is_none() {
-                    self.stop_playing();
+                    exec.stop_playing();
+                    self.message(format!("Replay ended"), MessageType::Replay);
                 }
             }
 
@@ -992,14 +888,18 @@ impl Session {
                         key: Some(platform::Key::Escape),
                         ..
                     }) => {
-                        self.stop_playing();
+                        exec.stop_playing();
+                        self.message(
+                            format!("Replay ended"),
+                            MessageType::Replay,
+                        );
                     }
                     _ => debug!("event (ignored): {:?}", event),
                 }
             }
         } else {
             for event in events.drain(..) {
-                self.handle_event(event);
+                self.handle_event(event, exec);
             }
         }
 
@@ -1182,11 +1082,14 @@ impl Session {
         let pressed: Vec<platform::Key> =
             self.keys_pressed.iter().cloned().collect();
         for k in pressed {
-            self.handle_keyboard_input(platform::KeyboardInput {
-                key: Some(k),
-                modifiers: ModifiersState::default(),
-                state: InputState::Released,
-            });
+            self.handle_keyboard_input(
+                platform::KeyboardInput {
+                    key: Some(k),
+                    modifiers: ModifiersState::default(),
+                    state: InputState::Released,
+                },
+                &mut Execution::Normal,
+            );
         }
         if self.mouse_state == InputState::Pressed {
             self.handle_mouse_input(
@@ -1690,12 +1593,12 @@ impl Session {
     // Event handlers
     ///////////////////////////////////////////////////////////////////////////
 
-    pub fn handle_event(&mut self, event: Event) {
-        if let ExecutionMode::Recording {
+    pub fn handle_event(&mut self, event: Event, exec: &mut Execution) {
+        if let Execution::Recording {
             ref mut events,
             start,
             ..
-        } = self.execution
+        } = exec
         {
             events.push(TimedEvent::new(
                 self.frame_number,
@@ -1710,7 +1613,9 @@ impl Session {
                 let coords = self.window_to_session_coords(position);
                 self.handle_cursor_moved(coords);
             }
-            Event::KeyboardInput(input) => self.handle_keyboard_input(input),
+            Event::KeyboardInput(input) => {
+                self.handle_keyboard_input(input, exec)
+            }
             Event::ReceivedCharacter(c) => self.handle_received_character(c),
         }
     }
@@ -1942,7 +1847,11 @@ impl Session {
         }
     }
 
-    fn handle_keyboard_input(&mut self, input: platform::KeyboardInput) {
+    fn handle_keyboard_input(
+        &mut self,
+        input: platform::KeyboardInput,
+        exec: &mut Execution,
+    ) {
         let KeyboardInput {
             state,
             modifiers,
@@ -2027,11 +1936,22 @@ impl Session {
                 return;
             }
 
-            if let ExecutionMode::Recording { events, .. } = &mut self.execution
-            {
+            if let Execution::Recording { events, .. } = exec {
                 if key == platform::Key::End {
                     events.pop(); // Discard this key event.
-                    self.stop_recording();
+
+                    match exec.stop_recording() {
+                        Some((path, test)) => {
+                            self.message(
+                                format!("Recording saved to {:?}", path),
+                                MessageType::Replay,
+                            );
+                            if test {
+                                self.quit();
+                            }
+                        }
+                        None => {}
+                    }
                 }
             }
         }
@@ -2748,59 +2668,6 @@ impl Session {
             }
             _ => false,
         }
-    }
-
-    fn stop_recording(&mut self) {
-        // TODO: (rust) Style
-        let result = if let ExecutionMode::Recording {
-            events,
-            path,
-            test,
-            ..
-        } = &self.execution
-        {
-            if let Ok(mut f) = File::create(path) {
-                use std::io::Write;
-
-                for ev in events.clone() {
-                    if let Err(e) = writeln!(&mut f, "{}", String::from(ev)) {
-                        panic!("error while saving recording: {}", e);
-                    }
-                }
-
-                if let Ok(mut f) = File::create(path.with_extension("digest")) {
-                    let resources = self.resources.lock();
-                    let screens = resources.screens();
-                    for digest in screens {
-                        if let Err(e) = writeln!(&mut f, "{}", digest) {
-                            panic!("error while saving recording: {}", e);
-                        }
-                    }
-                }
-            }
-            Some((path.clone(), *test))
-        } else {
-            None
-        };
-
-        match result {
-            Some((path, test)) => {
-                self.message(
-                    format!("Recording saved to {:?}", path),
-                    MessageType::Replay,
-                );
-                self.execution = ExecutionMode::Normal;
-                if test {
-                    self.quit();
-                }
-            }
-            None => {}
-        }
-    }
-
-    fn stop_playing(&mut self) {
-        self.execution = ExecutionMode::Normal;
-        self.message(format!("Replay ended"), MessageType::Replay);
     }
 
     ///////////////////////////////////////////////////////////////////////////

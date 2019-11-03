@@ -1,5 +1,6 @@
 #![deny(clippy::all)]
 
+pub mod execution;
 pub mod session;
 
 mod alloc;
@@ -37,6 +38,7 @@ compile_error!(
 
 use cmd::Value;
 use event::Event;
+use execution::Execution;
 use platform::{WindowEvent, WindowHint};
 use renderer::Renderer;
 use resources::ResourceManager;
@@ -56,7 +58,9 @@ use env_logger;
 use directories as dirs;
 
 use std::alloc::System;
+use std::cell::RefCell;
 use std::path::Path;
+use std::rc::Rc;
 use std::time;
 
 /// Program version.
@@ -68,7 +72,7 @@ pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 #[derive(Debug)]
 pub struct Options<'a> {
     pub log: &'a str,
-    pub exec: ExecutionMode,
+    pub exec: Execution,
     pub width: u32,
     pub height: u32,
 }
@@ -77,7 +81,7 @@ impl<'a> Default for Options<'a> {
     fn default() -> Self {
         Self {
             log: "rx=warn",
-            exec: ExecutionMode::default(),
+            exec: Execution::default(),
             width: 1280,
             height: 720,
         }
@@ -95,8 +99,8 @@ pub fn init<'a, P: AsRef<Path>>(
     logger.init();
 
     let hints = match &options.exec {
-        &ExecutionMode::Normal => &[WindowHint::Resizable(true)],
-        &ExecutionMode::Replaying { .. } | ExecutionMode::Recording { .. } => {
+        &Execution::Normal => &[WindowHint::Resizable(true)],
+        &Execution::Replaying { .. } | Execution::Recording { .. } => {
             &[WindowHint::Resizable(false)]
         }
     };
@@ -115,17 +119,26 @@ pub fn init<'a, P: AsRef<Path>>(
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
             .init(options.exec.clone())?;
 
-    if let ExecutionMode::Replaying { test: true, .. } = options.exec {
-        session
-            .settings
-            .set("input/delay", Value::Float(0.0))
-            .expect("'input/delay' is a float");
-        session
-            .settings
-            .set("vsync", Value::Bool(false))
-            .expect("'vsync' is a bool");
+    match &options.exec {
+        Execution::Replaying { test: true, .. }
+        | Execution::Recording { test: true, .. } => {
+            session
+                .settings
+                .set("input/delay", Value::Float(0.0))
+                .expect("'input/delay' is a float");
+            session
+                .settings
+                .set("vsync", Value::Bool(false))
+                .expect("'vsync' is a bool");
+            session
+                .settings
+                .set("animation", Value::Bool(false))
+                .expect("'animation' is a bool");
+        }
+        _ => {}
     }
 
+    let execution = Rc::new(RefCell::new(options.exec));
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(win.raw_handle());
     let mut renderer = Renderer::new(&mut r, win_size, resources);
@@ -207,11 +220,18 @@ pub fn init<'a, P: AsRef<Path>>(
                     return platform::ControlFlow::Continue;
                 }
 
-                let effects = update_timer
-                    .run(|avg| session.update(&mut session_events, delta, avg));
+                let effects = update_timer.run(|avg| {
+                    session.update(
+                        &mut session_events,
+                        execution.clone(),
+                        delta,
+                        avg,
+                    )
+                });
                 render_timer.run(|avg| {
                     renderer.frame(
                         &session,
+                        execution.clone(),
                         effects,
                         &avg,
                         &mut r,
@@ -257,6 +277,7 @@ pub fn init<'a, P: AsRef<Path>>(
                     render_timer.run(|avg| {
                         renderer.frame(
                             &session,
+                            execution.clone(),
                             vec![],
                             &avg,
                             &mut r,

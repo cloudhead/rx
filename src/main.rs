@@ -1,5 +1,5 @@
 use rx;
-use rx::session;
+use rx::execution::Execution;
 
 use pico_args;
 
@@ -70,9 +70,9 @@ fn execute(
     };
 
     let exec = if let Some(path) = replay {
-        session::ExecutionMode::replaying(path.with_extension("log"), test)?
+        Execution::replaying(path.with_extension("log"), test)?
     } else if let Some(path) = record {
-        session::ExecutionMode::recording(path.with_extension("log"), test)?
+        Execution::recording(path.with_extension("log"), test)?
     } else {
         default.exec
     };

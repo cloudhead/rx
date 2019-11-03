@@ -4,77 +4,20 @@ use crate::view::ViewId;
 use rgx::core::{Bgra8, Rgba8};
 use rgx::nonempty::NonEmpty;
 
-use digest::generic_array::{sequence::*, typenum::consts::*, GenericArray};
-use digest::Digest;
 use gif::{self, SetParameter};
-use meowhash::MeowHasher;
 use png;
 
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io;
 use std::mem;
 use std::path::Path;
-use std::str::FromStr;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::time;
 
 /// Speed at which to encode gifs. This mainly affects quantization.
 const GIF_ENCODING_SPEED: i32 = 10;
-
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Hash([u8; 4]);
-
-impl fmt::Display for Hash {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for byte in self.0.iter() {
-            write!(f, "{:02x}", byte)?;
-        }
-        Ok(())
-    }
-}
-
-impl FromStr for Hash {
-    type Err = String;
-
-    fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let val = |c: u8| match c {
-            b'a'..=b'f' => Ok(c - b'a' + 10),
-            b'0'..=b'9' => Ok(c - b'0'),
-            _ => Err(format!("invalid hex character {:?}", c)),
-        };
-
-        let mut hash: Vec<u8> = Vec::new();
-        for pair in input.bytes().collect::<Vec<u8>>().chunks(2) {
-            match pair {
-                &[l, r] => {
-                    let left = val(l)? << 4;
-                    let right = val(r)?;
-
-                    hash.push(left | right);
-                }
-                _ => return Err(format!("invalid hex string: {:?}", input)),
-            }
-        }
-
-        let mut array = [0; 4];
-        array.copy_from_slice(hash.as_slice());
-
-        Ok(Hash(array))
-    }
-}
-
-pub enum VerifyResult {
-    /// The hash has already been verified.
-    Stale(Hash),
-    /// The actual and expected hashes match.
-    Okay(Hash),
-    /// The actual and expected hashes don't match.
-    Failure(Hash, Hash),
-    /// There are no further expected hashes.
-    EOF,
-}
 
 pub struct ResourceManager {
     resources: Arc<RwLock<Resources>>,
@@ -82,16 +25,12 @@ pub struct ResourceManager {
 
 pub struct Resources {
     data: BTreeMap<ViewId, ViewResources>,
-    screens: VecDeque<Hash>,
-    last_verified: Option<Hash>,
 }
 
 impl Resources {
     fn new() -> Self {
         Self {
             data: BTreeMap::new(),
-            screens: VecDeque::new(),
-            last_verified: None,
         }
     }
 
@@ -120,51 +59,6 @@ impl Resources {
 
     pub fn get_view_mut(&mut self, id: &ViewId) -> Option<&mut ViewResources> {
         self.data.get_mut(id)
-    }
-
-    pub fn load_screen(&mut self, h: Hash) {
-        self.screens.push_back(h);
-    }
-
-    pub fn record_screen(&mut self, data: &[u8]) {
-        let hash = Self::hash(data);
-
-        if self.screens.back().map(|h| h != &hash).unwrap_or(true) {
-            eprintln!("recording {}", hash);
-            self.screens.push_back(hash);
-        }
-    }
-
-    pub fn verify_screen(&mut self, data: &[u8]) -> VerifyResult {
-        let actual = Self::hash(data);
-
-        if Some(actual.clone()) == self.last_verified {
-            return VerifyResult::Stale(actual);
-        }
-        self.last_verified = Some(actual.clone());
-
-        if let Some(expected) = self.screens.pop_front() {
-            if actual == expected {
-                VerifyResult::Okay(actual)
-            } else {
-                VerifyResult::Failure(actual, expected)
-            }
-        } else {
-            VerifyResult::EOF
-        }
-    }
-
-    pub fn screens<'a>(&'a self) -> &'a VecDeque<Hash> {
-        &self.screens
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-
-    fn hash(data: &[u8]) -> Hash {
-        let bytes: GenericArray<u8, U64> = MeowHasher::digest(data);
-        let (prefix, _): (GenericArray<u8, U4>, _) = bytes.split();
-
-        Hash(prefix.into())
     }
 }
 

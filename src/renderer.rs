@@ -1,16 +1,15 @@
 use crate::brush::BrushMode;
 use crate::color;
 use crate::data;
+use crate::execution::Execution;
 use crate::font::{Font, TextBatch};
 use crate::framebuffer2d;
 use crate::gpu;
 use crate::image;
 use crate::platform::{self, LogicalSize};
-use crate::resources::{ResourceManager, VerifyResult};
+use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{
-    self, Effect, ExecutionMode, Mode, Rgb8, Session, Tool, VisualMode,
-};
+use crate::session::{self, Effect, Mode, Rgb8, Session, Tool, VisualMode};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
@@ -22,7 +21,9 @@ use rgx::kit::sprite2d;
 use rgx::kit::{Bgra8, Origin, Rgba8};
 use rgx::math::{Matrix4, Vector2};
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::time;
 
 /// 2D Renderer. Renders the [`Session`] to screen.
@@ -378,6 +379,7 @@ impl Renderer {
     pub fn frame(
         &mut self,
         session: &Session,
+        execution: Rc<RefCell<Execution>>,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
         r: &mut core::Renderer,
@@ -424,7 +426,12 @@ impl Renderer {
         Self::draw_brush(&session, &mut ui_batch);
         Self::draw_paste(&session, &self.paste, &mut paste_batch);
         Self::draw_ui(&session, &mut ui_batch, &mut text_batch);
-        Self::draw_overlay(&session, avg_frametime, &mut overlay_batch);
+        Self::draw_overlay(
+            &session,
+            avg_frametime,
+            &mut overlay_batch,
+            execution.clone(),
+        );
         Self::draw_palette(&session, &mut palette_batch);
         Self::draw_cursor(&session, &mut cursor_batch);
         Self::draw_checker(&session, &mut checker_batch);
@@ -618,35 +625,10 @@ impl Renderer {
             });
         }
 
-        let exec = &session.execution;
-        if !exec.is_normal() {
-            let resources = self.resources.clone();
-
-            match exec {
-                &ExecutionMode::Recording { .. } => {
-                    r.read(&self.screen_fb, move |data| {
-                        resources.lock_mut().record_screen(data);
-                    });
-                }
-                &ExecutionMode::Replaying { .. } => {
-                    r.read(&self.screen_fb, move |data| {
-                        match resources.lock_mut().verify_screen(data) {
-                            VerifyResult::Okay(actual) => {
-                                info!("replaying: {} <okay>", actual);
-                            }
-                            VerifyResult::Failure(actual, expected) => {
-                                error!("replaying: {} != {}", actual, expected);
-                                // TODO: Stop replaying
-                            }
-                            VerifyResult::EOF => {
-                                error!("replaying: EOF");
-                            }
-                            VerifyResult::Stale { .. } => {}
-                        }
-                    });
-                }
-                _ => {}
-            }
+        if !execution.borrow().is_normal() {
+            r.read(&self.screen_fb, move |data| {
+                execution.clone().borrow_mut().record(data);
+            });
         }
     }
 
@@ -1001,9 +983,10 @@ impl Renderer {
         session: &Session,
         avg_frametime: &time::Duration,
         text: &mut TextBatch,
+        exec: Rc<RefCell<Execution>>,
     ) {
-        match &session.execution {
-            ExecutionMode::Recording { path, .. } => {
+        match &*exec.borrow() {
+            Execution::Recording { path, .. } => {
                 text.add(
                     &format!("* recording: {} (<End> to stop)", path.display()),
                     MARGIN * 2.,
@@ -1011,7 +994,7 @@ impl Renderer {
                     color::RED,
                 );
             }
-            ExecutionMode::Replaying { events, path, .. } => {
+            Execution::Replaying { events, path, .. } => {
                 if let Some(event) = events.front() {
                     text.add(
                         &format!(
@@ -1025,7 +1008,7 @@ impl Renderer {
                     );
                 }
             }
-            ExecutionMode::Normal => {}
+            Execution::Normal => {}
         }
 
         if session.settings["debug"].is_set() {
