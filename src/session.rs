@@ -1595,6 +1595,28 @@ impl Session {
         }
     }
 
+    /// Yank the selection.
+    fn yank(&mut self) -> Option<Rect<i32>> {
+        if let (Mode::Visual(VisualMode::Selecting { .. }), Some(s)) =
+            (self.mode, self.selection)
+        {
+            let v = self.active_view_mut();
+            let s = s.abs().bounds();
+
+            if s.intersects(v.bounds()) {
+                let s = s.clamped(v.bounds());
+
+                v.yank(s);
+
+                self.selection = Some(Selection::from(s));
+                self.switch_mode(Mode::Visual(VisualMode::Pasting));
+
+                return Some(s);
+            }
+        }
+        None
+    }
+
     fn undo(&mut self, id: ViewId) {
         self.restore_view_snapshot(id, Direction::Backward);
     }
@@ -2621,30 +2643,16 @@ impl Session {
                 }
             }
             Command::SelectionYank => {
-                if let (Mode::Visual(VisualMode::Selecting { .. }), Some(s)) =
-                    (self.mode, self.selection)
-                {
-                    let v = self.active_view_mut();
-                    let s = s.abs().bounds().clamped(Rect::origin(
-                        v.width() as i32,
-                        v.height() as i32,
-                    ));
-                    v.yank(s);
-
-                    self.selection = Some(Selection::from(s));
-                    self.switch_mode(Mode::Visual(VisualMode::Pasting));
-                }
+                self.yank();
             }
             Command::SelectionDelete => {
                 // To mimick the behavior of `vi`, we yank the selection
                 // before deleting it.
-                self.command(Command::SelectionYank);
-
-                if let Some(s) = self.selection {
+                if let Some(s) = self.yank() {
                     self.effects.extend_from_slice(&[
                         Effect::ViewBlendingChanged(Blending::constant()),
                         Effect::ViewPaintFinal(vec![Shape::Rectangle(
-                            s.abs().bounds().map(|n| n as f32),
+                            s.map(|n| n as f32),
                             Stroke::NONE,
                             Fill::Solid(Rgba8::TRANSPARENT.into()),
                         )]),

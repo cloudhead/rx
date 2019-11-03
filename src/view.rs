@@ -513,6 +513,11 @@ impl ViewManager {
         self.views.get(&self.active_id)
     }
 
+    /// Return the currently active view mutably, if any.
+    pub fn active_mut(&mut self) -> Option<&mut View> {
+        self.views.get_mut(&self.active_id)
+    }
+
     /// Activate a view.
     pub fn activate(&mut self, id: ViewId) {
         debug_assert!(
