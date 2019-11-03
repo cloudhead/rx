@@ -75,6 +75,7 @@ pub struct Options<'a> {
     pub exec: Execution,
     pub width: u32,
     pub height: u32,
+    pub resizable: bool,
 }
 
 impl<'a> Default for Options<'a> {
@@ -84,6 +85,7 @@ impl<'a> Default for Options<'a> {
             exec: Execution::default(),
             width: 1280,
             height: 720,
+            resizable: true,
         }
     }
 }
@@ -98,12 +100,9 @@ pub fn init<'a, P: AsRef<Path>>(
     logger.parse_filters(options.log);
     logger.init();
 
-    let hints = match &options.exec {
-        &Execution::Normal => &[WindowHint::Resizable(true)],
-        &Execution::Replaying { .. } | Execution::Recording { .. } => {
-            &[WindowHint::Resizable(false)]
-        }
-    };
+    debug!("options: {:?}", options);
+
+    let hints = &[WindowHint::Resizable(options.resizable)];
     let (win, events) =
         platform::init("rx", options.width, options.height, hints)?;
 

@@ -47,13 +47,12 @@ fn execute(
         return Ok(());
     }
 
-    let width = args.opt_value_from_str("--width")?.unwrap_or(default.width);
-    let height = args
-        .opt_value_from_str("--height")?
-        .unwrap_or(default.height);
+    let width = args.opt_value_from_str("--width")?;
+    let height = args.opt_value_from_str("--height")?;
     let digest = args.contains("--digest");
     let replay = args.opt_value_from_str::<_, PathBuf>("--replay")?;
     let record = args.opt_value_from_str::<_, PathBuf>("--record")?;
+    let resizable = width.is_none() && height.is_none();
 
     if replay.is_some() && record.is_some() {
         return Err("'--replay' and '--record' can't both be specified".into());
@@ -79,8 +78,9 @@ fn execute(
     let options = rx::Options {
         exec,
         log,
-        width,
-        height,
+        width: width.unwrap_or(default.width),
+        height: height.unwrap_or(default.height),
+        resizable,
     };
 
     let paths = args.free()?;
