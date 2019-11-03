@@ -868,17 +868,14 @@ impl Renderer {
                 Fill::Empty(),
             ));
             // Selection fill.
-            canvas.add(Shape::Rectangle(
-                r.clamped(Rect::origin(
-                    view.width() as i32,
-                    view.height() as i32,
-                ))
-                .map(|n| n as f32)
-                    * view.zoom
-                    + offset,
-                Stroke::NONE,
-                Fill::Solid(fill.into()),
-            ));
+            if r.intersects(view.bounds()) {
+                canvas.add(Shape::Rectangle(
+                    r.clamped(view.bounds()).map(|n| n as f32) * view.zoom
+                        + offset,
+                    Stroke::NONE,
+                    Fill::Solid(fill.into()),
+                ));
+            }
         }
 
         for (id, v) in session.views.iter() {
