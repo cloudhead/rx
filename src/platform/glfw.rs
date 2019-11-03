@@ -51,34 +51,41 @@ pub fn init(
     ))
 }
 
-pub fn run<F>(mut win: Window, events: Events, mut callback: F)
+pub fn run<F, T>(mut win: Window, events: Events, mut callback: F) -> T
 where
-    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow,
+    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow<T>,
+    T: Default,
 {
     let mut glfw = events.glfw;
+    let mut exit = T::default();
 
     while !win.handle.should_close() {
         glfw.poll_events();
         for (_, event) in glfw::flush_messages(&events.handle) {
-            if callback(&mut win, event.into()) == ControlFlow::Exit {
+            if let ControlFlow::Exit(r) = callback(&mut win, event.into()) {
                 win.handle.set_should_close(true);
+                exit = r;
             }
         }
-        if callback(&mut win, WindowEvent::Ready) == ControlFlow::Exit {
+        if let ControlFlow::Exit(r) = callback(&mut win, WindowEvent::Ready) {
             win.handle.set_should_close(true);
+            exit = r;
         }
 
         if win.redraw_requested {
             win.redraw_requested = false;
 
-            if callback(&mut win, WindowEvent::RedrawRequested)
-                == ControlFlow::Exit
+            if let ControlFlow::Exit(r) =
+                callback(&mut win, WindowEvent::RedrawRequested)
             {
                 win.handle.set_should_close(true);
+                exit = r;
             }
         }
     }
     callback(&mut win, WindowEvent::Destroyed);
+
+    return exit;
 }
 
 pub struct Events {

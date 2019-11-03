@@ -26,17 +26,22 @@ pub fn init(
 }
 
 /// Run the main event loop.
-pub fn run<F>(win: backend::Window, events: backend::Events, callback: F)
+pub fn run<F, T>(
+    win: backend::Window,
+    events: backend::Events,
+    callback: F,
+) -> T
 where
-    F: 'static + FnMut(&mut backend::Window, WindowEvent) -> ControlFlow,
+    F: 'static + FnMut(&mut backend::Window, WindowEvent) -> ControlFlow<T>,
+    T: Default,
 {
-    backend::run(win, events, callback);
+    backend::run(win, events, callback)
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ControlFlow {
+pub enum ControlFlow<T> {
     Continue,
-    Exit,
+    Exit(T),
 }
 
 #[derive(Debug, Copy, Clone)]

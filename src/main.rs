@@ -25,8 +25,7 @@ OPTIONS
 "#;
 
 fn main() {
-    if let Err(e) = self::execute(pico_args::Arguments::from_env()) {
-        eprintln!("rx: error: {}", e.as_ref());
+    if let Err(_) = self::execute(pico_args::Arguments::from_env()) {
         process::exit(1);
     }
 }

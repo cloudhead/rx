@@ -11,20 +11,23 @@ use std::io;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn run<F>(mut win: Window, events: Events, mut callback: F)
+pub fn run<F, T>(mut win: Window, events: Events, mut callback: F) -> T
 where
-    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow,
+    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow<T>,
+    T: Default,
 {
     events
         .handle
         .run(move |event, _, control_flow| match event {
             winit::event::Event::WindowEvent { event, .. } => {
-                if callback(&mut win, event.into()) == ControlFlow::Exit {
+                if let ControlFlow::Exit(_) = callback(&mut win, event.into()) {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
             }
             winit::event::Event::EventsCleared => {
-                if callback(&mut win, WindowEvent::Ready) == ControlFlow::Exit {
+                if let ControlFlow::Exit(_) =
+                    callback(&mut win, WindowEvent::Ready)
+                {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
             }

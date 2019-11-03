@@ -186,13 +186,6 @@ impl Execution {
 
         result
     }
-
-    pub fn stop_playing(&mut self) {
-        if let Execution::Replaying { result, .. } = &self {
-            info!("replaying: {}", result.summary());
-        }
-        *self = Execution::Normal;
-    }
 }
 
 impl Default for Execution {
@@ -263,12 +256,34 @@ impl FrameRecorder {
 #[derive(Debug, Clone)]
 pub struct ReplayResult {
     verify_results: Vec<VerifyResult>,
+    okay_count: u32,
+    failed_count: u32,
+    stale_count: u32,
 }
 
 impl ReplayResult {
+    pub fn is_ok(&self) -> bool {
+        self.failed_count == 0 && self.okay_count > 0
+    }
+
+    pub fn summary(&self) -> String {
+        let total = (self.okay_count + self.failed_count) as f32;
+
+        format!(
+            "{:.1}% OK, {:.1}% FAILED",
+            self.okay_count as f32 / total * 100.,
+            self.failed_count as f32 / total * 100.
+        )
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
     fn new() -> Self {
         ReplayResult {
             verify_results: Vec::new(),
+            okay_count: 0,
+            failed_count: 0,
+            stale_count: 0,
         }
     }
 
@@ -276,44 +291,22 @@ impl ReplayResult {
         match &result {
             VerifyResult::Okay(actual) => {
                 info!("replaying: {} OK", actual);
+                self.okay_count += 1;
             }
             VerifyResult::Failed(actual, expected) => {
                 error!("replaying: {} != {}", actual, expected);
+                self.failed_count += 1;
                 // TODO: Stop replaying
             }
             VerifyResult::EOF => {
                 error!("replaying: EOF");
+                self.failed_count += 1;
             }
-            VerifyResult::Stale { .. } => {}
+            VerifyResult::Stale { .. } => {
+                self.stale_count += 1;
+            }
         }
         self.verify_results.push(result);
-    }
-
-    fn summary(&self) -> String {
-        let mut okay = 0;
-        let mut failed = 0;
-
-        for r in self.verify_results.iter() {
-            match r {
-                VerifyResult::Okay(_) => {
-                    okay += 1;
-                }
-                VerifyResult::Failed(_, _) => {
-                    failed += 1;
-                }
-                VerifyResult::EOF => {
-                    return format!("EOF reached");
-                }
-                VerifyResult::Stale { .. } => {}
-            }
-        }
-        let total = (okay + failed) as f32;
-
-        format!(
-            "{:.1}% OK, {:.1}% FAILED",
-            okay as f32 / total * 100.,
-            failed as f32 / total * 100.
-        )
     }
 }
 

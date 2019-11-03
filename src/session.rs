@@ -262,6 +262,18 @@ pub enum Effect {
     ViewBlendingChanged(Blending),
 }
 
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum ExitReason {
+    Normal,
+    Error,
+}
+
+impl Default for ExitReason {
+    fn default() -> Self {
+        Self::Normal
+    }
+}
+
 /// Session state.
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum State {
@@ -272,7 +284,7 @@ pub enum State {
     /// The session is paused. Inputs are not processed.
     Paused,
     /// The session is being shut down.
-    Closing,
+    Closing(ExitReason),
 }
 
 /// An editing tool.
@@ -827,8 +839,8 @@ impl Session {
             (State::Initializing, State::Running)
             | (State::Running, State::Paused)
             | (State::Paused, State::Running)
-            | (State::Paused, State::Closing)
-            | (State::Running, State::Closing) => to,
+            | (State::Paused, State::Closing(_))
+            | (State::Running, State::Closing(_)) => to,
             _ => self.state,
         };
         debug!("state: {:?} -> {:?}", self.state, state);
@@ -863,9 +875,15 @@ impl Session {
         let exec = &mut *exec.borrow_mut();
 
         if let Execution::Replaying {
-            events: recording, ..
+            events: recording,
+            test,
+            result,
+            ..
         } = exec
         {
+            let test = test.clone();
+            let result = result.clone();
+
             {
                 let frame = self.frame_number;
                 let end = recording.iter().position(|t| t.frame != frame);
@@ -876,9 +894,21 @@ impl Session {
                     .into_iter()
                     .for_each(|t| self.handle_event(t.event, exec));
 
+                // Replay is over.
                 if end.is_none() {
-                    exec.stop_playing();
+                    *exec = Execution::Normal;
+
                     self.message(format!("Replay ended"), MessageType::Replay);
+
+                    if test {
+                        info!("replaying: {}", result.summary());
+
+                        if result.is_ok() {
+                            self.quit(ExitReason::Normal);
+                        } else {
+                            self.quit(ExitReason::Error);
+                        }
+                    }
                 }
             }
 
@@ -888,7 +918,7 @@ impl Session {
                         key: Some(platform::Key::Escape),
                         ..
                     }) => {
-                        exec.stop_playing();
+                        *exec = Execution::Normal;
                         self.message(
                             format!("Replay ended"),
                             MessageType::Replay,
@@ -939,7 +969,7 @@ impl Session {
         }
 
         if self.views.is_empty() {
-            self.quit();
+            self.quit(ExitReason::Normal);
         } else {
             for (id, v) in self.views.iter() {
                 if v.is_dirty() {
@@ -960,8 +990,8 @@ impl Session {
     }
 
     /// Quit the session.
-    pub fn quit(&mut self) {
-        self.transition(State::Closing);
+    pub fn quit(&mut self, r: ExitReason) {
+        self.transition(State::Closing(r));
     }
 
     /// Drain and return effects.
@@ -1947,7 +1977,7 @@ impl Session {
                                 MessageType::Replay,
                             );
                             if test {
-                                self.quit();
+                                self.quit(ExitReason::Normal);
                             }
                         }
                         None => {}
@@ -2224,7 +2254,7 @@ impl Session {
                 self.organize_views();
             }
             Command::ForceQuit => self.quit_view(self.views.active_id),
-            Command::ForceQuitAll => self.quit(),
+            Command::ForceQuitAll => self.quit(ExitReason::Normal),
             Command::Echo(ref v) => {
                 let result = match v {
                     Value::Str(s) => Ok(Value::Str(s.clone())),

@@ -172,7 +172,7 @@ pub fn init<'a, P: AsRef<Path>>(
     let mut session_events = Vec::with_capacity(16);
     let mut last = time::Instant::now();
 
-    platform::run(win, events, move |w, event| {
+    let exit = platform::run(win, events, move |w, event| {
         if event.is_input() {
             debug!("event: {:?}", event);
         }
@@ -290,7 +290,7 @@ pub fn init<'a, P: AsRef<Path>>(
                 session.hidpi_factor = factor;
             }
             WindowEvent::CloseRequested => {
-                session.quit();
+                session.quit(ExitReason::Normal);
             }
             WindowEvent::CursorMoved { position } => {
                 let relative = platform::LogicalPosition::new(
@@ -311,13 +311,23 @@ pub fn init<'a, P: AsRef<Path>>(
             _ => {}
         };
 
-        if session.state == State::Closing {
-            platform::ControlFlow::Exit
+        if let State::Closing(reason) = session.state {
+            platform::ControlFlow::Exit(reason)
         } else {
             platform::ControlFlow::Continue
         }
     });
-    Ok(())
+
+    // NOTE: The following code is only reachable when using the
+    // GLFW backend. With the Winit backend, `platform::run`
+    // never returns.
+
+    match exit {
+        ExitReason::Normal => Ok(()),
+        ExitReason::Error => {
+            Err(io::Error::new(io::ErrorKind::Other, "<exit>"))
+        }
+    }
 }
 
 fn resize(
