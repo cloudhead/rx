@@ -1986,7 +1986,13 @@ impl Session {
                                 format!("Recording saved to {:?}", path),
                                 MessageType::Replay,
                             );
+                            info!("recording: log saved to {:?}", path);
+
                             if digest {
+                                info!(
+                                    "recording: digest saved to {:?}",
+                                    path.with_extension("digest")
+                                );
                                 self.quit(ExitReason::Normal);
                             }
                         }
