@@ -928,6 +928,18 @@ impl Session {
                 }
             }
         } else {
+            // A common case is that we have multiple `CursorMoved` events
+            // in one update. In that case we keep only the last one,
+            // since the in-betweens will never be seen.
+            if events.len() > 1
+                && events.iter().all(|e| match e {
+                    Event::CursorMoved(_) => true,
+                    _ => false,
+                })
+            {
+                events.drain(..events.len() - 1);
+            }
+
             for event in events.drain(..) {
                 self.handle_event(event, exec);
             }
