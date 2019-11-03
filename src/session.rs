@@ -1,15 +1,15 @@
 ///! Session
 use crate::brush::*;
-use crate::cmd;
-use crate::cmd::{Command, CommandLine, Key, KeyMapping, Op, Value};
+use crate::cmd::{self, Command, CommandLine, Key, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
-use crate::execution::*;
+use crate::execution::Execution;
 use crate::hashmap;
 use crate::palette::*;
-use crate::platform;
-use crate::platform::{InputState, KeyboardInput, LogicalSize, ModifiersState};
+use crate::platform::{
+    self, InputState, KeyboardInput, LogicalSize, ModifiersState,
+};
 use crate::resources::ResourceManager;
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
