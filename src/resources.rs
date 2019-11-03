@@ -7,20 +7,21 @@ use rgx::nonempty::NonEmpty;
 use gif::{self, SetParameter};
 use png;
 
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io;
 use std::mem;
 use std::path::Path;
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::rc::Rc;
 use std::time;
 
 /// Speed at which to encode gifs. This mainly affects quantization.
 const GIF_ENCODING_SPEED: i32 = 10;
 
 pub struct ResourceManager {
-    resources: Arc<RwLock<Resources>>,
+    resources: Rc<RefCell<Resources>>,
 }
 
 pub struct Resources {
@@ -65,7 +66,7 @@ impl Resources {
 impl ResourceManager {
     pub fn new() -> Self {
         Self {
-            resources: Arc::new(RwLock::new(Resources::new())),
+            resources: Rc::new(RefCell::new(Resources::new())),
         }
     }
 
@@ -75,16 +76,16 @@ impl ResourceManager {
         }
     }
 
-    pub fn lock(&self) -> RwLockReadGuard<Resources> {
-        self.resources.read().unwrap()
+    pub fn lock(&self) -> Ref<Resources> {
+        self.resources.borrow()
     }
 
-    pub fn lock_mut(&self) -> RwLockWriteGuard<Resources> {
-        self.resources.write().unwrap()
+    pub fn lock_mut(&self) -> RefMut<Resources> {
+        self.resources.borrow_mut()
     }
 
     pub fn remove_view(&mut self, id: &ViewId) {
-        self.resources.write().unwrap().data.remove(id);
+        self.resources.borrow_mut().data.remove(id);
     }
 
     pub fn add_blank_view(&mut self, id: ViewId, w: u32, h: u32) {
@@ -213,8 +214,7 @@ impl ResourceManager {
 
     pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: &[u8]) {
         self.resources
-            .write()
-            .unwrap()
+            .borrow_mut()
             .data
             .insert(id, ViewResources::new(pixels, fw, fh));
     }
