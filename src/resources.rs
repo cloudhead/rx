@@ -1,5 +1,5 @@
 use crate::image;
-use crate::view::ViewId;
+use crate::view::{ViewExtent, ViewId};
 
 use rgx::core::{Bgra8, Rgba8};
 use rgx::nonempty::NonEmpty;
@@ -162,7 +162,8 @@ impl ResourceManager {
 
         let mut resources = self.lock_mut();
         let (snapshot, pixels) = resources.get_snapshot_mut(id);
-        let nframes = snapshot.nframes;
+        let extent = snapshot.extent;
+        let nframes = extent.nframes;
 
         // Convert pixels from BGRA to RGBA, for writing to disk.
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
@@ -171,7 +172,7 @@ impl ResourceManager {
             image.extend_from_slice(&[rgba.r, rgba.g, rgba.b, rgba.a]);
         }
 
-        let (fw, fh) = (snapshot.fw as usize, snapshot.fh as usize);
+        let (fw, fh) = (extent.fw as usize, extent.fh as usize);
         let frame_nbytes = fw * fh as usize * mem::size_of::<Rgba8>();
 
         let mut frames: Vec<Vec<u8>> = Vec::with_capacity(nframes);
@@ -237,9 +238,7 @@ impl ViewResources {
             snapshots: NonEmpty::new(Snapshot::new(
                 SnapshotId(0),
                 pixels,
-                fw,
-                fh,
-                1,
+                ViewExtent::new(fw, fh, 1),
             )),
             snapshot: 0,
             pixels: pxs.into(),
@@ -264,13 +263,7 @@ impl ViewResources {
         )
     }
 
-    pub fn push_snapshot(
-        &mut self,
-        pixels: &[u8],
-        fw: u32,
-        fh: u32,
-        nframes: usize,
-    ) {
+    pub fn push_snapshot(&mut self, pixels: &[u8], extent: ViewExtent) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
         // If we try to add a snapshot when we're not at the
@@ -285,9 +278,7 @@ impl ViewResources {
         self.snapshots.push(Snapshot::new(
             SnapshotId(self.snapshot),
             pixels,
-            fw,
-            fh,
-            nframes,
+            extent,
         ));
     }
 
@@ -335,47 +326,40 @@ impl Default for SnapshotId {
 #[derive(Debug)]
 pub struct Snapshot {
     pub id: SnapshotId,
-    pub fw: u32,
-    pub fh: u32,
-    pub nframes: usize,
+    pub extent: ViewExtent,
 
     size: usize,
     pixels: Compressed<Box<[u8]>>,
 }
 
 impl Snapshot {
-    pub fn new(
-        id: SnapshotId,
-        pixels: &[u8],
-        fw: u32,
-        fh: u32,
-        nframes: usize,
-    ) -> Self {
+    pub fn new(id: SnapshotId, pixels: &[u8], extent: ViewExtent) -> Self {
         let size = pixels.len();
         let pixels = Compressed::from(pixels)
             .expect("compressing snapshot shouldn't result in an error");
 
         debug_assert!(
-            (fw * fh) as usize * nframes * mem::size_of::<Rgba8>() == size,
+            (extent.fw * extent.fh) as usize
+                * extent.nframes
+                * mem::size_of::<Rgba8>()
+                == size,
             "the pixel buffer has the expected size"
         );
 
         Self {
             id,
-            fw,
-            fh,
-            nframes,
+            extent,
             size,
             pixels,
         }
     }
 
     pub fn width(&self) -> u32 {
-        self.fw * self.nframes as u32
+        self.extent.fw * self.extent.nframes as u32
     }
 
     pub fn height(&self) -> u32 {
-        self.fh
+        self.extent.fh
     }
 
     ////////////////////////////////////////////////////////////////////////////

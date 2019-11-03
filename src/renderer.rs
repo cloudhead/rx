@@ -619,8 +619,7 @@ impl Renderer {
 
             r.read(&view_data.fb, move |data| {
                 if let Some(s) = resources.lock_mut().get_view_mut(&id) {
-                    // TODO: This function should just take a `ViewExtent`.
-                    s.push_snapshot(data, extent.fw, extent.fh, extent.nframes);
+                    s.push_snapshot(data, extent);
                 }
             });
         }

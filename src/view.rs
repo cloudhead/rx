@@ -91,6 +91,10 @@ pub struct ViewExtent {
 }
 
 impl ViewExtent {
+    pub fn new(fw: u32, fh: u32, nframes: usize) -> Self {
+        ViewExtent { fw, fh, nframes }
+    }
+
     /// Extent total width.
     pub fn width(&self) -> u32 {
         self.fw * self.nframes as u32
@@ -270,7 +274,7 @@ impl View {
 
     /// Resize view frames to the given size.
     pub fn resize_frames(&mut self, fw: u32, fh: u32) {
-        self.reset(fw, fh, self.animation.len());
+        self.reset(ViewExtent::new(fw, fh, self.animation.len()));
     }
 
     /// Clear the view to a color.
@@ -289,14 +293,14 @@ impl View {
     }
 
     /// Reset the view by providing frame size and number of frames.
-    pub fn reset(&mut self, fw: u32, fh: u32, nframes: usize) {
-        self.fw = fw;
-        self.fh = fh;
+    pub fn reset(&mut self, extent: ViewExtent) {
+        self.fw = extent.fw;
+        self.fh = extent.fh;
 
         let mut frames = Vec::new();
         let origin = Rect::origin(self.fw as f32, self.fh as f32);
 
-        for i in 0..nframes {
+        for i in 0..extent.nframes {
             frames.push(origin + Vector2::new(i as f32 * self.fw as f32, 0.));
         }
         self.animation = Animation::new(&frames, self.animation.delay);
@@ -306,7 +310,7 @@ impl View {
     pub fn slice(&mut self, nframes: usize) -> bool {
         if self.width() % nframes as u32 == 0 {
             let fw = self.width() / nframes as u32;
-            self.reset(fw, self.fh, nframes);
+            self.reset(ViewExtent::new(fw, self.fh, nframes));
             return true;
         }
         false
@@ -395,11 +399,7 @@ impl View {
 
     /// Return the view extent.
     pub fn extent(&self) -> ViewExtent {
-        ViewExtent {
-            fw: self.fw,
-            fh: self.fh,
-            nframes: self.animation.len(),
-        }
+        ViewExtent::new(self.fw, self.fh, self.animation.len())
     }
 
     /// Return the view bounds, as an origin-anchored rectangle.

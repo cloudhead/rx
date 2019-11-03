@@ -1593,12 +1593,12 @@ impl Session {
                     s.next_snapshot()
                 }
             })
-            .map(|s| (s.id, s.fw, s.fh, s.nframes));
+            .map(|s| (s.id, s.extent));
 
-        if let Some((sid, fw, fh, nframes)) = snapshot {
+        if let Some((sid, extent)) = snapshot {
             let v = self.view_mut(id);
 
-            v.reset(fw, fh, nframes);
+            v.reset(extent);
             v.damaged();
 
             // If the snapshot was saved to disk, we mark the view as saved too.
