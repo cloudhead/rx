@@ -997,7 +997,7 @@ impl Renderer {
                 if let Some(event) = events.front() {
                     text.add(
                         &format!(
-                            "> replaying: {}: {:48} (<Esc> to stop)",
+                            "> replaying: {}: {:32} (<Esc> to stop)",
                             path.display(),
                             String::from(event.clone()),
                         ),

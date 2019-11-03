@@ -293,11 +293,7 @@ pub fn init<'a, P: AsRef<Path>>(
                 session.quit(ExitReason::Normal);
             }
             WindowEvent::CursorMoved { position } => {
-                let relative = platform::LogicalPosition::new(
-                    position.x / session.width as f64,
-                    position.y / session.height as f64,
-                );
-                session_events.push(Event::CursorMoved(relative));
+                session_events.push(Event::CursorMoved(position));
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 session_events.push(Event::MouseInput(button, state));

@@ -1254,10 +1254,7 @@ impl Session {
         &self,
         position: platform::LogicalPosition,
     ) -> SessionCoords {
-        let (x, y) = (
-            position.x * self.width as f64,
-            position.y * self.height as f64,
-        );
+        let (x, y) = (position.x, position.y);
         let scale: f64 = self.settings["scale"].float64();
         SessionCoords::new(
             (x / scale).floor() as f32,
