@@ -51,7 +51,7 @@ fn execute(
     let height = args
         .opt_value_from_str("--height")?
         .unwrap_or(default.height);
-    let test = args.contains("--test");
+    let digest = args.contains("--digest");
     let replay = args.opt_value_from_str::<_, PathBuf>("--replay")?;
     let record = args.opt_value_from_str::<_, PathBuf>("--record")?;
 
@@ -69,9 +69,9 @@ fn execute(
     };
 
     let exec = if let Some(path) = replay {
-        Execution::replaying(path.with_extension("log"), test)?
+        Execution::replaying(path.with_extension("log"), digest)?
     } else if let Some(path) = record {
-        Execution::recording(path.with_extension("log"), test)?
+        Execution::recording(path.with_extension("log"), digest)?
     } else {
         default.exec
     };

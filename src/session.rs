@@ -360,7 +360,7 @@ impl Message {
             MessageType::Echo => info!("{}", self),
             MessageType::Error => error!("{}", self),
             MessageType::Warning => warn!("{}", self),
-            MessageType::Replay => info!("{}", self),
+            MessageType::Replay => {}
             MessageType::Okay => info!("{}", self),
         }
     }
@@ -876,12 +876,12 @@ impl Session {
 
         if let Execution::Replaying {
             events: recording,
-            test,
+            digest,
             result,
             ..
         } = exec
         {
-            let test = test.clone();
+            let digest = digest.clone();
             let result = result.clone();
 
             {
@@ -900,7 +900,7 @@ impl Session {
 
                     self.message(format!("Replay ended"), MessageType::Replay);
 
-                    if test {
+                    if digest {
                         info!("replaying: {}", result.summary());
 
                         if result.is_ok() {
@@ -1971,12 +1971,12 @@ impl Session {
                     events.pop(); // Discard this key event.
 
                     match exec.stop_recording() {
-                        Some((path, test)) => {
+                        Some((path, digest)) => {
                             self.message(
                                 format!("Recording saved to {:?}", path),
                                 MessageType::Replay,
                             );
-                            if test {
+                            if digest {
                                 self.quit(ExitReason::Normal);
                             }
                         }

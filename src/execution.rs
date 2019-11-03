@@ -29,8 +29,8 @@ pub enum Execution {
         start: time::Instant,
         /// Path to save recording to.
         path: PathBuf,
-        /// Whether this is a test recording.
-        test: bool,
+        /// Whether this is a digest recording.
+        digest: bool,
     },
     /// Replaying inputs from log.
     Replaying {
@@ -42,8 +42,8 @@ pub enum Execution {
         start: time::Instant,
         /// Path to read events from.
         path: PathBuf,
-        /// Whether this is a test replay.
-        test: bool,
+        /// Whether this is a digest replay.
+        digest: bool,
         /// Replay result.
         result: ReplayResult,
     },
@@ -56,24 +56,30 @@ impl Execution {
     }
 
     /// Create a recording.
-    pub fn recording<P: AsRef<Path>>(path: P, test: bool) -> io::Result<Self> {
+    pub fn recording<P: AsRef<Path>>(
+        path: P,
+        digest: bool,
+    ) -> io::Result<Self> {
         Ok(Self::Recording {
             events: Vec::new(),
             recorder: FrameRecorder::new(),
             start: time::Instant::now(),
             path: path.as_ref().to_path_buf(),
-            test,
+            digest,
         })
     }
 
     /// Create a replay.
-    pub fn replaying<P: AsRef<Path>>(path: P, test: bool) -> io::Result<Self> {
+    pub fn replaying<P: AsRef<Path>>(
+        path: P,
+        digest: bool,
+    ) -> io::Result<Self> {
         let mut events = VecDeque::new();
         let path = path.as_ref();
         let abs_path = path.canonicalize()?;
 
         let mut frames = Vec::new();
-        if test {
+        if digest {
             let path = path.with_extension("digest");
             match File::open(&path) {
                 Ok(f) => {
@@ -113,7 +119,7 @@ impl Execution {
                     events,
                     start: time::Instant::now(),
                     path: path.to_path_buf(),
-                    test,
+                    digest,
                     recorder: FrameRecorder::from(frames),
                     result: ReplayResult::new(),
                 })
@@ -139,7 +145,7 @@ impl Execution {
                 recorder.record_frame(data);
             }
             Self::Replaying {
-                test: true,
+                digest: true,
                 result,
                 recorder,
                 ..
@@ -155,7 +161,7 @@ impl Execution {
         let result = if let Execution::Recording {
             events,
             path,
-            test,
+            digest,
             recorder,
             ..
         } = &self
@@ -177,7 +183,7 @@ impl Execution {
                     }
                 }
             }
-            Some((path.clone(), *test))
+            Some((path.clone(), *digest))
         } else {
             None
         };

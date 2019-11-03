@@ -120,8 +120,8 @@ pub fn init<'a, P: AsRef<Path>>(
             .init(options.exec.clone())?;
 
     match &options.exec {
-        Execution::Replaying { test: true, .. }
-        | Execution::Recording { test: true, .. } => {
+        Execution::Replaying { digest: true, .. }
+        | Execution::Recording { digest: true, .. } => {
             session
                 .settings
                 .set("input/delay", Value::Float(0.0))
