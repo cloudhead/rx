@@ -896,7 +896,17 @@ impl Renderer {
             // View border
             let r = v.rect();
             let border_color = if session.is_active(&id) {
-                Rgba::WHITE
+                match session.mode {
+                    // TODO: (rgx) Use `Rgba8::alpha`.
+                    Mode::Visual(_) => Rgba8::new(
+                        color::RED.r,
+                        color::RED.g,
+                        color::RED.b,
+                        0xdd,
+                    )
+                    .into(),
+                    _ => color::WHITE.into(),
+                }
             } else {
                 Rgba::new(0.5, 0.5, 0.5, 1.0)
             };
