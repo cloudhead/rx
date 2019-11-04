@@ -797,7 +797,7 @@ impl Session {
     }
 
     /// Initialize a session.
-    pub fn init(mut self, _exec: Execution) -> std::io::Result<Self> {
+    pub fn init(mut self) -> std::io::Result<Self> {
         self.transition(State::Running);
 
         let cwd = std::env::current_dir()?;

@@ -105,7 +105,7 @@ pub fn init<'a, P: AsRef<Path>>(
     )?;
     let mut session =
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
-            .init(options.exec.clone())?;
+            .init()?;
 
     match &options.exec {
         Execution::Replaying { digest: true, .. }
