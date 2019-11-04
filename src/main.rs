@@ -17,6 +17,9 @@ OPTIONS
     -h, --help           Prints help
     -V, --version        Prints version
 
+    -v                   Verbose mode (verbosity=2)
+    -u <script>          Use the commands in <script> for initialization
+
     --verbosity <level>  Set verbosity level (0-5)
     --record <file>      Record user input to a file
     --replay <file>      Replay user input from a file
