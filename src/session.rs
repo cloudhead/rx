@@ -26,7 +26,7 @@ use std::fmt;
 use std::fs::{self, File};
 use std::io;
 use std::ops::{Add, Deref, Sub};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str::FromStr;
 use std::time;
@@ -797,25 +797,30 @@ impl Session {
     }
 
     /// Initialize a session.
-    pub fn init(mut self) -> std::io::Result<Self> {
+    pub fn init(mut self, source: Option<PathBuf>) -> std::io::Result<Self> {
         self.transition(State::Running);
 
         let cwd = std::env::current_dir()?;
-        let dir = self.base_dirs.config_dir();
-        let cfg = dir.join(Self::INIT);
 
-        if cfg.exists() {
-            self.source_path(cfg)?;
+        if let Some(init) = source {
+            self.source_path(init)?;
         } else {
-            if let Err(e) = fs::create_dir_all(dir)
-                .and_then(|_| fs::write(&cfg, data::CONFIG))
-            {
-                warn!(
-                    "Warning: couldn't create configuration file {:?}: {}",
-                    cfg, e
-                );
+            let dir = self.base_dirs.config_dir();
+            let cfg = dir.join(Self::INIT);
+
+            if cfg.exists() {
+                self.source_path(cfg)?;
+            } else {
+                if let Err(e) = fs::create_dir_all(dir)
+                    .and_then(|_| fs::write(&cfg, data::CONFIG))
+                {
+                    warn!(
+                        "Warning: couldn't create configuration file {:?}: {}",
+                        cfg, e
+                    );
+                }
+                self.source_reader(io::BufReader::new(data::CONFIG), "<init>")?;
             }
-            self.source_reader(io::BufReader::new(data::CONFIG), "<init>")?;
         }
         self.source_dir(cwd).ok();
         self.message(format!("rx v{}", crate::VERSION), MessageType::Echo);

@@ -48,7 +48,7 @@ use directories as dirs;
 
 use std::alloc::System;
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time;
 
@@ -65,6 +65,7 @@ pub struct Options<'a> {
     pub width: u32,
     pub height: u32,
     pub resizable: bool,
+    pub source: Option<PathBuf>,
 }
 
 impl<'a> Default for Options<'a> {
@@ -75,6 +76,7 @@ impl<'a> Default for Options<'a> {
             width: 1280,
             height: 720,
             resizable: true,
+            source: None,
         }
     }
 }
@@ -105,7 +107,7 @@ pub fn init<'a, P: AsRef<Path>>(
     )?;
     let mut session =
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
-            .init()?;
+            .init(options.source.clone())?;
 
     match &options.exec {
         Execution::Replaying { digest: true, .. }
