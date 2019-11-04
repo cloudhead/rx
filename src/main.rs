@@ -47,6 +47,7 @@ fn execute(
         return Ok(());
     }
 
+    let verbose = args.contains("-v");
     let width = args.opt_value_from_str("--width")?;
     let height = args.opt_value_from_str("--height")?;
     let digest = args.contains("--digest");
@@ -59,12 +60,14 @@ fn execute(
         return Err("'--replay' and '--record' can't both be specified".into());
     }
 
-    let log = match args.opt_value_from_str("--verbosity")?.unwrap_or(0) {
+    let log = match args
+        .opt_value_from_str("--verbosity")?
+        .unwrap_or(if verbose { 2 } else { 0 })
+    {
         0 => "rx=info",
         1 => "rx=info,error",
         2 => "rx=debug,error",
-        3 => "rx=debug,error",
-        4 => "rx=debug,info",
+        3 => "rx=debug,info",
         _ => "debug",
     };
 
