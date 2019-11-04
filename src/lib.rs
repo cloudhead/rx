@@ -25,17 +25,6 @@ mod view;
 #[macro_use]
 mod util;
 
-#[cfg(not(any(
-    feature = "vulkan",
-    feature = "metal",
-    feature = "dx11",
-    feature = "dx12"
-)))]
-compile_error!(
-    "a graphics backend must be enabled with `--features <backend>`: \
-     available backends are: 'vulkan', 'metal', 'dx11' and 'dx12'"
-);
-
 use cmd::Value;
 use event::Event;
 use execution::Execution;
@@ -139,7 +128,7 @@ pub fn init<'a, P: AsRef<Path>>(
 
     let execution = Rc::new(RefCell::new(options.exec));
     let mut present_mode = session.settings.present_mode();
-    let mut r = core::Renderer::new(win.raw_handle());
+    let mut r = core::Renderer::new(win.handle());
     let mut renderer = Renderer::new(&mut r, win_size, resources);
 
     if let Err(e) = session.edit(paths) {

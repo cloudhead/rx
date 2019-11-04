@@ -1,5 +1,3 @@
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-
 use crate::platform::{
     ControlFlow, InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
     ModifiersState, MouseButton, WindowEvent, WindowHint,
@@ -58,8 +56,8 @@ impl Window {
         self.handle.request_redraw();
     }
 
-    pub fn raw_handle(&self) -> RawWindowHandle {
-        self.handle.raw_window_handle()
+    pub fn handle(&self) -> &winit::window::Window {
+        &self.handle
     }
 
     pub fn set_cursor_visible(&mut self, visible: bool) {

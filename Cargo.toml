@@ -10,29 +10,19 @@ edition = "2018"
 
 [features]
 default = ["glfw"]
-vulkan = ["rgx/vulkan"]
-metal = ["rgx/metal"]
-dx11 = ["rgx/dx11"]
-dx12 = ["rgx/dx12"]
 
 [dependencies]
 pico-args = "0.3.0"
 env_logger = { version = "0.6.2", default-features = false, features = ["termcolor"] }
 png = { version = "0.15.0" }
 gif = "0.10.2"
-glfw = { version = "0.32.0", optional = true }
-winit = { version = "0.20.0-alpha3", optional = true }
+glfw = { version = "0.34.0", optional = true }
+winit = { version = "0.20.0-alpha4", optional = true }
 snap = "0.2.5"
 log = "0.4.6"
 directories = "2.0.2"
-raw-window-handle = "0.1.0"
 meowhash = "0.1.2"
 digest = "0.8.1"
 
 [dependencies.rgx]
-version = "0.2.0"
-
-[patch.crates-io]
-# Rendy 0.4.0 has a bug which leads to texture corruption. We use a patched
-# fork while waiting for the new release to be published.
-rendy-memory = { version = "0.4.0", git = "https://github.com/cloudhead/rendy" }
+version = "0.3.0"

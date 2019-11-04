@@ -1604,7 +1604,7 @@ impl Session {
             let s = s.abs().bounds();
 
             if s.intersects(v.bounds()) {
-                let s = s.clamped(v.bounds());
+                let s = s.intersection(v.bounds());
 
                 v.yank(s);
 
@@ -2612,7 +2612,7 @@ impl Session {
                         let y2 = fh;
 
                         *selection = Selection::from(
-                            Rect::new(x1, 0, x2, y2).clamped(r),
+                            Rect::new(x1, 0, x2, y2).intersection(r),
                         );
                     }
                 } else {

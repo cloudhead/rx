@@ -870,7 +870,7 @@ impl Renderer {
             // Selection fill.
             if r.intersects(view.bounds()) {
                 canvas.add(Shape::Rectangle(
-                    r.clamped(view.bounds()).map(|n| n as f32) * view.zoom
+                    r.intersection(view.bounds()).map(|n| n as f32) * view.zoom
                         + offset,
                     Stroke::NONE,
                     Fill::Solid(fill.into()),
