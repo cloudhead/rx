@@ -1,3 +1,3 @@
 {
-  "rust-analyzer.cargo-watch.arguments": "--features=vulkan"
+  "rust-analyzer.cargo-watch.arguments": ""
 }
