@@ -1107,6 +1107,15 @@ impl Session {
         }
     }
 
+    /// Toggle the session mode.
+    fn toggle_mode(&mut self, mode: Mode) {
+        if self.mode == mode {
+            self.switch_mode(self.prev_mode.unwrap_or(Mode::Normal));
+        } else {
+            self.switch_mode(mode);
+        }
+    }
+
     /// Switch the session mode.
     fn switch_mode(&mut self, mode: Mode) {
         let (old, new) = (self.mode, mode);
@@ -1122,6 +1131,9 @@ impl Session {
         }
 
         match new {
+            Mode::Normal => {
+                self.selection = None;
+            }
             Mode::Command => {
                 // When switching to command mode via the keyboard, we simultaneously
                 // also receive the character input equivalent of the key pressed.
@@ -1965,7 +1977,6 @@ impl Session {
                     if key == platform::Key::Escape
                         && state == InputState::Pressed
                     {
-                        self.selection = None;
                         self.switch_mode(Mode::Normal);
                         return;
                     }
@@ -2236,7 +2247,7 @@ impl Session {
 
         return match cmd {
             Command::Mode(m) => {
-                self.switch_mode(m);
+                self.toggle_mode(m);
             }
             Command::Quit => {
                 self.quit_view_safe(self.views.active_id);
