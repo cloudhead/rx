@@ -592,6 +592,12 @@ impl Default for Settings {
                 "scale" => Value::Float(1.0),
                 "animation" => Value::Bool(true),
                 "animation/delay" => Value::U32(160),
+                "ui/palette" => Value::Bool(true),
+                "ui/status" => Value::Bool(true),
+                "ui/cursor" => Value::Bool(true),
+                "ui/message" => Value::Bool(true),
+                "ui/switcher" => Value::Bool(true),
+                "ui/view-info" => Value::Bool(true),
 
                 // Deprecated.
                 "frame_delay" => Value::Float(0.0)

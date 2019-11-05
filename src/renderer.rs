@@ -914,24 +914,25 @@ impl Renderer {
                 Fill::Empty(),
             ));
 
-            // View info
-            text.add(
-                &format!("{}x{}x{}", v.fw, v.fh, v.animation.len()),
-                offset.x,
-                offset.y - self::LINE_HEIGHT,
-                color::GREY,
-            );
+            if session.settings["ui/view-info"].is_set() {
+                // View info
+                text.add(
+                    &format!("{}x{}x{}", v.fw, v.fh, v.animation.len()),
+                    offset.x,
+                    offset.y - self::LINE_HEIGHT,
+                    color::GREY,
+                );
+            }
         }
+        if session.settings["ui/status"].is_set() {
+            // Active view status
+            text.add(
+                &view.status(),
+                MARGIN,
+                MARGIN + self::LINE_HEIGHT,
+                Rgba8::WHITE,
+            );
 
-        // Active view status
-        text.add(
-            &view.status(),
-            MARGIN,
-            MARGIN + self::LINE_HEIGHT,
-            Rgba8::WHITE,
-        );
-
-        {
             // Session status
             text.add(
                 &format!("{:>5}%", (view.zoom * 100.) as u32),
@@ -940,7 +941,7 @@ impl Renderer {
                 Rgba8::WHITE,
             );
 
-            if session.width >= 400. {
+            if session.width >= 600. {
                 let cursor = session.view_coords(view.id, session.cursor);
                 let hover_color = session
                     .hover_color
@@ -951,27 +952,29 @@ impl Renderer {
                     MARGIN + self::LINE_HEIGHT,
                     Rgba8::WHITE,
                 );
+            }
+        }
 
-                if session.width >= 600. {
-                    // Fg color
-                    canvas.add(Shape::Rectangle(
-                        Rect::origin(11., 11.).with_origin(
-                            session.width * 0.4,
-                            self::LINE_HEIGHT + self::MARGIN + 2.,
-                        ),
-                        Stroke::new(1.0, Rgba::WHITE),
-                        Fill::Solid(session.fg.into()),
-                    ));
-                    // Bg color
-                    canvas.add(Shape::Rectangle(
-                        Rect::origin(11., 11.).with_origin(
-                            session.width * 0.4 + 25.,
-                            self::LINE_HEIGHT + self::MARGIN + 2.,
-                        ),
-                        Stroke::new(1.0, Rgba::WHITE),
-                        Fill::Solid(session.bg.into()),
-                    ));
-                }
+        if session.settings["ui/switcher"].is_set() {
+            if session.width >= 400. {
+                // Fg color
+                canvas.add(Shape::Rectangle(
+                    Rect::origin(11., 11.).with_origin(
+                        session.width * 0.4,
+                        self::LINE_HEIGHT + self::MARGIN + 2.,
+                    ),
+                    Stroke::new(1.0, Rgba::WHITE),
+                    Fill::Solid(session.fg.into()),
+                ));
+                // Bg color
+                canvas.add(Shape::Rectangle(
+                    Rect::origin(11., 11.).with_origin(
+                        session.width * 0.4 + 25.,
+                        self::LINE_HEIGHT + self::MARGIN + 2.,
+                    ),
+                    Stroke::new(1.0, Rgba::WHITE),
+                    Fill::Solid(session.bg.into()),
+                ));
             }
         }
 
@@ -979,7 +982,9 @@ impl Renderer {
         if session.mode == Mode::Command {
             let s = format!("{}", &session.cmdline.input());
             text.add(&s, MARGIN, MARGIN, Rgba8::WHITE);
-        } else if !session.message.is_replay() {
+        } else if !session.message.is_replay()
+            && session.settings["ui/message"].is_set()
+        {
             let s = format!("{}", &session.message);
             text.add(&s, MARGIN, MARGIN, session.message.color());
         }
@@ -1048,6 +1053,10 @@ impl Renderer {
     }
 
     fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
+        if !session.settings["ui/palette"].is_set() {
+            return;
+        }
+
         let p = &session.palette;
         for (i, color) in p.colors.iter().cloned().enumerate() {
             let x = if i >= 16 { p.cellsize } else { 0. };
@@ -1092,6 +1101,9 @@ impl Renderer {
     }
 
     fn draw_cursor(session: &Session, batch: &mut sprite2d::Batch) {
+        if !session.settings["ui/cursor"].is_set() {
+            return;
+        }
         // TODO: Cursor should be greyed out in command mode.
         match session.mode {
             Mode::Present | Mode::Help => {}
