@@ -80,10 +80,7 @@ BUILD & INSTALLATION
 
   Then, run:
 
-    $ cargo install --git https://github.com/cloudhead/rx --locked --features <backend>
-
-  where <backend> is either 'vulkan' or 'metal'.  See the PLATFORM
-  SUPPORT section for which feature to enable on your platform.
+    $ cargo install --git https://github.com/cloudhead/rx --locked
 
   This will download `rx` and install it under `~/.cargo/bin/rx`.
   If you prefer a different install location, you can specify it
@@ -142,7 +139,7 @@ TROUBLESHOOTING
   1. Run `rx` with verbose logging, by using the `-v` command-line flag. This
   will log errors from the underlying libraries that are usually suppressed.
   You can increase the verbosity further by using `-vv`.
-  2. Try the `winit` backend, by building `rx` with eg. `--features winit,vulkan`.
+  2. Try the `winit` backend, by building `rx` with `--features winit`.
 
 LICENSE
 
