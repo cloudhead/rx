@@ -1,4 +1,5 @@
 #![deny(clippy::all)]
+#![allow(clippy::collapsible_if, clippy::many_single_char_names)]
 
 pub mod execution;
 pub mod session;
@@ -53,7 +54,7 @@ use std::rc::Rc;
 use std::time;
 
 /// Program version.
-pub const VERSION: &'static str = "0.2.0";
+pub const VERSION: &str = "0.2.0";
 
 #[global_allocator]
 pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);

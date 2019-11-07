@@ -32,7 +32,7 @@ use std::str::FromStr;
 use std::time;
 
 /// Help string.
-pub const HELP: &'static str = r#"
+pub const HELP: &str = r#"
 :help                    Toggle this help
 :e <path..>              Edit path(s)
 :w [<path>]              Write view / Write view as <path>
@@ -2007,11 +2007,11 @@ impl Session {
                     return;
                 }
                 Mode::Help => {
-                    if state == InputState::Pressed {
-                        if key == platform::Key::Escape {
-                            self.switch_mode(Mode::Normal);
-                            return;
-                        }
+                    if state == InputState::Pressed
+                        && key == platform::Key::Escape
+                    {
+                        self.switch_mode(Mode::Normal);
+                        return;
                     }
                 }
                 _ => {}
@@ -2245,7 +2245,7 @@ impl Session {
 
         debug!("command: {:?}", cmd);
 
-        return match cmd {
+        match cmd {
             Command::Mode(m) => {
                 self.toggle_mode(m);
             }
@@ -2539,13 +2539,11 @@ impl Session {
             Command::Edit(ref paths) => {
                 if paths.is_empty() {
                     self.unimplemented();
-                } else {
-                    if let Err(e) = self.edit(paths) {
-                        self.message(
-                            format!("Error loading path(s): {}", e),
-                            MessageType::Error,
-                        );
-                    }
+                } else if let Err(e) = self.edit(paths) {
+                    self.message(
+                        format!("Error loading path(s): {}", e),
+                        MessageType::Error,
+                    );
                 }
             }
             Command::Write(None) => {
