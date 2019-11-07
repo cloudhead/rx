@@ -57,7 +57,7 @@ fn execute(
     let source = args.opt_value_from_str::<_, PathBuf>("-u")?;
     let replay = args.opt_value_from_str::<_, PathBuf>("--replay")?;
     let record = args.opt_value_from_str::<_, PathBuf>("--record")?;
-    let resizable = width.is_none() && height.is_none();
+    let resizable = width.is_none() && height.is_none() && !digest;
 
     if replay.is_some() && record.is_some() {
         return Err("'--replay' and '--record' can't both be specified".into());
