@@ -1,0 +1,4 @@
+set ui/status = off
+set ui/view-info = off
+set ui/message = off
+set ui/switcher = off

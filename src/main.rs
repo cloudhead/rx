@@ -75,9 +75,9 @@ fn execute(
     };
 
     let exec = if let Some(path) = replay {
-        Execution::replaying(path.with_extension("log"), digest)?
+        Execution::replaying(path, digest)?
     } else if let Some(path) = record {
-        Execution::recording(path.with_extension("log"), digest)?
+        Execution::recording(path, digest)?
     } else {
         default.exec
     };
