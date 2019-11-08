@@ -1086,8 +1086,8 @@ impl Renderer {
         if session.settings["checker"].is_set() {
             for (_, v) in session.views.iter() {
                 let ratio = v.width() as f32 / v.height() as f32;
-                let rx = v.zoom * ratio * 2.;
-                let ry = v.zoom * 2.;
+                let rx = v.zoom * ratio;
+                let ry = v.zoom;
 
                 batch.add(
                     Checker::rect(),
