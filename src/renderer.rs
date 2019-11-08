@@ -640,8 +640,6 @@ impl Renderer {
         r: &mut core::Renderer,
     ) {
         for eff in effects.drain(..) {
-            debug!("handling: {:?}", eff);
-
             // When switching views, or when the view is dirty (eg. it has been resized),
             // we have to resize the brush pipelines, for the brush strokes to
             // render properly in the view framebuffer. When a snapshot is restored,
