@@ -310,7 +310,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn word(self) -> Result<'a, &'a str> {
-        self.expect(|c| !c.is_whitespace())
+        self.expect(|c| !c.is_whitespace() && c != '{' && c != '}')
     }
 
     pub fn count(self, n: usize) -> Result<'a, &'a str> {

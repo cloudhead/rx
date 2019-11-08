@@ -1,7 +1,7 @@
-use crate::brush::BrushMode;
+use crate::brush::{Brush, BrushMode};
 use crate::parser::{Error, Parse, Parser, Result};
 use crate::platform;
-use crate::session::{Direction, Mode, VisualMode};
+use crate::session::{Direction, Mode, PanState, Tool, VisualMode};
 
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
@@ -65,6 +65,7 @@ pub enum Command {
     Source(String),
     SwapColors,
     Toggle(String),
+    Tool(Option<Tool>),
     Undo,
     ViewCenter,
     ViewNext,
@@ -619,6 +620,21 @@ impl<'a> Parse<'a> for Command {
             "f/resize" => {
                 let ((w, h), p) = p.parse::<(u32, u32)>()?;
                 Ok((Command::ResizeFrame(w, h), p))
+            }
+            "tool" => {
+                let (t, p) = p.word()?;
+                match t {
+                    "pan" => Ok((
+                        Command::Tool(Some(Tool::Pan(PanState::default()))),
+                        p,
+                    )),
+                    "brush" => Ok((
+                        Command::Tool(Some(Tool::Brush(Brush::default()))),
+                        p,
+                    )),
+                    "-" => Ok((Command::Tool(None), p)),
+                    _ => Err(Error::new(format!("unknown tool {:?}", t))),
+                }
             }
             "swap" => Ok((Command::SwapColors, p)),
             "selection/move" => {

@@ -24,6 +24,7 @@ map/n  <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (
 map/n  ]             :brush/size +                             --  Increase brush size
 map/n  [             :brush/size -                             --  Decrease brush size
 map/n  <ctrl>        :sampler {:sampler/off}                   --  Sample color (hold)
+map/n  <space>       :tool pan {:tool -}                       --  Pan workspace (hold)
 map    <up>          :pan  0  1                                --  Pan view up
 map    <down>        :pan  0 -1                                --  Pan view down
 map    <left>        :pan -1  0                                --  Pan view left

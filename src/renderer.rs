@@ -106,7 +106,7 @@ impl Cursors {
         match t {
             Tool::Sampler => Vector2::new(1., 1.),
             Tool::Brush(_) => Vector2::new(-8., -8.),
-            Tool::Pan => Vector2::new(0., 0.),
+            Tool::Pan(_) => Vector2::new(-8., -8.),
             Tool::Move => Vector2::new(-8., -8.),
         }
     }
@@ -116,7 +116,7 @@ impl Cursors {
             Tool::Sampler => Some(Rect::new(0., 0., 16., 16.)),
             Tool::Brush(_) => Some(Rect::new(16., 0., 32., 16.)),
             Tool::Move => Some(Rect::new(32., 0., 48., 16.)),
-            Tool::Pan => None,
+            Tool::Pan(_) => Some(Rect::new(48., 0., 64., 16.)),
         }
     }
 }
@@ -1063,7 +1063,7 @@ impl Renderer {
             let y = (i % 16) as f32 * p.cellsize;
 
             let mut stroke = shape2d::Stroke::NONE;
-            if let Some(c) = p.hover {
+            if let (Tool::Sampler, Some(c)) = (&session.tool, p.hover) {
                 if c == color {
                     stroke = shape2d::Stroke::new(1., Rgba::WHITE);
                 }
@@ -1143,16 +1143,8 @@ impl Renderer {
                 }
             }
             Mode::Normal | Mode::Command => {
-                // When hovering over the palette, switch to the sampler icon
-                // to tell the user that clicking will select the color.
-                let tool = if session.palette.hover.is_some() {
-                    &Tool::Sampler
-                } else {
-                    &session.tool
-                };
-
-                if let Some(rect) = Cursors::rect(tool) {
-                    let offset = Cursors::offset(tool);
+                if let Some(rect) = Cursors::rect(&session.tool) {
+                    let offset = Cursors::offset(&session.tool);
                     let cursor = session.cursor;
                     batch.add(
                         rect,

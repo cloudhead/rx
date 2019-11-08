@@ -296,7 +296,7 @@ pub enum Tool {
     Sampler,
     /// Used to pan the workspace.
     #[allow(dead_code)]
-    Pan,
+    Pan(PanState),
     /// Used to move things,
     Move,
 }
@@ -304,6 +304,18 @@ pub enum Tool {
 impl Default for Tool {
     fn default() -> Self {
         Tool::Brush(Brush::default())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PanState {
+    Panning,
+    NotPanning,
+}
+
+impl Default for PanState {
+    fn default() -> Self {
+        Self::NotPanning
     }
 }
 
@@ -1749,6 +1761,22 @@ impl Session {
         }
         self.mouse_state = state;
 
+        // Pan tool.
+        match &mut self.tool {
+            Tool::Pan(ref mut p) => match (&p, state) {
+                (PanState::Panning, InputState::Released) => {
+                    *p = PanState::NotPanning;
+                    return;
+                }
+                (PanState::NotPanning, InputState::Pressed) => {
+                    *p = PanState::Panning;
+                    return;
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+
         match state {
             InputState::Pressed => {
                 // Click on palette.
@@ -1791,7 +1819,7 @@ impl Session {
                                 Tool::Sampler => {
                                     self.sample_color();
                                 }
-                                Tool::Pan => {}
+                                Tool::Pan(_) => {}
                                 Tool::Move => {}
                             },
                             Mode::Command => {
@@ -1872,7 +1900,6 @@ impl Session {
                         BrushState::DrawStarted { .. }
                         | BrushState::Drawing { .. } => {
                             let mut p: ViewCoords<i32> = p.into();
-
                             if brush.is_set(BrushMode::Multi) {
                                 p.clamp(Rect::new(
                                     (brush.size / 2) as i32,
@@ -1885,16 +1912,23 @@ impl Session {
                                 brush.draw(p);
                             }
                         }
+                        BrushState::NotDrawing
+                            if self.palette.hover.is_some() =>
+                        {
+                            self.command(Command::Sampler(true));
+                        }
                         _ => {}
                     }
                 }
-                Tool::Pan => {
+                Tool::Pan(PanState::Panning) => {
                     self.pan(
                         cursor.x - self.cursor.x,
                         cursor.y - self.cursor.y,
                     );
                 }
-                Tool::Sampler => {}
+                Tool::Sampler if self.palette.hover.is_none() => {
+                    self.command(Command::Sampler(false));
+                }
                 _ => {}
             },
             Mode::Visual(VisualMode::Selecting { dragging: false }) => {
@@ -2617,6 +2651,13 @@ impl Session {
             }
             Command::Redo => {
                 self.redo(self.views.active_id);
+            }
+            Command::Tool(Some(t)) => {
+                self.prev_tool = Some(self.tool.clone());
+                self.tool = t;
+            }
+            Command::Tool(None) => {
+                self.tool = self.prev_tool.clone().unwrap_or(Tool::default());
             }
             Command::Crop(_) => {
                 self.unimplemented();
