@@ -600,16 +600,13 @@ impl Renderer {
             p.draw(&overlay_buf, &self.font.binding);
         }
 
-        // Submit frame to device.
-        r.present(f);
-
         // Always clear the active view staging buffer. We do this because
         // it may not get drawn to this frame, and hence may remain dirty
         // from a previous frame.
-        //
-        // We have to do this *after* the frame has been submitted, otherwise
-        // when switching views, the staging buffer isn't cleared.
-        r.submit(&[Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT)]);
+        f.pass(PassOp::Clear(Rgba::TRANSPARENT), &view_data.staging_fb);
+
+        // Submit frame to device.
+        r.present(f);
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
