@@ -23,7 +23,7 @@ map/n  e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
 map/n  <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (hold)
 map/n  ]             :brush/size +                             --  Increase brush size
 map/n  [             :brush/size -                             --  Decrease brush size
-map/n  <ctrl>        :sampler {:sampler/off}                   --  Sample color (hold)
+map/n  <ctrl>        :tool sampler {:tool -}                   --  Sample color (hold)
 map/n  <space>       :tool pan {:tool -}                       --  Pan workspace (hold)
 map    <up>          :pan  0  1                                --  Pan view up
 map    <down>        :pan  0 -1                                --  Pan view down

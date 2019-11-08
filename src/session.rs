@@ -1915,7 +1915,7 @@ impl Session {
                         BrushState::NotDrawing
                             if self.palette.hover.is_some() =>
                         {
-                            self.command(Command::Sampler(true));
+                            self.tool(Tool::Sampler);
                         }
                         _ => {}
                     }
@@ -1927,7 +1927,7 @@ impl Session {
                     );
                 }
                 Tool::Sampler if self.palette.hover.is_none() => {
-                    self.command(Command::Sampler(false));
+                    self.prev_tool();
                 }
                 _ => {}
             },
@@ -2314,13 +2314,6 @@ impl Session {
             Command::SwapColors => {
                 std::mem::swap(&mut self.fg, &mut self.bg);
             }
-            Command::Sampler(true) => {
-                self.prev_tool = Some(self.tool.clone());
-                self.tool = Tool::Sampler;
-            }
-            Command::Sampler(false) => {
-                self.tool = self.prev_tool.clone().unwrap_or(Tool::default());
-            }
             Command::BrushSet(mode) => {
                 if let Tool::Brush(ref mut b) = self.tool {
                     b.set(mode);
@@ -2653,11 +2646,10 @@ impl Session {
                 self.redo(self.views.active_id);
             }
             Command::Tool(Some(t)) => {
-                self.prev_tool = Some(self.tool.clone());
-                self.tool = t;
+                self.tool(t);
             }
             Command::Tool(None) => {
-                self.tool = self.prev_tool.clone().unwrap_or(Tool::default());
+                self.prev_tool();
             }
             Command::Crop(_) => {
                 self.unimplemented();
@@ -2790,6 +2782,15 @@ impl Session {
     fn cmdline_handle_input(&mut self, c: char) {
         self.cmdline.putc(c);
         self.message_clear();
+    }
+
+    fn tool(&mut self, t: Tool) {
+        self.prev_tool = Some(self.tool.clone());
+        self.tool = t;
+    }
+
+    fn prev_tool(&mut self) {
+        self.tool = self.prev_tool.clone().unwrap_or(Tool::default());
     }
 
     fn throttle(&mut self, cmd: &Command) -> bool {

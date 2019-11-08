@@ -50,7 +50,6 @@ pub enum Command {
     QuitAll,
     Redo,
     ResizeFrame(u32, u32),
-    Sampler(bool),
     SelectionMove(i32, i32),
     SelectionResize(i32, i32),
     SelectionExpand,
@@ -113,7 +112,7 @@ impl fmt::Display for Command {
             Self::QuitAll => write!(f, "Quit all views"),
             Self::Redo => write!(f, "Redo view edit"),
             Self::ResizeFrame(_, _) => write!(f, "Resize active view frame"),
-            Self::Sampler(_) => write!(f, "Toggle color sampler"),
+            Self::Tool(_) => write!(f, "Toggle tool"),
             Self::Set(s, v) => {
                 write!(f, "Set {setting} to {val}", setting = s, val = v)
             }
@@ -169,8 +168,6 @@ impl From<Command> for String {
             Command::Quit => format!("q"),
             Command::Redo => format!("redo"),
             Command::ResizeFrame(w, h) => format!("f/resize {} {}", w, h),
-            Command::Sampler(true) => format!("sampler"),
-            Command::Sampler(false) => format!("sampler/off"),
             Command::Set(s, v) => format!("set {} = {}", s, v),
             Command::Slice(Some(n)) => format!("slice {}", n),
             Command::Slice(None) => format!("slice"),
@@ -557,8 +554,8 @@ impl<'a> Parse<'a> for Command {
                 let (mode, p) = p.parse::<Mode>()?;
                 Ok((Command::Mode(mode), p))
             }
-            "sampler" => Ok((Command::Sampler(true), p)),
-            "sampler/off" => Ok((Command::Sampler(false), p)),
+            "sampler" => Ok((Command::Tool(Some(Tool::Sampler)), p)),
+            "sampler/off" => Ok((Command::Tool(None), p)),
             "v/next" => Ok((Command::ViewNext, p)),
             "v/prev" => Ok((Command::ViewPrev, p)),
             "v/center" => Ok((Command::ViewCenter, p)),
