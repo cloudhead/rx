@@ -269,7 +269,7 @@ pub struct ReplayResult {
 
 impl ReplayResult {
     pub fn is_ok(&self) -> bool {
-        self.failed_count == 0 && self.okay_count > 0
+        self.failed_count == 0
     }
 
     pub fn summary(&self) -> String {

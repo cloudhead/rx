@@ -908,16 +908,15 @@ impl Session {
                     .for_each(|t| self.handle_event(t.event, exec));
 
                 // Replay is over.
-                if end.is_none() {
+                if end.is_none() || !result.is_ok() {
                     *exec = Execution::Normal;
                     self.release_inputs();
 
                     self.message("Replay ended", MessageType::Replay);
 
                     if digest {
-                        info!("replaying: {}", result.summary());
-
                         if result.is_ok() {
+                            info!("replaying: {}", result.summary());
                             self.quit(ExitReason::Normal);
                         } else {
                             self.quit(ExitReason::Error(format!(
@@ -2054,7 +2053,7 @@ impl Session {
                                 format!("Recording saved to {:?}", path),
                                 MessageType::Replay,
                             );
-                            info!("recording: log saved to {:?}", path);
+                            info!("recording: events saved to {:?}", path);
 
                             if digest {
                                 info!(
