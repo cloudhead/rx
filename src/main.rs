@@ -6,7 +6,7 @@ use pico_args;
 use std::path::PathBuf;
 use std::process;
 
-const HELP: &'static str = r#"
+const HELP: &str = r#"
 A Modern & Extensible Pixel Editor
 Alexis Sellier <self@cloudhead.io>
 
@@ -28,7 +28,7 @@ OPTIONS
 "#;
 
 fn main() {
-    if let Err(_) = self::execute(pico_args::Arguments::from_env()) {
+    if self::execute(pico_args::Arguments::from_env()).is_err() {
         process::exit(1);
     }
 }

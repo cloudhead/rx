@@ -618,7 +618,7 @@ impl Renderer {
             let resources = self.resources.clone();
 
             r.read(&view_data.fb, move |data| {
-                if let Some(s) = resources.lock_mut().get_view_mut(&id) {
+                if let Some(s) = resources.lock_mut().get_view_mut(id) {
                     s.push_snapshot(data, extent);
                 }
             });
@@ -700,7 +700,7 @@ impl Renderer {
             // a write lock on resources.
             let (sw, sh, pixels) = {
                 let resources = self.resources.lock();
-                let (snapshot, pixels) = resources.get_snapshot(&v.id);
+                let (snapshot, pixels) = resources.get_snapshot(v.id);
                 (snapshot.width(), snapshot.height(), pixels.to_owned())
             };
 
@@ -726,7 +726,7 @@ impl Renderer {
             // with the same size as the view was restored.
             let pixels = {
                 let rs = self.resources.lock();
-                let (_, pixels) = rs.get_snapshot(&v.id);
+                let (_, pixels) = rs.get_snapshot(v.id);
                 pixels.to_owned()
             };
             r.submit(&[Op::Fill(fb, &*pixels)]);
@@ -751,7 +751,7 @@ impl Renderer {
                 ViewOp::Yank(src) => {
                     let pixels = {
                         let resources = self.resources.lock();
-                        let (snapshot, pixels) = resources.get_snapshot(&v.id);
+                        let (snapshot, pixels) = resources.get_snapshot(v.id);
 
                         let w = src.width() as usize;
                         let h = src.height() as usize;
@@ -806,7 +806,7 @@ impl Renderer {
     fn add_views(&mut self, views: &[ViewId], r: &mut core::Renderer) {
         for id in views {
             let resources = self.resources.lock();
-            let (s, pixels) = resources.get_snapshot(id);
+            let (s, pixels) = resources.get_snapshot(*id);
             let (w, h) = (s.width(), s.height());
 
             let view_data =
@@ -892,7 +892,7 @@ impl Renderer {
             }
             // View border
             let r = v.rect();
-            let border_color = if session.is_active(&id) {
+            let border_color = if session.is_active(*id) {
                 match session.mode {
                     // TODO: (rgx) Use `Rgba8::alpha`.
                     Mode::Visual(_) => Rgba8::new(
@@ -1354,9 +1354,9 @@ impl Renderer {
             )
             .finish(&r);
 
-            self.view_data.get_mut(&id).map(|d| {
+            if let Some(d) = self.view_data.get_mut(&id) {
                 d.anim_vb = Some(buf);
-            });
+            }
         }
     }
 }

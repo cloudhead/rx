@@ -478,14 +478,10 @@ impl<'a> Parse<'a> for Command {
                     let mut q = p;
                     let mut edits = Vec::new();
 
-                    loop {
-                        if let Ok((path, p)) = q.clone().path() {
-                            edits.push(path);
-                            let (_, p) = p.whitespace()?;
-                            q = p;
-                        } else {
-                            break;
-                        }
+                    while let Ok((path, p)) = q.clone().path() {
+                        edits.push(path);
+                        let (_, p) = p.whitespace()?;
+                        q = p;
                     }
                     Ok((Command::Edit(edits), q))
                 }

@@ -35,9 +35,9 @@ impl Resources {
         }
     }
 
-    pub fn get_snapshot(&self, id: &ViewId) -> (&Snapshot, &Box<[Bgra8]>) {
+    pub fn get_snapshot(&self, id: ViewId) -> (&Snapshot, &[Bgra8]) {
         self.data
-            .get(id)
+            .get(&id)
             .map(|r| r.current_snapshot())
             .expect(&format!(
                 "view #{} must exist and have an associated snapshot",
@@ -47,10 +47,10 @@ impl Resources {
 
     pub fn get_snapshot_mut(
         &mut self,
-        id: &ViewId,
-    ) -> (&mut Snapshot, &Box<[Bgra8]>) {
+        id: ViewId,
+    ) -> (&mut Snapshot, &[Bgra8]) {
         self.data
-            .get_mut(id)
+            .get_mut(&id)
             .map(|r| r.current_snapshot_mut())
             .expect(&format!(
                 "view #{} must exist and have an associated snapshot",
@@ -58,8 +58,8 @@ impl Resources {
             ))
     }
 
-    pub fn get_view_mut(&mut self, id: &ViewId) -> Option<&mut ViewResources> {
-        self.data.get_mut(id)
+    pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResources> {
+        self.data.get_mut(&id)
     }
 }
 
@@ -84,8 +84,8 @@ impl ResourceManager {
         self.resources.borrow_mut()
     }
 
-    pub fn remove_view(&mut self, id: &ViewId) {
-        self.resources.borrow_mut().data.remove(id);
+    pub fn remove_view(&mut self, id: ViewId) {
+        self.resources.borrow_mut().data.remove(&id);
     }
 
     pub fn add_blank_view(&mut self, id: ViewId, w: u32, h: u32) {
@@ -105,7 +105,7 @@ impl ResourceManager {
         let mut pixels: Vec<u8> = Vec::with_capacity(buffer.len());
         for rgba in buffer.chunks(4) {
             match rgba {
-                &[r, g, b, a] => pixels.extend_from_slice(&[b, g, r, a]),
+                [r, g, b, a] => pixels.extend_from_slice(&[*b, *g, *r, *a]),
                 _ => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
@@ -120,7 +120,7 @@ impl ResourceManager {
 
     pub fn save_view<P: AsRef<Path>>(
         &self,
-        id: &ViewId,
+        id: ViewId,
         path: P,
     ) -> io::Result<(SnapshotId, usize)> {
         let mut resources = self.lock_mut();
@@ -128,7 +128,7 @@ impl ResourceManager {
         let (w, h) = (snapshot.width(), snapshot.height());
 
         let f = File::create(path.as_ref())?;
-        let ref mut out = io::BufWriter::new(f);
+        let out = &mut io::BufWriter::new(f);
         let mut encoder = png::Encoder::new(out, w, h);
 
         encoder.set_color(png::ColorType::RGBA);
@@ -150,7 +150,7 @@ impl ResourceManager {
 
     pub fn save_view_gif<P: AsRef<Path>>(
         &self,
-        id: &ViewId,
+        id: ViewId,
         path: P,
         frame_delay: time::Duration,
     ) -> io::Result<usize> {
@@ -245,7 +245,7 @@ impl ViewResources {
         }
     }
 
-    pub fn current_snapshot(&self) -> (&Snapshot, &Box<[Bgra8]>) {
+    pub fn current_snapshot(&self) -> (&Snapshot, &[Bgra8]) {
         (
             self.snapshots
                 .get(self.snapshot)
@@ -254,7 +254,7 @@ impl ViewResources {
         )
     }
 
-    pub fn current_snapshot_mut(&mut self) -> (&mut Snapshot, &Box<[Bgra8]>) {
+    pub fn current_snapshot_mut(&mut self) -> (&mut Snapshot, &[Bgra8]) {
         (
             self.snapshots
                 .get_mut(self.snapshot)

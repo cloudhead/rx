@@ -310,7 +310,7 @@ impl Brush {
             return stroke.to_owned();
         }
 
-        let mut iter = (0..stroke.len()).into_iter();
+        let mut iter = 0..stroke.len();
         if let Some(i) = iter.next() {
             filtered.push(stroke[i]);
         }

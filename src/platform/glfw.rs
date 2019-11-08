@@ -30,10 +30,9 @@ pub fn init(
 
     let (mut window, events) = glfw
         .create_window(w, h, title, glfw::WindowMode::Windowed)
-        .ok_or(io::Error::new(
-            io::ErrorKind::Other,
-            "glfw: error creating window",
-        ))?;
+        .ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "glfw: error creating window")
+        })?;
 
     window.set_all_polling(true);
 
@@ -83,7 +82,7 @@ where
     }
     callback(&mut win, WindowEvent::Destroyed);
 
-    return exit;
+    exit
 }
 
 pub struct Events {
@@ -115,7 +114,7 @@ impl Window {
 
     pub fn hidpi_factor(&self) -> f64 {
         let (x, y) = self.handle.get_content_scale();
-        if x != y {
+        if (x - y).abs() > 0.1 {
             warn!("glfw: content scale isn't uniform: {} x {}", x, y);
         }
 
@@ -198,7 +197,7 @@ impl From<glfw::WindowEvent> for WindowEvent {
             }
             Glfw::Focus(b) => WindowEvent::Focused(b),
             Glfw::ContentScale(x, y) => {
-                if x != y {
+                if (x - y).abs() > 0.1 {
                     warn!("glfw: content scale isn't uniform: {} x {}", x, y);
                 }
                 WindowEvent::HiDpiFactorChanged(x as f64)

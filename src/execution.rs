@@ -353,9 +353,9 @@ impl FromStr for Hash {
         let mut hash: Vec<u8> = Vec::new();
         for pair in input.bytes().collect::<Vec<u8>>().chunks(2) {
             match pair {
-                &[l, r] => {
-                    let left = val(l)? << 4;
-                    let right = val(r)?;
+                [l, r] => {
+                    let left = val(*l)? << 4;
+                    let right = val(*r)?;
 
                     hash.push(left | right);
                 }

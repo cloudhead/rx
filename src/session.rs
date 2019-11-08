@@ -399,8 +399,8 @@ pub enum MessageType {
 
 impl MessageType {
     /// Returns the color associated with a `MessageType`.
-    fn color(&self) -> Rgba8 {
-        match *self {
+    fn color(self) -> Rgba8 {
+        match self {
             MessageType::Info => color::LIGHT_GREY,
             MessageType::Hint => color::DARK_GREY,
             MessageType::Echo => color::LIGHT_GREEN,
@@ -518,14 +518,14 @@ impl KeyBindings {
         key: Key,
         modifiers: ModifiersState,
         state: InputState,
-        mode: &Mode,
+        mode: Mode,
     ) -> Option<KeyBinding> {
         self.elems.iter().cloned().find(|kb| {
             kb.key == key
                 && (kb.modifiers == ModifiersState::default()
                     || kb.modifiers == modifiers)
                 && kb.state == state
-                && kb.modes.contains(mode)
+                && kb.modes.contains(&mode)
         })
     }
 
@@ -892,7 +892,7 @@ impl Session {
             ..
         } = exec
         {
-            let digest = digest.clone();
+            let digest = *digest;
             let result = result.clone();
 
             {
@@ -900,7 +900,7 @@ impl Session {
                 let end = recording.iter().position(|t| t.frame != frame);
 
                 recording
-                    .drain(..end.unwrap_or(recording.len()))
+                    .drain(..end.unwrap_or_else(|| recording.len()))
                     .collect::<Vec<TimedEvent>>()
                     .into_iter()
                     .for_each(|t| self.handle_event(t.event, exec));
@@ -909,7 +909,7 @@ impl Session {
                 if end.is_none() {
                     *exec = Execution::Normal;
 
-                    self.message(format!("Replay ended"), MessageType::Replay);
+                    self.message("Replay ended", MessageType::Replay);
 
                     if digest {
                         info!("replaying: {}", result.summary());
@@ -930,10 +930,7 @@ impl Session {
                         ..
                     }) => {
                         *exec = Execution::Normal;
-                        self.message(
-                            format!("Replay ended"),
-                            MessageType::Replay,
-                        );
+                        self.message("Replay ended", MessageType::Replay);
                     }
                     _ => debug!("event (ignored): {:?}", event),
                 }
@@ -1220,7 +1217,7 @@ impl Session {
     /// Panics if the view isn't found.
     pub fn view_mut(&mut self, id: ViewId) -> &mut View {
         self.views
-            .get_mut(&id)
+            .get_mut(id)
             .expect(&format!("view #{} must exist", id))
     }
 
@@ -1279,8 +1276,8 @@ impl Session {
     }
 
     /// Check whether a view is active.
-    pub fn is_active(&self, id: &ViewId) -> bool {
-        &self.views.active_id == id
+    pub fn is_active(&self, id: ViewId) -> bool {
+        self.views.active_id == id
     }
 
     /// Convert "logical" window coordinates to session coordinates.
@@ -1385,11 +1382,7 @@ impl Session {
                 } else {
                     (Self::DEFAULT_VIEW_W, Self::DEFAULT_VIEW_H)
                 };
-                self.blank(
-                    FileStatus::New(path.with_extension("png").into()),
-                    w,
-                    h,
-                );
+                self.blank(FileStatus::New(path.with_extension("png")), w, h);
             }
         }
 
@@ -1404,7 +1397,7 @@ impl Session {
     /// Save the given view to disk with the current file name. Returns
     /// an error if the view has no file name.
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
-        if let Some(ref f) = self.view(id).file_name().map(|f| f.clone()) {
+        if let Some(ref f) = self.view(id).file_name().cloned() {
             self.save_view_as(id, f)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
@@ -1418,14 +1411,18 @@ impl Session {
         id: ViewId,
         path: P,
     ) -> io::Result<()> {
-        let ext = path.as_ref().extension().ok_or(io::Error::new(
-            io::ErrorKind::Other,
-            "file path requires an extension (.gif or .png)",
-        ))?;
-        let ext = ext.to_str().ok_or(io::Error::new(
-            io::ErrorKind::Other,
-            "file extension is not valid unicode",
-        ))?;
+        let ext = path.as_ref().extension().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "file path requires an extension (.gif or .png)",
+            )
+        })?;
+        let ext = ext.to_str().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                "file extension is not valid unicode",
+            )
+        })?;
 
         if !Self::SUPPORTED_FORMATS.contains(&ext) {
             return Err(io::Error::new(
@@ -1451,7 +1448,7 @@ impl Session {
             ));
         }
 
-        let (s_id, npixels) = self.resources.save_view(&id, &path)?;
+        let (s_id, npixels) = self.resources.save_view(id, &path)?;
         self.view_mut(id).save_as(s_id, path.as_ref().into());
 
         self.message(
@@ -1530,8 +1527,8 @@ impl Session {
     fn destroy_view(&mut self, id: ViewId) {
         assert!(!self.views.is_empty());
 
-        self.views.remove(&id);
-        self.resources.remove_view(&id);
+        self.views.remove(id);
+        self.resources.remove_view(id);
         self.effects.push(Effect::ViewRemoved(id));
     }
 
@@ -1566,7 +1563,7 @@ impl Session {
         path: P,
     ) -> io::Result<()> {
         let delay = self.view(id).animation.delay;
-        let npixels = self.resources.save_view_gif(&id, &path, delay)?;
+        let npixels = self.resources.save_view_gif(id, &path, delay)?;
 
         self.message(
             format!(
@@ -1652,7 +1649,7 @@ impl Session {
         let snapshot = self
             .resources
             .lock_mut()
-            .get_view_mut(&id)
+            .get_view_mut(id)
             .and_then(|s| {
                 if dir == Direction::Backward {
                     s.prev_snapshot()
@@ -1757,7 +1754,7 @@ impl Session {
                         self.cmdline_hide();
                         return;
                     }
-                    if self.is_active(&id) {
+                    if self.is_active(id) {
                         let v = self.active_view();
                         let p = self.view_coords(v.id, self.cursor);
                         let extent = v.extent();
@@ -2021,7 +2018,7 @@ impl Session {
                 Key::Virtual(key),
                 modifiers,
                 state,
-                &self.mode,
+                self.mode,
             ) {
                 // For toggle-like key bindings, we don't want to run the command
                 // on key repeats. For regular key bindings, we run the command
@@ -2645,7 +2642,7 @@ impl Session {
                 let r = v.bounds();
                 let fw = v.extent().fw as i32;
                 if let Some(s) = &mut self.selection {
-                    let mut t = s.clone();
+                    let mut t = *s;
                     t.translate(fw * i32::from(dir), 0);
 
                     if r.intersects(t.abs().bounds()) {
@@ -2736,9 +2733,9 @@ impl Session {
             // in sync with the GPU. This could be done by using the frame
             // read-back as a synchronization point. For now though, this
             // does the job.
-            &Command::AddFrame
-            | &Command::RemoveFrame
-            | &Command::ResizeFrame { .. } => {
+            Command::AddFrame
+            | Command::RemoveFrame
+            | Command::ResizeFrame { .. } => {
                 if let Some(t) = self.throttled {
                     let now = time::Instant::now();
                     if now - t <= Self::THROTTLE_TIME {
@@ -2775,7 +2772,7 @@ impl Session {
     /// Get the color at the given view coordinate.
     fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Option<Rgba8> {
         let resources = self.resources.lock();
-        let (snapshot, pixels) = resources.get_snapshot(&v);
+        let (snapshot, pixels) = resources.get_snapshot(v);
 
         let y_offset = snapshot
             .height()

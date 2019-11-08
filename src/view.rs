@@ -491,10 +491,10 @@ impl ViewManager {
     }
 
     /// Remove a view.
-    pub fn remove(&mut self, id: &ViewId) {
+    pub fn remove(&mut self, id: ViewId) {
         assert!(!self.lru.is_empty());
-        self.views.remove(id);
-        self.lru.retain(|v| v != id);
+        self.views.remove(&id);
+        self.lru.retain(|v| *v != id);
 
         if let Some(v) = self.last() {
             self.activate(v);
@@ -505,7 +505,7 @@ impl ViewManager {
 
     /// Return the id of the last recently active view, if any.
     pub fn last(&self) -> Option<ViewId> {
-        self.lru.front().map(|v| *v)
+        self.lru.front().cloned()
     }
 
     /// Return the currently active view, if any.
@@ -538,8 +538,8 @@ impl ViewManager {
     }
 
     /// Get a view, mutably.
-    pub fn get_mut(&mut self, id: &ViewId) -> Option<&mut View> {
-        self.views.get_mut(id)
+    pub fn get_mut(&mut self, id: ViewId) -> Option<&mut View> {
+        self.views.get_mut(&id)
     }
 
     /// Generate a new view id.

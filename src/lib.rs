@@ -1,5 +1,15 @@
 #![deny(clippy::all)]
-#![allow(clippy::collapsible_if, clippy::many_single_char_names)]
+#![allow(
+    clippy::collapsible_if,
+    clippy::many_single_char_names,
+    clippy::expect_fun_call,
+    clippy::useless_format,
+    clippy::new_without_default,
+    clippy::cognitive_complexity,
+    clippy::or_fun_call,
+    clippy::nonminimal_bool,
+    clippy::single_match
+)]
 
 pub mod execution;
 pub mod session;
@@ -103,9 +113,10 @@ pub fn init<'a, P: AsRef<Path>>(
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
     let resources = ResourceManager::new();
-    let base_dirs = dirs::ProjectDirs::from("org", "void", "rx").ok_or(
-        io::Error::new(io::ErrorKind::NotFound, "home directory not found"),
-    )?;
+    let base_dirs =
+        dirs::ProjectDirs::from("org", "void", "rx").ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "home directory not found")
+        })?;
     let mut session =
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
             .init(options.source.clone())?;
