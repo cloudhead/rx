@@ -1104,6 +1104,12 @@ impl Session {
             "animation/delay" => {
                 self.active_view_mut().set_animation_delay(new.uint64());
             }
+            "scale" => {
+                // TODO: We need to recompute the cursor position here
+                // from the window coordinates. Currently, cursor position
+                // is stored only in `SessionCoords`, which would have
+                // to change.
+            }
             _ => {}
         }
     }
@@ -1288,7 +1294,6 @@ impl Session {
     }
 
     /// Convert "logical" window coordinates to session coordinates.
-    /// The window coordinates are always between 0.0 and 1.0.
     pub fn window_to_session_coords(
         &self,
         position: platform::LogicalPosition,
