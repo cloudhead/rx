@@ -729,6 +729,8 @@ impl Session {
     const PAN_PIXELS: i32 = 32;
     /// Minimum brush size.
     const MIN_BRUSH_SIZE: usize = 1;
+    /// Maximum frame width or height.
+    const MAX_FRAME_SIZE: u32 = 4096;
     /// Maximum zoom amount as a multiplier.
     const MAX_ZOOM: f32 = 128.0;
     /// Zoom levels used when zooming in/out.
@@ -2310,6 +2312,17 @@ impl Session {
                 if fw == 0 || fh == 0 {
                     self.message(
                         "Error: cannot set frame dimension to `0`",
+                        MessageType::Error,
+                    );
+                    return;
+                }
+                if fw > Self::MAX_FRAME_SIZE || fh > Self::MAX_FRAME_SIZE {
+                    self.message(
+                        format!(
+                            "Error: maximum frame size is {}x{}",
+                            Self::MAX_FRAME_SIZE,
+                            Self::MAX_FRAME_SIZE,
+                        ),
                         MessageType::Error,
                     );
                     return;
