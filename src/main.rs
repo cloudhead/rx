@@ -6,10 +6,12 @@ use pico_args;
 use std::path::PathBuf;
 use std::process;
 
-const HELP: &str = r#"
-A Modern & Extensible Pixel Editor
+const HEADER: &str = r#"
 Alexis Sellier <self@cloudhead.io>
+A Modern & Extensible Pixel Editor
+"#;
 
+const HELP: &str = r#"
 USAGE
     rx [OPTIONS] [<path>..]
 
@@ -28,7 +30,8 @@ OPTIONS
 "#;
 
 fn main() {
-    if self::execute(pico_args::Arguments::from_env()).is_err() {
+    if let Err(e) = self::execute(pico_args::Arguments::from_env()) {
+        eprintln!("rx: fatal: {}\n{}", e, HELP);
         process::exit(1);
     }
 }
@@ -41,7 +44,7 @@ fn execute(
     let default = rx::Options::default();
 
     if args.contains(["-h", "--help"]) {
-        println!("rx v{}{}", rx::VERSION, HELP);
+        println!("rx v{}{}{}", rx::VERSION, HEADER, HELP);
         return Ok(());
     }
 
