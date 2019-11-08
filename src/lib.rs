@@ -309,8 +309,8 @@ pub fn init<'a, P: AsRef<Path>>(
             _ => {}
         };
 
-        if let State::Closing(reason) = session.state {
-            platform::ControlFlow::Exit(reason)
+        if let State::Closing(reason) = &session.state {
+            platform::ControlFlow::Exit(reason.clone())
         } else {
             platform::ControlFlow::Continue
         }
@@ -318,9 +318,7 @@ pub fn init<'a, P: AsRef<Path>>(
 
     match exit {
         ExitReason::Normal => Ok(()),
-        ExitReason::Error => {
-            Err(io::Error::new(io::ErrorKind::Other, "<exit>"))
-        }
+        ExitReason::Error(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
     }
 }
 

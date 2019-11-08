@@ -3,6 +3,7 @@ use rx::execution::Execution;
 
 use pico_args;
 
+use std::io;
 use std::path::PathBuf;
 use std::process;
 
@@ -31,7 +32,7 @@ OPTIONS
 
 fn main() {
     if let Err(e) = self::execute(pico_args::Arguments::from_env()) {
-        eprintln!("rx: fatal: {}\n{}", e, HELP);
+        eprintln!("rx: {}", e);
         process::exit(1);
     }
 }
@@ -94,6 +95,12 @@ fn execute(
         source,
     };
 
-    let paths = args.free()?;
-    rx::init(&paths, options).map_err(|e| e.into())
+    match args.free() {
+        Ok(paths) => rx::init(&paths, options).map_err(|e| e.into()),
+        Err(e) => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{}\n{}", e, HELP),
+        )
+        .into()),
+    }
 }

@@ -262,10 +262,10 @@ pub enum Effect {
     ViewBlendingChanged(Blending),
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum ExitReason {
     Normal,
-    Error,
+    Error(String),
 }
 
 impl Default for ExitReason {
@@ -275,7 +275,7 @@ impl Default for ExitReason {
 }
 
 /// Session state.
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum State {
     /// The session is initializing.
     Initializing,
@@ -848,17 +848,17 @@ impl Session {
 
     /// Transition to a new state. Only allows valid state transitions.
     pub fn transition(&mut self, to: State) {
-        let state = match (self.state, to) {
+        match (&self.state, &to) {
             (State::Initializing, State::Running)
             | (State::Running, State::Paused)
             | (State::Paused, State::Running)
             | (State::Paused, State::Closing(_))
-            | (State::Running, State::Closing(_)) => to,
-            _ => self.state,
-        };
-        debug!("state: {:?} -> {:?}", self.state, state);
-
-        self.state = state;
+            | (State::Running, State::Closing(_)) => {
+                debug!("state: {:?} -> {:?}", self.state, to);
+                self.state = to;
+            }
+            _ => {}
+        }
     }
 
     /// Update the session by processing new user events and advancing
@@ -920,7 +920,10 @@ impl Session {
                         if result.is_ok() {
                             self.quit(ExitReason::Normal);
                         } else {
-                            self.quit(ExitReason::Error);
+                            self.quit(ExitReason::Error(format!(
+                                "replay failed: {}",
+                                result.summary()
+                            )));
                         }
                     }
                 }
