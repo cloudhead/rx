@@ -497,13 +497,23 @@ impl Renderer {
             r.update_pipeline(&self.brush2d, view_ortho, &mut f);
             r.update_pipeline(&self.const2d, view_ortho, &mut f);
 
-            // Render brush strokes to view staging framebuffers.
-            if let Some(buf) = &staging_buf {
+            {
+                // Always clear the active view staging buffer. We do this because
+                // it may not get drawn to this frame, and hence may remain dirty
+                // from a previous frame.
                 let mut p = f.pass(
                     PassOp::Clear(Rgba::TRANSPARENT),
                     &view_data.staging_fb,
                 );
-                self.render_brush_strokes(buf, &Blending::default(), &mut p);
+
+                // Render brush strokes to view staging framebuffers.
+                if let Some(buf) = &staging_buf {
+                    self.render_brush_strokes(
+                        buf,
+                        &Blending::default(),
+                        &mut p,
+                    );
+                }
             }
 
             // Render brush strokes to view framebuffers.
@@ -599,11 +609,6 @@ impl Renderer {
             p.set_pipeline(&self.sprite2d);
             p.draw(&overlay_buf, &self.font.binding);
         }
-
-        // Always clear the active view staging buffer. We do this because
-        // it may not get drawn to this frame, and hence may remain dirty
-        // from a previous frame.
-        f.pass(PassOp::Clear(Rgba::TRANSPARENT), &view_data.staging_fb);
 
         // Submit frame to device.
         r.present(f);
