@@ -823,7 +823,15 @@ impl Session {
         let cwd = std::env::current_dir()?;
 
         if let Some(init) = source {
-            self.source_path(init)?;
+            // The special source '-' is used to skip initialization.
+            if init.as_os_str() != "-" {
+                self.source_path(&init).map_err(|e| {
+                    io::Error::new(
+                        e.kind(),
+                        format!("error sourcing {:?}: {}", init, e),
+                    )
+                })?
+            }
         } else {
             let dir = self.base_dirs.config_dir();
             let cfg = dir.join(Self::INIT);
