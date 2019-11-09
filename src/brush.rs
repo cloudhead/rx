@@ -98,6 +98,14 @@ impl Brush {
         self.modes.remove(&m)
     }
 
+    /// Check whether the brush is currently drawing.
+    pub fn is_drawing(&self) -> bool {
+        match self.state {
+            BrushState::NotDrawing => false,
+            _ => true,
+        }
+    }
+
     #[allow(dead_code)]
     pub fn reset(&mut self) {
         self.modes.clear();

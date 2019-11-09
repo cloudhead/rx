@@ -1095,9 +1095,24 @@ impl Session {
     /// within the session have moved relative to the cursor.
     fn cursor_dirty(&mut self) {
         let cursor = self.cursor;
+        let palette_hover = self.palette.hover.is_some();
 
         self.palette.handle_cursor_moved(cursor);
         self.hover_view = None;
+
+        match &self.tool {
+            Tool::Brush(b) if !b.is_drawing() => {
+                if !palette_hover && self.palette.hover.is_some() {
+                    // Gained palette focus with brush.
+                    self.tool(Tool::Sampler);
+                }
+            }
+            Tool::Sampler if palette_hover && self.palette.hover.is_none() => {
+                // Lost palette focus with color sampler.
+                self.prev_tool();
+            }
+            _ => {}
+        }
 
         for (_, v) in self.views.iter_mut() {
             if v.contains(cursor - self.offset) {
@@ -1920,11 +1935,6 @@ impl Session {
                                 brush.draw(p);
                             }
                         }
-                        BrushState::NotDrawing
-                            if self.palette.hover.is_some() =>
-                        {
-                            self.tool(Tool::Sampler);
-                        }
                         _ => {}
                     }
                 }
@@ -1933,9 +1943,6 @@ impl Session {
                         cursor.x - self.cursor.x,
                         cursor.y - self.cursor.y,
                     );
-                }
-                Tool::Sampler if self.palette.hover.is_none() => {
-                    self.prev_tool();
                 }
                 _ => {}
             },
