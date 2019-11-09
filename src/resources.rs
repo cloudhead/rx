@@ -1,8 +1,8 @@
 use crate::image;
 use crate::view::{ViewExtent, ViewId};
 
+use nonempty::NonEmpty;
 use rgx::core::{Bgra8, Rgba8};
-use rgx::nonempty::NonEmpty;
 
 use gif::{self, SetParameter};
 use png;

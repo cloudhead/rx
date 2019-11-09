@@ -16,7 +16,7 @@ use rgx::core;
 use rgx::core::{Blending, Filter, Op, PassOp, Rect, Rgba};
 use rgx::kit;
 use rgx::kit::shape2d;
-use rgx::kit::shape2d::{Fill, Line, Shape, Stroke};
+use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use rgx::kit::sprite2d;
 use rgx::kit::{Bgra8, Origin, Rgba8};
 use rgx::math::{Matrix4, Vector2};
@@ -864,6 +864,7 @@ impl Renderer {
             // Selection stroke.
             canvas.add(Shape::Rectangle(
                 r.map(|n| n as f32) * view.zoom + offset,
+                Rotation::ZERO,
                 Stroke::new(1., stroke.into()),
                 Fill::Empty(),
             ));
@@ -872,6 +873,7 @@ impl Renderer {
                 canvas.add(Shape::Rectangle(
                     r.intersection(view.bounds()).map(|n| n as f32) * view.zoom
                         + offset,
+                    Rotation::ZERO,
                     Stroke::NONE,
                     Fill::Solid(fill.into()),
                 ));
@@ -887,6 +889,7 @@ impl Renderer {
                 let x = n * v.zoom * v.fw as f32 + offset.x;
                 canvas.add(Shape::Line(
                     Line::new(x, offset.y, x, v.zoom * v.fh as f32 + offset.y),
+                    Rotation::ZERO,
                     Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
                 ));
             }
@@ -910,6 +913,7 @@ impl Renderer {
             canvas.add(Shape::Rectangle(
                 Rect::new(r.x1 - 1., r.y1 - 1., r.x2 + 1., r.y2 + 1.)
                     + session.offset,
+                Rotation::ZERO,
                 Stroke::new(1.0, border_color),
                 Fill::Empty(),
             ));
@@ -963,6 +967,7 @@ impl Renderer {
                         session.width * 0.4,
                         self::LINE_HEIGHT + self::MARGIN + 2.,
                     ),
+                    Rotation::ZERO,
                     Stroke::new(1.0, Rgba::WHITE),
                     Fill::Solid(session.fg.into()),
                 ));
@@ -972,6 +977,7 @@ impl Renderer {
                         session.width * 0.4 + 25.,
                         self::LINE_HEIGHT + self::MARGIN + 2.,
                     ),
+                    Rotation::ZERO,
                     Stroke::new(1.0, Rgba::WHITE),
                     Fill::Solid(session.bg.into()),
                 ));
@@ -1076,6 +1082,7 @@ impl Renderer {
                     p.x + x + p.cellsize,
                     p.y + y + p.cellsize,
                 ),
+                Rotation::ZERO,
                 stroke,
                 shape2d::Fill::Solid(color.into()),
             ));
@@ -1176,6 +1183,7 @@ impl Renderer {
                     let c = session.snap(c, v.offset.x, v.offset.y, z);
                     shapes.add(Shape::Rectangle(
                         Rect::new(c.x, c.y, c.x + z, c.y + z),
+                        Rotation::ZERO,
                         Stroke::new(1.0, color::RED.into()),
                         Fill::Empty(),
                     ));

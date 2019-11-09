@@ -1,4 +1,4 @@
-use crate::kit::shape2d::{Fill, Shape, Stroke};
+use crate::kit::shape2d::{Fill, Rotation, Shape, Stroke};
 use crate::kit::Origin;
 use crate::view::{ViewCoords, ViewExtent};
 
@@ -268,6 +268,7 @@ impl Brush {
         Shape::Rectangle(
             Rect::new(x, y, x + size * scale, y + size * scale)
                 - Vector2::new(offset, offset),
+            Rotation::ZERO,
             stroke,
             fill,
         )
