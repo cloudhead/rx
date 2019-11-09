@@ -1944,6 +1944,9 @@ impl Session {
                         cursor.y - self.cursor.y,
                     );
                 }
+                Tool::Sampler if self.mouse_state == InputState::Pressed => {
+                    self.sample_color();
+                }
                 _ => {}
             },
             Mode::Visual(VisualMode::Selecting { dragging: false }) => {
