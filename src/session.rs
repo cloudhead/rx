@@ -2712,7 +2712,14 @@ impl Session {
                     self.selection = Some(Selection::new(0, 0, fw, fh));
                 }
             }
-            Command::SelectionShrink => {}
+            Command::SelectionShrink => {
+                if let Some(s) = &mut self.selection {
+                    let r = s.bounds();
+                    if r.width() > 2 && r.height() > 2 {
+                        *s = Selection::from(r.expand(-1, -1, -1, -1));
+                    }
+                }
+            }
             Command::SelectionJump(dir) => {
                 let v = self.active_view();
                 let r = v.bounds();
