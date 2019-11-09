@@ -2793,8 +2793,10 @@ impl Session {
     }
 
     fn tool(&mut self, t: Tool) {
-        self.prev_tool = Some(self.tool.clone());
-        self.tool = t;
+        if std::mem::discriminant(&t) != std::mem::discriminant(&self.tool) {
+            self.prev_tool = Some(self.tool.clone());
+            self.tool = t;
+        }
     }
 
     fn prev_tool(&mut self) {
