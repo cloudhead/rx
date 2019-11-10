@@ -1,6 +1,6 @@
 use crate::platform::{
-    ControlFlow, InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
-    ModifiersState, MouseButton, WindowEvent, WindowHint,
+    ControlFlow, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition,
+    LogicalSize, ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use winit;
@@ -160,6 +160,9 @@ impl From<winit::event::WindowEvent> for WindowEvent {
                 button: button.into(),
                 modifiers: modifiers.into(),
             },
+            Winit::MouseWheel { delta, .. } => WindowEvent::MouseWheel {
+                delta: delta.into(),
+            },
             Winit::CursorLeft { .. } => WindowEvent::CursorLeft,
             Winit::CursorEntered { .. } => WindowEvent::CursorEntered,
             Winit::CursorMoved { position, .. } => WindowEvent::CursorMoved {
@@ -271,5 +274,19 @@ impl From<winit::event::ModifiersState> for ModifiersState {
 impl From<winit::dpi::LogicalPosition> for LogicalPosition {
     fn from(pos: winit::dpi::LogicalPosition) -> Self {
         Self { x: pos.x, y: pos.y }
+    }
+}
+
+impl From<winit::event::MouseScrollDelta> for LogicalDelta {
+    fn from(delta: winit::event::MouseScrollDelta) -> Self {
+        match delta {
+            winit::event::MouseScrollDelta::LineDelta(x, y) => LogicalDelta {
+                x: x as f64,
+                y: y as f64,
+            },
+            winit::event::MouseScrollDelta::PixelDelta(pos) => {
+                LogicalDelta { x: pos.x, y: pos.y }
+            }
+        }
     }
 }

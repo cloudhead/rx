@@ -201,6 +201,8 @@ pub fn init<'a, P: AsRef<Path>>(
                 }
             }
             WindowEvent::CursorEntered { .. } => {
+                // TODO: [winit] This doesn't fire if the cursor is already
+                // in the window.
                 w.set_cursor_visible(false);
             }
             WindowEvent::CursorLeft { .. } => {
@@ -299,6 +301,9 @@ pub fn init<'a, P: AsRef<Path>>(
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 session_events.push(Event::MouseInput(button, state));
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                session_events.push(Event::MouseWheel(delta));
             }
             WindowEvent::KeyboardInput(input) => {
                 session_events.push(Event::KeyboardInput(input));

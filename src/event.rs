@@ -58,6 +58,7 @@ impl FromStr for TimedEvent {
 #[derive(Debug, Clone)]
 pub enum Event {
     MouseInput(platform::MouseButton, platform::InputState),
+    MouseWheel(platform::LogicalDelta),
     CursorMoved(platform::LogicalPosition),
     KeyboardInput(platform::KeyboardInput),
     ReceivedCharacter(char),
@@ -71,6 +72,9 @@ impl From<Event> for String {
             }
             Event::MouseInput(_, platform::InputState::Released) => {
                 format!("mouse/input released")
+            }
+            Event::MouseWheel(delta) => {
+                format!("mouse/wheel {} {}", delta.x, delta.y)
             }
             Event::CursorMoved(platform::LogicalPosition { x, y }) => {
                 format!("cursor/moved {} {}", x, y)
@@ -103,6 +107,10 @@ impl FromStr for Event {
             "mouse/input" => {
                 let (s, p) = p.parse::<platform::InputState>()?;
                 Ok((Event::MouseInput(platform::MouseButton::Left, s), p))
+            }
+            "mouse/wheel" => {
+                let ((x, y), p) = p.parse::<(f64, f64)>()?;
+                Ok((Event::MouseWheel(platform::LogicalDelta { x, y }), p))
             }
             "cursor/moved" => {
                 let ((x, y), p) = p.parse::<(f64, f64)>()?;

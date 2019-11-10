@@ -1,6 +1,6 @@
 use crate::platform::{
-    ControlFlow, InputState, Key, KeyboardInput, LogicalPosition, LogicalSize,
-    ModifiersState, MouseButton, WindowEvent, WindowHint,
+    ControlFlow, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition,
+    LogicalSize, ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use glfw;
@@ -182,6 +182,9 @@ impl From<glfw::WindowEvent> for WindowEvent {
                     modifiers: modifiers.into(),
                 }
             }
+            Glfw::Scroll(x, y) => WindowEvent::MouseWheel {
+                delta: LogicalDelta { x, y },
+            },
             Glfw::CursorEnter(true) => WindowEvent::CursorEntered,
             Glfw::CursorEnter(false) => WindowEvent::CursorLeft,
             Glfw::CursorPos(x, y) => WindowEvent::CursorMoved {

@@ -91,12 +91,15 @@ pub enum WindowEvent {
     /// The cursor has left the window.
     CursorLeft,
 
-    /// An mouse button press has been received.
+    /// A mouse button press has been received.
     MouseInput {
         state: InputState,
         button: MouseButton,
         modifiers: ModifiersState,
     },
+
+    /// The mouse wheel has been used.
+    MouseWheel { delta: LogicalDelta },
 
     /// The OS or application has requested that the window be redrawn.
     RedrawRequested,
@@ -322,6 +325,13 @@ impl fmt::Display for ModifiersState {
         }
         s.fmt(f)
     }
+}
+
+/// A delta represented in logical pixels.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct LogicalDelta {
+    pub x: f64,
+    pub y: f64,
 }
 
 /// A position represented in logical pixels.

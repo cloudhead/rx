@@ -1752,6 +1752,7 @@ impl Session {
 
         match event {
             Event::MouseInput(btn, st) => self.handle_mouse_input(btn, st),
+            Event::MouseWheel(delta) => self.handle_mouse_wheel(delta),
             Event::CursorMoved(position) => {
                 let coords = self.window_to_session_coords(position);
                 self.handle_cursor_moved(coords);
@@ -1904,6 +1905,14 @@ impl Session {
                 }
                 _ => {}
             },
+        }
+    }
+
+    fn handle_mouse_wheel(&mut self, delta: platform::LogicalDelta) {
+        if delta.y > 0. {
+            self.zoom_in(self.cursor);
+        } else if delta.y < 0. {
+            self.zoom_out(self.cursor);
         }
     }
 
