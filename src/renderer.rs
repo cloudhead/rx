@@ -321,22 +321,47 @@ impl Renderer {
             color::LIGHT_GREY,
         );
 
-        for (i, (display, kb)) in session
+        let (normal_kbs, visual_kbs): (
+            Vec<(&String, &session::KeyBinding)>,
+            Vec<(&String, &session::KeyBinding)>,
+        ) = session
             .key_bindings
             .iter()
             .filter_map(|kb| kb.display.as_ref().map(|d| (d, kb)))
-            .enumerate()
-        {
-            let y =
-                self.window.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
+            .partition(|(_, kb)| kb.modes.contains(&Mode::Normal));
 
-            text.add(display, left_margin, y, color::RED);
-            text.add(
-                &format!("{}", kb.command),
-                left_margin + column_offset,
-                y,
-                color::LIGHT_GREY,
-            );
+        let mut line = (0..(self.window.height as usize
+            - self::LINE_HEIGHT as usize * 4))
+            .rev()
+            .step_by(self::LINE_HEIGHT as usize);
+
+        for (display, kb) in normal_kbs.iter() {
+            if let Some(y) = line.next() {
+                text.add(display, left_margin, y as f32, color::RED);
+                text.add(
+                    &format!("{}", kb.command),
+                    left_margin + column_offset,
+                    y as f32,
+                    color::LIGHT_GREY,
+                );
+            }
+        }
+
+        if let Some(y) = line.nth(1) {
+            text.add("VISUAL MODE", left_margin, y as f32, color::RED);
+        }
+        line.next();
+
+        for (display, kb) in visual_kbs.iter() {
+            if let Some(y) = line.next() {
+                text.add(display, left_margin, y as f32, color::RED);
+                text.add(
+                    &format!("{}", kb.command),
+                    left_margin + column_offset,
+                    y as f32,
+                    color::LIGHT_GREY,
+                );
+            }
         }
         for (i, l) in session::HELP.lines().enumerate() {
             let y =
@@ -389,6 +414,10 @@ impl Renderer {
         if session.state != session::State::Running {
             return;
         }
+
+        // Handle effects produced by the session.
+        self.handle_effects(effects, &session.views, r);
+
         if session.mode == Mode::Help {
             self.render_help(session, r, textures);
             return;
@@ -413,9 +442,6 @@ impl Renderer {
             self.checker.texture.w,
             self.checker.texture.h,
         );
-
-        // Handle effects produced by the session.
-        self.handle_effects(effects, &session.views, r);
 
         // Handle view operations.
         for v in session.views.values() {

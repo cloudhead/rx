@@ -6,6 +6,7 @@
     clippy::useless_format,
     clippy::new_without_default,
     clippy::cognitive_complexity,
+    clippy::type_complexity,
     clippy::or_fun_call,
     clippy::nonminimal_bool,
     clippy::single_match
