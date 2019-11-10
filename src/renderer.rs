@@ -29,7 +29,8 @@ use std::time;
 /// 2D Renderer. Renders the [`Session`] to screen.
 pub struct Renderer {
     /// Window size.
-    window: LogicalSize,
+    pub window: LogicalSize,
+
     /// The font used to render text.
     font: Font,
     cursors: Cursors,

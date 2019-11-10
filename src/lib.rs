@@ -181,23 +181,17 @@ pub fn init<'a, P: AsRef<Path>>(
 
         match event {
             WindowEvent::Resized(size) => {
-                logical = size;
-
                 // Pause the session if our window size is zero.
                 // This happens on *windows* when the window is minimized.
                 if size.is_zero() {
                     session.transition(State::Paused);
                 } else {
                     session.transition(State::Running);
-
-                    self::resize(
-                        &mut session,
-                        &mut r,
-                        &mut swap_chain,
-                        size,
-                        hidpi_factor,
-                        present_mode,
-                    );
+                    // We don't re-create the swap chain in this handler,
+                    // because it is often called many times before we
+                    // actually need to render anything. Instead, we cache
+                    // the new size, and resize when drawing is ready.
+                    logical = size;
                 }
             }
             WindowEvent::CursorEntered { .. } => {
@@ -209,11 +203,22 @@ pub fn init<'a, P: AsRef<Path>>(
                 w.set_cursor_visible(true);
             }
             WindowEvent::Ready => {
-                let input_delay: f64 =
-                    session.settings["input/delay"].float64();
-                std::thread::sleep(time::Duration::from_micros(
-                    (input_delay * 1000.) as u64,
-                ));
+                if logical != renderer.window {
+                    self::resize(
+                        &mut session,
+                        &mut r,
+                        &mut swap_chain,
+                        logical,
+                        hidpi_factor,
+                        present_mode,
+                    );
+                } else {
+                    let input_delay: f64 =
+                        session.settings["input/delay"].float64();
+                    std::thread::sleep(time::Duration::from_micros(
+                        (input_delay * 1000.) as u64,
+                    ));
+                }
 
                 let delta = last.elapsed();
                 last = time::Instant::now();
