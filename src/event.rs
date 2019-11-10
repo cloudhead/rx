@@ -114,7 +114,6 @@ impl FromStr for Event {
             }
             "cursor/moved" => {
                 let ((x, y), p) = p.parse::<(f64, f64)>()?;
-                let (_, p) = p.whitespace()?;
                 Ok((
                     Event::CursorMoved(platform::LogicalPosition::new(
                         x as f64, y as f64,
