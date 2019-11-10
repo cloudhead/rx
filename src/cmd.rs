@@ -112,7 +112,9 @@ impl fmt::Display for Command {
             Self::QuitAll => write!(f, "Quit all views"),
             Self::Redo => write!(f, "Redo view edit"),
             Self::ResizeFrame(_, _) => write!(f, "Resize active view frame"),
-            Self::Tool(_) => write!(f, "Toggle tool"),
+            Self::Tool(Some(Tool::Pan(_))) => write!(f, "Pan tool"),
+            Self::Tool(Some(Tool::Brush(_))) => write!(f, "Brush tool"),
+            Self::Tool(Some(Tool::Sampler)) => write!(f, "Color sampler tool"),
             Self::Set(s, v) => {
                 write!(f, "Set {setting} to {val}", setting = s, val = v)
             }
@@ -135,6 +137,32 @@ impl fmt::Display for Command {
             Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
             Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
             Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
+            Self::SelectionFill(None) => {
+                write!(f, "Fill selection with foreground color")
+            }
+            Self::SelectionYank => write!(f, "Yank/copy selection"),
+            Self::SelectionDelete => write!(f, "Delete/cut selection"),
+            Self::SelectionPaste => write!(f, "Paste selection"),
+            Self::SelectionExpand => write!(f, "Expand selection"),
+            Self::SelectionShrink => write!(f, "Shrink selection"),
+            Self::SelectionMove(x, 0) if *x > 0 => {
+                write!(f, "Move selection right")
+            }
+            Self::SelectionMove(x, 0) if *x < 0 => {
+                write!(f, "Move selection left")
+            }
+            Self::SelectionMove(0, y) if *y > 0 => {
+                write!(f, "Move selection up")
+            }
+            Self::SelectionMove(0, y) if *y < 0 => {
+                write!(f, "Move selection down")
+            }
+            Self::SelectionJump(Direction::Forward) => {
+                write!(f, "Move selection forward by one frame")
+            }
+            Self::SelectionJump(Direction::Backward) => {
+                write!(f, "Move selection backward by one frame")
+            }
             _ => write!(f, "..."),
         }
     }
@@ -533,7 +561,9 @@ impl<'a> Parse<'a> for Command {
                     Err(Error::new("couldn't parse zoom parameter"))
                 }
             }
-            "brush" => Ok((Command::Noop, p)),
+            "brush" => {
+                Ok((Command::Tool(Some(Tool::Brush(Brush::default()))), p))
+            }
             "brush/size" => {
                 let (c, p) = p.parse::<char>()?;
                 match c {
