@@ -2109,22 +2109,30 @@ impl Session {
                     events.pop(); // Discard this key event.
 
                     match exec.stop_recording() {
-                        Some((path, digest)) => {
+                        Ok((path, digest)) => {
                             self.message(
-                                format!("Recording saved to {:?}", path),
+                                format!(
+                                    "Recording saved to `{}`",
+                                    path.display()
+                                ),
                                 MessageType::Replay,
                             );
-                            info!("recording: events saved to {:?}", path);
+                            info!(
+                                "recording: events saved to `{}`",
+                                path.display()
+                            );
 
                             if digest {
                                 info!(
-                                    "recording: digest saved to {:?}",
-                                    path.with_extension("digest")
+                                    "recording: digest saved to `{}`",
+                                    path.display()
                                 );
                                 self.quit(ExitReason::Normal);
                             }
                         }
-                        None => {}
+                        Err(e) => {
+                            error!("recording: error stopping: {}", e);
+                        }
                     }
                 }
             }

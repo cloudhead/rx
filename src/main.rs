@@ -24,7 +24,7 @@ OPTIONS
     -u <script>          Use the commands in <script> for initialization
 
     --verbosity <level>  Set verbosity level (0-5)
-    --record <file>      Record user input to a file
+    --record <dir>       Record user input to a directory
     --replay <file>      Replay user input from a file
     --width <width>      Set the window width
     --height <height>    Set the window height

@@ -156,8 +156,10 @@ impl Execution {
         }
     }
 
-    pub fn stop_recording(&mut self) -> Option<(PathBuf, bool)> {
-        // TODO: (rust) Style
+    pub fn stop_recording(&mut self) -> io::Result<(PathBuf, bool)> {
+        use io::{Error, ErrorKind};
+        use std::io::Write;
+
         let result = if let Execution::Recording {
             events,
             path,
@@ -166,30 +168,34 @@ impl Execution {
             ..
         } = &self
         {
-            if let Ok(mut f) = File::create(path) {
-                use std::io::Write;
+            std::fs::create_dir_all(path)?;
+            let file_name: &Path = path
+                .file_name()
+                .ok_or(Error::new(
+                    ErrorKind::InvalidInput,
+                    format!("invalid path {:?}", path),
+                ))?
+                .as_ref();
 
-                for ev in events.clone() {
-                    if let Err(e) = writeln!(&mut f, "{}", String::from(ev)) {
-                        panic!("error while saving recording: {}", e);
-                    }
-                }
-
-                if let Ok(mut f) = File::create(path.with_extension("digest")) {
-                    for digest in &recorder.frames {
-                        if let Err(e) = writeln!(&mut f, "{}", digest) {
-                            panic!("error while saving recording: {}", e);
-                        }
-                    }
-                }
+            let mut f =
+                File::create(path.join(file_name.with_extension("events")))?;
+            for ev in events.clone() {
+                writeln!(&mut f, "{}", String::from(ev))?;
             }
-            Some((path.clone(), *digest))
+
+            let mut f =
+                File::create(path.join(file_name.with_extension("digest")))?;
+            for digest in &recorder.frames {
+                writeln!(&mut f, "{}", digest)?;
+            }
+            Ok((path.clone(), *digest))
         } else {
-            None
+            Err(Error::new(ErrorKind::Other, "execution is not recording!"))
         };
 
-        *self = Execution::Normal;
-
+        if result.is_ok() {
+            *self = Execution::Normal;
+        }
         result
     }
 }
