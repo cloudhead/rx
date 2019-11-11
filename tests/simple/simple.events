@@ -1,0 +1,71 @@
+00000 0000065 cursor/moved 1113 528
+00049 0000470 keyboard/input <shift> pressed
+00198 0001882 keyboard/input ; pressed
+00198 0001882 char/received ':'
+00209 0001996 keyboard/input ; released
+00213 0002039 keyboard/input <shift> released
+00224 0002156 keyboard/input e pressed
+00224 0002156 char/received 'e'
+00230 0002227 keyboard/input e released
+00241 0002343 keyboard/input c pressed
+00241 0002343 char/received 'c'
+00251 0002451 keyboard/input c released
+00252 0002463 keyboard/input h pressed
+00252 0002463 char/received 'h'
+00258 0002534 keyboard/input h released
+00268 0002633 keyboard/input o pressed
+00268 0002633 char/received 'o'
+00279 0002742 keyboard/input <space> pressed
+00279 0002742 char/received ' '
+00282 0002773 keyboard/input o released
+00289 0002843 keyboard/input <shift> pressed
+00290 0002854 keyboard/input <space> released
+00295 0002905 keyboard/input ' pressed
+00295 0002905 char/received '"'
+00307 0003024 keyboard/input ' released
+00330 0003256 keyboard/input h pressed
+00330 0003256 char/received 'H'
+00338 0003336 keyboard/input h released
+00340 0003356 keyboard/input <shift> released
+00350 0003460 keyboard/input e pressed
+00350 0003460 char/received 'e'
+00358 0003539 keyboard/input l pressed
+00358 0003539 char/received 'l'
+00361 0003569 keyboard/input e released
+00366 0003618 keyboard/input l released
+00373 0003684 keyboard/input l pressed
+00373 0003684 char/received 'l'
+00379 0003742 keyboard/input l released
+00389 0003838 keyboard/input o pressed
+00389 0003838 char/received 'o'
+00401 0003951 keyboard/input o released
+00402 0003961 keyboard/input <space> pressed
+00402 0003961 char/received ' '
+00408 0004019 keyboard/input <shift> pressed
+00411 0004047 keyboard/input <space> released
+00419 0004122 keyboard/input w pressed
+00419 0004122 char/received 'W'
+00426 0004190 keyboard/input <shift> released
+00432 0004247 keyboard/input o pressed
+00432 0004247 char/received 'o'
+00434 0004267 keyboard/input w released
+00442 0004347 keyboard/input o released
+00447 0004396 keyboard/input r pressed
+00447 0004396 char/received 'r'
+00457 0004499 keyboard/input l pressed
+00457 0004499 char/received 'l'
+00457 0004499 keyboard/input r released
+00469 0004614 keyboard/input l released
+00470 0004623 keyboard/input d pressed
+00470 0004623 char/received 'd'
+00480 0004719 keyboard/input d released
+00485 0004767 keyboard/input <shift> pressed
+00521 0005103 keyboard/input 1 pressed
+00521 0005103 char/received '!'
+00530 0005190 keyboard/input 1 released
+00545 0005338 keyboard/input ' pressed
+00545 0005338 char/received '"'
+00557 0005467 keyboard/input ' released
+00563 0005526 keyboard/input <shift> released
+00612 0005985 keyboard/input <return> pressed
+00624 0006105 keyboard/input <return> released

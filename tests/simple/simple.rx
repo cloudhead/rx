@@ -1,0 +1,9 @@
+set ui/message = on
+set ui/status = off
+set ui/view-info = off
+set ui/switcher = off
+set ui/cursor = off
+
+set input/mouse = off
+
+map    ;             :mode command                             --  Switch to command mode

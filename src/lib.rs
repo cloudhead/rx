@@ -54,8 +54,6 @@ use rgx::kit;
 #[macro_use]
 extern crate log;
 
-use env_logger;
-
 use directories as dirs;
 
 use std::alloc::System;
@@ -71,8 +69,7 @@ pub const VERSION: &str = "0.2.0";
 pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 
 #[derive(Debug)]
-pub struct Options<'a> {
-    pub log: &'a str,
+pub struct Options {
     pub exec: Execution,
     pub width: u32,
     pub height: u32,
@@ -80,10 +77,9 @@ pub struct Options<'a> {
     pub source: Option<PathBuf>,
 }
 
-impl<'a> Default for Options<'a> {
+impl Default for Options {
     fn default() -> Self {
         Self {
-            log: "rx=warn",
             exec: Execution::default(),
             width: 1280,
             height: 720,
@@ -93,15 +89,11 @@ impl<'a> Default for Options<'a> {
     }
 }
 
-pub fn init<'a, P: AsRef<Path>>(
+pub fn init<P: AsRef<Path>>(
     paths: &[P],
-    options: Options<'a>,
+    options: Options,
 ) -> std::io::Result<()> {
     use std::io;
-
-    let mut logger = env_logger::Builder::new();
-    logger.parse_filters(options.log);
-    logger.init();
 
     debug!("options: {:?}", options);
 

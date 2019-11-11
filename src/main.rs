@@ -1,6 +1,7 @@
 use rx;
 use rx::execution::Execution;
 
+use env_logger;
 use pico_args;
 
 use std::io;
@@ -81,6 +82,10 @@ fn execute(
         _ => "debug",
     };
 
+    let mut logger = env_logger::Builder::new();
+    logger.parse_filters(log);
+    logger.init();
+
     let exec = if let Some(path) = replay {
         Execution::replaying(path, digest)?
     } else if let Some(path) = record {
@@ -91,7 +96,6 @@ fn execute(
 
     let options = rx::Options {
         exec,
-        log,
         width: width.unwrap_or(default.width),
         height: height.unwrap_or(default.height),
         resizable,

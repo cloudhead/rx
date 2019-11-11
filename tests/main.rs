@@ -2,39 +2,50 @@ use rx::execution::Execution;
 use std::env;
 use std::io;
 use std::path::Path;
+use std::sync::Mutex;
 
-#[test]
-fn visual_mode() {
-    test("visual-mode");
+#[macro_use]
+extern crate lazy_static;
+
+lazy_static! {
+    /// This mutex is here to prevent certain tests from running
+    /// in parallel. This is due to the fact that we spawn windows
+    /// and graphics contexts which are not thread-safe.
+    pub static ref MUTEX: Mutex<()> = Mutex::new(());
 }
 
 #[test]
-fn palette() {
-    test("palette");
+fn simple() {
+    test("simple");
+}
+
+#[test]
+fn resize() {
+    test("resize");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {
-    let path = Path::new("tests/").join(name);
-    env::set_current_dir(path).unwrap();
-
     if let Err(e) = run(name) {
         panic!("test '{}' failed with: {}", name, e);
     }
 }
 
 fn run(name: &str) -> io::Result<()> {
-    let path = Path::new(name).with_extension("events");
-    let exec = Execution::replaying(path, true)?;
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join(name);
+    let exec = Execution::replaying(path.clone(), true)?;
     let options = rx::Options {
         exec,
-        log: "rx=info",
         resizable: false,
-        source: None,
+        source: Some(path.join(name).with_extension("rx")),
         ..Default::default()
     };
-    let paths: &[String] = &[];
 
-    rx::init(paths, options)
+    {
+        let _guard = MUTEX.lock();
+        rx::init::<&str>(&[], options)
+    }
 }
