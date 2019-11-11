@@ -414,6 +414,8 @@ impl Renderer {
         if session.state != session::State::Running {
             return;
         }
+        self.staging_batch.clear();
+        self.final_batch.clear();
 
         // Handle effects produced by the session.
         self.handle_effects(effects, &session.views, r);
@@ -422,9 +424,6 @@ impl Renderer {
             self.render_help(session, r, textures);
             return;
         }
-
-        self.staging_batch.clear();
-        self.final_batch.clear();
 
         let present = &textures.next();
 
