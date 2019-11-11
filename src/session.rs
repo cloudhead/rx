@@ -601,6 +601,7 @@ impl Default for Settings {
                 "background" => Value::Rgba8(color::BLACK),
                 "vsync" => Value::Bool(false),
                 "input/delay" => Value::Float(8.0),
+                "input/mouse" => Value::Bool(true),
                 "scale" => Value::Float(1.0),
                 "animation" => Value::Bool(true),
                 "animation/delay" => Value::U32(160),
@@ -1751,11 +1752,21 @@ impl Session {
         }
 
         match event {
-            Event::MouseInput(btn, st) => self.handle_mouse_input(btn, st),
-            Event::MouseWheel(delta) => self.handle_mouse_wheel(delta),
+            Event::MouseInput(btn, st) => {
+                if self.settings["input/mouse"].is_set() {
+                    self.handle_mouse_input(btn, st);
+                }
+            }
+            Event::MouseWheel(delta) => {
+                if self.settings["input/mouse"].is_set() {
+                    self.handle_mouse_wheel(delta);
+                }
+            }
             Event::CursorMoved(position) => {
-                let coords = self.window_to_session_coords(position);
-                self.handle_cursor_moved(coords);
+                if self.settings["input/mouse"].is_set() {
+                    let coords = self.window_to_session_coords(position);
+                    self.handle_cursor_moved(coords);
+                }
             }
             Event::KeyboardInput(input) => {
                 self.handle_keyboard_input(input, exec)
