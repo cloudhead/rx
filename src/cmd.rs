@@ -659,6 +659,7 @@ impl<'a> Parse<'a> for Command {
                         Command::Tool(Some(Tool::Brush(Brush::default()))),
                         p,
                     )),
+                    "sampler" => Ok((Command::Tool(Some(Tool::Sampler)), p)),
                     "-" => Ok((Command::Tool(None), p)),
                     _ => Err(Error::new(format!("unknown tool {:?}", t))),
                 }
