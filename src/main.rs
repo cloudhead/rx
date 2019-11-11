@@ -25,7 +25,7 @@ OPTIONS
 
     --verbosity <level>  Set verbosity level (0-5)
     --record <dir>       Record user input to a directory
-    --replay <file>      Replay user input from a file
+    --replay <dir>       Replay user input from a directory
     --width <width>      Set the window width
     --height <height>    Set the window height
 "#;

@@ -74,14 +74,23 @@ impl Execution {
         path: P,
         digest: bool,
     ) -> io::Result<Self> {
+        use io::{Error, ErrorKind};
+
         let mut events = VecDeque::new();
         let path = path.as_ref();
-        let abs_path = path.canonicalize()?;
+
+        let file_name: &Path = path
+            .file_name()
+            .ok_or(Error::new(
+                ErrorKind::InvalidInput,
+                format!("invalid path {:?}", path),
+            ))?
+            .as_ref();
 
         let mut frames = Vec::new();
         if digest {
-            let path = path.with_extension("digest");
-            match File::open(&path) {
+            let digest_path = path.join(file_name).with_extension("digest");
+            match File::open(&digest_path) {
                 Ok(f) => {
                     let r = io::BufReader::new(f);
                     for line in r.lines() {
@@ -96,13 +105,14 @@ impl Execution {
                 Err(e) => {
                     return Err(io::Error::new(
                         e.kind(),
-                        format!("{}: {}", path.display(), e),
+                        format!("{}: {}", digest_path.display(), e),
                     ));
                 }
             }
         }
 
-        match File::open(&path) {
+        let events_path = path.join(file_name).with_extension("events");
+        match File::open(&events_path) {
             Ok(f) => {
                 let r = io::BufReader::new(f);
                 for (i, line) in r.lines().enumerate() {
@@ -110,7 +120,12 @@ impl Execution {
                     let ev = TimedEvent::from_str(&line).map_err(|e| {
                         io::Error::new(
                             io::ErrorKind::InvalidInput,
-                            format!("{}:{}: {}", abs_path.display(), i + 1, e),
+                            format!(
+                                "{}:{}: {}",
+                                events_path.display(),
+                                i + 1,
+                                e
+                            ),
                         )
                     })?;
                     events.push_back(ev);
@@ -126,7 +141,7 @@ impl Execution {
             }
             Err(e) => Err(io::Error::new(
                 e.kind(),
-                format!("{}: {}", path.display(), e),
+                format!("{}: {}", events_path.display(), e),
             )),
         }
     }
