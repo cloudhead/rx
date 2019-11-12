@@ -64,7 +64,8 @@ pub enum Command {
     Source(String),
     SwapColors,
     Toggle(String),
-    Tool(Option<Tool>),
+    Tool(Tool),
+    ToolPrev,
     Undo,
     ViewCenter,
     ViewNext,
@@ -112,9 +113,10 @@ impl fmt::Display for Command {
             Self::QuitAll => write!(f, "Quit all views"),
             Self::Redo => write!(f, "Redo view edit"),
             Self::ResizeFrame(_, _) => write!(f, "Resize active view frame"),
-            Self::Tool(Some(Tool::Pan(_))) => write!(f, "Pan tool"),
-            Self::Tool(Some(Tool::Brush(_))) => write!(f, "Brush tool"),
-            Self::Tool(Some(Tool::Sampler)) => write!(f, "Color sampler tool"),
+            Self::Tool(Tool::Pan(_)) => write!(f, "Pan tool"),
+            Self::Tool(Tool::Brush(_)) => write!(f, "Brush tool"),
+            Self::Tool(Tool::Sampler) => write!(f, "Color sampler tool"),
+            Self::ToolPrev => write!(f, "Switch to previous tool"),
             Self::Set(s, v) => {
                 write!(f, "Set {setting} to {val}", setting = s, val = v)
             }
@@ -561,9 +563,7 @@ impl<'a> Parse<'a> for Command {
                     Err(Error::new("couldn't parse zoom parameter"))
                 }
             }
-            "brush" => {
-                Ok((Command::Tool(Some(Tool::Brush(Brush::default()))), p))
-            }
+            "brush" => Ok((Command::Tool(Tool::Brush(Brush::default())), p)),
             "brush/size" => {
                 let (c, p) = p.parse::<char>()?;
                 match c {
@@ -584,8 +584,8 @@ impl<'a> Parse<'a> for Command {
                 let (mode, p) = p.parse::<Mode>()?;
                 Ok((Command::Mode(mode), p))
             }
-            "sampler" => Ok((Command::Tool(Some(Tool::Sampler)), p)),
-            "sampler/off" => Ok((Command::Tool(None), p)),
+            "sampler" => Ok((Command::Tool(Tool::Sampler), p)),
+            "sampler/off" => Ok((Command::ToolPrev, p)),
             "v/next" => Ok((Command::ViewNext, p)),
             "v/prev" => Ok((Command::ViewPrev, p)),
             "v/center" => Ok((Command::ViewCenter, p)),
@@ -600,7 +600,7 @@ impl<'a> Parse<'a> for Command {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;
                 Ok((Command::Pan(x, y), p))
             }
-            "map/v" => {
+            "map/visual" => {
                 let (km, p) = KeyMapping::parse(
                     p,
                     &[
@@ -610,7 +610,7 @@ impl<'a> Parse<'a> for Command {
                 )?;
                 Ok((Command::Map(Box::new(km)), p))
             }
-            "map/n" => {
+            "map/normal" => {
                 let (km, p) = KeyMapping::parse(p, &[Mode::Normal])?;
                 Ok((Command::Map(Box::new(km)), p))
             }
@@ -651,19 +651,17 @@ impl<'a> Parse<'a> for Command {
             "tool" => {
                 let (t, p) = p.word()?;
                 match t {
-                    "pan" => Ok((
-                        Command::Tool(Some(Tool::Pan(PanState::default()))),
-                        p,
-                    )),
-                    "brush" => Ok((
-                        Command::Tool(Some(Tool::Brush(Brush::default()))),
-                        p,
-                    )),
-                    "sampler" => Ok((Command::Tool(Some(Tool::Sampler)), p)),
-                    "-" => Ok((Command::Tool(None), p)),
+                    "pan" => {
+                        Ok((Command::Tool(Tool::Pan(PanState::default())), p))
+                    }
+                    "brush" => {
+                        Ok((Command::Tool(Tool::Brush(Brush::default())), p))
+                    }
+                    "sampler" => Ok((Command::Tool(Tool::Sampler), p)),
                     _ => Err(Error::new(format!("unknown tool {:?}", t))),
                 }
             }
+            "tool/prev" => Ok((Command::ToolPrev, p)),
             "swap" => Ok((Command::SwapColors, p)),
             "selection/move" => {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;

@@ -4,46 +4,46 @@
 
 -- Default `rx` configuration file.
 
------- ------------- -------------------------------------------- -----------------------------------
---     KEY           COMMAND                                       DESCRIPTION
------- ------------- -------------------------------------------- -----------------------------------
-map    ;             :mode command                             --  Switch to command mode
-map    v             :mode visual                              --  Switch to visual mode
-map    .             :zoom +                                   --  Zoom in active view
-map    ,             :zoom -                                   --  Zoom out active view
-map    /             :zoom 1.0                                 --  Reset active view zoom
-map/n  j             :v/prev                                   --  Go to previous view
-map/n  k             :v/next                                   --  Go to next view
-map    z             :v/center                                 --  Center active view
-map    u             :undo                                     --  Undo active view edit
-map    r             :redo                                     --  Redo active view edit
-map    x             :swap                                     --  Swap foreground/background colors
-map/n  b             :brush                                    --  Reset brush
-map/n  e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
-map/n  <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (hold)
-map/n  ]             :brush/size +                             --  Increase brush size
-map/n  [             :brush/size -                             --  Decrease brush size
-map/n  <ctrl>        :tool sampler {:tool -}                   --  Sample color (hold)
-map/n  <space>       :tool pan {:tool -}                       --  Pan workspace (hold)
-map    <up>          :pan  0  1                                --  Pan view up
-map    <down>        :pan  0 -1                                --  Pan view down
-map    <left>        :pan -1  0                                --  Pan view left
-map    <right>       :pan  1  0                                --  Pan view right
-map    <return>      :f/add                                    --  Add a frame to the view
-map    <backspace>   :f/remove                                 --  Remove a frame from the view
+----------- ------------- -------------------------------------------- -----------------------------------
+--           KEY           COMMAND                                       DESCRIPTION
+----------- ------------- -------------------------------------------- -----------------------------------
+map         ;             :mode command                             --  Switch to command mode
+map         v             :mode visual                              --  Switch to visual mode
+map         .             :zoom +                                   --  Zoom in active view
+map         ,             :zoom -                                   --  Zoom out active view
+map         /             :zoom 1.0                                 --  Reset active view zoom
+map/normal  j             :v/prev                                   --  Go to previous view
+map/normal  k             :v/next                                   --  Go to next view
+map         z             :v/center                                 --  Center active view
+map         u             :undo                                     --  Undo active view edit
+map         r             :redo                                     --  Redo active view edit
+map         x             :swap                                     --  Swap foreground/background colors
+map/normal  b             :brush                                    --  Reset brush
+map/normal  e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
+map/normal  <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (hold)
+map/normal  ]             :brush/size +                             --  Increase brush size
+map/normal  [             :brush/size -                             --  Decrease brush size
+map/normal  <ctrl>        :tool sampler {:tool/prev}                --  Sample color (hold)
+map/normal  <space>       :tool pan {:tool/prev}                    --  Pan workspace (hold)
+map         <up>          :pan  0  1                                --  Pan view up
+map         <down>        :pan  0 -1                                --  Pan view down
+map         <left>        :pan -1  0                                --  Pan view left
+map         <right>       :pan  1  0                                --  Pan view right
+map         <return>      :f/add                                    --  Add a frame to the view
+map         <backspace>   :f/remove                                 --  Remove a frame from the view
 
-map/v  j             :selection/move  0 -1
-map/v  k             :selection/move  0  1
-map/v  h             :selection/move -1  0
-map/v  l             :selection/move  1  0
-map/v  ]             :selection/expand
-map/v  [             :selection/shrink
-map/v  <space>       :selection/fill
-map/v  y             :selection/yank
-map/v  d             :selection/delete
-map/v  p             :selection/paste
-map/v  w             :selection/jump +
-map/v  b             :selection/jump -
+map/visual  j             :selection/move  0 -1
+map/visual  k             :selection/move  0  1
+map/visual  h             :selection/move -1  0
+map/visual  l             :selection/move  1  0
+map/visual  ]             :selection/expand
+map/visual  [             :selection/shrink
+map/visual  <space>       :selection/fill
+map/visual  y             :selection/yank
+map/visual  d             :selection/delete
+map/visual  p             :selection/paste
+map/visual  w             :selection/jump +
+map/visual  b             :selection/jump -
 
 set scale = 1.0                                               --  Set interface scale to 100%
 set checker = off                                             --  Turn off alpha checker

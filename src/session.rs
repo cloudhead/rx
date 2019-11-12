@@ -2691,10 +2691,10 @@ impl Session {
             Command::Redo => {
                 self.redo(self.views.active_id);
             }
-            Command::Tool(Some(t)) => {
+            Command::Tool(t) => {
                 self.tool(t);
             }
-            Command::Tool(None) => {
+            Command::ToolPrev => {
                 self.prev_tool();
             }
             Command::Crop(_) => {
