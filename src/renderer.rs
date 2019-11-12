@@ -425,8 +425,6 @@ impl Renderer {
             return;
         }
 
-        let present = &textures.next();
-
         let mut ui_batch = shape2d::Batch::new();
         let mut palette_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
@@ -618,6 +616,8 @@ impl Renderer {
             p.set_pipeline(&self.sprite2d);
             p.draw(&cursor_buf, &self.cursors.binding);
         }
+
+        let present = &textures.next();
 
         {
             // Present screen framebuffer to screen.
