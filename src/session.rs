@@ -1155,7 +1155,7 @@ impl Session {
     /// Toggle the session mode.
     fn toggle_mode(&mut self, mode: Mode) {
         if self.mode == mode {
-            self.switch_mode(self.prev_mode.unwrap_or(Mode::Normal));
+            self.switch_mode(Mode::Normal);
         } else {
             self.switch_mode(mode);
         }
