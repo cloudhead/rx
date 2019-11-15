@@ -2164,7 +2164,6 @@ impl Session {
             .or_else(|_| File::open(self.base_dirs.config_dir().join(path)))?;
 
         self.source_reader(io::BufReader::new(f), path)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
     }
 
     /// Source a directory which contains a `.rxrc` script. Returns an
