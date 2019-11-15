@@ -9,7 +9,7 @@ use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::screen2d;
-use crate::session::{self, Effect, Mode, Rgb8, Session, Tool, VisualMode};
+use crate::session::{self, Effect, Mode, Rgb8, Session, Tool, VisualState};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
@@ -858,7 +858,7 @@ impl Renderer {
 
         if let Some(selection) = session.selection {
             let fill = match session.mode {
-                Mode::Visual(VisualMode::Selecting { .. }) => {
+                Mode::Visual(VisualState::Selecting { .. }) => {
                     Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88)
                 }
                 // TODO: Handle different modes differently.
@@ -1141,7 +1141,7 @@ impl Renderer {
         match session.mode {
             Mode::Present | Mode::Help => {}
             Mode::Visual(mode) => {
-                if let VisualMode::Selecting { .. } = mode {
+                if let VisualState::Selecting { .. } = mode {
                     let c = session.cursor;
                     let v = session.active_view();
                     if v.contains(c - session.offset) {
@@ -1202,7 +1202,7 @@ impl Renderer {
         let c = session.cursor;
 
         match session.mode {
-            Mode::Visual(VisualMode::Selecting { .. }) => {
+            Mode::Visual(VisualState::Selecting { .. }) => {
                 if session.is_selected(session.view_coords(v.id, c).into()) {
                     return;
                 }
@@ -1265,7 +1265,7 @@ impl Renderer {
         paste: &Paste,
         batch: &mut sprite2d::Batch,
     ) {
-        if let (Mode::Visual(VisualMode::Pasting), Some(s)) =
+        if let (Mode::Visual(VisualState::Pasting), Some(s)) =
             (session.mode, session.selection)
         {
             batch.add(

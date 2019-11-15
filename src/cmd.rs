@@ -1,7 +1,7 @@
 use crate::brush::{Brush, BrushMode};
 use crate::parser::{Error, Parse, Parser, Result};
 use crate::platform;
-use crate::session::{Direction, Mode, PanState, Tool, VisualMode};
+use crate::session::{Direction, Mode, PanState, Tool, VisualState};
 
 use rgx::core::Rect;
 use rgx::kit::Rgba8;
@@ -604,8 +604,8 @@ impl<'a> Parse<'a> for Command {
                 let (km, p) = KeyMapping::parse(
                     p,
                     &[
-                        Mode::Visual(VisualMode::selecting()),
-                        Mode::Visual(VisualMode::Pasting),
+                        Mode::Visual(VisualState::selecting()),
+                        Mode::Visual(VisualState::Pasting),
                     ],
                 )?;
                 Ok((Command::Map(Box::new(km)), p))
@@ -619,8 +619,8 @@ impl<'a> Parse<'a> for Command {
                     p,
                     &[
                         Mode::Normal,
-                        Mode::Visual(VisualMode::selecting()),
-                        Mode::Visual(VisualMode::Pasting),
+                        Mode::Visual(VisualState::selecting()),
+                        Mode::Visual(VisualState::Pasting),
                     ],
                 )?;
                 Ok((Command::Map(Box::new(km)), p))

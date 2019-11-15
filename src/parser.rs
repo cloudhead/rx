@@ -2,7 +2,7 @@
 
 use crate::brush::BrushMode;
 use crate::platform;
-use crate::session::{Direction, Mode, VisualMode};
+use crate::session::{Direction, Mode, VisualState};
 
 use std::fmt;
 use std::path::PathBuf;
@@ -177,7 +177,7 @@ impl<'a> Parse<'a> for Mode {
         match id {
             "command" => Ok((Mode::Command, p)),
             "normal" => Ok((Mode::Normal, p)),
-            "visual" => Ok((Mode::Visual(VisualMode::default()), p)),
+            "visual" => Ok((Mode::Visual(VisualState::default()), p)),
             "present" => Ok((Mode::Present, p)),
             mode => Err(Error::new(format!("unknown mode '{}'", mode))),
         }
