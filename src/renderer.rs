@@ -1195,6 +1195,9 @@ impl Renderer {
         if session.palette.hover.is_some() {
             return;
         }
+        if !session.settings["input/mouse"].is_set() {
+            return;
+        }
         let v = session.active_view();
         let c = session.cursor;
 
