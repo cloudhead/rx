@@ -84,6 +84,7 @@ struct Paste {
     binding: core::BindingGroup,
     texture: core::Texture,
     outputs: Vec<core::VertexBuffer>,
+    ready: bool,
 }
 
 struct Checker {
@@ -250,6 +251,7 @@ impl Renderer {
                 texture,
                 binding,
                 outputs: Vec::new(),
+                ready: false,
             }
         };
 
@@ -541,8 +543,18 @@ impl Renderer {
                 }
                 // Draw paste buffer to view staging buffer.
                 if let Some(buf) = paste_buf {
-                    p.set_pipeline(&self.paste2d);
-                    p.draw(&buf, &self.paste.binding);
+                    // Nb. Strangely enough, when the paste texture is being
+                    // re-created at a different size within this frame,
+                    // it is displayed for a single frame at the wrong size.
+                    // Perhaps because there is some stale state in the render
+                    // pipeline... To prevent this, we don't allow the texture
+                    // to be resized and displayed within the same frame.
+                    if self.paste.ready {
+                        p.set_pipeline(&self.paste2d);
+                        p.draw(&buf, &self.paste.binding);
+                    } else {
+                        self.paste.ready = true;
+                    }
                 }
             }
 
@@ -796,12 +808,17 @@ impl Renderer {
                         }
                         assert!(pixels.len() == w * h);
 
-                        self.paste.texture = r.texture(w as u32, h as u32);
-                        self.paste.binding = self.paste2d.binding(
-                            r,
-                            &self.paste.texture,
-                            &self.sampler,
-                        );
+                        if self.paste.texture.w != w as u32
+                            || self.paste.texture.h != h as u32
+                        {
+                            self.paste.ready = false;
+                            self.paste.texture = r.texture(w as u32, h as u32);
+                            self.paste.binding = self.paste2d.binding(
+                                r,
+                                &self.paste.texture,
+                                &self.sampler,
+                            );
+                        }
                         pixels
                     };
                     r.submit(&[Op::Fill(&self.paste.texture, &pixels)]);
