@@ -74,6 +74,11 @@ fn brush_basic() {
     test("brush-basic");
 }
 
+#[test]
+fn brush_advanced() {
+    test("brush-advanced");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {

@@ -1,0 +1,741 @@
+00150 0001058 keyboard/input <shift> pressed
+00158 0001124 keyboard/input ; pressed
+00158 0001124 char/received ':'
+00170 0001221 keyboard/input ; released
+00173 0001246 keyboard/input <shift> released
+00180 0001305 keyboard/input f pressed
+00180 0001305 char/received 'f'
+00191 0001397 keyboard/input / pressed
+00191 0001397 char/received '/'
+00194 0001422 keyboard/input f released
+00202 0001490 keyboard/input / released
+00206 0001526 keyboard/input a pressed
+00206 0001526 char/received 'a'
+00214 0001593 keyboard/input d pressed
+00214 0001593 char/received 'd'
+00219 0001635 keyboard/input a released
+00225 0001685 keyboard/input d released
+00233 0001752 keyboard/input d pressed
+00233 0001752 char/received 'd'
+00249 0001887 keyboard/input d released
+00263 0002001 keyboard/input <return> pressed
+00276 0002111 keyboard/input <return> released
+00291 0002235 keyboard/input <shift> pressed
+00300 0002310 keyboard/input ; pressed
+00300 0002310 char/received ':'
+00315 0002433 keyboard/input ; released
+00317 0002449 keyboard/input <shift> released
+00321 0002483 keyboard/input f pressed
+00321 0002483 char/received 'f'
+00333 0002584 keyboard/input / pressed
+00333 0002584 char/received '/'
+00337 0002617 keyboard/input f released
+00343 0002667 keyboard/input / released
+00346 0002692 keyboard/input a pressed
+00346 0002692 char/received 'a'
+00355 0002767 keyboard/input d pressed
+00355 0002767 char/received 'd'
+00362 0002825 keyboard/input a released
+00369 0002883 keyboard/input d released
+00375 0002933 keyboard/input d pressed
+00375 0002933 char/received 'd'
+00391 0003065 keyboard/input d released
+00416 0003273 keyboard/input <return> pressed
+00428 0003379 keyboard/input <return> released
+00483 0003847 keyboard/input z pressed
+00483 0003847 char/received 'z'
+00501 0003997 keyboard/input z released
+00645 0005198 keyboard/input . pressed
+00645 0005198 char/received '.'
+00659 0005315 keyboard/input . released
+00712 0005764 keyboard/input . pressed
+00712 0005764 char/received '.'
+00723 0005855 keyboard/input . released
+01083 0008878 cursor/moved 351 714
+01084 0008886 cursor/moved 349 706
+01085 0008894 cursor/moved 348 697
+01086 0008903 cursor/moved 346 690
+01087 0008911 cursor/moved 345 682
+01088 0008920 cursor/moved 342 674
+01089 0008928 cursor/moved 341 667
+01090 0008937 cursor/moved 336 656
+01091 0008945 cursor/moved 333 646
+01092 0008953 cursor/moved 328 637
+01093 0008962 cursor/moved 323 622
+01094 0008970 cursor/moved 322 610
+01095 0008978 cursor/moved 318 599
+01096 0008987 cursor/moved 317 588
+01097 0008995 cursor/moved 315 574
+01098 0009004 cursor/moved 312 561
+01099 0009012 cursor/moved 310 548
+01100 0009020 cursor/moved 307 537
+01101 0009029 cursor/moved 305 526
+01102 0009037 cursor/moved 302 514
+01103 0009046 cursor/moved 299 507
+01104 0009054 cursor/moved 299 498
+01105 0009062 cursor/moved 299 497
+01106 0009071 cursor/moved 298 490
+01107 0009079 cursor/moved 298 483
+01108 0009087 cursor/moved 298 478
+01109 0009096 cursor/moved 298 469
+01110 0009104 cursor/moved 297 462
+01111 0009112 cursor/moved 295 457
+01112 0009121 cursor/moved 294 449
+01113 0009129 cursor/moved 294 446
+01114 0009138 cursor/moved 293 443
+01115 0009146 cursor/moved 293 442
+01116 0009155 cursor/moved 293 441
+01117 0009163 cursor/moved 292 441
+01234 0010140 keyboard/input <shift> pressed
+01251 0010281 keyboard/input <shift> released
+01311 0010804 cursor/moved 291 440
+01312 0010813 cursor/moved 289 440
+01313 0010823 cursor/moved 287 438
+01315 0010842 cursor/moved 285 437
+01316 0010850 cursor/moved 284 437
+01317 0010861 cursor/moved 283 436
+01318 0010870 cursor/moved 281 434
+01319 0010881 cursor/moved 278 433
+01320 0010890 cursor/moved 277 432
+01321 0010901 cursor/moved 276 432
+01322 0010909 cursor/moved 276 431
+01332 0011010 cursor/moved 275 431
+01392 0011536 cursor/moved 275 430
+01393 0011547 cursor/moved 275 426
+01394 0011556 cursor/moved 276 424
+01395 0011565 cursor/moved 276 423
+01396 0011574 cursor/moved 277 422
+01489 0012355 keyboard/input = pressed
+01489 0012355 char/received '='
+01499 0012438 keyboard/input = released
+01860 0015485 mouse/input pressed
+01877 0015640 cursor/moved 277 416
+01878 0015647 cursor/moved 277 411
+01879 0015655 cursor/moved 278 407
+01880 0015663 cursor/moved 280 402
+01881 0015671 cursor/moved 281 399
+01882 0015679 cursor/moved 284 395
+01883 0015688 cursor/moved 286 392
+01884 0015696 cursor/moved 290 387
+01885 0015704 cursor/moved 294 385
+01886 0015712 cursor/moved 297 384
+01887 0015721 cursor/moved 302 382
+01888 0015729 cursor/moved 306 380
+01889 0015745 cursor/moved 317 381
+01890 0015755 cursor/moved 320 383
+01891 0015764 cursor/moved 323 385
+01892 0015772 cursor/moved 324 386
+01893 0015781 cursor/moved 328 391
+01894 0015790 cursor/moved 329 394
+01895 0015798 cursor/moved 329 398
+01896 0015807 cursor/moved 329 402
+01897 0015816 cursor/moved 329 411
+01898 0015825 cursor/moved 327 415
+01899 0015834 cursor/moved 325 420
+01900 0015842 cursor/moved 324 423
+01901 0015851 cursor/moved 322 427
+01902 0015860 cursor/moved 317 434
+01903 0015869 cursor/moved 316 437
+01904 0015879 cursor/moved 312 443
+01905 0015889 cursor/moved 310 446
+01906 0015901 cursor/moved 309 450
+01907 0015911 cursor/moved 308 451
+01908 0015922 cursor/moved 306 453
+01909 0015933 cursor/moved 305 454
+01910 0015943 cursor/moved 303 456
+01911 0015952 cursor/moved 303 457
+01912 0015960 cursor/moved 303 458
+01914 0015978 cursor/moved 302 460
+01915 0015988 cursor/moved 302 461
+01916 0015998 cursor/moved 302 462
+01917 0016009 cursor/moved 302 464
+01918 0016019 cursor/moved 302 465
+01932 0016137 mouse/input released
+02295 0019221 keyboard/input <shift> pressed
+02303 0019286 keyboard/input ; pressed
+02303 0019286 char/received ':'
+02316 0019390 keyboard/input ; released
+02318 0019407 keyboard/input <shift> released
+02337 0019560 keyboard/input b pressed
+02337 0019560 char/received 'b'
+02348 0019649 keyboard/input b released
+02352 0019683 keyboard/input r pressed
+02352 0019683 char/received 'r'
+02363 0019773 keyboard/input u pressed
+02363 0019773 char/received 'u'
+02370 0019830 keyboard/input r released
+02373 0019854 keyboard/input u released
+02378 0019895 keyboard/input s pressed
+02378 0019895 char/received 's'
+02390 0019991 keyboard/input h pressed
+02390 0019991 char/received 'h'
+02395 0020032 keyboard/input s released
+02401 0020080 keyboard/input h released
+02421 0020242 keyboard/input / pressed
+02421 0020242 char/received '/'
+02432 0020332 keyboard/input / released
+02598 0021694 keyboard/input s pressed
+02598 0021694 char/received 's'
+02612 0021814 keyboard/input s released
+02624 0021918 keyboard/input e pressed
+02624 0021918 char/received 'e'
+02634 0022007 keyboard/input t pressed
+02634 0022007 char/received 't'
+02644 0022093 keyboard/input e released
+02644 0022093 keyboard/input <space> pressed
+02644 0022093 char/received ' '
+02648 0022128 keyboard/input t released
+02659 0022222 keyboard/input <space> released
+02661 0022239 keyboard/input x pressed
+02661 0022239 char/received 'x'
+02673 0022342 keyboard/input x released
+02683 0022427 keyboard/input s pressed
+02683 0022427 char/received 's'
+02694 0022522 keyboard/input y pressed
+02694 0022522 char/received 'y'
+02701 0022584 keyboard/input s released
+02707 0022634 keyboard/input y released
+02722 0022767 keyboard/input m pressed
+02722 0022767 char/received 'm'
+02735 0022877 keyboard/input m released
+02762 0023109 keyboard/input <return> pressed
+02773 0023204 keyboard/input <return> released
+02794 0023382 keyboard/input <shift> pressed
+02804 0023467 keyboard/input ; pressed
+02804 0023467 char/received ':'
+02814 0023553 keyboard/input ; released
+02817 0023579 keyboard/input <shift> released
+02827 0023691 keyboard/input b pressed
+02827 0023691 char/received 'b'
+02831 0023745 keyboard/input r pressed
+02831 0023745 char/received 'r'
+02833 0023766 keyboard/input b released
+02842 0023861 keyboard/input u pressed
+02842 0023861 char/received 'u'
+02844 0023879 keyboard/input r released
+02850 0023931 keyboard/input u released
+02851 0023940 keyboard/input s pressed
+02851 0023940 char/received 's'
+02861 0024027 keyboard/input h pressed
+02861 0024027 char/received 'h'
+02865 0024062 keyboard/input s released
+02872 0024123 keyboard/input h released
+03022 0025422 keyboard/input / pressed
+03022 0025422 char/received '/'
+03036 0025540 keyboard/input / released
+03045 0025622 keyboard/input s pressed
+03045 0025622 char/received 's'
+03056 0025726 keyboard/input s released
+03065 0025812 keyboard/input e pressed
+03065 0025812 char/received 'e'
+03074 0025894 keyboard/input t pressed
+03074 0025894 char/received 't'
+03082 0025965 keyboard/input e released
+03089 0026024 keyboard/input t released
+03091 0026041 keyboard/input <space> pressed
+03091 0026041 char/received ' '
+03102 0026132 keyboard/input <space> released
+03116 0026256 keyboard/input y pressed
+03116 0026256 char/received 'y'
+03127 0026355 keyboard/input y released
+03128 0026363 keyboard/input s pressed
+03128 0026363 char/received 's'
+03139 0026465 keyboard/input y pressed
+03139 0026465 char/received 'y'
+03141 0026484 keyboard/input s released
+03149 0026554 keyboard/input y released
+03164 0026686 keyboard/input m pressed
+03164 0026686 char/received 'm'
+03177 0026796 keyboard/input m released
+03227 0027218 keyboard/input <return> pressed
+03238 0027311 keyboard/input <return> released
+03465 0029243 mouse/input pressed
+03478 0029355 mouse/input released
+03583 0030261 cursor/moved 301 466
+03584 0030270 cursor/moved 297 468
+03585 0030278 cursor/moved 292 470
+03586 0030287 cursor/moved 284 473
+03587 0030296 cursor/moved 277 475
+03588 0030304 cursor/moved 268 478
+03589 0030312 cursor/moved 258 481
+03590 0030320 cursor/moved 247 486
+03591 0030329 cursor/moved 238 490
+03592 0030338 cursor/moved 231 494
+03593 0030346 cursor/moved 229 495
+03594 0030355 cursor/moved 227 498
+03595 0030363 cursor/moved 226 500
+03596 0030371 cursor/moved 224 502
+03597 0030380 cursor/moved 223 504
+03598 0030388 cursor/moved 222 506
+03599 0030396 cursor/moved 221 507
+03600 0030405 cursor/moved 221 508
+03673 0031046 mouse/input pressed
+03685 0031148 mouse/input released
+03797 0032100 cursor/moved 221 507
+03798 0032108 cursor/moved 222 505
+03799 0032116 cursor/moved 224 502
+03800 0032124 cursor/moved 226 501
+03801 0032133 cursor/moved 227 499
+03802 0032142 cursor/moved 228 496
+03803 0032150 cursor/moved 229 494
+03804 0032159 cursor/moved 231 492
+03805 0032167 cursor/moved 233 490
+03806 0032176 cursor/moved 234 489
+03807 0032184 cursor/moved 235 488
+03809 0032201 cursor/moved 235 487
+03810 0032210 cursor/moved 236 487
+03815 0032251 cursor/moved 236 486
+03816 0032260 cursor/moved 236 485
+03817 0032268 cursor/moved 237 485
+03870 0032712 cursor/moved 238 483
+03871 0032720 cursor/moved 241 481
+03872 0032729 cursor/moved 245 477
+03873 0032737 cursor/moved 249 475
+03874 0032745 cursor/moved 252 473
+03874 0032745 cursor/moved 254 473
+03874 0032745 mouse/input pressed
+03874 0032745 cursor/moved 256 472
+03874 0032745 cursor/moved 257 472
+03875 0032754 cursor/moved 260 471
+03876 0032762 cursor/moved 265 470
+03877 0032770 cursor/moved 269 468
+03878 0032779 cursor/moved 274 468
+03879 0032787 cursor/moved 278 469
+03880 0032796 cursor/moved 281 472
+03881 0032803 cursor/moved 284 474
+03882 0032811 cursor/moved 288 479
+03883 0032819 cursor/moved 290 483
+03884 0032826 cursor/moved 293 488
+03885 0032834 cursor/moved 296 495
+03886 0032843 cursor/moved 298 502
+03887 0032851 cursor/moved 301 508
+03888 0032859 cursor/moved 301 515
+03889 0032867 cursor/moved 303 523
+03890 0032875 cursor/moved 305 528
+03891 0032884 cursor/moved 306 536
+03892 0032892 cursor/moved 306 540
+03893 0032900 cursor/moved 305 544
+03894 0032908 cursor/moved 303 547
+03895 0032916 cursor/moved 299 549
+03896 0032924 cursor/moved 296 551
+03897 0032933 cursor/moved 292 552
+03898 0032941 cursor/moved 289 552
+03899 0032949 cursor/moved 286 552
+03900 0032957 cursor/moved 283 552
+03901 0032965 cursor/moved 280 552
+03902 0032973 cursor/moved 275 551
+03903 0032981 cursor/moved 270 549
+03904 0032989 cursor/moved 266 548
+03905 0032997 cursor/moved 261 546
+03906 0033005 cursor/moved 257 545
+03907 0033013 cursor/moved 255 545
+03908 0033021 cursor/moved 254 544
+03927 0033172 mouse/input released
+04253 0035880 cursor/moved 254 543
+04254 0035888 cursor/moved 256 541
+04255 0035896 cursor/moved 257 539
+04256 0035905 cursor/moved 259 536
+04257 0035913 cursor/moved 263 532
+04258 0035921 cursor/moved 269 527
+04259 0035930 cursor/moved 274 520
+04260 0035938 cursor/moved 282 512
+04261 0035947 cursor/moved 292 500
+04262 0035955 cursor/moved 298 491
+04263 0035964 cursor/moved 307 480
+04264 0035972 cursor/moved 316 468
+04265 0035980 cursor/moved 327 452
+04266 0035989 cursor/moved 336 439
+04267 0035997 cursor/moved 345 427
+04268 0036006 cursor/moved 354 413
+04269 0036014 cursor/moved 360 403
+04270 0036022 cursor/moved 365 395
+04271 0036031 cursor/moved 369 389
+04272 0036039 cursor/moved 372 384
+04273 0036048 cursor/moved 374 382
+04274 0036056 cursor/moved 375 379
+04275 0036065 cursor/moved 376 377
+04276 0036073 cursor/moved 376 376
+04277 0036081 cursor/moved 376 375
+04278 0036090 cursor/moved 377 375
+04359 0036762 mouse/input pressed
+04364 0036804 cursor/moved 379 375
+04365 0036813 cursor/moved 380 375
+04366 0036821 cursor/moved 385 375
+04367 0036829 cursor/moved 392 374
+04368 0036838 cursor/moved 402 374
+04369 0036846 cursor/moved 418 372
+04370 0036854 cursor/moved 439 372
+04371 0036862 cursor/moved 458 372
+04372 0036870 cursor/moved 480 370
+04373 0036878 cursor/moved 501 368
+04374 0036886 cursor/moved 522 366
+04375 0036894 cursor/moved 539 366
+04376 0036902 cursor/moved 558 364
+04377 0036909 cursor/moved 574 364
+04378 0036917 cursor/moved 586 364
+04379 0036926 cursor/moved 596 364
+04380 0036934 cursor/moved 600 364
+04381 0036942 cursor/moved 604 366
+04382 0036950 cursor/moved 606 366
+04383 0036959 cursor/moved 607 366
+04405 0037129 mouse/input released
+04483 0037778 cursor/moved 606 366
+04486 0037803 cursor/moved 605 366
+04487 0037811 cursor/moved 604 366
+04488 0037820 cursor/moved 604 365
+04490 0037837 cursor/moved 603 365
+04491 0037845 cursor/moved 603 364
+04492 0037853 cursor/moved 602 364
+04495 0037879 cursor/moved 600 363
+04497 0037896 cursor/moved 598 363
+04498 0037904 cursor/moved 596 362
+04499 0037912 cursor/moved 595 362
+04500 0037921 cursor/moved 595 361
+04709 0039677 keyboard/input e pressed
+04709 0039677 char/received 'e'
+04731 0039862 keyboard/input e repeated
+04731 0039862 char/received 'e'
+04734 0039887 keyboard/input e repeated
+04734 0039887 char/received 'e'
+04737 0039913 keyboard/input e repeated
+04737 0039913 char/received 'e'
+04740 0039938 keyboard/input e repeated
+04740 0039938 char/received 'e'
+04743 0039964 keyboard/input e repeated
+04743 0039964 char/received 'e'
+04746 0039989 keyboard/input e repeated
+04746 0039989 char/received 'e'
+04749 0040014 keyboard/input e repeated
+04749 0040014 char/received 'e'
+04752 0040039 keyboard/input e repeated
+04752 0040039 char/received 'e'
+04755 0040064 keyboard/input e repeated
+04755 0040064 char/received 'e'
+04758 0040089 keyboard/input e repeated
+04758 0040089 char/received 'e'
+04761 0040114 keyboard/input e repeated
+04761 0040114 char/received 'e'
+04764 0040139 keyboard/input e repeated
+04764 0040139 char/received 'e'
+04767 0040164 keyboard/input e repeated
+04767 0040164 char/received 'e'
+04770 0040190 keyboard/input e repeated
+04770 0040190 char/received 'e'
+04773 0040215 keyboard/input e repeated
+04773 0040215 char/received 'e'
+04776 0040241 keyboard/input e repeated
+04776 0040241 char/received 'e'
+04779 0040266 keyboard/input e repeated
+04779 0040266 char/received 'e'
+04782 0040292 keyboard/input e released
+04954 0041742 cursor/moved 594 361
+04955 0041750 cursor/moved 593 362
+04956 0041759 cursor/moved 593 363
+04957 0041767 cursor/moved 592 365
+04958 0041776 cursor/moved 592 366
+04959 0041784 cursor/moved 591 367
+04960 0041793 cursor/moved 591 369
+04961 0041801 cursor/moved 592 372
+04962 0041809 cursor/moved 593 374
+04963 0041818 cursor/moved 594 376
+04964 0041826 cursor/moved 594 378
+04965 0041834 cursor/moved 594 379
+04966 0041842 cursor/moved 594 380
+04967 0041851 cursor/moved 594 381
+05236 0044132 keyboard/input ] pressed
+05236 0044132 char/received ']'
+05249 0044242 keyboard/input ] released
+05288 0044569 keyboard/input ] pressed
+05288 0044569 char/received ']'
+05297 0044645 keyboard/input ] released
+05309 0044747 keyboard/input ] pressed
+05309 0044747 char/received ']'
+05319 0044832 keyboard/input ] released
+05332 0044942 keyboard/input ] pressed
+05332 0044942 char/received ']'
+05342 0045025 keyboard/input ] released
+05379 0045336 keyboard/input ] pressed
+05379 0045336 char/received ']'
+05391 0045437 keyboard/input ] released
+05539 0046682 cursor/moved 592 381
+05540 0046690 cursor/moved 590 381
+05541 0046698 cursor/moved 588 381
+05542 0046707 cursor/moved 586 381
+05545 0046732 cursor/moved 586 382
+05577 0047003 cursor/moved 586 381
+05578 0047011 cursor/moved 586 379
+05579 0047020 cursor/moved 586 377
+05580 0047028 cursor/moved 585 376
+05581 0047037 cursor/moved 585 374
+05582 0047045 cursor/moved 584 373
+05583 0047054 cursor/moved 583 371
+05584 0047062 cursor/moved 581 369
+05585 0047071 cursor/moved 579 368
+05586 0047079 cursor/moved 578 366
+05587 0047087 cursor/moved 578 365
+05588 0047096 cursor/moved 576 364
+05589 0047104 cursor/moved 574 363
+05590 0047113 cursor/moved 573 362
+05591 0047121 cursor/moved 571 360
+05592 0047130 cursor/moved 570 359
+05593 0047138 cursor/moved 569 359
+05727 0048288 cursor/moved 568 358
+05728 0048296 cursor/moved 567 357
+05729 0048305 cursor/moved 564 356
+05730 0048313 cursor/moved 563 356
+05731 0048322 cursor/moved 561 355
+05732 0048330 cursor/moved 560 354
+05734 0048347 cursor/moved 559 354
+05753 0048506 cursor/moved 558 354
+05754 0048514 cursor/moved 556 353
+05755 0048523 cursor/moved 554 351
+05756 0048532 cursor/moved 553 351
+05756 0048532 cursor/moved 552 351
+05756 0048532 cursor/moved 551 351
+05756 0048532 mouse/input pressed
+05757 0048540 cursor/moved 549 349
+05758 0048549 cursor/moved 547 348
+05759 0048557 cursor/moved 545 347
+05760 0048565 cursor/moved 543 346
+05761 0048573 cursor/moved 539 345
+05762 0048582 cursor/moved 536 344
+05763 0048589 cursor/moved 533 343
+05764 0048598 cursor/moved 526 343
+05765 0048606 cursor/moved 515 343
+05766 0048615 cursor/moved 505 343
+05767 0048623 cursor/moved 498 343
+05768 0048631 cursor/moved 492 343
+05769 0048640 cursor/moved 488 343
+05770 0048648 cursor/moved 485 343
+05771 0048656 cursor/moved 483 345
+05772 0048664 cursor/moved 482 345
+05774 0048681 cursor/moved 481 346
+05776 0048696 cursor/moved 481 347
+05781 0048736 cursor/moved 481 348
+05784 0048761 cursor/moved 481 349
+05786 0048777 cursor/moved 481 350
+05788 0048794 cursor/moved 481 351
+05790 0048810 cursor/moved 482 353
+05791 0048819 cursor/moved 482 354
+05794 0048843 cursor/moved 482 355
+05799 0048884 mouse/input released
+05888 0049630 cursor/moved 479 354
+05889 0049639 cursor/moved 476 352
+05890 0049648 cursor/moved 471 351
+05891 0049656 cursor/moved 463 348
+05892 0049665 cursor/moved 450 347
+05893 0049673 cursor/moved 436 343
+05894 0049682 cursor/moved 420 339
+05895 0049690 cursor/moved 402 338
+05896 0049699 cursor/moved 386 338
+05897 0049707 cursor/moved 379 336
+05898 0049716 cursor/moved 371 336
+05899 0049725 cursor/moved 363 337
+05900 0049733 cursor/moved 356 340
+05901 0049742 cursor/moved 351 343
+05902 0049750 cursor/moved 344 347
+05903 0049759 cursor/moved 341 348
+05904 0049767 cursor/moved 338 349
+05905 0049776 cursor/moved 335 350
+05906 0049785 cursor/moved 333 352
+05975 0050368 mouse/input pressed
+05979 0050402 cursor/moved 333 354
+05980 0050410 cursor/moved 332 360
+05981 0050417 cursor/moved 330 365
+05982 0050426 cursor/moved 327 372
+05983 0050433 cursor/moved 324 379
+05984 0050442 cursor/moved 321 386
+05985 0050450 cursor/moved 320 397
+05986 0050458 cursor/moved 317 408
+05987 0050467 cursor/moved 315 429
+05988 0050475 cursor/moved 313 446
+05989 0050483 cursor/moved 310 460
+05990 0050491 cursor/moved 306 476
+05991 0050499 cursor/moved 305 488
+05992 0050508 cursor/moved 303 499
+05993 0050516 cursor/moved 299 510
+05994 0050524 cursor/moved 298 520
+05995 0050533 cursor/moved 296 527
+05996 0050541 cursor/moved 296 531
+05997 0050550 cursor/moved 295 533
+05998 0050558 cursor/moved 295 536
+06008 0050639 mouse/input released
+06430 0054153 keyboard/input <shift> pressed
+06447 0054294 keyboard/input <shift> released
+06546 0055118 keyboard/input <shift> pressed
+06563 0055260 keyboard/input <shift> released
+06605 0055610 cursor/moved 302 534
+06606 0055618 cursor/moved 324 523
+06607 0055627 cursor/moved 352 511
+06608 0055635 cursor/moved 380 499
+06609 0055643 cursor/moved 414 483
+06610 0055652 cursor/moved 444 467
+06611 0055660 cursor/moved 478 447
+06612 0055669 cursor/moved 512 425
+06613 0055677 cursor/moved 550 405
+06614 0055686 cursor/moved 600 379
+06615 0055694 cursor/moved 638 361
+06616 0055703 cursor/moved 672 345
+06617 0055711 cursor/moved 696 335
+06618 0055720 cursor/moved 721 323
+06619 0055728 cursor/moved 736 313
+06620 0055737 cursor/moved 744 309
+06621 0055745 cursor/moved 747 307
+06622 0055753 cursor/moved 749 306
+06623 0055762 cursor/moved 749 305
+06636 0055868 cursor/moved 748 305
+06639 0055893 cursor/moved 748 306
+06640 0055902 cursor/moved 747 306
+06680 0056231 keyboard/input <shift> pressed
+06695 0056357 keyboard/input <shift> released
+06737 0056736 keyboard/input <shift> pressed
+06751 0056852 keyboard/input <shift> released
+06798 0057271 cursor/moved 751 305
+06799 0057280 cursor/moved 756 304
+06800 0057289 cursor/moved 761 303
+06801 0057297 cursor/moved 766 301
+06802 0057306 cursor/moved 770 300
+06803 0057315 cursor/moved 776 298
+06804 0057323 cursor/moved 782 297
+06805 0057332 cursor/moved 791 295
+06806 0057341 cursor/moved 811 290
+06807 0057349 cursor/moved 830 290
+06808 0057358 cursor/moved 851 290
+06809 0057366 cursor/moved 872 288
+06810 0057375 cursor/moved 895 286
+06811 0057383 cursor/moved 911 286
+06812 0057391 cursor/moved 930 285
+06813 0057400 cursor/moved 949 285
+06814 0057408 cursor/moved 966 285
+06815 0057417 cursor/moved 977 285
+06816 0057425 cursor/moved 984 283
+06817 0057434 cursor/moved 988 283
+06818 0057442 cursor/moved 990 283
+06819 0057450 cursor/moved 991 283
+06823 0057483 cursor/moved 992 283
+06856 0057758 keyboard/input <shift> pressed
+06872 0057892 keyboard/input <shift> released
+06983 0058822 cursor/moved 992 282
+06984 0058831 cursor/moved 992 279
+06985 0058839 cursor/moved 992 278
+06986 0058848 cursor/moved 992 276
+06987 0058856 cursor/moved 993 274
+06988 0058864 cursor/moved 993 272
+06989 0058872 cursor/moved 993 270
+06990 0058881 cursor/moved 994 267
+06991 0058889 cursor/moved 994 265
+06992 0058897 cursor/moved 994 263
+06993 0058906 cursor/moved 994 262
+06994 0058914 cursor/moved 994 261
+06995 0058922 cursor/moved 994 259
+06996 0058930 cursor/moved 995 258
+06999 0058955 cursor/moved 995 257
+07024 0059162 cursor/moved 996 257
+07025 0059170 cursor/moved 996 256
+07026 0059178 cursor/moved 997 255
+07027 0059187 cursor/moved 997 254
+07028 0059195 cursor/moved 998 252
+07029 0059204 cursor/moved 998 250
+07030 0059212 cursor/moved 999 249
+07031 0059221 cursor/moved 1000 248
+07032 0059229 cursor/moved 1000 247
+07034 0059246 cursor/moved 1001 246
+07035 0059254 cursor/moved 1001 245
+07036 0059263 cursor/moved 1001 244
+07037 0059271 cursor/moved 1002 243
+07041 0059304 cursor/moved 1003 243
+07042 0059313 mouse/input pressed
+07057 0059437 mouse/input released
+07119 0059957 cursor/moved 1002 243
+07120 0059965 cursor/moved 1001 243
+07121 0059974 cursor/moved 999 243
+07122 0059982 cursor/moved 996 243
+07123 0059991 cursor/moved 993 243
+07124 0060000 cursor/moved 990 245
+07125 0060008 cursor/moved 985 245
+07126 0060017 cursor/moved 980 246
+07127 0060025 cursor/moved 976 246
+07128 0060033 cursor/moved 971 247
+07129 0060042 cursor/moved 969 247
+07130 0060050 cursor/moved 966 248
+07131 0060059 cursor/moved 962 248
+07132 0060067 cursor/moved 958 249
+07133 0060076 cursor/moved 954 249
+07134 0060084 cursor/moved 946 251
+07135 0060093 cursor/moved 938 252
+07136 0060101 cursor/moved 927 252
+07137 0060110 cursor/moved 919 254
+07138 0060118 cursor/moved 902 256
+07139 0060127 cursor/moved 895 256
+07140 0060136 cursor/moved 887 257
+07141 0060144 cursor/moved 879 258
+07142 0060153 cursor/moved 872 258
+07143 0060161 cursor/moved 869 259
+07144 0060169 cursor/moved 864 260
+07145 0060178 cursor/moved 862 260
+07146 0060187 cursor/moved 861 261
+07157 0060280 cursor/moved 860 261
+07392 0062247 keyboard/input e pressed
+07392 0062247 char/received 'e'
+07405 0062355 keyboard/input e released
+07438 0062641 cursor/moved 857 261
+07439 0062650 cursor/moved 856 261
+07440 0062658 cursor/moved 855 261
+07441 0062666 cursor/moved 854 261
+07442 0062675 cursor/moved 853 261
+07443 0062683 cursor/moved 852 261
+07445 0062700 cursor/moved 851 261
+07449 0062734 cursor/moved 850 261
+07450 0062742 cursor/moved 849 261
+07457 0062800 cursor/moved 848 261
+07458 0062808 cursor/moved 847 261
+07461 0062834 cursor/moved 846 261
+07471 0062917 cursor/moved 845 261
+07473 0062933 cursor/moved 844 261
+07475 0062950 cursor/moved 843 261
+07488 0063058 cursor/moved 842 261
+07490 0063075 cursor/moved 841 261
+07492 0063091 cursor/moved 840 261
+07494 0063108 cursor/moved 839 261
+07495 0063117 cursor/moved 837 261
+07496 0063125 cursor/moved 836 260
+07497 0063134 cursor/moved 835 260
+07555 0063621 mouse/input pressed
+07569 0063742 mouse/input released
+07644 0064377 cursor/moved 835 262
+07645 0064386 cursor/moved 832 266
+07646 0064394 cursor/moved 831 269
+07647 0064402 cursor/moved 830 272
+07648 0064411 cursor/moved 829 276
+07649 0064419 cursor/moved 828 280
+07650 0064428 cursor/moved 827 286
+07651 0064436 cursor/moved 826 289
+07652 0064445 cursor/moved 826 292
+07653 0064453 cursor/moved 826 296
+07654 0064461 cursor/moved 826 298
+07655 0064470 cursor/moved 825 300
+07657 0064487 cursor/moved 825 301
+07739 0065180 mouse/input pressed
+07754 0065304 mouse/input released
+07825 0065909 cursor/moved 823 302
+07826 0065917 cursor/moved 814 305
+07827 0065926 cursor/moved 799 308
+07828 0065934 cursor/moved 782 312
+07829 0065943 cursor/moved 759 314
+07830 0065951 cursor/moved 719 318
+07831 0065960 cursor/moved 689 324
+07832 0065968 cursor/moved 657 328
+07833 0065977 cursor/moved 623 332
+07834 0065986 cursor/moved 581 336
+07835 0065994 cursor/moved 553 340
+07836 0066003 cursor/moved 523 342
+07837 0066011 cursor/moved 497 346
+07838 0066020 cursor/moved 472 350
+07839 0066028 cursor/moved 460 351
+07840 0066037 cursor/moved 454 353
+07841 0066045 cursor/moved 452 354
+07842 0066054 cursor/moved 451 354
+07843 0066061 cursor/moved 450 354
+07844 0066070 cursor/moved 449 355
+07907 0066599 mouse/input pressed
+07918 0066695 mouse/input released
