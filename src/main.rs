@@ -59,6 +59,7 @@ fn execute(
     let width = args.opt_value_from_str("--width")?;
     let height = args.opt_value_from_str("--height")?;
     let digest = args.contains("--digest");
+    let headless = args.contains("--headless");
     let source = args.opt_value_from_str::<_, PathBuf>("-u")?;
     let replay = args.opt_value_from_str::<_, PathBuf>("--replay")?;
     let record = args.opt_value_from_str::<_, PathBuf>("--record")?;
@@ -98,6 +99,7 @@ fn execute(
         exec,
         width: width.unwrap_or(default.width),
         height: height.unwrap_or(default.height),
+        headless,
         resizable,
         source,
     };

@@ -74,6 +74,7 @@ pub struct Options {
     pub width: u32,
     pub height: u32,
     pub resizable: bool,
+    pub headless: bool,
     pub source: Option<PathBuf>,
 }
 
@@ -83,6 +84,7 @@ impl Default for Options {
             exec: Execution::default(),
             width: 1280,
             height: 720,
+            headless: false,
             resizable: true,
             source: None,
         }
@@ -97,7 +99,10 @@ pub fn init<P: AsRef<Path>>(
 
     debug!("options: {:?}", options);
 
-    let hints = &[WindowHint::Resizable(options.resizable)];
+    let hints = &[
+        WindowHint::Resizable(options.resizable),
+        WindowHint::Visible(!options.headless),
+    ];
     let (win, events) =
         platform::init("rx", options.width, options.height, hints)?;
 

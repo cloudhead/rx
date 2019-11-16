@@ -30,3 +30,6 @@ version = "0.3.1"
 
 [dev-dependencies]
 lazy_static = "*"
+toml = "0.5"
+serde = "*"
+serde_derive = "*"

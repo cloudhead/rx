@@ -84,11 +84,15 @@ pub fn init(
         handle: winit::event_loop::EventLoop::new(),
     };
     let mut resizable = true;
+    let mut visible = true;
 
     for h in hints {
         match h {
             WindowHint::Resizable(r) => {
                 resizable = *r;
+            }
+            WindowHint::Visible(v) => {
+                visible = *v;
             }
         }
     }
@@ -97,6 +101,7 @@ pub fn init(
         .with_title(title)
         .with_inner_size(winit::dpi::LogicalSize::new(w as f64, h as f64))
         .with_resizable(resizable)
+        .with_visible(visible)
         .build(&events.handle)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 

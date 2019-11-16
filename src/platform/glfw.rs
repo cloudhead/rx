@@ -131,6 +131,7 @@ impl Into<glfw::WindowHint> for WindowHint {
     fn into(self) -> glfw::WindowHint {
         match self {
             Self::Resizable(b) => glfw::WindowHint::Resizable(b),
+            Self::Visible(b) => glfw::WindowHint::Visible(b),
         }
     }
 }

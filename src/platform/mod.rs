@@ -47,6 +47,7 @@ pub enum ControlFlow<T> {
 #[derive(Debug, Copy, Clone)]
 pub enum WindowHint {
     Resizable(bool),
+    Visible(bool),
 }
 
 /// Describes an event from a `Window`.
