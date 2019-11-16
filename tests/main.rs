@@ -64,6 +64,16 @@ fn views() {
     test("views");
 }
 
+#[test]
+fn yank_paste() {
+    test("yank-paste");
+}
+
+#[test]
+fn brush_basic() {
+    test("brush-basic");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {
@@ -73,6 +83,10 @@ fn test(name: &str) {
 }
 
 fn run(name: &str) -> io::Result<()> {
+    // We allow tests to create this temporary file,
+    // so make sure it's not there when a test is run.
+    fs::remove_file("/tmp/rx.png").ok();
+
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join(name);
