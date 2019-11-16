@@ -44,6 +44,11 @@ fn visual() {
     test("visual");
 }
 
+#[test]
+fn palette() {
+    test("palette");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {
