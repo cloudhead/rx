@@ -98,6 +98,15 @@ impl Brush {
         self.modes.remove(&m)
     }
 
+    /// Toggle the given brush mode.
+    pub fn toggle(&mut self, m: BrushMode) {
+        if self.is_set(m) {
+            self.unset(m);
+        } else {
+            self.set(m);
+        }
+    }
+
     /// Check whether the brush is currently drawing.
     pub fn is_drawing(&self) -> bool {
         match self.state {

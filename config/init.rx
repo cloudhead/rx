@@ -21,6 +21,7 @@ map         x             :swap                                     --  Swap for
 map/normal  b             :brush                                    --  Reset brush
 map/normal  e             :brush/set erase {:brush/unset erase}     --  Erase (hold)
 map/normal  <shift>       :brush/set multi {:brush/unset multi}     --  Multi-brush (hold)
+map/normal  =             :brush/toggle perfect                     --  Pixel-perfect brush
 map/normal  ]             :brush/size +                             --  Increase brush size
 map/normal  [             :brush/size -                             --  Decrease brush size
 map/normal  <ctrl>        :tool sampler {:tool/prev}                --  Sample color (hold)

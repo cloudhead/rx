@@ -2369,6 +2369,11 @@ impl Session {
                     b.unset(mode);
                 }
             }
+            Command::BrushToggle(mode) => {
+                if let Tool::Brush(ref mut b) = self.tool {
+                    b.toggle(mode);
+                }
+            }
             Command::Brush => {
                 self.unimplemented();
             }

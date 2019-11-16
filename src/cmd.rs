@@ -26,6 +26,7 @@ pub enum Op {
 pub enum Command {
     Brush,
     BrushSet(BrushMode),
+    BrushToggle(BrushMode),
     BrushSize(Op),
     BrushUnset(BrushMode),
     #[allow(dead_code)]
@@ -578,6 +579,10 @@ impl<'a> Parse<'a> for Command {
             "brush/unset" => {
                 let (mode, p) = p.parse::<BrushMode>()?;
                 Ok((Command::BrushUnset(mode), p))
+            }
+            "brush/toggle" => {
+                let (mode, p) = p.parse::<BrushMode>()?;
+                Ok((Command::BrushToggle(mode), p))
             }
             "mode" => {
                 let (mode, p) = p.parse::<Mode>()?;
