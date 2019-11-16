@@ -166,6 +166,7 @@ impl<'a> Parse<'a> for platform::InputState {
         match w {
             "pressed" => Ok((platform::InputState::Pressed, p)),
             "released" => Ok((platform::InputState::Released, p)),
+            "repeated" => Ok((platform::InputState::Repeated, p)),
             other => Err(Error::new(format!("unkown input state {:?}", other))),
         }
     }
