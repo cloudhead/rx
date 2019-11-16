@@ -520,6 +520,7 @@ impl Renderer {
         {
             r.update_pipeline(&self.brush2d, view_ortho, &mut f);
             r.update_pipeline(&self.const2d, view_ortho, &mut f);
+            r.update_pipeline(&self.paste2d, view_ortho, &mut f);
 
             {
                 // Always clear the active view staging buffer. We do this because
@@ -538,34 +539,28 @@ impl Renderer {
                         &mut p,
                     );
                 }
+                // Draw paste buffer to view staging buffer.
+                if let Some(buf) = paste_buf {
+                    p.set_pipeline(&self.paste2d);
+                    p.draw(&buf, &self.paste.binding);
+                }
             }
 
-            // Render brush strokes to view framebuffers.
-            if let Some(buf) = &final_buf {
+            {
                 let mut p = f.pass(PassOp::Load(), &view_data.fb);
-                self.render_brush_strokes(buf, &self.blending, &mut p);
-            }
-        }
 
-        // Draw paste buffer to view staging buffer.
-        if let Some(buf) = paste_buf {
-            r.update_pipeline(&self.paste2d, view_ortho, &mut f);
+                // Render brush strokes to view framebuffers.
+                if let Some(buf) = &final_buf {
+                    self.render_brush_strokes(buf, &self.blending, &mut p);
+                }
+                // Draw paste buffer to view framebuffer.
+                if !self.paste.outputs.is_empty() {
+                    p.set_pipeline(&self.paste2d);
 
-            let mut p =
-                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &view_data.staging_fb);
-
-            p.set_pipeline(&self.paste2d);
-            p.draw(&buf, &self.paste.binding);
-        }
-
-        // Draw paste buffer to view framebuffer.
-        if !self.paste.outputs.is_empty() {
-            let mut p = f.pass(PassOp::Load(), &view_data.fb);
-
-            p.set_pipeline(&self.paste2d);
-
-            for out in self.paste.outputs.drain(..) {
-                p.draw(&out, &self.paste.binding);
+                    for out in self.paste.outputs.drain(..) {
+                        p.draw(&out, &self.paste.binding);
+                    }
+                }
             }
         }
 
