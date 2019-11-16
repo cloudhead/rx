@@ -711,8 +711,6 @@ pub struct Session {
     /// The previous tool, if any.
     pub prev_tool: Option<Tool>,
 
-    /// Whether session inputs are being throttled.
-    throttled: Option<time::Instant>,
     /// Input state of the mouse.
     mouse_state: InputState,
 
@@ -763,8 +761,6 @@ impl Session {
         64.,
         Self::MAX_ZOOM,
     ];
-    /// Minimum time to wait between invocations of a throttled command.
-    const THROTTLE_TIME: time::Duration = time::Duration::from_millis(96);
 
     /// Name of rx initialization script.
     const INIT: &'static str = "init.rx";
@@ -801,7 +797,6 @@ impl Session {
             keys_pressed: HashSet::new(),
             ignore_received_characters: false,
             cmdline: CommandLine::new(),
-            throttled: None,
             mode: Mode::Normal,
             prev_mode: None,
             selection: None,
@@ -2329,15 +2324,6 @@ impl Session {
 
     /// Process a command.
     fn command(&mut self, cmd: Command) {
-        // Certain commands cause problems when run many times within
-        // a short time frame. This might be because the GPU hasn't had
-        // time to fully process the commands sent to it by the time we
-        // execute the next command. We throttle them here to have a
-        // minimum time between them.
-        if self.throttle(&cmd) {
-            return;
-        }
-
         debug!("command: {:?}", cmd);
 
         match cmd {
@@ -2861,33 +2847,6 @@ impl Session {
 
     fn prev_tool(&mut self) {
         self.tool = self.prev_tool.clone().unwrap_or(Tool::default());
-    }
-
-    fn throttle(&mut self, cmd: &Command) -> bool {
-        match cmd {
-            // FIXME: Throttling these commands arbitrarily is not ideal.
-            // We should be using a fence somewhere to ensure that we are
-            // in sync with the GPU. This could be done by using the frame
-            // read-back as a synchronization point. For now though, this
-            // does the job.
-            Command::AddFrame
-            | Command::RemoveFrame
-            | Command::ResizeFrame { .. } => {
-                if let Some(t) = self.throttled {
-                    let now = time::Instant::now();
-                    if now - t <= Self::THROTTLE_TIME {
-                        true
-                    } else {
-                        self.throttled = Some(now);
-                        false
-                    }
-                } else {
-                    self.throttled = Some(time::Instant::now());
-                    false
-                }
-            }
-            _ => false,
-        }
     }
 
     ///////////////////////////////////////////////////////////////////////////
