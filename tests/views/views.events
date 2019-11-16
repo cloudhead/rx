@@ -1,0 +1,595 @@
+00367 0002748 keyboard/input <shift> pressed
+00535 0004129 keyboard/input <shift> released
+00593 0004609 keyboard/input <shift> pressed
+00750 0005928 keyboard/input ; pressed
+00750 0005928 char/received ':'
+00764 0006045 keyboard/input ; released
+00768 0006078 keyboard/input <shift> released
+00802 0006363 keyboard/input e pressed
+00802 0006363 char/received 'e'
+00816 0006479 keyboard/input e released
+01297 0010583 keyboard/input <space> pressed
+01297 0010583 char/received ' '
+01311 0010703 keyboard/input <space> released
+02331 0019317 keyboard/input v pressed
+02331 0019317 char/received 'v'
+02344 0019428 keyboard/input i pressed
+02344 0019428 char/received 'i'
+02344 0019428 keyboard/input v released
+02358 0019553 keyboard/input i released
+02360 0019575 keyboard/input e pressed
+02360 0019575 char/received 'e'
+02371 0019671 keyboard/input w pressed
+02371 0019671 char/received 'w'
+02378 0019732 keyboard/input e released
+02385 0019790 keyboard/input w released
+02385 0019790 keyboard/input - pressed
+02385 0019790 char/received '-'
+02399 0019907 keyboard/input - released
+02401 0019923 keyboard/input x pressed
+02401 0019923 char/received 'x'
+02418 0020065 keyboard/input x released
+02616 0021723 keyboard/input <return> pressed
+02631 0021852 keyboard/input <return> released
+02742 0022937 keyboard/input <shift> pressed
+02746 0022975 keyboard/input ; pressed
+02746 0022975 char/received ':'
+02757 0023079 keyboard/input ; released
+02760 0023109 keyboard/input <shift> released
+02763 0023136 keyboard/input e pressed
+02763 0023136 char/received 'e'
+02773 0023231 keyboard/input <space> pressed
+02773 0023231 char/received ' '
+02776 0023255 keyboard/input e released
+02787 0023343 keyboard/input <space> released
+02792 0023384 keyboard/input v pressed
+02792 0023384 char/received 'v'
+02800 0023460 keyboard/input i pressed
+02800 0023460 char/received 'i'
+02803 0023487 keyboard/input v released
+02810 0023556 keyboard/input i released
+02814 0023594 keyboard/input e pressed
+02814 0023594 char/received 'e'
+02825 0023684 keyboard/input w pressed
+02825 0023684 char/received 'w'
+02832 0023741 keyboard/input e released
+02838 0023792 keyboard/input w released
+02843 0023834 keyboard/input - pressed
+02843 0023834 char/received '-'
+02855 0023947 keyboard/input - released
+02888 0024271 keyboard/input y pressed
+02888 0024271 char/received 'y'
+02903 0024414 keyboard/input y released
+02946 0024828 keyboard/input <return> pressed
+02960 0024945 keyboard/input <return> released
+03115 0026222 keyboard/input j pressed
+03115 0026222 char/received 'j'
+03133 0026370 keyboard/input j released
+03390 0028494 keyboard/input <shift> pressed
+03401 0028586 keyboard/input ; pressed
+03401 0028587 char/received ':'
+03412 0028678 keyboard/input ; released
+03415 0028703 keyboard/input <shift> released
+03423 0028770 keyboard/input v pressed
+03423 0028770 char/received 'v'
+03436 0028878 keyboard/input / pressed
+03436 0028878 char/received '/'
+03441 0028919 keyboard/input v released
+03445 0028952 keyboard/input / released
+03456 0029043 keyboard/input n pressed
+03456 0029043 char/received 'n'
+03467 0029134 keyboard/input n released
+03511 0029501 keyboard/input e pressed
+03511 0029501 char/received 'e'
+03524 0029609 keyboard/input e released
+03530 0029659 keyboard/input x pressed
+03530 0029659 char/received 'x'
+03545 0029784 keyboard/input x released
+03551 0029834 keyboard/input t pressed
+03551 0029834 char/received 't'
+03566 0029959 keyboard/input t released
+03594 0030192 keyboard/input <return> pressed
+03612 0030340 keyboard/input <return> released
+03667 0030798 keyboard/input <shift> pressed
+03673 0030848 keyboard/input ; pressed
+03673 0030848 char/received ':'
+03685 0030962 keyboard/input ; released
+03688 0030987 keyboard/input <shift> released
+03694 0031037 keyboard/input v pressed
+03694 0031037 char/received 'v'
+03705 0031129 keyboard/input / pressed
+03705 0031129 char/received '/'
+03711 0031179 keyboard/input v released
+03716 0031218 keyboard/input / released
+03751 0031518 keyboard/input p pressed
+03751 0031518 char/received 'p'
+03760 0031594 keyboard/input r pressed
+03760 0031594 char/received 'r'
+03766 0031644 keyboard/input p released
+03769 0031669 keyboard/input e pressed
+03769 0031669 char/received 'e'
+03776 0031728 keyboard/input r released
+03778 0031744 keyboard/input e released
+03789 0031835 keyboard/input v pressed
+03789 0031835 char/received 'v'
+03804 0031960 keyboard/input v released
+03815 0032052 keyboard/input <return> pressed
+03830 0032176 keyboard/input <return> released
+03973 0033360 keyboard/input <shift> pressed
+03987 0033475 keyboard/input ; pressed
+03987 0033475 char/received ':'
+03999 0033573 keyboard/input ; released
+04001 0033590 keyboard/input <shift> released
+04018 0033731 keyboard/input v pressed
+04018 0033731 char/received 'v'
+04036 0033880 keyboard/input / pressed
+04036 0033880 char/received '/'
+04036 0033880 keyboard/input v released
+04048 0033979 keyboard/input / released
+04060 0034080 keyboard/input p pressed
+04060 0034080 char/received 'p'
+04072 0034179 keyboard/input r pressed
+04072 0034179 char/received 'r'
+04076 0034213 keyboard/input p released
+04082 0034263 keyboard/input e pressed
+04082 0034263 char/received 'e'
+04090 0034329 keyboard/input r released
+04092 0034345 keyboard/input e released
+04108 0034495 keyboard/input v pressed
+04108 0034495 char/received 'v'
+04121 0034617 keyboard/input v released
+04138 0034779 keyboard/input <return> pressed
+04152 0034907 keyboard/input <return> released
+04335 0036457 keyboard/input <shift> pressed
+04343 0036523 keyboard/input ; pressed
+04343 0036523 char/received ':'
+04355 0036623 keyboard/input ; released
+04360 0036664 keyboard/input <shift> released
+04387 0036892 keyboard/input e pressed
+04387 0036892 char/received 'e'
+04399 0036992 keyboard/input e released
+04603 0038703 keyboard/input <space> pressed
+04603 0038703 char/received ' '
+04620 0038846 keyboard/input <space> released
+04807 0040425 keyboard/input v pressed
+04807 0040425 char/received 'v'
+04819 0040536 keyboard/input i pressed
+04819 0040536 char/received 'i'
+04819 0040536 keyboard/input v released
+04831 0040634 keyboard/input i released
+04836 0040674 keyboard/input e pressed
+04836 0040674 char/received 'e'
+04846 0040754 keyboard/input w pressed
+04846 0040754 char/received 'w'
+04854 0040819 keyboard/input e released
+04857 0040844 keyboard/input w released
+04859 0040861 keyboard/input - pressed
+04859 0040861 char/received '-'
+04872 0040979 keyboard/input - released
+04876 0041015 keyboard/input z pressed
+04876 0041015 char/received 'z'
+04892 0041150 keyboard/input z released
+04983 0041888 keyboard/input <return> pressed
+04996 0042014 keyboard/input <return> released
+06078 0050712 keyboard/input <shift> pressed
+06083 0050753 keyboard/input ; pressed
+06083 0050753 char/received ':'
+06097 0050869 keyboard/input ; released
+06101 0050902 keyboard/input <shift> released
+06135 0051184 keyboard/input v pressed
+06135 0051184 char/received 'v'
+06148 0051292 keyboard/input / pressed
+06148 0051292 char/received '/'
+06149 0051300 keyboard/input v released
+06159 0051382 keyboard/input / released
+06185 0051598 keyboard/input n pressed
+06185 0051598 char/received 'n'
+06197 0051696 keyboard/input e pressed
+06197 0051696 char/received 'e'
+06199 0051712 keyboard/input n released
+06209 0051794 keyboard/input e released
+06220 0051884 keyboard/input x pressed
+06220 0051884 char/received 'x'
+06234 0051999 keyboard/input t pressed
+06234 0051999 char/received 't'
+06241 0052056 keyboard/input x released
+06249 0052122 keyboard/input t released
+06299 0052538 keyboard/input <backspace> pressed
+06311 0052637 keyboard/input <backspace> released
+06319 0052703 keyboard/input <backspace> pressed
+06330 0052792 keyboard/input <backspace> released
+06337 0052850 keyboard/input <backspace> pressed
+06348 0052940 keyboard/input <backspace> released
+06356 0053006 keyboard/input <backspace> pressed
+06366 0053089 keyboard/input <backspace> released
+06385 0053245 keyboard/input p pressed
+06385 0053245 char/received 'p'
+06391 0053293 keyboard/input r pressed
+06391 0053293 char/received 'r'
+06398 0053350 keyboard/input p released
+06400 0053367 keyboard/input e pressed
+06400 0053367 char/received 'e'
+06408 0053433 keyboard/input r released
+06411 0053457 keyboard/input e released
+06424 0053561 keyboard/input v pressed
+06424 0053561 char/received 'v'
+06438 0053671 keyboard/input v released
+06442 0053704 keyboard/input <return> pressed
+06458 0053835 keyboard/input <return> released
+06588 0054911 keyboard/input <shift> pressed
+06596 0054978 keyboard/input ; pressed
+06596 0054978 char/received ':'
+06608 0055076 keyboard/input ; released
+06612 0055109 keyboard/input <shift> released
+06620 0055175 keyboard/input q pressed
+06620 0055175 char/received 'q'
+06633 0055281 keyboard/input q released
+06917 0057619 keyboard/input <esc> pressed
+06929 0057718 keyboard/input <esc> released
+06965 0058013 keyboard/input . pressed
+06965 0058013 char/received '.'
+06983 0058162 keyboard/input . released
+07013 0058408 keyboard/input <shift> pressed
+07020 0058465 keyboard/input ; pressed
+07020 0058465 char/received ':'
+07032 0058564 keyboard/input ; released
+07036 0058596 keyboard/input <shift> released
+07140 0059452 keyboard/input v pressed
+07140 0059452 char/received 'v'
+07154 0059567 keyboard/input v released
+07256 0060407 keyboard/input / pressed
+07256 0060407 char/received '/'
+07270 0060522 keyboard/input / released
+07271 0060530 keyboard/input z pressed
+07271 0060530 char/received 'z'
+07283 0060629 keyboard/input o pressed
+07283 0060629 char/received 'o'
+07288 0060671 keyboard/input z released
+07294 0060719 keyboard/input o released
+07300 0060768 keyboard/input o pressed
+07300 0060768 char/received 'o'
+07312 0060864 keyboard/input o released
+07322 0060943 keyboard/input m pressed
+07322 0060943 char/received 'm'
+07336 0061054 keyboard/input m released
+07437 0061873 keyboard/input <space> pressed
+07437 0061873 char/received ' '
+07445 0061937 keyboard/input <shift> pressed
+07449 0061969 keyboard/input <space> released
+07452 0061993 keyboard/input - pressed
+07452 0061993 char/received '_'
+07468 0062122 keyboard/input - released
+07472 0062153 keyboard/input <shift> released
+07491 0062303 keyboard/input <return> pressed
+07505 0062431 keyboard/input <return> released
+07594 0063185 keyboard/input <shift> pressed
+07597 0063209 keyboard/input ; pressed
+07597 0063209 char/received ':'
+07610 0063330 keyboard/input ; released
+07611 0063342 keyboard/input <shift> released
+07618 0063397 keyboard/input v pressed
+07618 0063397 char/received 'v'
+07629 0063489 keyboard/input / pressed
+07629 0063489 char/received '/'
+07634 0063530 keyboard/input v released
+07641 0063586 keyboard/input / released
+07655 0063698 keyboard/input z pressed
+07655 0063698 char/received 'z'
+07666 0063787 keyboard/input o pressed
+07666 0063787 char/received 'o'
+07672 0063833 keyboard/input z released
+07677 0063873 keyboard/input o released
+07683 0063921 keyboard/input o pressed
+07683 0063921 char/received 'o'
+07697 0064033 keyboard/input o released
+07702 0064073 keyboard/input m pressed
+07702 0064073 char/received 'm'
+07716 0064184 keyboard/input m released
+07717 0064192 keyboard/input <space> pressed
+07717 0064192 char/received ' '
+07724 0064257 keyboard/input <shift> pressed
+07728 0064290 keyboard/input <space> released
+07731 0064314 keyboard/input = pressed
+07731 0064314 char/received '+'
+07745 0064427 keyboard/input = released
+07752 0064484 keyboard/input <shift> released
+07770 0064628 keyboard/input <return> pressed
+07783 0064746 keyboard/input <return> released
+07941 0066131 keyboard/input <shift> pressed
+07947 0066181 keyboard/input ; pressed
+07947 0066181 char/received ':'
+07959 0066283 keyboard/input ; released
+07966 0066346 keyboard/input <shift> released
+07971 0066392 keyboard/input z pressed
+07971 0066392 char/received 'z'
+07981 0066481 keyboard/input o pressed
+07981 0066481 char/received 'o'
+07985 0066519 keyboard/input z released
+07989 0066554 keyboard/input o released
+07994 0066600 keyboard/input o pressed
+07994 0066600 char/received 'o'
+08004 0066693 keyboard/input o released
+08009 0066737 keyboard/input m pressed
+08009 0066737 char/received 'm'
+08024 0066859 keyboard/input m released
+08043 0067014 keyboard/input <space> pressed
+08043 0067014 char/received ' '
+08051 0067080 keyboard/input <shift> pressed
+08058 0067138 keyboard/input <space> released
+08059 0067146 keyboard/input = pressed
+08059 0067146 char/received '+'
+08074 0067269 keyboard/input = released
+08077 0067294 keyboard/input <shift> released
+08101 0067498 keyboard/input <return> pressed
+08115 0067616 keyboard/input <return> released
+08242 0068661 keyboard/input j pressed
+08242 0068661 char/received 'j'
+08257 0068784 keyboard/input j released
+08290 0069053 keyboard/input <shift> pressed
+08295 0069094 keyboard/input ; pressed
+08295 0069094 char/received ':'
+08307 0069192 keyboard/input ; released
+08311 0069225 keyboard/input <shift> released
+08323 0069324 keyboard/input v pressed
+08323 0069324 char/received 'v'
+08340 0069463 keyboard/input v released
+08356 0069594 keyboard/input / pressed
+08356 0069594 char/received '/'
+08365 0069668 keyboard/input / released
+08378 0069775 keyboard/input n pressed
+08378 0069775 char/received 'n'
+08386 0069841 keyboard/input e pressed
+08386 0069841 char/received 'e'
+08389 0069867 keyboard/input n released
+08399 0069949 keyboard/input e released
+08410 0070040 keyboard/input x pressed
+08410 0070040 char/received 'x'
+08426 0070174 keyboard/input t pressed
+08426 0070174 char/received 't'
+08427 0070182 keyboard/input x released
+08441 0070299 keyboard/input t released
+08603 0071668 keyboard/input <backspace> pressed
+08613 0071751 keyboard/input <backspace> released
+08621 0071818 keyboard/input <backspace> pressed
+08632 0071909 keyboard/input <backspace> released
+08639 0071967 keyboard/input <backspace> pressed
+08650 0072053 keyboard/input <backspace> released
+08657 0072107 keyboard/input <backspace> pressed
+08667 0072188 keyboard/input <backspace> released
+08673 0072239 keyboard/input p pressed
+08673 0072239 char/received 'p'
+08683 0072323 keyboard/input r pressed
+08683 0072323 char/received 'r'
+08686 0072348 keyboard/input p released
+08688 0072366 keyboard/input e pressed
+08688 0072366 char/received 'e'
+08696 0072434 keyboard/input r released
+08701 0072476 keyboard/input e released
+08716 0072592 keyboard/input v pressed
+08716 0072592 char/received 'v'
+08728 0072687 keyboard/input <return> pressed
+08729 0072695 keyboard/input v released
+08742 0072805 keyboard/input <return> released
+08892 0074045 keyboard/input <shift> pressed
+08901 0074119 keyboard/input ; pressed
+08901 0074119 char/received ':'
+08914 0074227 keyboard/input ; released
+08920 0074276 keyboard/input <shift> released
+08971 0074696 keyboard/input z pressed
+08971 0074696 char/received 'z'
+08981 0074779 keyboard/input o pressed
+08981 0074779 char/received 'o'
+08985 0074811 keyboard/input z released
+08990 0074852 keyboard/input o released
+08998 0074917 keyboard/input o pressed
+08998 0074917 char/received 'o'
+09008 0074998 keyboard/input o released
+09016 0075065 keyboard/input m pressed
+09016 0075065 char/received 'm'
+09028 0075165 keyboard/input m released
+09040 0075265 keyboard/input <space> pressed
+09040 0075265 char/received ' '
+09053 0075373 keyboard/input <shift> pressed
+09054 0075382 keyboard/input <space> released
+09061 0075441 keyboard/input = pressed
+09061 0075441 char/received '+'
+09073 0075539 keyboard/input = released
+09077 0075571 keyboard/input <shift> released
+09105 0075795 keyboard/input <return> pressed
+09120 0075925 keyboard/input <return> released
+09145 0076160 keyboard/input <shift> pressed
+09149 0076203 keyboard/input ; pressed
+09149 0076203 char/received ':'
+09160 0076312 keyboard/input ; released
+09165 0076356 keyboard/input <shift> released
+09173 0076426 keyboard/input z pressed
+09173 0076426 char/received 'z'
+09183 0076513 keyboard/input o pressed
+09183 0076513 char/received 'o'
+09186 0076543 keyboard/input z released
+09190 0076591 keyboard/input o released
+09198 0076666 keyboard/input o pressed
+09198 0076666 char/received 'o'
+09208 0076758 keyboard/input o released
+09217 0076841 keyboard/input m pressed
+09217 0076841 char/received 'm'
+09226 0076934 keyboard/input m released
+09227 0076942 keyboard/input <space> pressed
+09227 0076942 char/received ' '
+09238 0077034 keyboard/input <shift> pressed
+09240 0077051 keyboard/input <space> released
+09246 0077101 keyboard/input = pressed
+09246 0077101 char/received '+'
+09262 0077234 keyboard/input = released
+09268 0077284 keyboard/input <shift> released
+09302 0077567 keyboard/input <return> pressed
+09321 0077723 keyboard/input <return> released
+09578 0079851 keyboard/input <shift> pressed
+09583 0079894 keyboard/input ; pressed
+09583 0079894 char/received ':'
+09595 0079994 keyboard/input ; released
+09601 0080040 keyboard/input <shift> released
+09612 0080126 keyboard/input v pressed
+09612 0080126 char/received 'v'
+09629 0080255 keyboard/input v released
+09630 0080263 keyboard/input / pressed
+09630 0080263 char/received '/'
+09641 0080349 keyboard/input / released
+09709 0080903 keyboard/input n pressed
+09709 0080903 char/received 'n'
+09720 0080997 keyboard/input e pressed
+09720 0080997 char/received 'e'
+09720 0080997 keyboard/input n released
+09729 0081073 keyboard/input e released
+09745 0081211 keyboard/input x pressed
+09745 0081211 char/received 'x'
+09758 0081323 keyboard/input t pressed
+09758 0081323 char/received 't'
+09763 0081366 keyboard/input x released
+09772 0081443 keyboard/input t released
+09788 0081589 keyboard/input <return> pressed
+09805 0081729 keyboard/input <return> released
+09884 0082368 keyboard/input <shift> pressed
+09890 0082420 keyboard/input ; pressed
+09890 0082420 char/received ':'
+09900 0082517 keyboard/input ; released
+09902 0082536 keyboard/input <shift> released
+09906 0082575 keyboard/input q pressed
+09906 0082575 char/received 'q'
+09916 0082677 keyboard/input q released
+09938 0082896 keyboard/input <return> pressed
+09951 0083018 keyboard/input <return> released
+10164 0084821 keyboard/input <shift> pressed
+10170 0084872 keyboard/input ; pressed
+10170 0084872 char/received ':'
+10182 0084973 keyboard/input ; released
+10183 0084981 keyboard/input <shift> released
+10186 0085006 keyboard/input q pressed
+10186 0085006 char/received 'q'
+10199 0085109 keyboard/input q released
+10200 0085117 keyboard/input <shift> pressed
+10217 0085248 keyboard/input 1 pressed
+10217 0085248 char/received '!'
+10230 0085349 keyboard/input <shift> released
+10232 0085364 keyboard/input 1 released
+10269 0085654 keyboard/input <return> pressed
+10286 0085799 keyboard/input <return> released
+11256 0093943 keyboard/input <shift> pressed
+11265 0094018 keyboard/input ; pressed
+11265 0094018 char/received ':'
+11278 0094126 keyboard/input ; released
+11284 0094177 keyboard/input <shift> released
+11337 0094622 keyboard/input e pressed
+11337 0094622 char/received 'e'
+11354 0094764 keyboard/input e released
+11455 0095603 keyboard/input <space> pressed
+11455 0095603 char/received ' '
+11473 0095754 keyboard/input <space> released
+11485 0095854 keyboard/input a pressed
+11485 0095854 char/received 'a'
+11500 0095978 keyboard/input s pressed
+11500 0095978 char/received 's'
+11500 0095978 keyboard/input a released
+11512 0096077 keyboard/input s released
+11519 0096136 keyboard/input s pressed
+11519 0096136 char/received 's'
+11530 0096227 keyboard/input s released
+11542 0096326 keyboard/input e pressed
+11542 0096326 char/received 'e'
+11552 0096409 keyboard/input t pressed
+11552 0096409 char/received 't'
+11561 0096483 keyboard/input e released
+11565 0096517 keyboard/input t released
+11575 0096601 keyboard/input s pressed
+11575 0096601 char/received 's'
+11591 0096735 keyboard/input s released
+11721 0097814 keyboard/input <return> pressed
+11734 0097952 keyboard/input <return> released
+12175 0101574 keyboard/input <shift> pressed
+12306 0102659 keyboard/input ; pressed
+12306 0102659 char/received ':'
+12314 0102725 keyboard/input ; released
+12320 0102775 keyboard/input <shift> released
+12340 0102942 keyboard/input q pressed
+12340 0102942 char/received 'q'
+12353 0103049 keyboard/input q released
+12464 0103965 keyboard/input <return> pressed
+12480 0104092 keyboard/input <return> released
+12842 0106986 keyboard/input <shift> pressed
+12850 0107105 keyboard/input ; pressed
+12850 0107105 char/received ':'
+12857 0107199 keyboard/input ; released
+12859 0107224 keyboard/input <shift> released
+12867 0107318 keyboard/input q pressed
+12867 0107318 char/received 'q'
+12877 0107437 keyboard/input q released
+12892 0107581 keyboard/input <return> pressed
+12905 0107714 keyboard/input <return> released
+12996 0108484 keyboard/input <shift> pressed
+13002 0108531 keyboard/input ; pressed
+13002 0108531 char/received ':'
+13013 0108615 keyboard/input <shift> released
+13013 0108615 keyboard/input ; released
+13019 0108661 keyboard/input q pressed
+13019 0108661 char/received 'q'
+13031 0108754 keyboard/input q released
+13031 0108754 keyboard/input <shift> pressed
+13048 0108898 keyboard/input 1 pressed
+13048 0108898 char/received '!'
+13059 0108988 keyboard/input <shift> released
+13065 0109037 keyboard/input 1 released
+13096 0109290 keyboard/input <return> pressed
+13111 0109415 keyboard/input <return> released
+13217 0110299 keyboard/input <shift> pressed
+13223 0110349 keyboard/input ; pressed
+13223 0110349 char/received ':'
+13235 0110449 keyboard/input ; released
+13238 0110474 keyboard/input <shift> released
+13244 0110523 keyboard/input q pressed
+13244 0110523 char/received 'q'
+13257 0110631 keyboard/input q released
+13267 0110713 keyboard/input a pressed
+13267 0110713 char/received 'a'
+13279 0110812 keyboard/input <shift> pressed
+13282 0110837 keyboard/input a released
+13300 0110986 keyboard/input 1 pressed
+13300 0110986 char/received '!'
+13318 0111135 keyboard/input 1 released
+13332 0111251 keyboard/input <shift> released
+13674 0114156 keyboard/input <esc> pressed
+13687 0114274 keyboard/input <esc> released
+13778 0115022 keyboard/input <shift> pressed
+13788 0115103 keyboard/input ; pressed
+13788 0115103 char/received ':'
+13800 0115207 keyboard/input ; released
+13804 0115240 keyboard/input <shift> released
+13818 0115358 keyboard/input v pressed
+13818 0115358 char/received 'v'
+13836 0115506 keyboard/input v released
+13839 0115531 keyboard/input / pressed
+13839 0115531 char/received '/'
+13847 0115608 keyboard/input / released
+13858 0115698 keyboard/input p pressed
+13858 0115698 char/received 'p'
+13866 0115764 keyboard/input r pressed
+13866 0115764 char/received 'r'
+13872 0115814 keyboard/input p released
+13876 0115846 keyboard/input e pressed
+13876 0115846 char/received 'e'
+13884 0115912 keyboard/input r released
+13887 0115936 keyboard/input e released
+13901 0116056 keyboard/input v pressed
+13901 0116056 char/received 'v'
+13916 0116178 keyboard/input v released
+13972 0116642 keyboard/input <return> pressed
+13989 0116782 keyboard/input <return> released
+14043 0117226 keyboard/input <shift> pressed
+14052 0117300 keyboard/input ; pressed
+14052 0117300 char/received ':'
+14064 0117398 keyboard/input ; released
+14066 0117414 keyboard/input <shift> released
+14075 0117487 keyboard/input q pressed
+14075 0117487 char/received 'q'
+14087 0117586 keyboard/input q released
+14091 0117619 keyboard/input <return> pressed
+14105 0117740 keyboard/input <return> released
