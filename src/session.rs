@@ -1916,6 +1916,7 @@ impl Session {
                 }
                 _ => {}
             },
+            InputState::Repeated => {}
         }
     }
 
@@ -2038,6 +2039,10 @@ impl Session {
             key,
             ..
         } = input;
+
+        if state == InputState::Repeated && self.mode != Mode::Command {
+            return;
+        }
 
         let mut repeat = false;
 

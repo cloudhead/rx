@@ -73,6 +73,9 @@ impl From<Event> for String {
             Event::MouseInput(_, platform::InputState::Released) => {
                 format!("mouse/input released")
             }
+            Event::MouseInput(_, platform::InputState::Repeated) => {
+                unreachable!()
+            }
             Event::MouseWheel(delta) => {
                 format!("mouse/wheel {} {}", delta.x, delta.y)
             }
@@ -87,6 +90,7 @@ impl From<Event> for String {
                 let state = match state {
                     platform::InputState::Pressed => "pressed",
                     platform::InputState::Released => "released",
+                    platform::InputState::Repeated => "repeated",
                 };
                 format!("keyboard/input {} {}", key.unwrap(), state)
             }

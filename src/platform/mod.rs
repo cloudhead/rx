@@ -151,6 +151,7 @@ pub struct KeyboardInput {
 pub enum InputState {
     Pressed,
     Released,
+    Repeated,
 }
 
 /// Describes a mouse button.

@@ -156,7 +156,7 @@ impl From<glfw::Action> for InputState {
         match state {
             glfw::Action::Press => InputState::Pressed,
             glfw::Action::Release => InputState::Released,
-            glfw::Action::Repeat => InputState::Pressed,
+            glfw::Action::Repeat => InputState::Repeated,
         }
     }
 }
