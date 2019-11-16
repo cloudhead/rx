@@ -79,6 +79,16 @@ fn brush_advanced() {
     test("brush-advanced");
 }
 
+#[test]
+fn frames() {
+    test("frames");
+}
+
+#[test]
+fn ui() {
+    test("ui");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {

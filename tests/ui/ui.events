@@ -1,0 +1,134 @@
+02131 0008897 keyboard/input . pressed
+02131 0008897 char/received '.'
+02156 0009058 keyboard/input . released
+02186 0009269 keyboard/input <shift> pressed
+02192 0009314 keyboard/input ; pressed
+02192 0009314 char/received ':'
+02206 0009420 keyboard/input ; released
+02209 0009443 keyboard/input <shift> released
+02257 0009861 keyboard/input z pressed
+02257 0009861 char/received 'z'
+02266 0009941 keyboard/input o pressed
+02266 0009941 char/received 'o'
+02272 0009997 keyboard/input z released
+02275 0010015 keyboard/input o released
+02286 0010082 keyboard/input o pressed
+02286 0010082 char/received 'o'
+02300 0010168 keyboard/input o released
+02308 0010218 keyboard/input m pressed
+02308 0010218 char/received 'm'
+02328 0010343 keyboard/input <space> pressed
+02328 0010343 char/received ' '
+02329 0010349 keyboard/input m released
+02342 0010430 keyboard/input <shift> pressed
+02344 0010443 keyboard/input <space> released
+02356 0010518 keyboard/input = pressed
+02356 0010518 char/received '+'
+02376 0010643 keyboard/input = released
+02380 0010668 keyboard/input <shift> released
+02427 0010962 keyboard/input <return> pressed
+02445 0011078 keyboard/input <return> released
+02957 0014404 keyboard/input <shift> pressed
+03123 0015695 keyboard/input ; pressed
+03123 0015696 char/received ':'
+03138 0015787 keyboard/input ; released
+03145 0015829 keyboard/input <shift> released
+03251 0016466 keyboard/input s pressed
+03251 0016466 char/received 's'
+03268 0016569 keyboard/input s released
+03291 0016704 keyboard/input e pressed
+03291 0016704 char/received 'e'
+03306 0016792 keyboard/input t pressed
+03306 0016792 char/received 't'
+03314 0016839 keyboard/input e released
+03322 0016887 keyboard/input <space> pressed
+03322 0016887 char/received ' '
+03330 0016936 keyboard/input t released
+03342 0017029 keyboard/input <space> released
+03351 0017096 keyboard/input s pressed
+03351 0017096 char/received 's'
+03364 0017221 keyboard/input s released
+03372 0017292 keyboard/input c pressed
+03372 0017292 char/received 'c'
+03382 0017380 keyboard/input a pressed
+03382 0017380 char/received 'a'
+03387 0017420 keyboard/input c released
+03392 0017452 keyboard/input l pressed
+03392 0017452 char/received 'l'
+03399 0017499 keyboard/input a released
+03407 0017550 keyboard/input l released
+03417 0017612 keyboard/input e pressed
+03417 0017612 char/received 'e'
+03434 0017722 keyboard/input e released
+03441 0017768 keyboard/input <space> pressed
+03441 0017768 char/received ' '
+03456 0017866 keyboard/input <space> released
+03463 0017912 keyboard/input = pressed
+03463 0017912 char/received '='
+03475 0017989 keyboard/input <space> pressed
+03475 0017989 char/received ' '
+03483 0018055 keyboard/input = released
+03492 0018111 keyboard/input <space> released
+03509 0018216 keyboard/input 2 pressed
+03509 0018216 char/received '2'
+03524 0018310 keyboard/input . pressed
+03524 0018310 char/received '.'
+03526 0018322 keyboard/input 2 released
+03539 0018403 keyboard/input . released
+03561 0018535 keyboard/input 0 pressed
+03561 0018535 char/received '0'
+03579 0018649 keyboard/input 0 released
+03624 0018932 keyboard/input <return> pressed
+03653 0019073 keyboard/input <return> released
+04440 0022324 keyboard/input <shift> pressed
+04453 0022372 keyboard/input ; pressed
+04453 0022372 char/received ':'
+04480 0022472 keyboard/input ; released
+04491 0022514 keyboard/input <shift> released
+04496 0022532 keyboard/input s pressed
+04496 0022532 char/received 's'
+04520 0022622 keyboard/input s released
+04551 0022741 keyboard/input e pressed
+04551 0022741 char/received 'e'
+04581 0022850 keyboard/input t pressed
+04581 0022850 char/received 't'
+04598 0022913 keyboard/input e released
+04598 0022913 keyboard/input <space> pressed
+04598 0022913 char/received ' '
+04606 0022944 keyboard/input t released
+04628 0023053 keyboard/input <space> released
+04659 0023214 keyboard/input s pressed
+04659 0023214 char/received 's'
+04682 0023333 keyboard/input s released
+04695 0023399 keyboard/input c pressed
+04695 0023399 char/received 'c'
+04713 0023471 keyboard/input a pressed
+04713 0023471 char/received 'a'
+04729 0023533 keyboard/input l pressed
+04729 0023533 char/received 'l'
+04734 0023555 keyboard/input c released
+04742 0023591 keyboard/input a released
+04750 0023630 keyboard/input l released
+04759 0023673 keyboard/input e pressed
+04759 0023673 char/received 'e'
+04777 0023767 keyboard/input <space> pressed
+04777 0023767 char/received ' '
+04779 0023780 keyboard/input e released
+04792 0023858 keyboard/input <space> released
+04793 0023865 keyboard/input = pressed
+04793 0023865 char/received '='
+04807 0023942 keyboard/input <space> pressed
+04807 0023942 char/received ' '
+04820 0024002 keyboard/input = released
+04827 0024035 keyboard/input <space> released
+04832 0024062 keyboard/input 1 pressed
+04832 0024062 char/received '1'
+04855 0024163 keyboard/input . pressed
+04855 0024163 char/received '.'
+04861 0024187 keyboard/input 1 released
+04872 0024232 keyboard/input . released
+04906 0024364 keyboard/input 0 pressed
+04906 0024364 char/received '0'
+04937 0024481 keyboard/input 0 released
+04998 0024709 keyboard/input <return> pressed
+05029 0024823 keyboard/input <return> released

@@ -1,0 +1,10 @@
+set ui/message = off
+set ui/status = on
+set ui/view-info = on
+set ui/switcher = on
+set ui/cursor = off
+set ui/palette = off
+
+set input/mouse = off
+
+map ; :mode command
