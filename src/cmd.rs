@@ -52,9 +52,9 @@ pub enum Command {
     ResizeFrame(u32, u32),
     SelectionMove(i32, i32),
     SelectionResize(i32, i32),
+    SelectionOffset(i32, i32),
     SelectionExpand,
     SelectionPaste,
-    SelectionShrink,
     SelectionYank,
     SelectionDelete,
     SelectionFill(Option<Rgba8>),
@@ -146,7 +146,6 @@ impl fmt::Display for Command {
             Self::SelectionDelete => write!(f, "Delete/cut selection"),
             Self::SelectionPaste => write!(f, "Paste selection"),
             Self::SelectionExpand => write!(f, "Expand selection"),
-            Self::SelectionShrink => write!(f, "Shrink selection"),
             Self::SelectionMove(x, 0) if *x > 0 => {
                 write!(f, "Move selection right")
             }
@@ -675,7 +674,10 @@ impl<'a> Parse<'a> for Command {
             "selection/delete" => Ok((Command::SelectionDelete, p)),
             "selection/paste" => Ok((Command::SelectionPaste, p)),
             "selection/expand" => Ok((Command::SelectionExpand, p)),
-            "selection/shrink" => Ok((Command::SelectionShrink, p)),
+            "selection/offset" => {
+                let ((x, y), p) = p.parse::<(i32, i32)>()?;
+                Ok((Command::SelectionOffset(x, y), p))
+            }
             "selection/jump" => {
                 let (dir, p) = p.parse::<Direction>()?;
                 Ok((Command::SelectionJump(dir), p))

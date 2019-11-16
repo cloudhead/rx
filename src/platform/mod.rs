@@ -215,6 +215,7 @@ impl From<char> for Key {
             '`' => Key::Grave, ',' => Key::Comma, '.' => Key::Period,
             '=' => Key::Equal, '-' => Key::Minus, '\'' => Key::Apostrophe,
             ';' => Key::Semicolon, ':' => Key::Colon, ' ' => Key::Space,
+            '\\' => Key::Backslash,
             _ => Key::Unknown,
         }
     }

@@ -2739,12 +2739,16 @@ impl Session {
                     self.selection = Some(Selection::new(0, 0, fw, fh));
                 }
             }
-            Command::SelectionShrink => {
+            Command::SelectionOffset(mut x, mut y) => {
                 if let Some(s) = &mut self.selection {
-                    let r = s.bounds();
-                    if r.width() > 2 && r.height() > 2 {
-                        *s = Selection::from(r.expand(-1, -1, -1, -1));
+                    let r = s.abs().bounds();
+                    if r.width() <= 2 && x < 0 {
+                        x = 0;
                     }
+                    if r.height() <= 2 && y < 0 {
+                        y = 0;
+                    }
+                    *s = Selection::from(s.bounds().expand(x, y, x, y));
                 }
             }
             Command::SelectionJump(dir) => {

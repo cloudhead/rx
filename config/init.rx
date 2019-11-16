@@ -32,12 +32,13 @@ map         <right>       :pan  1  0                                --  Pan view
 map         <return>      :f/add                                    --  Add a frame to the view
 map         <backspace>   :f/remove                                 --  Remove a frame from the view
 
-map/visual  j             :selection/move  0 -1
-map/visual  k             :selection/move  0  1
-map/visual  h             :selection/move -1  0
-map/visual  l             :selection/move  1  0
-map/visual  ]             :selection/expand
-map/visual  [             :selection/shrink
+map/visual  j             :selection/move    0 -1
+map/visual  k             :selection/move    0  1
+map/visual  h             :selection/move   -1  0
+map/visual  l             :selection/move    1  0
+map/visual  ]             :selection/offset  1  1
+map/visual  [             :selection/offset -1 -1
+map/visual  \             :selection/expand
 map/visual  <space>       :selection/fill
 map/visual  y             :selection/yank
 map/visual  d             :selection/delete
