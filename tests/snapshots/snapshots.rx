@@ -1,0 +1,29 @@
+set ui/message = off
+set ui/status = off
+set ui/view-info = off
+set ui/switcher = off
+set ui/cursor = off
+set ui/palette = off
+
+set input/mouse = off
+
+map         ;           :mode command
+map         v           :mode visual
+map         .           :zoom +
+map         ,           :zoom -
+map         z           :v/center
+map         u           :undo
+map         r           :redo
+map         x           :swap
+map         <return>    :f/add
+map         <backspace> :f/remove
+map/visual  j           :selection/move    0 -1
+map/visual  k           :selection/move    0  1
+map/visual  h           :selection/move   -1  0
+map/visual  l           :selection/move    1  0
+map/visual  ]           :selection/offset  1  1
+map/visual  [           :selection/offset -1 -1
+map/visual  \           :selection/expand
+map/visual  w           :selection/jump +
+map/visual  b           :selection/jump -
+map/visual  <space>     :selection/fill

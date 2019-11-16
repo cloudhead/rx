@@ -49,6 +49,16 @@ fn palette() {
     test("palette");
 }
 
+#[test]
+fn snapshots() {
+    test("snapshots");
+}
+
+#[test]
+fn saving() {
+    test("saving");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {
