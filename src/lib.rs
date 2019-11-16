@@ -110,6 +110,9 @@ pub fn init<P: AsRef<Path>>(
     let win_size = win.size()?;
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
+    info!("framebuffer size: {}x{}", win_size.width, win_size.height);
+    info!("hidpi factor: {}", hidpi_factor);
+
     let resources = ResourceManager::new();
     let base_dirs =
         dirs::ProjectDirs::from("org", "void", "rx").ok_or_else(|| {
