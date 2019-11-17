@@ -197,7 +197,9 @@ pub fn init<P: AsRef<Path>>(
                     // because it is often called many times before we
                     // actually need to render anything. Instead, we cache
                     // the new size, and resize when drawing is ready.
-                    logical = size;
+                    if logical != size {
+                        logical = size;
+                    }
                 }
             }
             WindowEvent::CursorEntered { .. } => {
@@ -209,6 +211,12 @@ pub fn init<P: AsRef<Path>>(
                 w.set_cursor_visible(true);
             }
             WindowEvent::Ready => {
+                let input_delay: f64 =
+                    session.settings["input/delay"].float64();
+                std::thread::sleep(time::Duration::from_micros(
+                    (input_delay * 1000.) as u64,
+                ));
+
                 if logical != renderer.window {
                     self::resize(
                         &mut session,
@@ -218,12 +226,6 @@ pub fn init<P: AsRef<Path>>(
                         hidpi_factor,
                         present_mode,
                     );
-                } else {
-                    let input_delay: f64 =
-                        session.settings["input/delay"].float64();
-                    std::thread::sleep(time::Duration::from_micros(
-                        (input_delay * 1000.) as u64,
-                    ));
                 }
 
                 let delta = last.elapsed();
@@ -289,18 +291,8 @@ pub fn init<P: AsRef<Path>>(
                 session.transition(State::Paused);
             }
             WindowEvent::RedrawRequested => {
-                if session.state == State::Running {
-                    render_timer.run(|avg| {
-                        renderer.frame(
-                            &session,
-                            execution.clone(),
-                            vec![],
-                            &avg,
-                            &mut r,
-                            &mut swap_chain,
-                        );
-                    });
-                }
+                // We currently don't draw in here, as it negatively
+                // affects resize smoothness.  (╯°□°）╯︵ ┻━┻
             }
             WindowEvent::HiDpiFactorChanged(factor) => {
                 session.hidpi_factor = factor;
