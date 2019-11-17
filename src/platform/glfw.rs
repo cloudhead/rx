@@ -9,12 +9,12 @@ use std::{io, sync};
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn init(
+pub fn init<T>(
     title: &str,
     w: u32,
     h: u32,
     hints: &[WindowHint],
-) -> io::Result<(Window, Events)> {
+) -> io::Result<(Window<T>, Events)> {
     let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
@@ -40,6 +40,7 @@ pub fn init(
         Window {
             handle: window,
             redraw_requested: false,
+            exit_reason: None,
         },
         Events {
             handle: events,
@@ -48,41 +49,33 @@ pub fn init(
     ))
 }
 
-pub fn run<F, T>(mut win: Window, events: Events, mut callback: F) -> T
+pub fn run<F, T>(mut win: Window<T>, events: Events, mut callback: F) -> T
 where
-    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow<T>,
+    F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
     T: Default,
 {
     let mut glfw = events.glfw;
-    let mut exit = T::default();
 
     while !win.handle.should_close() {
         glfw.poll_events();
+
         for (_, event) in glfw::flush_messages(&events.handle) {
-            if let ControlFlow::Exit(r) = callback(&mut win, event.into()) {
-                win.handle.set_should_close(true);
-                exit = r;
-            }
+            win.send_event(event.into(), &mut callback, &mut glfw);
         }
-        if let ControlFlow::Exit(r) = callback(&mut win, WindowEvent::Ready) {
-            win.handle.set_should_close(true);
-            exit = r;
-        }
+        win.send_event(WindowEvent::Ready, &mut callback, &mut glfw);
 
         if win.redraw_requested {
             win.redraw_requested = false;
-
-            if let ControlFlow::Exit(r) =
-                callback(&mut win, WindowEvent::RedrawRequested)
-            {
-                win.handle.set_should_close(true);
-                exit = r;
-            }
+            win.send_event(
+                WindowEvent::RedrawRequested,
+                &mut callback,
+                &mut glfw,
+            );
         }
     }
     callback(&mut win, WindowEvent::Destroyed);
 
-    exit
+    win.exit_reason.unwrap_or(T::default())
 }
 
 pub struct Events {
@@ -90,12 +83,13 @@ pub struct Events {
     glfw: glfw::Glfw,
 }
 
-pub struct Window {
+pub struct Window<T> {
     pub handle: glfw::Window,
     redraw_requested: bool,
+    exit_reason: Option<T>,
 }
 
-impl Window {
+impl<T> Window<T> {
     pub fn request_redraw(&mut self) {
         self.redraw_requested = true;
     }
@@ -124,6 +118,28 @@ impl Window {
     pub fn size(&self) -> io::Result<LogicalSize> {
         let (w, h) = self.handle.get_size();
         Ok(LogicalSize::new(w as f64, h as f64))
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn send_event<F>(
+        &mut self,
+        event: WindowEvent,
+        callback: &mut F,
+        glfw: &mut glfw::Glfw,
+    ) where
+        F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
+    {
+        match callback(self, event) {
+            ControlFlow::Exit(r) => {
+                self.handle.set_should_close(true);
+                self.exit_reason = Some(r);
+            }
+            ControlFlow::Wait => {
+                glfw.wait_events();
+            }
+            ControlFlow::Continue => (),
+        }
     }
 }
 
@@ -166,9 +182,12 @@ impl From<glfw::WindowEvent> for WindowEvent {
         use glfw::WindowEvent as Glfw;
 
         match event {
+            // We care about logical ("screen") coordinates, so we
+            // use this event instead of the framebuffer size event.
             Glfw::Size(w, h) => {
                 WindowEvent::Resized(LogicalSize::new(w as f64, h as f64))
             }
+            Glfw::FramebufferSize(_, _) => WindowEvent::Noop,
             Glfw::Iconify(true) => WindowEvent::Minimized,
             Glfw::Iconify(false) => WindowEvent::Restored,
             Glfw::Close => WindowEvent::CloseRequested,

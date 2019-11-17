@@ -16,23 +16,23 @@ mod backend;
 mod backend;
 
 /// Initialize the platform.
-pub fn init(
+pub fn init<T>(
     title: &str,
     w: u32,
     h: u32,
     hints: &[WindowHint],
-) -> io::Result<(backend::Window, backend::Events)> {
+) -> io::Result<(backend::Window<T>, backend::Events)> {
     backend::init(title, w, h, hints)
 }
 
 /// Run the main event loop.
 pub fn run<F, T>(
-    win: backend::Window,
+    win: backend::Window<T>,
     events: backend::Events,
     callback: F,
 ) -> T
 where
-    F: 'static + FnMut(&mut backend::Window, WindowEvent) -> ControlFlow<T>,
+    F: 'static + FnMut(&mut backend::Window<T>, WindowEvent) -> ControlFlow<T>,
     T: Default,
 {
     backend::run(win, events, callback)
@@ -41,6 +41,7 @@ where
 #[derive(Debug, PartialEq, Eq)]
 pub enum ControlFlow<T> {
     Continue,
+    Wait,
     Exit(T),
 }
 

@@ -186,6 +186,7 @@ pub fn init<P: AsRef<Path>>(
                 // This happens on *windows* when the window is minimized.
                 if size.is_zero() {
                     session.transition(State::Paused);
+                    return platform::ControlFlow::Wait;
                 } else {
                     session.transition(State::Running);
                     // We don't re-create the swap chain in this handler,

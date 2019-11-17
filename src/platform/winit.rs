@@ -11,9 +11,9 @@ use std::io;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn run<F, T>(mut win: Window, mut events: Events, mut callback: F) -> T
+pub fn run<F, T>(mut win: Window<T>, mut events: Events, mut callback: F) -> T
 where
-    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow<T>,
+    F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
     T: Default,
 {
     let mut exit = T::default();
@@ -47,11 +47,12 @@ pub struct Events {
     handle: winit::event_loop::EventLoop<()>,
 }
 
-pub struct Window {
+pub struct Window<T> {
     pub handle: winit::window::Window,
+    phantom: std::marker::PhantomData<T>,
 }
 
-impl Window {
+impl<T> Window<T> {
     pub fn request_redraw(&self) {
         self.handle.request_redraw();
     }
@@ -74,12 +75,12 @@ impl Window {
     }
 }
 
-pub fn init(
+pub fn init<T>(
     title: &str,
     w: u32,
     h: u32,
     hints: &[WindowHint],
-) -> io::Result<(Window, Events)> {
+) -> io::Result<(Window<T>, Events)> {
     let events = Events {
         handle: winit::event_loop::EventLoop::new(),
     };
@@ -105,7 +106,13 @@ pub fn init(
         .build(&events.handle)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-    Ok((Window { handle }, events))
+    Ok((
+        Window {
+            handle,
+            phantom: std::marker::PhantomData,
+        },
+        events,
+    ))
 }
 
 impl From<winit::dpi::LogicalSize> for LogicalSize {
