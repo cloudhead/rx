@@ -176,14 +176,18 @@ pub fn init<P: AsRef<Path>>(
     let mut last = time::Instant::now();
 
     let exit = platform::run(win, events, move |w, event| {
+        // Don't process events while the window is minimized.
+        if w.size().is_zero() {
+            return platform::ControlFlow::Wait;
+        }
         if event.is_input() {
             debug!("event: {:?}", event);
         }
 
         match event {
             WindowEvent::Resized(size) => {
-                // Pause the session if our window size is zero.
-                // This happens on *windows* when the window is minimized.
+                // It's possible that the above check for zero size is delayed
+                // by a frame, in which case we need to catch things here.
                 if size.is_zero() {
                     session.transition(State::Paused);
                     return platform::ControlFlow::Wait;
@@ -228,7 +232,7 @@ pub fn init<P: AsRef<Path>>(
                 // If we're paused, we want to keep the timer running to not get a
                 // "jump" when we unpause, but skip session updates and rendering.
                 if session.state == State::Paused {
-                    return platform::ControlFlow::Continue;
+                    return platform::ControlFlow::Wait;
                 }
 
                 let effects = update_timer.run(|avg| {
@@ -273,6 +277,7 @@ pub fn init<P: AsRef<Path>>(
             }
             WindowEvent::Minimized => {
                 session.transition(State::Paused);
+                return platform::ControlFlow::Wait;
             }
             WindowEvent::Restored => {
                 session.transition(State::Running);
