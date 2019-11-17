@@ -107,7 +107,7 @@ pub fn init<P: AsRef<Path>>(
         platform::init("rx", options.width, options.height, hints)?;
 
     let hidpi_factor = win.hidpi_factor();
-    let win_size = win.size()?;
+    let win_size = win.size();
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
     info!("framebuffer size: {}x{}", win_size.width, win_size.height);

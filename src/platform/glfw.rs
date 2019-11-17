@@ -115,9 +115,9 @@ impl<T> Window<T> {
         x as f64
     }
 
-    pub fn size(&self) -> io::Result<LogicalSize> {
+    pub fn size(&self) -> LogicalSize {
         let (w, h) = self.handle.get_size();
-        Ok(LogicalSize::new(w as f64, h as f64))
+        LogicalSize::new(w as f64, h as f64)
     }
 
     ////////////////////////////////////////////////////////////////////////////

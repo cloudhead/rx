@@ -69,9 +69,9 @@ impl<T> Window<T> {
         self.handle.hidpi_factor()
     }
 
-    pub fn size(&self) -> io::Result<LogicalSize> {
+    pub fn size(&self) -> LogicalSize {
         let size = self.handle.inner_size();
-        Ok(LogicalSize::new(size.width, size.height))
+        LogicalSize::new(size.width, size.height)
     }
 }
 
