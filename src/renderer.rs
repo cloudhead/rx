@@ -13,13 +13,14 @@ use crate::session::{self, Effect, Mode, Rgb8, Session, Tool, VisualState};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
-use rgx::core::{Blending, Filter, Op, PassOp, Rect, Rgba};
+use rgx::core::{Blending, Filter, Op, PassOp, Rgba};
 use rgx::kit;
 use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use rgx::kit::sprite2d;
-use rgx::kit::{Bgra8, Origin, Rgba8};
+use rgx::kit::{Bgra8, Origin, Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
+use rgx::rect::Rect;
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -829,6 +830,7 @@ impl Renderer {
                         self.paste.texture.h,
                         self.paste.texture.rect(),
                         dst.map(|n| n as f32),
+                        ZDepth::default(),
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -871,7 +873,7 @@ impl Renderer {
         if let Some(selection) = session.selection {
             let fill = match session.mode {
                 Mode::Visual(VisualState::Selecting { .. }) => {
-                    Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x88)
+                    Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x55)
                 }
                 // TODO: Handle different modes differently.
                 _ => Rgba8::TRANSPARENT,
@@ -902,6 +904,7 @@ impl Renderer {
             // Selection stroke.
             canvas.add(Shape::Rectangle(
                 r.map(|n| n as f32) * view.zoom + offset,
+                ZDepth::default(),
                 Rotation::ZERO,
                 Stroke::new(1., stroke.into()),
                 Fill::Empty(),
@@ -911,6 +914,7 @@ impl Renderer {
                 canvas.add(Shape::Rectangle(
                     r.intersection(view.bounds()).map(|n| n as f32) * view.zoom
                         + offset,
+                    ZDepth::default(),
                     Rotation::ZERO,
                     Stroke::NONE,
                     Fill::Solid(fill.into()),
@@ -927,6 +931,7 @@ impl Renderer {
                 let x = n * v.zoom * v.fw as f32 + offset.x;
                 canvas.add(Shape::Line(
                     Line::new(x, offset.y, x, v.zoom * v.fh as f32 + offset.y),
+                    ZDepth::default(),
                     Rotation::ZERO,
                     Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
                 ));
@@ -951,6 +956,7 @@ impl Renderer {
             canvas.add(Shape::Rectangle(
                 Rect::new(r.x1 - 1., r.y1 - 1., r.x2 + 1., r.y2 + 1.)
                     + session.offset,
+                ZDepth::default(),
                 Rotation::ZERO,
                 Stroke::new(1.0, border_color),
                 Fill::Empty(),
@@ -1005,6 +1011,7 @@ impl Renderer {
                         session.width * 0.4,
                         self::LINE_HEIGHT + self::MARGIN + 2.,
                     ),
+                    ZDepth::default(),
                     Rotation::ZERO,
                     Stroke::new(1.0, Rgba::WHITE),
                     Fill::Solid(session.fg.into()),
@@ -1015,6 +1022,7 @@ impl Renderer {
                         session.width * 0.4 + 25.,
                         self::LINE_HEIGHT + self::MARGIN + 2.,
                     ),
+                    ZDepth::default(),
                     Rotation::ZERO,
                     Stroke::new(1.0, Rgba::WHITE),
                     Fill::Solid(session.bg.into()),
@@ -1120,6 +1128,7 @@ impl Renderer {
                     p.x + x + p.cellsize,
                     p.y + y + p.cellsize,
                 ),
+                ZDepth::default(),
                 Rotation::ZERO,
                 stroke,
                 shape2d::Fill::Solid(color.into()),
@@ -1137,6 +1146,7 @@ impl Renderer {
                 batch.add(
                     Checker::rect(),
                     v.rect() + session.offset,
+                    ZDepth::default(),
                     Rgba::TRANSPARENT,
                     1.,
                     kit::Repeat::new(rx, ry),
@@ -1165,6 +1175,7 @@ impl Renderer {
                                 batch.add(
                                     rect,
                                     rect.with_origin(c.x, c.y) + offset,
+                                    ZDepth::default(),
                                     Rgba::TRANSPARENT,
                                     1.,
                                     kit::Repeat::default(),
@@ -1181,6 +1192,7 @@ impl Renderer {
                     batch.add(
                         rect,
                         rect.with_origin(cursor.x, cursor.y) + offset,
+                        ZDepth::default(),
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -1194,6 +1206,7 @@ impl Renderer {
                     batch.add(
                         rect,
                         rect.with_origin(cursor.x, cursor.y) + offset,
+                        ZDepth::default(),
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -1224,6 +1237,7 @@ impl Renderer {
                     let c = session.snap(c, v.offset.x, v.offset.y, z);
                     shapes.add(Shape::Rectangle(
                         Rect::new(c.x, c.y, c.x + z, c.y + z),
+                        ZDepth::default(),
                         Rotation::ZERO,
                         Stroke::new(1.0, color::RED.into()),
                         Fill::Empty(),
@@ -1288,6 +1302,7 @@ impl Renderer {
                     s.x2 as f32 + 1.,
                     s.y2 as f32 + 1.,
                 ),
+                ZDepth::default(),
                 Rgba::TRANSPARENT,
                 0.9,
                 kit::Repeat::default(),
@@ -1389,6 +1404,7 @@ impl Renderer {
                 v.animation.val(),
                 Rect::new(-(v.fw as f32), 0., 0., v.fh as f32) * v.zoom
                     + v.offset,
+                ZDepth::default(),
                 Rgba::TRANSPARENT,
                 1.,
                 kit::Repeat::default(),

@@ -147,7 +147,7 @@ pub fn init<P: AsRef<Path>>(
 
     let execution = Rc::new(RefCell::new(options.exec));
     let mut present_mode = session.settings.present_mode();
-    let mut r = core::Renderer::new(win.handle());
+    let mut r = core::Renderer::new(win.handle())?;
     let mut renderer = Renderer::new(&mut r, win_size, resources);
 
     if let Err(e) = session.edit(paths) {

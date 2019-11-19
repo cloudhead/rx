@@ -15,7 +15,7 @@ use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{Blending, PresentMode, Rect};
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use rgx::kit::{Origin, Rgba8};
+use rgx::kit::{Origin, Rgba8, ZDepth};
 use rgx::math::*;
 
 use directories as dirs;
@@ -2799,6 +2799,7 @@ impl Session {
                         Effect::ViewBlendingChanged(Blending::constant()),
                         Effect::ViewPaintFinal(vec![Shape::Rectangle(
                             s.map(|n| n as f32),
+                            ZDepth::default(),
                             Rotation::ZERO,
                             Stroke::NONE,
                             Fill::Solid(Rgba8::TRANSPARENT.into()),
@@ -2812,6 +2813,7 @@ impl Session {
                     self.effects.push(Effect::ViewPaintFinal(vec![
                         Shape::Rectangle(
                             s.abs().bounds().map(|n| n as f32),
+                            ZDepth::default(),
                             Rotation::ZERO,
                             Stroke::NONE,
                             Fill::Solid(color.unwrap_or(self.fg).into()),

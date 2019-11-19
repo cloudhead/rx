@@ -1,5 +1,5 @@
 use crate::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use crate::kit::Origin;
+use crate::kit::{Origin, ZDepth};
 use crate::view::{ViewCoords, ViewExtent};
 
 use rgx::core::{Rect, Rgba8};
@@ -277,6 +277,7 @@ impl Brush {
         Shape::Rectangle(
             Rect::new(x, y, x + size * scale, y + size * scale)
                 - Vector2::new(offset, offset),
+            ZDepth::default(),
             Rotation::ZERO,
             stroke,
             fill,

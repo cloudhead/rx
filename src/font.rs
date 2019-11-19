@@ -1,7 +1,7 @@
 use rgx::core as gfx;
 use rgx::core::Rect;
 use rgx::kit::sprite2d;
-use rgx::kit::{Repeat, Rgba8};
+use rgx::kit::{Repeat, Rgba8, ZDepth};
 
 pub struct Font {
     gw: f32,
@@ -65,6 +65,7 @@ impl TextBatch {
             self.raw.add(
                 Rect::new(x, 0., x + gw, gh),
                 Rect::new(sx, sy, sx + gw, sy + gh),
+                ZDepth::default(),
                 rgba,
                 1.0,
                 Repeat::default(),
