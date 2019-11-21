@@ -13,8 +13,84 @@ use digest::generic_array::{sequence::*, typenum::consts::*, GenericArray};
 use digest::Digest;
 use meowhash::MeowHasher;
 
+/// Determines whether frame digests are recorded, verified or ignored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DigestMode {
+    /// Verify digests.
+    Verify,
+    /// Record digests.
+    Record,
+    /// Ignore digest.
+    Ignore,
+}
+
+#[derive(Debug, Clone)]
+pub struct DigestState {
+    pub mode: DigestMode,
+    pub path: Option<PathBuf>,
+
+    pub recorder: FrameRecorder,
+}
+
+impl DigestState {
+    pub fn from<P: AsRef<Path>>(mode: DigestMode, path: P) -> io::Result<Self> {
+        match mode {
+            DigestMode::Verify => Self::verify(path),
+            DigestMode::Record => Self::record(path),
+            DigestMode::Ignore => Self::ignore(),
+        }
+    }
+
+    pub fn verify<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        let mut frames = Vec::new();
+        let path = path.as_ref();
+
+        match File::open(&path) {
+            Ok(f) => {
+                let r = io::BufReader::new(f);
+                for line in r.lines() {
+                    let line = line?;
+                    let hash = Hash::from_str(line.as_str()).map_err(|e| {
+                        io::Error::new(io::ErrorKind::InvalidInput, e)
+                    })?;
+                    frames.push(hash);
+                }
+            }
+            Err(e) => {
+                return Err(io::Error::new(
+                    e.kind(),
+                    format!("{}: {}", path.display(), e),
+                ));
+            }
+        }
+
+        Ok(Self {
+            mode: DigestMode::Verify,
+            recorder: FrameRecorder::from(frames),
+            path: Some(path.into()),
+        })
+    }
+
+    pub fn record<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        Ok(Self {
+            mode: DigestMode::Record,
+            recorder: FrameRecorder::new(),
+            path: Some(path.as_ref().into()),
+        })
+    }
+
+    pub fn ignore() -> io::Result<Self> {
+        Ok(Self {
+            mode: DigestMode::Ignore,
+            recorder: FrameRecorder::new(),
+            path: None,
+        })
+    }
+}
+
 /// Execution mode. Controls whether the session is playing or recording
 /// commands.
+// TODO: Make this a `struct` and have `ExecutionMode`.
 #[derive(Debug, Clone)]
 pub enum Execution {
     /// Normal execution. User inputs are processed normally.
@@ -23,27 +99,23 @@ pub enum Execution {
     Recording {
         /// Events being recorded.
         events: Vec<TimedEvent>,
-        /// Frames being recorded.
-        recorder: FrameRecorder,
         /// Start time of recording.
         start: time::Instant,
         /// Path to save recording to.
         path: PathBuf,
-        /// Whether this is a digest recording.
-        digest: bool,
+        /// Digest mode.
+        digest: DigestState,
     },
     /// Replaying inputs from log.
     Replaying {
         /// Events being replayed.
         events: VecDeque<TimedEvent>,
-        /// Frames being replayed.
-        recorder: FrameRecorder,
         /// Start time of the playback.
         start: time::Instant,
         /// Path to read events from.
         path: PathBuf,
-        /// Whether this is a digest replay.
-        digest: bool,
+        /// Digest mode.
+        digest: DigestState,
         /// Replay result.
         result: ReplayResult,
     },
@@ -58,13 +130,28 @@ impl Execution {
     /// Create a recording.
     pub fn recording<P: AsRef<Path>>(
         path: P,
-        digest: bool,
+        mode: DigestMode,
     ) -> io::Result<Self> {
+        use io::{Error, ErrorKind};
+
+        let path = path.as_ref();
+        let file_name: &Path = path
+            .file_name()
+            .ok_or(Error::new(
+                ErrorKind::InvalidInput,
+                format!("invalid path {:?}", path),
+            ))?
+            .as_ref();
+
+        let digest = DigestState::from(
+            mode,
+            path.join(file_name).with_extension("digest"),
+        )?;
+
         Ok(Self::Recording {
             events: Vec::new(),
-            recorder: FrameRecorder::new(),
             start: time::Instant::now(),
-            path: path.as_ref().to_path_buf(),
+            path: path.to_path_buf(),
             digest,
         })
     }
@@ -72,7 +159,7 @@ impl Execution {
     /// Create a replay.
     pub fn replaying<P: AsRef<Path>>(
         path: P,
-        digest: bool,
+        mode: DigestMode,
     ) -> io::Result<Self> {
         use io::{Error, ErrorKind};
 
@@ -87,29 +174,10 @@ impl Execution {
             ))?
             .as_ref();
 
-        let mut frames = Vec::new();
-        if digest {
-            let digest_path = path.join(file_name).with_extension("digest");
-            match File::open(&digest_path) {
-                Ok(f) => {
-                    let r = io::BufReader::new(f);
-                    for line in r.lines() {
-                        let line = line?;
-                        let hash =
-                            Hash::from_str(line.as_str()).map_err(|e| {
-                                io::Error::new(io::ErrorKind::InvalidInput, e)
-                            })?;
-                        frames.push(hash);
-                    }
-                }
-                Err(e) => {
-                    return Err(io::Error::new(
-                        e.kind(),
-                        format!("{}: {}", digest_path.display(), e),
-                    ));
-                }
-            }
-        }
+        let digest = DigestState::from(
+            mode,
+            path.join(file_name).with_extension("digest"),
+        )?;
 
         let events_path = path.join(file_name).with_extension("events");
         match File::open(&events_path) {
@@ -135,7 +203,6 @@ impl Execution {
                     start: time::Instant::now(),
                     path: path.to_path_buf(),
                     digest,
-                    recorder: FrameRecorder::from(frames),
                     result: ReplayResult::new(),
                 })
             }
@@ -156,22 +223,47 @@ impl Execution {
 
     pub fn record(&mut self, data: &[u8]) {
         match self {
-            Self::Recording { recorder, .. } => {
-                recorder.record_frame(data);
-            }
+            // Replaying and verifying digests.
             Self::Replaying {
-                digest: true,
+                digest:
+                    DigestState {
+                        mode: DigestMode::Verify,
+                        recorder,
+                        ..
+                    },
                 result,
-                recorder,
                 ..
             } => {
                 result.record(recorder.verify_frame(data));
+            }
+            // Replaying/Recording and recording digests.
+            Self::Replaying {
+                digest:
+                    DigestState {
+                        mode: DigestMode::Record,
+                        recorder,
+                        ..
+                    },
+                ..
+            }
+            | Self::Recording {
+                digest:
+                    DigestState {
+                        mode: DigestMode::Record,
+                        recorder,
+                        ..
+                    },
+                ..
+            } => {
+                recorder.record_frame(data);
             }
             _ => {}
         }
     }
 
-    pub fn stop_recording(&mut self) -> io::Result<(PathBuf, bool)> {
+    ////////////////////////////////////////////////////////////////////////////
+
+    pub fn stop_recording(&mut self) -> io::Result<PathBuf> {
         use io::{Error, ErrorKind};
         use std::io::Write;
 
@@ -179,7 +271,6 @@ impl Execution {
             events,
             path,
             digest,
-            recorder,
             ..
         } = &self
         {
@@ -198,20 +289,64 @@ impl Execution {
                 writeln!(&mut f, "{}", String::from(ev))?;
             }
 
-            let mut f =
-                File::create(path.join(file_name.with_extension("digest")))?;
-            for digest in &recorder.frames {
-                writeln!(&mut f, "{}", digest)?;
+            if let DigestState {
+                mode: DigestMode::Record,
+                path: Some(path),
+                recorder,
+                ..
+            } = digest
+            {
+                Execution::write_digest(recorder, path)?;
             }
-            Ok((path.clone(), *digest))
+            Ok(path.clone())
         } else {
-            Err(Error::new(ErrorKind::Other, "execution is not recording!"))
+            panic!("record finalizer called outside of recording context")
         };
 
         if result.is_ok() {
             *self = Execution::Normal;
         }
         result
+    }
+
+    pub fn finalize_replaying(&self) -> io::Result<PathBuf> {
+        if let Execution::Replaying {
+            digest:
+                DigestState {
+                    mode: DigestMode::Record,
+                    recorder,
+                    path: Some(path),
+                    ..
+                },
+            ..
+        } = &self
+        {
+            Execution::write_digest(recorder, path)?;
+            Ok(path.clone())
+        } else {
+            panic!("replay finalizer called outside of replay context")
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn write_digest<P: AsRef<Path>>(
+        recorder: &FrameRecorder,
+        path: P,
+    ) -> io::Result<()> {
+        use std::io::Write;
+
+        let path = path.as_ref();
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut f = File::create(path)?;
+
+        for frame in &recorder.frames {
+            writeln!(&mut f, "{}", frame)?;
+        }
+        Ok(())
     }
 }
 
@@ -247,6 +382,7 @@ impl FrameRecorder {
         let hash = Self::hash(data);
 
         if self.frames.back().map(|h| h != &hash).unwrap_or(true) {
+            info!("frame: {}", hash);
             self.frames.push_back(hash);
         }
     }
@@ -254,6 +390,9 @@ impl FrameRecorder {
     fn verify_frame(&mut self, data: &[u8]) -> VerifyResult {
         let actual = Self::hash(data);
 
+        if self.frames.is_empty() {
+            return VerifyResult::EOF;
+        }
         if Some(actual.clone()) == self.last_verified {
             return VerifyResult::Stale(actual);
         }
@@ -270,8 +409,6 @@ impl FrameRecorder {
         }
     }
 
-    ////////////////////////////////////////////////////////////////////////////
-
     fn hash(data: &[u8]) -> Hash {
         let bytes: GenericArray<u8, U64> = MeowHasher::digest(data);
         let (prefix, _): (GenericArray<u8, U4>, _) = bytes.split();
@@ -283,6 +420,7 @@ impl FrameRecorder {
 #[derive(Debug, Clone)]
 pub struct ReplayResult {
     verify_results: Vec<VerifyResult>,
+    eof: bool,
     okay_count: u32,
     failed_count: u32,
     stale_count: u32,
@@ -291,6 +429,14 @@ pub struct ReplayResult {
 impl ReplayResult {
     pub fn is_ok(&self) -> bool {
         self.failed_count == 0
+    }
+
+    pub fn is_err(&self) -> bool {
+        !self.is_ok()
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.eof
     }
 
     pub fn summary(&self) -> String {
@@ -311,23 +457,23 @@ impl ReplayResult {
             okay_count: 0,
             failed_count: 0,
             stale_count: 0,
+            eof: false,
         }
     }
 
     fn record(&mut self, result: VerifyResult) {
         match &result {
             VerifyResult::Okay(actual) => {
-                info!("replaying: {} OK", actual);
+                info!("verify: {} OK", actual);
                 self.okay_count += 1;
             }
             VerifyResult::Failed(actual, expected) => {
-                error!("replaying: {} != {}", actual, expected);
+                error!("verify: {} != {}", actual, expected);
                 self.failed_count += 1;
                 // TODO: Stop replaying
             }
             VerifyResult::EOF => {
-                error!("replaying: EOF");
-                self.failed_count += 1;
+                self.eof = true;
             }
             VerifyResult::Stale { .. } => {
                 self.stale_count += 1;

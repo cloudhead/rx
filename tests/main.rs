@@ -1,4 +1,4 @@
-use rx::execution::Execution;
+use rx::execution::{DigestMode, Execution};
 use std::env;
 use std::fs;
 use std::io;
@@ -112,7 +112,7 @@ fn run(name: &str) -> io::Result<()> {
         })?;
         toml::from_str(&cfg)?
     };
-    let exec = Execution::replaying(path.clone(), true)?;
+    let exec = Execution::replaying(path.clone(), DigestMode::Verify)?;
     let options = rx::Options {
         exec,
         resizable: false,

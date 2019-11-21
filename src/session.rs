@@ -4,7 +4,7 @@ use crate::cmd::{self, Command, CommandLine, Key, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
-use crate::execution::Execution;
+use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{
@@ -903,14 +903,15 @@ impl Session {
 
         let exec = &mut *exec.borrow_mut();
 
+        // TODO: This whole block needs refactoring..
         if let Execution::Replaying {
             events: recording,
-            digest,
+            digest: DigestState { mode, .. },
             result,
             ..
         } = exec
         {
-            let digest = *digest;
+            let mode = *mode;
             let result = result.clone();
 
             {
@@ -923,24 +924,46 @@ impl Session {
                     .into_iter()
                     .for_each(|t| self.handle_event(t.event, exec));
 
-                // Replay is over.
-                if end.is_none() || !result.is_ok() {
-                    *exec = Execution::Normal;
-                    self.release_inputs();
+                let verify_ended = mode == DigestMode::Verify
+                    && result.is_done()
+                    && end.is_none();
+                let replay_ended = mode != DigestMode::Verify && end.is_none();
+                let verify_failed = result.is_err();
 
+                // Replay is over.
+                if verify_ended || replay_ended || verify_failed {
+                    self.release_inputs();
                     self.message("Replay ended", MessageType::Replay);
 
-                    if digest {
-                        if result.is_ok() {
-                            info!("replaying: {}", result.summary());
-                            self.quit(ExitReason::Normal);
-                        } else {
-                            self.quit(ExitReason::Error(format!(
-                                "replay failed: {}",
-                                result.summary()
-                            )));
+                    match mode {
+                        DigestMode::Verify => {
+                            if result.is_ok() {
+                                info!("replaying: {}", result.summary());
+                                self.quit(ExitReason::Normal);
+                            } else {
+                                self.quit(ExitReason::Error(format!(
+                                    "replay failed: {}",
+                                    result.summary()
+                                )));
+                            }
                         }
+                        DigestMode::Record => match exec.finalize_replaying() {
+                            Ok(path) => {
+                                info!(
+                                    "replaying: digest saved to `{}`",
+                                    path.display()
+                                );
+                            }
+                            Err(e) => {
+                                error!(
+                                    "replaying: error saving recording: {}",
+                                    e
+                                );
+                            }
+                        },
+                        DigestMode::Ignore => {}
                     }
+                    *exec = Execution::Normal;
                 }
             }
 
@@ -950,9 +973,10 @@ impl Session {
                         key: Some(platform::Key::Escape),
                         ..
                     }) => {
-                        *exec = Execution::Normal;
                         self.release_inputs();
                         self.message("Replay ended", MessageType::Replay);
+
+                        *exec = Execution::Normal;
                     }
                     _ => debug!("event (ignored): {:?}", event),
                 }
@@ -1024,7 +1048,11 @@ impl Session {
 
         if let Execution::Replaying {
             events: recording,
-            digest: true,
+            digest:
+                DigestState {
+                    mode: DigestMode::Verify,
+                    ..
+                },
             ..
         } = exec
         {
@@ -2120,7 +2148,7 @@ impl Session {
                     events.pop(); // Discard this key event.
 
                     match exec.stop_recording() {
-                        Ok((path, digest)) => {
+                        Ok(path) => {
                             self.message(
                                 format!(
                                     "Recording saved to `{}`",
@@ -2132,14 +2160,7 @@ impl Session {
                                 "recording: events saved to `{}`",
                                 path.display()
                             );
-
-                            if digest {
-                                info!(
-                                    "recording: digest saved to `{}`",
-                                    path.display()
-                                );
-                                self.quit(ExitReason::Normal);
-                            }
+                            self.quit(ExitReason::Normal);
                         }
                         Err(e) => {
                             error!("recording: error stopping: {}", e);

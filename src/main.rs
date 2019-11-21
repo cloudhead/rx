@@ -1,5 +1,5 @@
 use rx;
-use rx::execution::Execution;
+use rx::execution::{DigestMode, Execution};
 
 use env_logger;
 use pico_args;
@@ -58,7 +58,8 @@ fn execute(
     let verbose = args.contains("-v");
     let width = args.opt_value_from_str("--width")?;
     let height = args.opt_value_from_str("--height")?;
-    let digest = args.contains("--digest");
+    let record_digests = args.contains("--record-digests");
+    let verify_digests = args.contains("--verify-digests");
     let headless = args.contains("--headless");
     let source = args.opt_value_from_str::<_, PathBuf>("-u")?;
     let replay = args.opt_value_from_str::<_, PathBuf>("--replay")?;
@@ -71,6 +72,19 @@ fn execute(
     if replay.is_some() && record.is_some() {
         return Err("'--replay' and '--record' can't both be specified".into());
     }
+
+    let digest = if record_digests && !verify_digests {
+        DigestMode::Record
+    } else if verify_digests && !record_digests {
+        DigestMode::Verify
+    } else if !verify_digests && !record_digests {
+        DigestMode::Ignore
+    } else {
+        return Err(
+            "'--record-digests' and '--verify-digests' can't both be specified"
+                .into(),
+        );
+    };
 
     let log = match args
         .opt_value_from_str("--verbosity")?

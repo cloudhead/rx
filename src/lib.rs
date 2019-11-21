@@ -39,7 +39,7 @@ mod util;
 
 use cmd::Value;
 use event::Event;
-use execution::Execution;
+use execution::{DigestMode, Execution};
 use platform::{WindowEvent, WindowHint};
 use renderer::Renderer;
 use resources::ResourceManager;
@@ -122,9 +122,13 @@ pub fn init<P: AsRef<Path>>(
         Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
             .init(options.source.clone())?;
 
+    // When working with digests, certain settings need to be overwritten
+    // to ensure things work correctly.
     match &options.exec {
-        Execution::Replaying { digest: true, .. }
-        | Execution::Recording { digest: true, .. } => {
+        Execution::Replaying { digest, .. }
+        | Execution::Recording { digest, .. }
+            if digest.mode != DigestMode::Ignore =>
+        {
             session
                 .settings
                 .set("input/delay", Value::Float(0.0))
