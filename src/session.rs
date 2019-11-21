@@ -1046,23 +1046,21 @@ impl Session {
             }
         }
 
-        if let Execution::Replaying {
-            events: recording,
-            digest:
-                DigestState {
-                    mode: DigestMode::Verify,
-                    ..
-                },
-            ..
-        } = exec
-        {
-            // Skip to the next event frame to speed up replay.
-            self.frame_number = recording
-                .front()
-                .map(|e| e.frame)
-                .unwrap_or(self.frame_number + 1);
-        } else {
-            self.frame_number += 1;
+        match exec {
+            Execution::Replaying {
+                events: recording,
+                digest: DigestState { mode, .. },
+                ..
+            } if *mode == DigestMode::Verify || *mode == DigestMode::Record => {
+                // Skip to the next event frame to speed up replay.
+                self.frame_number = recording
+                    .front()
+                    .map(|e| e.frame)
+                    .unwrap_or(self.frame_number + 1);
+            }
+            _ => {
+                self.frame_number += 1;
+            }
         }
 
         // Make sure we don't have rounding errors
