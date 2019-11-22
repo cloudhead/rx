@@ -197,13 +197,6 @@ pub fn init<P: AsRef<Path>>(
                     return platform::ControlFlow::Wait;
                 } else {
                     session.transition(State::Running);
-                    // We don't re-create the swap chain in this handler,
-                    // because it is often called many times before we
-                    // actually need to render anything. Instead, we cache
-                    // the new size, and resize when drawing is ready.
-                    if logical != size {
-                        logical = size;
-                    }
                 }
             }
             WindowEvent::CursorEntered { .. } => {
@@ -215,11 +208,7 @@ pub fn init<P: AsRef<Path>>(
                 w.set_cursor_visible(true);
             }
             WindowEvent::Ready => {
-                let input_delay: f64 =
-                    session.settings["input/delay"].float64();
-                std::thread::sleep(time::Duration::from_micros(
-                    (input_delay * 1000.) as u64,
-                ));
+                logical = w.size();
 
                 if logical != renderer.window {
                     self::resize(
@@ -230,6 +219,12 @@ pub fn init<P: AsRef<Path>>(
                         hidpi_factor,
                         present_mode,
                     );
+                } else {
+                    let input_delay: f64 =
+                        session.settings["input/delay"].float64();
+                    std::thread::sleep(time::Duration::from_micros(
+                        (input_delay * 1000.) as u64,
+                    ));
                 }
 
                 let delta = last.elapsed();
@@ -259,6 +254,7 @@ pub fn init<P: AsRef<Path>>(
                         &mut swap_chain,
                     );
                 });
+                assert_eq!(renderer.window, logical);
 
                 if session.settings_changed.contains("scale") {
                     self::resize(
