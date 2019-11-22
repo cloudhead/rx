@@ -152,7 +152,7 @@ impl ViewData {
         r: &core::Renderer,
     ) -> Self {
         let sampler = r.sampler(Filter::Nearest, Filter::Nearest);
-        let vb = framebuffer2d::Pipeline::vertex_buffer(w, h, r);
+        let vb = framebuffer2d::Pipeline::vertex_buffer(w, h, ZDepth::ZERO, r);
 
         let fb = r.framebuffer(w, h);
         let binding = framebuffer2d.binding(r, &fb, &sampler);
@@ -183,6 +183,13 @@ const LINE_HEIGHT: f32 = GLYPH_HEIGHT + 4.;
 const MARGIN: f32 = 10.;
 
 impl Renderer {
+    const CHECKER_LAYER: ZDepth = ZDepth(-0.9);
+    const VIEW_LAYER: ZDepth = ZDepth(-0.85);
+    const UI_LAYER: ZDepth = ZDepth(-0.8);
+    const TEXT_LAYER: ZDepth = ZDepth(-0.6);
+    const PALETTE_LAYER: ZDepth = ZDepth(-0.4);
+    const CURSOR_LAYER: ZDepth = ZDepth(-0.2);
+
     pub fn new(
         r: &mut core::Renderer,
         window: LogicalSize,
@@ -321,6 +328,7 @@ impl Renderer {
             ),
             left_margin,
             self.window.height as f32 - self::MARGIN - self::LINE_HEIGHT,
+            ZDepth::ZERO,
             color::LIGHT_GREY,
         );
 
@@ -340,28 +348,48 @@ impl Renderer {
 
         for (display, kb) in normal_kbs.iter() {
             if let Some(y) = line.next() {
-                text.add(display, left_margin, y as f32, color::RED);
+                text.add(
+                    display,
+                    left_margin,
+                    y as f32,
+                    ZDepth::ZERO,
+                    color::RED,
+                );
                 text.add(
                     &format!("{}", kb.command),
                     left_margin + column_offset,
                     y as f32,
+                    ZDepth::ZERO,
                     color::LIGHT_GREY,
                 );
             }
         }
 
         if let Some(y) = line.nth(1) {
-            text.add("VISUAL MODE", left_margin, y as f32, color::RED);
+            text.add(
+                "VISUAL MODE",
+                left_margin,
+                y as f32,
+                ZDepth::ZERO,
+                color::RED,
+            );
         }
         line.next();
 
         for (display, kb) in visual_kbs.iter() {
             if let Some(y) = line.next() {
-                text.add(display, left_margin, y as f32, color::RED);
+                text.add(
+                    display,
+                    left_margin,
+                    y as f32,
+                    ZDepth::ZERO,
+                    color::RED,
+                );
                 text.add(
                     &format!("{}", kb.command),
                     left_margin + column_offset,
                     y as f32,
+                    ZDepth::ZERO,
                     color::LIGHT_GREY,
                 );
             }
@@ -374,6 +402,7 @@ impl Renderer {
                 l,
                 left_margin + column_offset * 3. + 64.,
                 y,
+                ZDepth::ZERO,
                 color::LIGHT_GREEN,
             );
         }
@@ -429,7 +458,6 @@ impl Renderer {
         }
 
         let mut ui_batch = shape2d::Batch::new();
-        let mut palette_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
         let mut overlay_batch = TextBatch::new(&self.font);
         let mut cursor_batch = sprite2d::Batch::new(
@@ -459,12 +487,11 @@ impl Renderer {
             &mut overlay_batch,
             execution.clone(),
         );
-        Self::draw_palette(&session, &mut palette_batch);
+        Self::draw_palette(&session, &mut ui_batch);
         Self::draw_cursor(&session, &mut cursor_batch);
         Self::draw_checker(&session, &mut checker_batch);
 
         let ui_buf = ui_batch.finish(&r);
-        let palette_buf = palette_batch.finish(&r);
         let cursor_buf = cursor_batch.finish(&r);
         let checker_buf = checker_batch.finish(&r);
         let text_buf = text_batch.finish(&r);
@@ -508,23 +535,12 @@ impl Renderer {
         r.update_pipeline(&self.shape2d, ortho, &mut f);
         r.update_pipeline(&self.sprite2d, ortho, &mut f);
         r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
+        r.update_pipeline(&self.brush2d, view_ortho, &mut f);
+        r.update_pipeline(&self.const2d, view_ortho, &mut f);
+        r.update_pipeline(&self.paste2d, view_ortho, &mut f);
 
         {
-            let mut p =
-                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
-
-            // Draw view checkers.
-            if session.settings["checker"].is_set() {
-                p.set_pipeline(&self.sprite2d);
-                p.draw(&checker_buf, &self.checker.binding);
-            }
-        }
-
-        {
-            r.update_pipeline(&self.brush2d, view_ortho, &mut f);
-            r.update_pipeline(&self.const2d, view_ortho, &mut f);
-            r.update_pipeline(&self.paste2d, view_ortho, &mut f);
-
+            // Draw to view staging buffer.
             {
                 // Always clear the active view staging buffer. We do this because
                 // it may not get drawn to this frame, and hence may remain dirty
@@ -559,6 +575,7 @@ impl Renderer {
                 }
             }
 
+            // Draw to view display buffer.
             {
                 let mut p = f.pass(PassOp::Load(), &view_data.fb);
 
@@ -578,67 +595,55 @@ impl Renderer {
         }
 
         {
+            let mut p =
+                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
+
+            // Draw view checkers to screen framebuffer.
+            if session.settings["checker"].is_set() {
+                p.set_pipeline(&self.sprite2d);
+                p.draw(&checker_buf, &self.checker.binding);
+            }
+
+            // Draw view framebuffers to screen framebuffer.
+            p.set_pipeline(&self.framebuffer2d);
+            self.render_views(&mut p);
+
+            // Draw UI elements to screen framebuffer.
+            p.set_pipeline(&self.shape2d);
+            p.draw_buffer(&ui_buf);
+
+            // Draw text & cursor to screen framebuffer.
+            p.set_pipeline(&self.sprite2d);
+            p.draw(&text_buf, &self.font.binding);
+            p.draw(&cursor_buf, &self.cursors.binding);
+        }
+
+        // Draw view animations to screen framebuffer.
+        if session.settings["animation"].is_set() {
             r.update_pipeline(
                 &self.sprite2d,
                 ortho * session.transform(),
                 &mut f,
             );
 
-            // NOTE: We should be able to use the same render pass for both
-            // of the following operations, but strangely enough, this yields
-            // validation errors around the dynamic buffer offsets. I'm pretty
-            // sure that this is a bug in wgpu, which perhaps doesn't reset
-            // the dynamic offset count when the pipeline is switched.
-
-            {
-                // Draw view framebuffers to screen framebuffer.
-                let mut p = f.pass(PassOp::Load(), &self.screen_fb);
-                self.render_views(&mut p);
-            }
-
-            // Draw view animations to screen framebuffer.
-            if session.settings["animation"].is_set() {
-                let mut p = f.pass(PassOp::Load(), &self.screen_fb);
-                self.render_view_animations(&session.views, &mut p);
-            }
-        }
-
-        {
-            r.update_pipeline(&self.sprite2d, ortho, &mut f);
-
             let mut p = f.pass(PassOp::Load(), &self.screen_fb);
-
-            // Draw UI elements to screen framebuffer.
-            p.set_pipeline(&self.shape2d);
-            p.draw_buffer(&ui_buf);
-
-            // Draw text to screen framebuffer.
             p.set_pipeline(&self.sprite2d);
-            p.draw(&text_buf, &self.font.binding);
 
-            // Draw palette to screen framebuffer.
-            p.set_pipeline(&self.shape2d);
-            p.draw_buffer(&palette_buf);
-
-            // Draw cursor to screen framebuffer.
-            p.set_pipeline(&self.sprite2d);
-            p.draw(&cursor_buf, &self.cursors.binding);
+            self.render_view_animations(&session.views, &mut p);
         }
 
         let present = &textures.next();
 
         {
+            r.update_pipeline(&self.sprite2d, ortho, &mut f);
+
             // Present screen framebuffer to screen.
             let bg = Rgba::from(session.settings["background"].color());
             let mut p = f.pass(PassOp::Clear(bg), present);
 
             p.set_pipeline(&self.screen2d);
             p.set_binding(&self.screen_binding, &[]);
-            p.draw_buffer(&self.screen_vb)
-        }
-
-        {
-            let mut p = f.pass(PassOp::Load(), present);
+            p.draw_buffer(&self.screen_vb);
 
             p.set_pipeline(&self.sprite2d);
             p.draw(&overlay_buf, &self.font.binding);
@@ -898,13 +903,19 @@ impl Renderer {
                 } else {
                     (s.y2) as f32 * z - self::LINE_HEIGHT + 1.
                 };
-                text.add(&t, x + offset.x, y + offset.y, stroke);
+                text.add(
+                    &t,
+                    x + offset.x,
+                    y + offset.y,
+                    Renderer::TEXT_LAYER,
+                    stroke,
+                );
             }
 
             // Selection stroke.
             canvas.add(Shape::Rectangle(
                 r.map(|n| n as f32) * view.zoom + offset,
-                ZDepth::default(),
+                Renderer::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1., stroke.into()),
                 Fill::Empty(),
@@ -914,7 +925,7 @@ impl Renderer {
                 canvas.add(Shape::Rectangle(
                     r.intersection(view.bounds()).map(|n| n as f32) * view.zoom
                         + offset,
-                    ZDepth::default(),
+                    Renderer::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::NONE,
                     Fill::Solid(fill.into()),
@@ -931,7 +942,7 @@ impl Renderer {
                 let x = n * v.zoom * v.fw as f32 + offset.x;
                 canvas.add(Shape::Line(
                     Line::new(x, offset.y, x, v.zoom * v.fh as f32 + offset.y),
-                    ZDepth::default(),
+                    Renderer::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
                 ));
@@ -956,7 +967,7 @@ impl Renderer {
             canvas.add(Shape::Rectangle(
                 Rect::new(r.x1 - 1., r.y1 - 1., r.x2 + 1., r.y2 + 1.)
                     + session.offset,
-                ZDepth::default(),
+                Renderer::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1.0, border_color),
                 Fill::Empty(),
@@ -968,6 +979,7 @@ impl Renderer {
                     &format!("{}x{}x{}", v.fw, v.fh, v.animation.len()),
                     offset.x,
                     offset.y - self::LINE_HEIGHT,
+                    Renderer::TEXT_LAYER,
                     color::GREY,
                 );
             }
@@ -978,6 +990,7 @@ impl Renderer {
                 &view.status(),
                 MARGIN,
                 MARGIN + self::LINE_HEIGHT,
+                Renderer::TEXT_LAYER,
                 Rgba8::WHITE,
             );
 
@@ -986,6 +999,7 @@ impl Renderer {
                 &format!("{:>5}%", (view.zoom * 100.) as u32),
                 session.width - MARGIN - 6. * 8.,
                 MARGIN + self::LINE_HEIGHT,
+                Renderer::TEXT_LAYER,
                 Rgba8::WHITE,
             );
 
@@ -998,6 +1012,7 @@ impl Renderer {
                     &format!("{:>4},{:<4} {}", cursor.x, cursor.y, hover_color),
                     session.width * 0.5,
                     MARGIN + self::LINE_HEIGHT,
+                    Renderer::TEXT_LAYER,
                     Rgba8::WHITE,
                 );
             }
@@ -1011,7 +1026,7 @@ impl Renderer {
                         session.width * 0.4,
                         self::LINE_HEIGHT + self::MARGIN + 2.,
                     ),
-                    ZDepth::default(),
+                    Renderer::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::new(1.0, Rgba::WHITE),
                     Fill::Solid(session.fg.into()),
@@ -1022,7 +1037,7 @@ impl Renderer {
                         session.width * 0.4 + 25.,
                         self::LINE_HEIGHT + self::MARGIN + 2.,
                     ),
-                    ZDepth::default(),
+                    Renderer::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::new(1.0, Rgba::WHITE),
                     Fill::Solid(session.bg.into()),
@@ -1033,12 +1048,18 @@ impl Renderer {
         // Command-line & message
         if session.mode == Mode::Command {
             let s = format!("{}", &session.cmdline.input());
-            text.add(&s, MARGIN, MARGIN, Rgba8::WHITE);
+            text.add(&s, MARGIN, MARGIN, Renderer::TEXT_LAYER, Rgba8::WHITE);
         } else if !session.message.is_replay()
             && session.settings["ui/message"].is_set()
         {
             let s = format!("{}", &session.message);
-            text.add(&s, MARGIN, MARGIN, session.message.color());
+            text.add(
+                &s,
+                MARGIN,
+                MARGIN,
+                Renderer::TEXT_LAYER,
+                session.message.color(),
+            );
         }
     }
 
@@ -1054,6 +1075,7 @@ impl Renderer {
                     &format!("* recording: {} (<End> to stop)", path.display()),
                     MARGIN * 2.,
                     session.height - self::LINE_HEIGHT - MARGIN,
+                    ZDepth::ZERO,
                     color::RED,
                 );
             }
@@ -1067,6 +1089,7 @@ impl Renderer {
                         ),
                         MARGIN * 2.,
                         session.height - self::LINE_HEIGHT - MARGIN,
+                        ZDepth::ZERO,
                         color::LIGHT_GREEN,
                     );
                 }
@@ -1090,6 +1113,7 @@ impl Renderer {
                 txt,
                 MARGIN,
                 session.height - MARGIN - self::LINE_HEIGHT,
+                ZDepth::ZERO,
                 Rgba8::WHITE,
             );
         }
@@ -1099,6 +1123,7 @@ impl Renderer {
                 &format!("{}", session.message),
                 MARGIN,
                 MARGIN,
+                ZDepth::ZERO,
                 session.message.color(),
             );
         }
@@ -1128,7 +1153,7 @@ impl Renderer {
                     p.x + x + p.cellsize,
                     p.y + y + p.cellsize,
                 ),
-                ZDepth::default(),
+                Renderer::PALETTE_LAYER,
                 Rotation::ZERO,
                 stroke,
                 shape2d::Fill::Solid(color.into()),
@@ -1146,7 +1171,7 @@ impl Renderer {
                 batch.add(
                     Checker::rect(),
                     v.rect() + session.offset,
-                    ZDepth::default(),
+                    Renderer::CHECKER_LAYER,
                     Rgba::TRANSPARENT,
                     1.,
                     kit::Repeat::new(rx, ry),
@@ -1175,7 +1200,7 @@ impl Renderer {
                                 batch.add(
                                     rect,
                                     rect.with_origin(c.x, c.y) + offset,
-                                    ZDepth::default(),
+                                    Renderer::CURSOR_LAYER,
                                     Rgba::TRANSPARENT,
                                     1.,
                                     kit::Repeat::default(),
@@ -1192,7 +1217,7 @@ impl Renderer {
                     batch.add(
                         rect,
                         rect.with_origin(cursor.x, cursor.y) + offset,
-                        ZDepth::default(),
+                        Renderer::CURSOR_LAYER,
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -1206,7 +1231,7 @@ impl Renderer {
                     batch.add(
                         rect,
                         rect.with_origin(cursor.x, cursor.y) + offset,
-                        ZDepth::default(),
+                        Renderer::CURSOR_LAYER,
                         Rgba::TRANSPARENT,
                         1.,
                         kit::Repeat::default(),
@@ -1237,7 +1262,7 @@ impl Renderer {
                     let c = session.snap(c, v.offset.x, v.offset.y, z);
                     shapes.add(Shape::Rectangle(
                         Rect::new(c.x, c.y, c.x + z, c.y + z),
-                        ZDepth::default(),
+                        Renderer::UI_LAYER,
                         Rotation::ZERO,
                         Stroke::new(1.0, color::RED.into()),
                         Fill::Empty(),
@@ -1259,6 +1284,7 @@ impl Renderer {
                         for p in brush.expand(view_coords.into(), v.extent()) {
                             shapes.add(brush.shape(
                                 *session.session_coords(v.id, p.into()),
+                                Renderer::UI_LAYER,
                                 stroke,
                                 fill,
                                 v.zoom,
@@ -1274,6 +1300,7 @@ impl Renderer {
                         };
                         shapes.add(brush.shape(
                             *c,
+                            Renderer::UI_LAYER,
                             Stroke::new(1.0, color.into()),
                             Fill::Empty(),
                             v.zoom,
@@ -1311,8 +1338,6 @@ impl Renderer {
     }
 
     fn render_views(&self, p: &mut core::Pass) {
-        p.set_pipeline(&self.framebuffer2d);
-
         for ((_, v), off) in self
             .view_data
             .iter()
@@ -1330,8 +1355,6 @@ impl Renderer {
     }
 
     fn render_view_animations(&self, views: &ViewManager, p: &mut core::Pass) {
-        p.set_pipeline(&self.sprite2d);
-
         for (id, v) in self.view_data.iter() {
             if let (Some(vb), Some(view)) = (&v.anim_vb, views.get(id)) {
                 if view.animation.len() > 1 {
@@ -1380,8 +1403,9 @@ impl Renderer {
         self.view_transforms.clear();
         for v in views {
             self.view_transforms.push(
-                Matrix4::from_translation((offset + v.offset).extend(0.))
-                    * Matrix4::from_scale(v.zoom),
+                Matrix4::from_translation(
+                    (offset + v.offset).extend(*Renderer::VIEW_LAYER),
+                ) * Matrix4::from_nonuniform_scale(v.zoom, v.zoom, 1.0),
             );
         }
         self.view_transforms_buf
@@ -1404,7 +1428,7 @@ impl Renderer {
                 v.animation.val(),
                 Rect::new(-(v.fw as f32), 0., 0., v.fh as f32) * v.zoom
                     + v.offset,
-                ZDepth::default(),
+                Renderer::VIEW_LAYER,
                 Rgba::TRANSPARENT,
                 1.,
                 kit::Repeat::default(),

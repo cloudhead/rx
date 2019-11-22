@@ -239,6 +239,7 @@ impl Brush {
                     .map(|p| {
                         self.shape(
                             Point2::new(p.x as f32, p.y as f32),
+                            ZDepth::ZERO,
                             stroke,
                             fill,
                             scale,
@@ -258,6 +259,7 @@ impl Brush {
     pub fn shape(
         &self,
         p: Point2<f32>,
+        z: ZDepth,
         stroke: Stroke,
         fill: Fill,
         scale: f32,
@@ -277,7 +279,7 @@ impl Brush {
         Shape::Rectangle(
             Rect::new(x, y, x + size * scale, y + size * scale)
                 - Vector2::new(offset, offset),
-            ZDepth::default(),
+            z,
             Rotation::ZERO,
             stroke,
             fill,

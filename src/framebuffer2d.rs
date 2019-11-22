@@ -1,5 +1,6 @@
 use rgx::core;
 use rgx::core::*;
+use rgx::kit::ZDepth;
 use rgx::math::*;
 
 pub struct Pipeline {
@@ -87,6 +88,7 @@ impl Pipeline {
     pub fn vertex_buffer(
         width: u32,
         height: u32,
+        zdepth: ZDepth,
         r: &core::Renderer,
     ) -> core::VertexBuffer {
         let (w, h) = (width as f32, height as f32);
@@ -100,7 +102,7 @@ impl Pipeline {
             (0.0, h,   0.0, 0.0),
             (w,   h,   1.0, 0.0),
         ].iter().map(|(x, y, s, t)| {
-            (Vector4::new(*x, *y, 0., 1.), *s, *t)
+            (Vector4::new(*x, *y, *zdepth, 1.), *s, *t)
         }).collect();
 
         r.vertex_buffer(vertices.as_slice())

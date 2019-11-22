@@ -52,7 +52,14 @@ impl TextBatch {
         }
     }
 
-    pub fn add(&mut self, text: &str, mut sx: f32, sy: f32, color: Rgba8) {
+    pub fn add(
+        &mut self,
+        text: &str,
+        mut sx: f32,
+        sy: f32,
+        z: ZDepth,
+        color: Rgba8,
+    ) {
         let offset: f32 = 32.;
 
         let gw = self.gw;
@@ -65,7 +72,7 @@ impl TextBatch {
             self.raw.add(
                 Rect::new(x, 0., x + gw, gh),
                 Rect::new(sx, sy, sx + gw, sy + gh),
-                ZDepth::default(),
+                z,
                 rgba,
                 1.0,
                 Repeat::default(),
