@@ -539,6 +539,8 @@ impl Renderer {
         r.update_pipeline(&self.const2d, view_ortho, &mut f);
         r.update_pipeline(&self.paste2d, view_ortho, &mut f);
 
+        let present = &textures.next();
+
         {
             // Draw to view staging buffer.
             {
@@ -616,27 +618,14 @@ impl Renderer {
             p.set_pipeline(&self.sprite2d);
             p.draw(&text_buf, &self.font.binding);
             p.draw(&cursor_buf, &self.cursors.binding);
+
+            // Draw view animations to screen framebuffer.
+            if session.settings["animation"].is_set() {
+                self.render_view_animations(&session.views, &mut p);
+            }
         }
-
-        // Draw view animations to screen framebuffer.
-        if session.settings["animation"].is_set() {
-            r.update_pipeline(
-                &self.sprite2d,
-                ortho * session.transform(),
-                &mut f,
-            );
-
-            let mut p = f.pass(PassOp::Load(), &self.screen_fb);
-            p.set_pipeline(&self.sprite2d);
-
-            self.render_view_animations(&session.views, &mut p);
-        }
-
-        let present = &textures.next();
 
         {
-            r.update_pipeline(&self.sprite2d, ortho, &mut f);
-
             // Present screen framebuffer to screen.
             let bg = Rgba::from(session.settings["background"].color());
             let mut p = f.pass(PassOp::Clear(bg), present);
@@ -645,8 +634,12 @@ impl Renderer {
             p.set_binding(&self.screen_binding, &[]);
             p.draw_buffer(&self.screen_vb);
 
-            p.set_pipeline(&self.sprite2d);
-            p.draw(&overlay_buf, &self.font.binding);
+            if session.settings["debug"].is_set()
+                || !execution.borrow().is_normal()
+            {
+                p.set_pipeline(&self.sprite2d);
+                p.draw(&overlay_buf, &self.font.binding);
+            }
         }
 
         // Submit frame to device.
@@ -1427,7 +1420,7 @@ impl Renderer {
                 v.height(),
                 v.animation.val(),
                 Rect::new(-(v.fw as f32), 0., 0., v.fh as f32) * v.zoom
-                    + v.offset,
+                    + (s.offset + v.offset),
                 Renderer::VIEW_LAYER,
                 Rgba::TRANSPARENT,
                 1.,
