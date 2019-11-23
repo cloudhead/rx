@@ -254,7 +254,6 @@ pub fn init<P: AsRef<Path>>(
                         &mut swap_chain,
                     );
                 });
-                assert_eq!(renderer.window, logical);
 
                 if session.settings_changed.contains("scale") {
                     self::resize(

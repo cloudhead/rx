@@ -782,7 +782,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "nonempty"
-version = "0.1.0"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -1021,10 +1021,11 @@ dependencies = [
 
 [[package]]
 name = "rgx"
-version = "0.3.1"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "nonempty 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nonempty 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "raw-window-handle 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wgpu 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1076,10 +1077,10 @@ dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "meowhash 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "nonempty 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nonempty 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "pico-args 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "png 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rgx 0.3.1",
+ "rgx 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.102 (registry+https://github.com/rust-lang/crates.io-index)",
  "snap 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1659,7 +1660,7 @@ dependencies = [
 "checksum net2 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)" = "42550d9fb7b6684a6d404d9fa7250c2eb2646df731d1c06afc06dcee9e1bcf88"
 "checksum nix 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6c722bee1037d430d0f8e687bbdbf222f27cc6e4e68d5caf630857bb2b6dbdce"
 "checksum nodrop 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "2f9667ddcc6cc8a43afc9b7917599d7216aa09c463919ea32c59ed6cac8bc945"
-"checksum nonempty 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a439b0e7c573acf1806fbb69e21f63513ad95bef9433e57f853b0758662fdb1b"
+"checksum nonempty 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "8fe63942b604abcbfeb537fd3571c8088e469d4a49e9ced036e296fd07855706"
 "checksum num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)" = "6ba9a427cfca2be13aa6f6403b0b7e7368fe982bfa16fccc450ce74c46cd9b32"
 "checksum objc 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "31d20fd2b37e07cf5125be68357b588672e8cefe9a96f8c17a9d46053b3e590d"
 "checksum objc_exception 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "098cd29a2fa3c230d3463ae069cecccc3fdfd64c0d2496ab5b96f82dab6a00dc"
@@ -1688,6 +1689,7 @@ dependencies = [
 "checksum relevant 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "bbc232e13d37f4547f5b9b42a5efc380cabe5dbc1807f8b893580640b2ab0308"
 "checksum rendy-descriptor 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c8b39c42e01e86db7d6652733bdb5617ab620dc0a5f335a1d14c443df084c809"
 "checksum rendy-memory 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)" = "898bfc8b7522ba619b7d89aefcad1717e103a7662da2b62257b24625f9b3eba9"
+"checksum rgx 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "15a983467884c1c7cc786a8b4312180699006ada918eeb85b02ce653ba3525e5"
 "checksum rust-argon2 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4ca4eaef519b494d1f2848fc602d18816fed808a981aedf4f1f00ceb7c9d32cf"
 "checksum rustc-demangle 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
 "checksum rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
