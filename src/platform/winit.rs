@@ -18,6 +18,8 @@ where
 {
     let mut exit = T::default();
 
+    win.set_cursor_visible(false);
+
     events
         .handle
         .run_return(|event, _, control_flow| match event {
