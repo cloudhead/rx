@@ -78,6 +78,13 @@ pub struct Renderer {
     final_batch: shape2d::Batch,
     staging_batch: shape2d::Batch,
     blending: Blending,
+
+    cache: Cache,
+}
+
+struct Cache {
+    ortho: Option<Matrix4<f32>>,
+    view_ortho: Option<Matrix4<f32>>,
 }
 
 /// Paste buffer.
@@ -297,6 +304,10 @@ impl Renderer {
             staging_batch: shape2d::Batch::new(),
             final_batch: shape2d::Batch::new(),
             blending: Blending::default(),
+            cache: Cache {
+                ortho: None,
+                view_ortho: None,
+            },
         }
     }
 
@@ -532,12 +543,20 @@ impl Renderer {
         let ortho =
             kit::ortho(self.window.width as u32, self.window.height as u32);
 
-        r.update_pipeline(&self.shape2d, ortho, &mut f);
-        r.update_pipeline(&self.sprite2d, ortho, &mut f);
-        r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
-        r.update_pipeline(&self.brush2d, view_ortho, &mut f);
-        r.update_pipeline(&self.const2d, view_ortho, &mut f);
-        r.update_pipeline(&self.paste2d, view_ortho, &mut f);
+        if self.cache.ortho.map_or(true, |m| m != ortho) {
+            r.update_pipeline(&self.shape2d, ortho, &mut f);
+            r.update_pipeline(&self.sprite2d, ortho, &mut f);
+            r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
+
+            self.cache.ortho = Some(ortho);
+        }
+        if self.cache.view_ortho.map_or(true, |m| m != view_ortho) {
+            r.update_pipeline(&self.brush2d, view_ortho, &mut f);
+            r.update_pipeline(&self.const2d, view_ortho, &mut f);
+            r.update_pipeline(&self.paste2d, view_ortho, &mut f);
+
+            self.cache.view_ortho = Some(view_ortho);
+        }
 
         let present = &textures.next();
 
