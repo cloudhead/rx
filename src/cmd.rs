@@ -81,6 +81,7 @@ impl fmt::Display for Command {
         match self {
             Self::Brush => write!(f, "Reset brush"),
             Self::BrushSet(m) => write!(f, "Set brush mode to `{}`", m),
+            Self::BrushToggle(m) => write!(f, "Toggle `{}` brush mode", m),
             Self::BrushSize(Op::Incr) => write!(f, "Increase brush size"),
             Self::BrushSize(Op::Decr) => write!(f, "Decrease brush size"),
             Self::BrushSize(Op::Set(s)) => write!(f, "Set brush size to {}", s),
@@ -146,7 +147,12 @@ impl fmt::Display for Command {
             Self::SelectionYank => write!(f, "Yank/copy selection"),
             Self::SelectionDelete => write!(f, "Delete/cut selection"),
             Self::SelectionPaste => write!(f, "Paste selection"),
-            Self::SelectionExpand => write!(f, "Expand selection"),
+            Self::SelectionExpand => write!(f, "Expand selection to frame"),
+            Self::SelectionOffset(1, 1) => write!(f, "Outset selection"),
+            Self::SelectionOffset(-1, -1) => write!(f, "Inset selection"),
+            Self::SelectionOffset(x, y) => {
+                write!(f, "Offset selection by {:2},{:2}", x, y)
+            }
             Self::SelectionMove(x, 0) if *x > 0 => {
                 write!(f, "Move selection right")
             }
