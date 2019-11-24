@@ -129,12 +129,7 @@ impl Brush {
     }
 
     /// Start drawing. Called when input is first pressed.
-    pub fn start_drawing(
-        &mut self,
-        p: ViewCoords<i32>,
-        color: Rgba8,
-        extent: ViewExtent,
-    ) {
+    pub fn start_drawing(&mut self, p: ViewCoords<i32>, color: Rgba8, extent: ViewExtent) {
         self.state = BrushState::DrawStarted(extent);
         self.color = color;
         self.stroke = Vec::with_capacity(32);
@@ -177,11 +172,7 @@ impl Brush {
     }
 
     /// Expand a point into all brush heads.
-    pub fn expand(
-        &self,
-        p: ViewCoords<i32>,
-        extent: ViewExtent,
-    ) -> Vec<ViewCoords<i32>> {
+    pub fn expand(&self, p: ViewCoords<i32>, extent: ViewExtent) -> Vec<ViewCoords<i32>> {
         let mut pixels = vec![*p];
         let ViewExtent { fw, fh, nframes } = extent;
 
@@ -190,9 +181,7 @@ impl Brush {
                 let frame_index = p.x / fw as i32;
 
                 pixels.push(Point2::new(
-                    (frame_index + 1) * fw as i32
-                        - (p.x - frame_index * fw as i32)
-                        - 1,
+                    (frame_index + 1) * fw as i32 - (p.x - frame_index * fw as i32) - 1,
                     p.y,
                 ));
             }
@@ -215,13 +204,7 @@ impl Brush {
     }
 
     /// Return the brush's output strokes as shapes.
-    pub fn output(
-        &self,
-        stroke: Stroke,
-        fill: Fill,
-        scale: f32,
-        origin: Origin,
-    ) -> Vec<Shape> {
+    pub fn output(&self, stroke: Stroke, fill: Fill, scale: f32, origin: Origin) -> Vec<Shape> {
         match self.state {
             BrushState::DrawStarted(extent)
             | BrushState::Drawing(extent)
@@ -230,8 +213,7 @@ impl Brush {
 
                 for p in &self.stroke {
                     pixels.extend_from_slice(
-                        self.expand(ViewCoords::new(p.x, p.y), extent)
-                            .as_slice(),
+                        self.expand(ViewCoords::new(p.x, p.y), extent).as_slice(),
                     );
                 }
                 pixels
@@ -277,8 +259,7 @@ impl Brush {
         };
 
         Shape::Rectangle(
-            Rect::new(x, y, x + size * scale, y + size * scale)
-                - Vector2::new(offset, offset),
+            Rect::new(x, y, x + size * scale, y + size * scale) - Vector2::new(offset, offset),
             z,
             Rotation::ZERO,
             stroke,
@@ -289,11 +270,7 @@ impl Brush {
     ///////////////////////////////////////////////////////////////////////////
 
     /// Draw a line between two points. Uses Bresenham's line algorithm.
-    fn line(
-        mut p0: Point2<i32>,
-        p1: Point2<i32>,
-        canvas: &mut Vec<Point2<i32>>,
-    ) {
+    fn line(mut p0: Point2<i32>, p1: Point2<i32>, canvas: &mut Vec<Point2<i32>>) {
         let dx = i32::abs(p1.x - p0.x);
         let dy = i32::abs(p1.y - p0.y);
         let sx = if p0.x < p1.x { 1 } else { -1 };

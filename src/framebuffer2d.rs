@@ -16,10 +16,7 @@ impl<'a> core::AbstractPipeline<'a> for Pipeline {
 
     fn description() -> core::PipelineDescription<'a> {
         core::PipelineDescription {
-            vertex_layout: &[
-                core::VertexFormat::Float4,
-                core::VertexFormat::Float2,
-            ],
+            vertex_layout: &[core::VertexFormat::Float4, core::VertexFormat::Float2],
             pipeline_layout: &[
                 Set(&[Binding {
                     binding: BindingType::UniformBuffer,
@@ -49,8 +46,7 @@ impl<'a> core::AbstractPipeline<'a> for Pipeline {
     fn setup(pipeline: core::Pipeline, dev: &core::Device) -> Self {
         let m: Matrix4<f32> = Matrix4::identity();
         let buf = dev.create_uniform_buffer(&[m]);
-        let bindings =
-            dev.create_binding_group(&pipeline.layout.sets[0], &[&buf]);
+        let bindings = dev.create_binding_group(&pipeline.layout.sets[0], &[&buf]);
 
         Self {
             pipeline,
@@ -79,10 +75,9 @@ impl Pipeline {
         framebuffer: &core::Framebuffer,
         sampler: &core::Sampler,
     ) -> core::BindingGroup {
-        renderer.device.create_binding_group(
-            &self.pipeline.layout.sets[2],
-            &[framebuffer, sampler],
-        )
+        renderer
+            .device
+            .create_binding_group(&self.pipeline.layout.sets[2], &[framebuffer, sampler])
     }
 
     pub fn vertex_buffer(

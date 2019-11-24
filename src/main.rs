@@ -38,9 +38,7 @@ fn main() {
     }
 }
 
-fn execute(
-    mut args: pico_args::Arguments,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Error>> {
     rx::ALLOCATOR.reset();
 
     let default = rx::Options::default();
@@ -64,10 +62,7 @@ fn execute(
     let source = args.opt_value_from_str::<_, PathBuf>("-u")?;
     let replay = args.opt_value_from_str::<_, PathBuf>("--replay")?;
     let record = args.opt_value_from_str::<_, PathBuf>("--record")?;
-    let resizable = width.is_none()
-        && height.is_none()
-        && replay.is_none()
-        && record.is_none();
+    let resizable = width.is_none() && height.is_none() && replay.is_none() && record.is_none();
 
     if replay.is_some() && record.is_some() {
         return Err("'--replay' and '--record' can't both be specified".into());
@@ -80,10 +75,7 @@ fn execute(
     } else if !verify_digests && !record_digests {
         DigestMode::Ignore
     } else {
-        return Err(
-            "'--record-digests' and '--verify-digests' can't both be specified"
-                .into(),
-        );
+        return Err("'--record-digests' and '--verify-digests' can't both be specified".into());
     };
 
     let log = match args
@@ -120,10 +112,8 @@ fn execute(
 
     match args.free() {
         Ok(paths) => rx::init(&paths, options).map_err(|e| e.into()),
-        Err(e) => Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{}\n{}", e, HELP),
-        )
-        .into()),
+        Err(e) => {
+            Err(io::Error::new(io::ErrorKind::InvalidInput, format!("{}\n{}", e, HELP)).into())
+        }
     }
 }

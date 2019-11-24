@@ -56,12 +56,7 @@ impl TransformBuffer {
         (0..max).step_by(AlignedBuffer::ALIGNMENT as usize)
     }
 
-    pub fn update(
-        &mut self,
-        transforms: &[Matrix4<f32>],
-        r: &core::Renderer,
-        f: &mut core::Frame,
-    ) {
+    pub fn update(&mut self, transforms: &[Matrix4<f32>], r: &core::Renderer, f: &mut core::Frame) {
         let len = transforms.len();
         assert!(len <= self.cap, "fatal: capacity exceeded");
 

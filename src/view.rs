@@ -220,8 +220,7 @@ impl View {
     /// the given path.
     pub fn save_as(&mut self, id: SnapshotId, path: PathBuf) {
         match self.file_status {
-            FileStatus::Modified(ref curr_path)
-            | FileStatus::New(ref curr_path) => {
+            FileStatus::Modified(ref curr_path) | FileStatus::New(ref curr_path) => {
                 if curr_path == &path {
                     self.saved(id, path);
                 }
@@ -441,9 +440,7 @@ impl ToString for FileStatus {
             FileStatus::NoFile => String::new(),
             FileStatus::Saved(ref path) => format!("{}", path.display()),
             FileStatus::New(ref path) => format!("{} [new]", path.display()),
-            FileStatus::Modified(ref path) => {
-                format!("{} [modified]", path.display())
-            }
+            FileStatus::Modified(ref path) => format!("{} [modified]", path.display()),
         }
     }
 }

@@ -50,9 +50,8 @@ impl DigestState {
                 let r = io::BufReader::new(f);
                 for line in r.lines() {
                     let line = line?;
-                    let hash = Hash::from_str(line.as_str()).map_err(|e| {
-                        io::Error::new(io::ErrorKind::InvalidInput, e)
-                    })?;
+                    let hash = Hash::from_str(line.as_str())
+                        .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
                     frames.push(hash);
                 }
             }
@@ -128,10 +127,7 @@ impl Execution {
     }
 
     /// Create a recording.
-    pub fn recording<P: AsRef<Path>>(
-        path: P,
-        mode: DigestMode,
-    ) -> io::Result<Self> {
+    pub fn recording<P: AsRef<Path>>(path: P, mode: DigestMode) -> io::Result<Self> {
         use io::{Error, ErrorKind};
 
         let path = path.as_ref();
@@ -143,10 +139,7 @@ impl Execution {
             ))?
             .as_ref();
 
-        let digest = DigestState::from(
-            mode,
-            path.join(file_name).with_extension("digest"),
-        )?;
+        let digest = DigestState::from(mode, path.join(file_name).with_extension("digest"))?;
 
         Ok(Self::Recording {
             events: Vec::new(),
@@ -157,10 +150,7 @@ impl Execution {
     }
 
     /// Create a replay.
-    pub fn replaying<P: AsRef<Path>>(
-        path: P,
-        mode: DigestMode,
-    ) -> io::Result<Self> {
+    pub fn replaying<P: AsRef<Path>>(path: P, mode: DigestMode) -> io::Result<Self> {
         use io::{Error, ErrorKind};
 
         let mut events = VecDeque::new();
@@ -174,10 +164,7 @@ impl Execution {
             ))?
             .as_ref();
 
-        let digest = DigestState::from(
-            mode,
-            path.join(file_name).with_extension("digest"),
-        )?;
+        let digest = DigestState::from(mode, path.join(file_name).with_extension("digest"))?;
 
         let events_path = path.join(file_name).with_extension("events");
         match File::open(&events_path) {
@@ -188,12 +175,7 @@ impl Execution {
                     let ev = TimedEvent::from_str(&line).map_err(|e| {
                         io::Error::new(
                             io::ErrorKind::InvalidInput,
-                            format!(
-                                "{}:{}: {}",
-                                events_path.display(),
-                                i + 1,
-                                e
-                            ),
+                            format!("{}:{}: {}", events_path.display(), i + 1, e),
                         )
                     })?;
                     events.push_back(ev);
@@ -283,8 +265,7 @@ impl Execution {
                 ))?
                 .as_ref();
 
-            let mut f =
-                File::create(path.join(file_name.with_extension("events")))?;
+            let mut f = File::create(path.join(file_name.with_extension("events")))?;
             for ev in events.clone() {
                 writeln!(&mut f, "{}", String::from(ev))?;
             }
@@ -330,10 +311,7 @@ impl Execution {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    fn write_digest<P: AsRef<Path>>(
-        recorder: &FrameRecorder,
-        path: P,
-    ) -> io::Result<()> {
+    fn write_digest<P: AsRef<Path>>(recorder: &FrameRecorder, path: P) -> io::Result<()> {
         use std::io::Write;
 
         let path = path.as_ref();

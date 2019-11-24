@@ -27,8 +27,7 @@ impl FrameTimer {
         self.timings.truncate(Self::WINDOW - 1);
         self.timings.push_front(elapsed.as_micros());
 
-        let avg =
-            self.timings.iter().sum::<u128>() / self.timings.len() as u128;
+        let avg = self.timings.iter().sum::<u128>() / self.timings.len() as u128;
         self.avg = time::Duration::from_micros(avg as u64);
 
         result

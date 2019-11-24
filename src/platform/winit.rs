@@ -1,6 +1,6 @@
 use crate::platform::{
-    ControlFlow, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition,
-    LogicalSize, ModifiersState, MouseButton, WindowEvent, WindowHint,
+    ControlFlow, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition, LogicalSize,
+    ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use winit;
@@ -30,9 +30,7 @@ where
                 }
             }
             winit::event::Event::EventsCleared => {
-                if let ControlFlow::Exit(r) =
-                    callback(&mut win, WindowEvent::Ready)
-                {
+                if let ControlFlow::Exit(r) = callback(&mut win, WindowEvent::Ready) {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
                     exit = r;
                 }
@@ -183,9 +181,7 @@ impl From<winit::event::WindowEvent> for WindowEvent {
                 position: position.into(),
             },
             Winit::ReceivedCharacter(c) => WindowEvent::ReceivedCharacter(c),
-            Winit::KeyboardInput { input, .. } => {
-                WindowEvent::KeyboardInput(input.into())
-            }
+            Winit::KeyboardInput { input, .. } => WindowEvent::KeyboardInput(input.into()),
             Winit::Focused(b) => WindowEvent::Focused(b),
             Winit::HiDpiFactorChanged(n) => WindowEvent::HiDpiFactorChanged(n),
 
@@ -298,9 +294,7 @@ impl From<winit::event::MouseScrollDelta> for LogicalDelta {
                 x: x as f64,
                 y: y as f64,
             },
-            winit::event::MouseScrollDelta::PixelDelta(pos) => {
-                LogicalDelta { x: pos.x, y: pos.y }
-            }
+            winit::event::MouseScrollDelta::PixelDelta(pos) => LogicalDelta { x: pos.x, y: pos.y },
         }
     }
 }

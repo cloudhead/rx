@@ -67,26 +67,14 @@ pub enum Event {
 impl From<Event> for String {
     fn from(event: Event) -> String {
         match event {
-            Event::MouseInput(_, platform::InputState::Pressed) => {
-                format!("mouse/input pressed")
-            }
-            Event::MouseInput(_, platform::InputState::Released) => {
-                format!("mouse/input released")
-            }
-            Event::MouseInput(_, platform::InputState::Repeated) => {
-                unreachable!()
-            }
-            Event::MouseWheel(delta) => {
-                format!("mouse/wheel {} {}", delta.x, delta.y)
-            }
+            Event::MouseInput(_, platform::InputState::Pressed) => format!("mouse/input pressed"),
+            Event::MouseInput(_, platform::InputState::Released) => format!("mouse/input released"),
+            Event::MouseInput(_, platform::InputState::Repeated) => unreachable!(),
+            Event::MouseWheel(delta) => format!("mouse/wheel {} {}", delta.x, delta.y),
             Event::CursorMoved(platform::LogicalPosition { x, y }) => {
                 format!("cursor/moved {} {}", x, y)
             }
-            Event::KeyboardInput(platform::KeyboardInput {
-                key,
-                state,
-                ..
-            }) => {
+            Event::KeyboardInput(platform::KeyboardInput { key, state, .. }) => {
                 let state = match state {
                     platform::InputState::Pressed => "pressed",
                     platform::InputState::Released => "released",
@@ -119,9 +107,7 @@ impl FromStr for Event {
             "cursor/moved" => {
                 let ((x, y), p) = p.parse::<(f64, f64)>()?;
                 Ok((
-                    Event::CursorMoved(platform::LogicalPosition::new(
-                        x as f64, y as f64,
-                    )),
+                    Event::CursorMoved(platform::LogicalPosition::new(x as f64, y as f64)),
                     p,
                 ))
             }

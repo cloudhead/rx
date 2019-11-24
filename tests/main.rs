@@ -107,9 +107,8 @@ fn run(name: &str) -> io::Result<()> {
         .join(name);
     let cfg: Config = {
         let path = path.join(name).with_extension("toml");
-        let cfg = fs::read_to_string(&path).map_err(|e| {
-            io::Error::new(e.kind(), format!("{}: {}", path.display(), e))
-        })?;
+        let cfg = fs::read_to_string(&path)
+            .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", path.display(), e)))?;
         toml::from_str(&cfg)?
     };
     let exec = Execution::replaying(path.clone(), DigestMode::Verify)?;

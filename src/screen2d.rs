@@ -48,10 +48,9 @@ impl Pipeline {
         framebuffer: &Framebuffer,
         sampler: &Sampler,
     ) -> core::BindingGroup {
-        renderer.device.create_binding_group(
-            &self.pipeline.layout.sets[0],
-            &[framebuffer, sampler],
-        )
+        renderer
+            .device
+            .create_binding_group(&self.pipeline.layout.sets[0], &[framebuffer, sampler])
     }
 
     pub fn vertex_buffer(r: &Renderer) -> VertexBuffer {

@@ -198,17 +198,12 @@ impl Renderer {
     const HELP_LAYER: ZDepth = ZDepth(-0.3);
     const CURSOR_LAYER: ZDepth = ZDepth(-0.2);
 
-    pub fn new(
-        r: &mut core::Renderer,
-        window: LogicalSize,
-        resources: ResourceManager,
-    ) -> Self {
+    pub fn new(r: &mut core::Renderer, window: LogicalSize, resources: ResourceManager) -> Self {
         let (win_w, win_h) = (window.width as u32, window.height as u32);
 
         let sprite2d: kit::sprite2d::Pipeline = r.pipeline(Blending::default());
         let shape2d: kit::shape2d::Pipeline = r.pipeline(Blending::default());
-        let framebuffer2d: framebuffer2d::Pipeline =
-            r.pipeline(Blending::default());
+        let framebuffer2d: framebuffer2d::Pipeline = r.pipeline(Blending::default());
         let screen2d: screen2d::Pipeline = r.pipeline(Blending::default());
 
         let sampler = r.sampler(Filter::Nearest, Filter::Nearest);
@@ -226,12 +221,7 @@ impl Renderer {
             let binding = sprite2d.binding(r, &texture, &sampler);
 
             (
-                Font::new(
-                    texture,
-                    binding,
-                    self::GLYPH_WIDTH,
-                    self::GLYPH_HEIGHT,
-                ),
+                Font::new(texture, binding, self::GLYPH_WIDTH, self::GLYPH_HEIGHT),
                 img,
             )
         };
@@ -312,21 +302,11 @@ impl Renderer {
         }
     }
 
-    pub fn init(
-        &mut self,
-        effects: Vec<Effect>,
-        views: &ViewManager,
-        r: &mut core::Renderer,
-    ) {
+    pub fn init(&mut self, effects: Vec<Effect>, views: &ViewManager, r: &mut core::Renderer) {
         self.handle_effects(effects, &views, r);
     }
 
-    fn render_help(
-        &self,
-        session: &Session,
-        r: &mut core::Renderer,
-        p: &mut core::Pass,
-    ) {
+    fn render_help(&self, session: &Session, r: &mut core::Renderer, p: &mut core::Pass) {
         let win_buf = shape2d::Batch::singleton(Shape::Rectangle(
             Rect::origin(self.window.width as f32, self.window.height as f32),
             Renderer::HELP_LAYER,
@@ -361,8 +341,7 @@ impl Renderer {
             .filter_map(|kb| kb.display.as_ref().map(|d| (d, kb)))
             .partition(|(_, kb)| kb.modes.contains(&Mode::Normal));
 
-        let mut line = (0..(self.window.height as usize
-            - self::LINE_HEIGHT as usize * 4))
+        let mut line = (0..(self.window.height as usize - self::LINE_HEIGHT as usize * 4))
             .rev()
             .step_by(self::LINE_HEIGHT as usize);
 
@@ -415,8 +394,7 @@ impl Renderer {
             }
         }
         for (i, l) in session::HELP.lines().enumerate() {
-            let y =
-                self.window.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
+            let y = self.window.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
 
             text.add(
                 l,
@@ -456,16 +434,10 @@ impl Renderer {
         let mut ui_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
         let mut overlay_batch = TextBatch::new(&self.font);
-        let mut cursor_batch = sprite2d::Batch::new(
-            self.cursors.texture.w,
-            self.cursors.texture.h,
-        );
-        let mut paste_batch =
-            sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h);
-        let mut checker_batch = sprite2d::Batch::new(
-            self.checker.texture.w,
-            self.checker.texture.h,
-        );
+        let mut cursor_batch = sprite2d::Batch::new(self.cursors.texture.w, self.cursors.texture.h);
+        let mut paste_batch = sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h);
+        let mut checker_batch =
+            sprite2d::Batch::new(self.checker.texture.w, self.checker.texture.h);
 
         // Handle view operations.
         for v in session.views.values() {
@@ -512,12 +484,7 @@ impl Renderer {
         let mut f = r.frame();
 
         self.update_view_animations(session, r);
-        self.update_view_transforms(
-            session.views.values(),
-            session.offset,
-            &r,
-            &mut f,
-        );
+        self.update_view_transforms(session.views.values(), session.offset, &r, &mut f);
 
         let v = session.active_view();
         let view_data = self
@@ -525,8 +492,7 @@ impl Renderer {
             .get(&v.id)
             .expect("the view data for the active view must exist");
         let view_ortho = kit::ortho(v.width(), v.height());
-        let ortho =
-            kit::ortho(self.window.width as u32, self.window.height as u32);
+        let ortho = kit::ortho(self.window.width as u32, self.window.height as u32);
 
         if self.cache.ortho.map_or(true, |m| m != ortho) {
             r.update_pipeline(&self.shape2d, ortho, &mut f);
@@ -551,18 +517,11 @@ impl Renderer {
                 // Always clear the active view staging buffer. We do this because
                 // it may not get drawn to this frame, and hence may remain dirty
                 // from a previous frame.
-                let mut p = f.pass(
-                    PassOp::Clear(Rgba::TRANSPARENT),
-                    &view_data.staging_fb,
-                );
+                let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), &view_data.staging_fb);
 
                 // Render brush strokes to view staging framebuffers.
                 if let Some(buf) = &staging_buf {
-                    self.render_brush_strokes(
-                        buf,
-                        &Blending::default(),
-                        &mut p,
-                    );
+                    self.render_brush_strokes(buf, &Blending::default(), &mut p);
                 }
                 // Draw paste buffer to view staging buffer.
                 if let Some(buf) = paste_buf {
@@ -601,8 +560,7 @@ impl Renderer {
         }
 
         {
-            let mut p =
-                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
+            let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
 
             // Draw view checkers to screen framebuffer.
             if session.settings["checker"].is_set() {
@@ -642,9 +600,7 @@ impl Renderer {
             p.set_binding(&self.screen_binding, &[]);
             p.draw_buffer(&self.screen_vb);
 
-            if session.settings["debug"].is_set()
-                || !execution.borrow().is_normal()
-            {
+            if session.settings["debug"].is_set() || !execution.borrow().is_normal() {
                 p.set_pipeline(&self.sprite2d);
                 p.draw(&overlay_buf, &self.font.binding);
             }
@@ -732,8 +688,7 @@ impl Renderer {
             //
             // Either way, we handle it equally, by re-creating the view-data and restoring
             // the current snapshot.
-            let view_data =
-                ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, r);
+            let view_data = ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, r);
 
             // We don't want the lock to be held when `submit` is called below,
             // because in some cases it'll trigger the read-back which claims
@@ -808,23 +763,17 @@ impl Renderer {
 
                             buffer.extend_from_slice(row);
                         }
-                        let mut pixels: Vec<Rgba8> =
-                            Vec::with_capacity(buffer.len());
+                        let mut pixels: Vec<Rgba8> = Vec::with_capacity(buffer.len());
                         for c in buffer.into_iter() {
                             pixels.push(c.into());
                         }
                         assert!(pixels.len() == w * h);
 
-                        if self.paste.texture.w != w as u32
-                            || self.paste.texture.h != h as u32
-                        {
+                        if self.paste.texture.w != w as u32 || self.paste.texture.h != h as u32 {
                             self.paste.ready = false;
                             self.paste.texture = r.texture(w as u32, h as u32);
-                            self.paste.binding = self.paste2d.binding(
-                                r,
-                                &self.paste.texture,
-                                &self.sampler,
-                            );
+                            self.paste.binding =
+                                self.paste2d.binding(r, &self.paste.texture, &self.sampler);
                         }
                         pixels
                     };
@@ -855,8 +804,7 @@ impl Renderer {
             let (s, pixels) = resources.get_snapshot(*id);
             let (w, h) = (s.width(), s.height());
 
-            let view_data =
-                ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, r);
+            let view_data = ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, r);
 
             debug_assert!(!pixels.is_empty());
             r.submit(&[
@@ -869,11 +817,7 @@ impl Renderer {
         }
     }
 
-    fn draw_ui(
-        session: &Session,
-        canvas: &mut shape2d::Batch,
-        text: &mut TextBatch,
-    ) {
+    fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch) {
         let view = session.active_view();
 
         if let Some(selection) = session.selection {
@@ -904,13 +848,7 @@ impl Renderer {
                 } else {
                     (s.y2) as f32 * z - self::LINE_HEIGHT + 1.
                 };
-                text.add(
-                    &t,
-                    x + offset.x,
-                    y + offset.y,
-                    Renderer::TEXT_LAYER,
-                    stroke,
-                );
+                text.add(&t, x + offset.x, y + offset.y, Renderer::TEXT_LAYER, stroke);
             }
 
             // Selection stroke.
@@ -924,8 +862,7 @@ impl Renderer {
             // Selection fill.
             if r.intersects(view.bounds()) {
                 canvas.add(Shape::Rectangle(
-                    r.intersection(view.bounds()).map(|n| n as f32) * view.zoom
-                        + offset,
+                    r.intersection(view.bounds()).map(|n| n as f32) * view.zoom + offset,
                     Renderer::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::NONE,
@@ -953,21 +890,16 @@ impl Renderer {
             let border_color = if session.is_active(*id) {
                 match session.mode {
                     // TODO: (rgx) Use `Rgba8::alpha`.
-                    Mode::Visual(_) => Rgba8::new(
-                        color::RED.r,
-                        color::RED.g,
-                        color::RED.b,
-                        0xdd,
-                    )
-                    .into(),
+                    Mode::Visual(_) => {
+                        Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0xdd).into()
+                    }
                     _ => color::WHITE.into(),
                 }
             } else {
                 Rgba::new(0.5, 0.5, 0.5, 1.0)
             };
             canvas.add(Shape::Rectangle(
-                Rect::new(r.x1 - 1., r.y1 - 1., r.x2 + 1., r.y2 + 1.)
-                    + session.offset,
+                Rect::new(r.x1 - 1., r.y1 - 1., r.x2 + 1., r.y2 + 1.) + session.offset,
                 Renderer::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1.0, border_color),
@@ -1023,10 +955,8 @@ impl Renderer {
             if session.width >= 400. {
                 // Fg color
                 canvas.add(Shape::Rectangle(
-                    Rect::origin(11., 11.).with_origin(
-                        session.width * 0.4,
-                        self::LINE_HEIGHT + self::MARGIN + 2.,
-                    ),
+                    Rect::origin(11., 11.)
+                        .with_origin(session.width * 0.4, self::LINE_HEIGHT + self::MARGIN + 2.),
                     Renderer::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::new(1.0, Rgba::WHITE),
@@ -1050,9 +980,7 @@ impl Renderer {
         if session.mode == Mode::Command {
             let s = format!("{}", &session.cmdline.input());
             text.add(&s, MARGIN, MARGIN, Renderer::TEXT_LAYER, Rgba8::WHITE);
-        } else if !session.message.is_replay()
-            && session.settings["ui/message"].is_set()
-        {
+        } else if !session.message.is_replay() && session.settings["ui/message"].is_set() {
             let s = format!("{}", &session.message);
             text.add(
                 &s,
@@ -1148,12 +1076,7 @@ impl Renderer {
             }
 
             batch.add(Shape::Rectangle(
-                Rect::new(
-                    p.x + x,
-                    p.y + y,
-                    p.x + x + p.cellsize,
-                    p.y + y + p.cellsize,
-                ),
+                Rect::new(p.x + x, p.y + y, p.x + x + p.cellsize, p.y + y + p.cellsize),
                 Renderer::PALETTE_LAYER,
                 Rotation::ZERO,
                 stroke,
@@ -1193,9 +1116,7 @@ impl Renderer {
                     let c = session.cursor;
                     let v = session.active_view();
                     if v.contains(c - session.offset) {
-                        if session
-                            .is_selected(session.view_coords(v.id, c).into())
-                        {
+                        if session.is_selected(session.view_coords(v.id, c).into()) {
                             if let Some(rect) = Cursors::rect(&Tool::Move) {
                                 let offset = Cursors::offset(&Tool::Move);
                                 batch.add(
@@ -1280,8 +1201,7 @@ impl Renderer {
                             (Stroke::NONE, Fill::Solid(session.fg.into()))
                         };
 
-                        let view_coords =
-                            session.active_view_coords(session.cursor);
+                        let view_coords = session.active_view_coords(session.cursor);
                         for p in brush.expand(view_coords.into(), v.extent()) {
                             shapes.add(brush.shape(
                                 *session.session_coords(v.id, p.into()),
@@ -1314,22 +1234,11 @@ impl Renderer {
         }
     }
 
-    fn draw_paste(
-        session: &Session,
-        paste: &Paste,
-        batch: &mut sprite2d::Batch,
-    ) {
-        if let (Mode::Visual(VisualState::Pasting), Some(s)) =
-            (session.mode, session.selection)
-        {
+    fn draw_paste(session: &Session, paste: &Paste, batch: &mut sprite2d::Batch) {
+        if let (Mode::Visual(VisualState::Pasting), Some(s)) = (session.mode, session.selection) {
             batch.add(
                 paste.texture.rect(),
-                Rect::new(
-                    s.x1 as f32,
-                    s.y1 as f32,
-                    s.x2 as f32 + 1.,
-                    s.y2 as f32 + 1.,
-                ),
+                Rect::new(s.x1 as f32, s.y1 as f32, s.x2 as f32 + 1., s.y2 as f32 + 1.),
                 ZDepth::default(),
                 Rgba::TRANSPARENT,
                 0.9,
@@ -1379,17 +1288,12 @@ impl Renderer {
         p.draw_buffer(&paint_buf);
     }
 
-    pub fn handle_resized(
-        &mut self,
-        size: platform::LogicalSize,
-        r: &core::Renderer,
-    ) {
+    pub fn handle_resized(&mut self, size: platform::LogicalSize, r: &core::Renderer) {
         let (w, h) = (size.width as u32, size.height as u32);
 
         self.window = size;
         self.screen_fb = r.framebuffer(w, h);
-        self.screen_binding =
-            self.screen2d.binding(r, &self.screen_fb, &self.sampler);
+        self.screen_binding = self.screen2d.binding(r, &self.screen_fb, &self.sampler);
     }
 
     fn update_view_transforms<'a, I>(
@@ -1404,9 +1308,8 @@ impl Renderer {
         self.view_transforms.clear();
         for v in views {
             self.view_transforms.push(
-                Matrix4::from_translation(
-                    (offset + v.offset).extend(*Renderer::VIEW_LAYER),
-                ) * Matrix4::from_nonuniform_scale(v.zoom, v.zoom, 1.0),
+                Matrix4::from_translation((offset + v.offset).extend(*Renderer::VIEW_LAYER))
+                    * Matrix4::from_nonuniform_scale(v.zoom, v.zoom, 1.0),
             );
         }
         self.view_transforms_buf
@@ -1427,8 +1330,7 @@ impl Renderer {
                 v.width(),
                 v.height(),
                 v.animation.val(),
-                Rect::new(-(v.fw as f32), 0., 0., v.fh as f32) * v.zoom
-                    + (s.offset + v.offset),
+                Rect::new(-(v.fw as f32), 0., 0., v.fh as f32) * v.zoom + (s.offset + v.offset),
                 Renderer::VIEW_LAYER,
                 Rgba::TRANSPARENT,
                 1.,

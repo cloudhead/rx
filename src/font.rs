@@ -15,12 +15,7 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn new(
-        texture: gfx::Texture,
-        binding: gfx::BindingGroup,
-        gw: f32,
-        gh: f32,
-    ) -> Font {
+    pub fn new(texture: gfx::Texture, binding: gfx::BindingGroup, gw: f32, gh: f32) -> Font {
         let width = texture.w as f32;
         let height = texture.h as f32;
 
@@ -52,14 +47,7 @@ impl TextBatch {
         }
     }
 
-    pub fn add(
-        &mut self,
-        text: &str,
-        mut sx: f32,
-        sy: f32,
-        z: ZDepth,
-        color: Rgba8,
-    ) {
+    pub fn add(&mut self, text: &str, mut sx: f32, sy: f32, z: ZDepth, color: Rgba8) {
         let offset: f32 = 32.;
 
         let gw = self.gw;

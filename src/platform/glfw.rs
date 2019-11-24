@@ -1,6 +1,6 @@
 use crate::platform::{
-    ControlFlow, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition,
-    LogicalSize, ModifiersState, MouseButton, WindowEvent, WindowHint,
+    ControlFlow, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition, LogicalSize,
+    ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use glfw;
@@ -15,8 +15,8 @@ pub fn init<T>(
     h: u32,
     hints: &[WindowHint],
 ) -> io::Result<(Window<T>, Events)> {
-    let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let mut glfw =
+        glfw::init(glfw::FAIL_ON_ERRORS).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     glfw.window_hint(glfw::WindowHint::Resizable(true));
     glfw.window_hint(glfw::WindowHint::Visible(true));
@@ -30,9 +30,7 @@ pub fn init<T>(
 
     let (mut window, events) = glfw
         .create_window(w, h, title, glfw::WindowMode::Windowed)
-        .ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "glfw: error creating window")
-        })?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "glfw: error creating window"))?;
 
     window.set_all_polling(true);
 
@@ -66,11 +64,7 @@ where
 
         if win.redraw_requested {
             win.redraw_requested = false;
-            win.send_event(
-                WindowEvent::RedrawRequested,
-                &mut callback,
-                &mut glfw,
-            );
+            win.send_event(WindowEvent::RedrawRequested, &mut callback, &mut glfw);
         }
     }
     callback(&mut win, WindowEvent::Destroyed);
@@ -122,12 +116,8 @@ impl<T> Window<T> {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    fn send_event<F>(
-        &mut self,
-        event: WindowEvent,
-        callback: &mut F,
-        glfw: &mut glfw::Glfw,
-    ) where
+    fn send_event<F>(&mut self, event: WindowEvent, callback: &mut F, glfw: &mut glfw::Glfw)
+    where
         F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
     {
         match callback(self, event) {
@@ -184,24 +174,18 @@ impl From<glfw::WindowEvent> for WindowEvent {
         match event {
             // We care about logical ("screen") coordinates, so we
             // use this event instead of the framebuffer size event.
-            Glfw::Size(w, h) => {
-                WindowEvent::Resized(LogicalSize::new(w as f64, h as f64))
-            }
+            Glfw::Size(w, h) => WindowEvent::Resized(LogicalSize::new(w as f64, h as f64)),
             Glfw::FramebufferSize(_, _) => WindowEvent::Noop,
             Glfw::Iconify(true) => WindowEvent::Minimized,
             Glfw::Iconify(false) => WindowEvent::Restored,
             Glfw::Close => WindowEvent::CloseRequested,
             Glfw::Refresh => WindowEvent::RedrawRequested,
-            Glfw::Pos(x, y) => {
-                WindowEvent::Moved(LogicalPosition::new(x as f64, y as f64))
-            }
-            Glfw::MouseButton(button, action, modifiers) => {
-                WindowEvent::MouseInput {
-                    state: action.into(),
-                    button: button.into(),
-                    modifiers: modifiers.into(),
-                }
-            }
+            Glfw::Pos(x, y) => WindowEvent::Moved(LogicalPosition::new(x as f64, y as f64)),
+            Glfw::MouseButton(button, action, modifiers) => WindowEvent::MouseInput {
+                state: action.into(),
+                button: button.into(),
+                modifiers: modifiers.into(),
+            },
             Glfw::Scroll(x, y) => WindowEvent::MouseWheel {
                 delta: LogicalDelta { x, y },
             },
@@ -211,13 +195,11 @@ impl From<glfw::WindowEvent> for WindowEvent {
                 position: LogicalPosition::new(x, y),
             },
             Glfw::Char(c) => WindowEvent::ReceivedCharacter(c),
-            Glfw::Key(key, _, action, modifiers) => {
-                WindowEvent::KeyboardInput(KeyboardInput {
-                    key: Some(key.into()),
-                    state: action.into(),
-                    modifiers: modifiers.into(),
-                })
-            }
+            Glfw::Key(key, _, action, modifiers) => WindowEvent::KeyboardInput(KeyboardInput {
+                key: Some(key.into()),
+                state: action.into(),
+                modifiers: modifiers.into(),
+            }),
             Glfw::Focus(b) => WindowEvent::Focused(b),
             Glfw::ContentScale(x, y) => {
                 if (x - y).abs() > 0.1 {

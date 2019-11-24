@@ -96,14 +96,10 @@ impl fmt::Display for Command {
             Self::Map(_) => write!(f, "Map a key combination to a command"),
             Self::Mode(m) => write!(f, "Switch session mode to {}", m),
             Self::AddFrame => write!(f, "Add a blank frame to the view"),
-            Self::CloneFrame(i) => {
-                write!(f, "Clone frame {} and add it to the view", i)
-            }
+            Self::CloneFrame(i) => write!(f, "Clone frame {} and add it to the view", i),
             Self::RemoveFrame => write!(f, "Remove the last frame of the view"),
             Self::Noop => write!(f, "No-op"),
-            Self::PaletteAdd(c) => {
-                write!(f, "Add {color} to palette", color = c)
-            }
+            Self::PaletteAdd(c) => write!(f, "Add {color} to palette", color = c),
             Self::PaletteClear => write!(f, "Clear palette"),
             Self::PaletteSample => write!(f, "Sample palette from view"),
             Self::Pan(x, 0) if *x > 0 => write!(f, "Pan workspace right"),
@@ -119,18 +115,12 @@ impl fmt::Display for Command {
             Self::Tool(Tool::Brush(_)) => write!(f, "Brush tool"),
             Self::Tool(Tool::Sampler) => write!(f, "Color sampler tool"),
             Self::ToolPrev => write!(f, "Switch to previous tool"),
-            Self::Set(s, v) => {
-                write!(f, "Set {setting} to {val}", setting = s, val = v)
-            }
+            Self::Set(s, v) => write!(f, "Set {setting} to {val}", setting = s, val = v),
             Self::Slice(Some(n)) => write!(f, "Slice view into {} frame(s)", n),
             Self::Slice(None) => write!(f, "Reset view slices"),
             Self::Source(_) => write!(f, "Source an rx script (eg. a palette)"),
-            Self::SwapColors => {
-                write!(f, "Swap foreground & background colors")
-            }
-            Self::Toggle(s) => {
-                write!(f, "Toggle {setting} on/off", setting = s)
-            }
+            Self::SwapColors => write!(f, "Swap foreground & background colors"),
+            Self::Toggle(s) => write!(f, "Toggle {setting} on/off", setting = s),
             Self::Undo => write!(f, "Undo view edit"),
             Self::ViewCenter => write!(f, "Center active view"),
             Self::ViewNext => write!(f, "Go to next view"),
@@ -141,30 +131,18 @@ impl fmt::Display for Command {
             Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
             Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
             Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
-            Self::SelectionFill(None) => {
-                write!(f, "Fill selection with foreground color")
-            }
+            Self::SelectionFill(None) => write!(f, "Fill selection with foreground color"),
             Self::SelectionYank => write!(f, "Yank/copy selection"),
             Self::SelectionDelete => write!(f, "Delete/cut selection"),
             Self::SelectionPaste => write!(f, "Paste selection"),
             Self::SelectionExpand => write!(f, "Expand selection to frame"),
             Self::SelectionOffset(1, 1) => write!(f, "Outset selection"),
             Self::SelectionOffset(-1, -1) => write!(f, "Inset selection"),
-            Self::SelectionOffset(x, y) => {
-                write!(f, "Offset selection by {:2},{:2}", x, y)
-            }
-            Self::SelectionMove(x, 0) if *x > 0 => {
-                write!(f, "Move selection right")
-            }
-            Self::SelectionMove(x, 0) if *x < 0 => {
-                write!(f, "Move selection left")
-            }
-            Self::SelectionMove(0, y) if *y > 0 => {
-                write!(f, "Move selection up")
-            }
-            Self::SelectionMove(0, y) if *y < 0 => {
-                write!(f, "Move selection down")
-            }
+            Self::SelectionOffset(x, y) => write!(f, "Offset selection by {:2},{:2}", x, y),
+            Self::SelectionMove(x, 0) if *x > 0 => write!(f, "Move selection right"),
+            Self::SelectionMove(x, 0) if *x < 0 => write!(f, "Move selection left"),
+            Self::SelectionMove(0, y) if *y > 0 => write!(f, "Move selection up"),
+            Self::SelectionMove(0, y) if *y < 0 => write!(f, "Move selection down"),
             Self::SelectionJump(Direction::Forward) => {
                 write!(f, "Move selection forward by one frame")
             }
@@ -258,9 +236,7 @@ impl<'a> Parse<'a> for Key {
                 "tab" => platform::Key::Tab,
                 "end" => platform::Key::End,
                 "esc" => platform::Key::Escape,
-                other => {
-                    return Err(Error::new(format!("unknown key <{}>", other)))
-                }
+                other => return Err(Error::new(format!("unknown key <{}>", other))),
             };
             Ok((Key::Virtual(virt), p))
         } else {
@@ -647,12 +623,10 @@ impl<'a> Parse<'a> for Command {
                 "parsing failed: `f/new` has been renamed to `f/add`",
             )),
             "f/add" => Ok((Command::AddFrame, p)),
-            "f/clone" => {
-                match p.clone().parse::<i32>().or_else(|_| Ok((-1, p))) {
-                    Ok((index, p)) => Ok((Command::CloneFrame(index), p)),
-                    Err(e) => Err(e),
-                }
-            }
+            "f/clone" => match p.clone().parse::<i32>().or_else(|_| Ok((-1, p))) {
+                Ok((index, p)) => Ok((Command::CloneFrame(index), p)),
+                Err(e) => Err(e),
+            },
             "f/remove" => Ok((Command::RemoveFrame, p)),
             "f/resize" => {
                 let ((w, h), p) = p.parse::<(u32, u32)>()?;
@@ -661,12 +635,8 @@ impl<'a> Parse<'a> for Command {
             "tool" => {
                 let (t, p) = p.word()?;
                 match t {
-                    "pan" => {
-                        Ok((Command::Tool(Tool::Pan(PanState::default())), p))
-                    }
-                    "brush" => {
-                        Ok((Command::Tool(Tool::Brush(Brush::default())), p))
-                    }
+                    "pan" => Ok((Command::Tool(Tool::Pan(PanState::default())), p)),
+                    "brush" => Ok((Command::Tool(Tool::Brush(Brush::default())), p)),
                     "sampler" => Ok((Command::Tool(Tool::Sampler), p)),
                     _ => Err(Error::new(format!("unknown tool {:?}", t))),
                 }

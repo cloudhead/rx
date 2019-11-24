@@ -26,11 +26,7 @@ pub fn init<T>(
 }
 
 /// Run the main event loop.
-pub fn run<F, T>(
-    win: backend::Window<T>,
-    events: backend::Events,
-    callback: F,
-) -> T
+pub fn run<F, T>(win: backend::Window<T>, events: backend::Events, callback: F) -> T
 where
     F: 'static + FnMut(&mut backend::Window<T>, WindowEvent) -> ControlFlow<T>,
     T: Default,
@@ -350,10 +346,7 @@ impl LogicalPosition {
         LogicalPosition { x, y }
     }
 
-    pub fn from_physical<T: Into<PhysicalPosition>>(
-        physical: T,
-        dpi_factor: f64,
-    ) -> Self {
+    pub fn from_physical<T: Into<PhysicalPosition>>(physical: T, dpi_factor: f64) -> Self {
         physical.into().to_logical(dpi_factor)
     }
 
@@ -376,10 +369,7 @@ impl PhysicalPosition {
         PhysicalPosition { x, y }
     }
 
-    pub fn from_logical<T: Into<LogicalPosition>>(
-        logical: T,
-        dpi_factor: f64,
-    ) -> Self {
+    pub fn from_logical<T: Into<LogicalPosition>>(logical: T, dpi_factor: f64) -> Self {
         logical.into().to_physical(dpi_factor)
     }
 
@@ -402,10 +392,7 @@ impl LogicalSize {
         LogicalSize { width, height }
     }
 
-    pub fn from_physical<T: Into<PhysicalSize>>(
-        physical: T,
-        dpi_factor: f64,
-    ) -> Self {
+    pub fn from_physical<T: Into<PhysicalSize>>(physical: T, dpi_factor: f64) -> Self {
         physical.into().to_logical(dpi_factor)
     }
 
@@ -445,10 +432,7 @@ impl PhysicalSize {
         PhysicalSize { width, height }
     }
 
-    pub fn from_logical<T: Into<LogicalSize>>(
-        logical: T,
-        dpi_factor: f64,
-    ) -> Self {
+    pub fn from_logical<T: Into<LogicalSize>>(logical: T, dpi_factor: f64) -> Self {
         logical.into().to_physical(dpi_factor)
     }
 

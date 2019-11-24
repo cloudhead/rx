@@ -45,10 +45,7 @@ impl Resources {
             ))
     }
 
-    pub fn get_snapshot_mut(
-        &mut self,
-        id: ViewId,
-    ) -> (&mut Snapshot, &[Bgra8]) {
+    pub fn get_snapshot_mut(&mut self, id: ViewId) -> (&mut Snapshot, &[Bgra8]) {
         self.data
             .get_mut(&id)
             .map(|r| r.current_snapshot_mut())
@@ -95,9 +92,7 @@ impl ResourceManager {
         self.add_view(id, w, h, &pixels);
     }
 
-    pub fn load_image<P: AsRef<Path>>(
-        path: P,
-    ) -> io::Result<(u32, u32, Vec<u8>)> {
+    pub fn load_image<P: AsRef<Path>>(path: P) -> io::Result<(u32, u32, Vec<u8>)> {
         let (buffer, width, height) = image::load(path)?;
 
         // Convert pixels to BGRA, since they are going to be loaded into
@@ -158,8 +153,7 @@ impl ResourceManager {
         let frame_delay = frame_delay.as_millis() / 10;
         // If the passed in delay is larger than a `u16` can hold,
         // we ensure it doesn't overflow.
-        let frame_delay =
-            u128::min(frame_delay, u16::max_value() as u128) as u16;
+        let frame_delay = u128::min(frame_delay, u16::max_value() as u128) as u16;
 
         let mut resources = self.lock_mut();
         let (snapshot, pixels) = resources.get_snapshot_mut(id);
@@ -275,11 +269,8 @@ impl ViewResources {
         self.snapshot += 1;
         self.pixels = Bgra8::align(&pixels).into();
 
-        self.snapshots.push(Snapshot::new(
-            SnapshotId(self.snapshot),
-            pixels,
-            extent,
-        ));
+        self.snapshots
+            .push(Snapshot::new(SnapshotId(self.snapshot), pixels, extent));
     }
 
     pub fn prev_snapshot(&mut self) -> Option<&Snapshot> {
@@ -335,14 +326,11 @@ pub struct Snapshot {
 impl Snapshot {
     pub fn new(id: SnapshotId, pixels: &[u8], extent: ViewExtent) -> Self {
         let size = pixels.len();
-        let pixels = Compressed::from(pixels)
-            .expect("compressing snapshot shouldn't result in an error");
+        let pixels =
+            Compressed::from(pixels).expect("compressing snapshot shouldn't result in an error");
 
         debug_assert!(
-            (extent.fw * extent.fh) as usize
-                * extent.nframes
-                * mem::size_of::<Rgba8>()
-                == size,
+            (extent.fw * extent.fh) as usize * extent.nframes * mem::size_of::<Rgba8>() == size,
             "the pixel buffer has the expected size"
         );
 

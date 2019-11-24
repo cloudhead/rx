@@ -91,10 +91,7 @@ impl Default for Options {
     }
 }
 
-pub fn init<P: AsRef<Path>>(
-    paths: &[P],
-    options: Options,
-) -> std::io::Result<()> {
+pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()> {
     use std::io;
 
     debug!("options: {:?}", options);
@@ -103,8 +100,7 @@ pub fn init<P: AsRef<Path>>(
         WindowHint::Resizable(options.resizable),
         WindowHint::Visible(!options.headless),
     ];
-    let (win, events) =
-        platform::init("rx", options.width, options.height, hints)?;
+    let (win, events) = platform::init("rx", options.width, options.height, hints)?;
 
     let hidpi_factor = win.hidpi_factor();
     let win_size = win.size();
@@ -114,19 +110,15 @@ pub fn init<P: AsRef<Path>>(
     info!("hidpi factor: {}", hidpi_factor);
 
     let resources = ResourceManager::new();
-    let base_dirs =
-        dirs::ProjectDirs::from("org", "void", "rx").ok_or_else(|| {
-            io::Error::new(io::ErrorKind::NotFound, "home directory not found")
-        })?;
-    let mut session =
-        Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
-            .init(options.source.clone())?;
+    let base_dirs = dirs::ProjectDirs::from("org", "void", "rx")
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
+    let mut session = Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
+        .init(options.source.clone())?;
 
     // When working with digests, certain settings need to be overwritten
     // to ensure things work correctly.
     match &options.exec {
-        Execution::Replaying { digest, .. }
-        | Execution::Recording { digest, .. }
+        Execution::Replaying { digest, .. } | Execution::Recording { digest, .. }
             if digest.mode != DigestMode::Ignore =>
         {
             session
@@ -151,10 +143,7 @@ pub fn init<P: AsRef<Path>>(
     let mut renderer = Renderer::new(&mut r, win_size, resources);
 
     if let Err(e) = session.edit(paths) {
-        session.message(
-            format!("Error loading path(s): {}", e),
-            MessageType::Error,
-        );
+        session.message(format!("Error loading path(s): {}", e), MessageType::Error);
     }
     if session.views.is_empty() {
         session.blank(
@@ -168,11 +157,7 @@ pub fn init<P: AsRef<Path>>(
 
     let physical = win_size.to_physical(hidpi_factor);
     let mut logical = win_size;
-    let mut swap_chain = r.swap_chain(
-        physical.width as u32,
-        physical.height as u32,
-        present_mode,
-    );
+    let mut swap_chain = r.swap_chain(physical.width as u32, physical.height as u32, present_mode);
 
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();
@@ -225,11 +210,8 @@ pub fn init<P: AsRef<Path>>(
                         present_mode,
                     );
                 } else {
-                    let input_delay: f64 =
-                        session.settings["input/delay"].float64();
-                    std::thread::sleep(time::Duration::from_micros(
-                        (input_delay * 1000.) as u64,
-                    ));
+                    let input_delay: f64 = session.settings["input/delay"].float64();
+                    std::thread::sleep(time::Duration::from_micros((input_delay * 1000.) as u64));
                 }
 
                 let delta = last.elapsed();
@@ -241,14 +223,8 @@ pub fn init<P: AsRef<Path>>(
                     return platform::ControlFlow::Wait;
                 }
 
-                let effects = update_timer.run(|avg| {
-                    session.update(
-                        &mut session_events,
-                        execution.clone(),
-                        delta,
-                        avg,
-                    )
-                });
+                let effects = update_timer
+                    .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
                 render_timer.run(|avg| {
                     renderer.frame(
                         &session,
@@ -344,14 +320,9 @@ fn resize(
     present_mode: core::PresentMode,
 ) {
     let scale: f64 = session.settings["scale"].float64();
-    let logical_size =
-        platform::LogicalSize::new(size.width / scale, size.height / scale);
+    let logical_size = platform::LogicalSize::new(size.width / scale, size.height / scale);
     session.handle_resized(logical_size);
 
     let physical = size.to_physical(hidpi_factor);
-    *swap_chain = r.swap_chain(
-        physical.width as u32,
-        physical.height as u32,
-        present_mode,
-    );
+    *swap_chain = r.swap_chain(physical.width as u32, physical.height as u32, present_mode);
 }
