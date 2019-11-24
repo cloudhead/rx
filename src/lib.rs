@@ -40,7 +40,7 @@ mod util;
 use cmd::Value;
 use event::Event;
 use execution::{DigestMode, Execution};
-use platform::{WindowEvent, WindowHint};
+use platform::{LogicalSize, WindowEvent, WindowHint};
 use renderer::Renderer;
 use resources::ResourceManager;
 use session::*;
@@ -208,9 +208,14 @@ pub fn init<P: AsRef<Path>>(
                 w.set_cursor_visible(true);
             }
             WindowEvent::Ready => {
+                let scale = session.settings["scale"].float64();
+                let renderer_size = LogicalSize::new(
+                    renderer.window.width * scale,
+                    renderer.window.height * scale,
+                );
                 logical = w.size();
 
-                if logical != renderer.window {
+                if logical != renderer_size {
                     self::resize(
                         &mut session,
                         &mut r,
