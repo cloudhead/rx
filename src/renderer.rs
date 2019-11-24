@@ -195,6 +195,7 @@ impl Renderer {
     const UI_LAYER: ZDepth = ZDepth(-0.8);
     const TEXT_LAYER: ZDepth = ZDepth(-0.6);
     const PALETTE_LAYER: ZDepth = ZDepth(-0.4);
+    const HELP_LAYER: ZDepth = ZDepth(-0.3);
     const CURSOR_LAYER: ZDepth = ZDepth(-0.2);
 
     pub fn new(
@@ -324,9 +325,17 @@ impl Renderer {
         &self,
         session: &Session,
         r: &mut core::Renderer,
-        textures: &mut core::SwapChain,
+        p: &mut core::Pass,
     ) {
-        let out = &textures.next();
+        let win_buf = shape2d::Batch::singleton(Shape::Rectangle(
+            Rect::origin(self.window.width as f32, self.window.height as f32),
+            Renderer::HELP_LAYER,
+            Rotation::ZERO,
+            Stroke::new(1., color::RED.into()),
+            Fill::Solid(Rgba::BLACK),
+        ))
+        .finish(&r);
+
         let mut text = TextBatch::new(&self.font);
         let column_offset = self::GLYPH_WIDTH * 16.;
         let left_margin = self::MARGIN * 2.;
@@ -339,7 +348,7 @@ impl Renderer {
             ),
             left_margin,
             self.window.height as f32 - self::MARGIN - self::LINE_HEIGHT,
-            ZDepth::ZERO,
+            Renderer::HELP_LAYER,
             color::LIGHT_GREY,
         );
 
@@ -363,14 +372,14 @@ impl Renderer {
                     display,
                     left_margin,
                     y as f32,
-                    ZDepth::ZERO,
+                    Renderer::HELP_LAYER,
                     color::RED,
                 );
                 text.add(
                     &format!("{}", kb.command),
                     left_margin + column_offset,
                     y as f32,
-                    ZDepth::ZERO,
+                    Renderer::HELP_LAYER,
                     color::LIGHT_GREY,
                 );
             }
@@ -381,7 +390,7 @@ impl Renderer {
                 "VISUAL MODE",
                 left_margin,
                 y as f32,
-                ZDepth::ZERO,
+                Renderer::HELP_LAYER,
                 color::RED,
             );
         }
@@ -393,14 +402,14 @@ impl Renderer {
                     display,
                     left_margin,
                     y as f32,
-                    ZDepth::ZERO,
+                    Renderer::HELP_LAYER,
                     color::RED,
                 );
                 text.add(
                     &format!("{}", kb.command),
                     left_margin + column_offset,
                     y as f32,
-                    ZDepth::ZERO,
+                    Renderer::HELP_LAYER,
                     color::LIGHT_GREY,
                 );
             }
@@ -413,36 +422,17 @@ impl Renderer {
                 l,
                 left_margin + column_offset * 3. + 64.,
                 y,
-                ZDepth::ZERO,
+                Renderer::HELP_LAYER,
                 color::LIGHT_GREEN,
             );
         }
-        let buf = text.finish(&r);
+        let text_buf = text.finish(&r);
 
-        let mut f = r.frame();
+        p.set_pipeline(&self.shape2d);
+        p.draw_buffer(&win_buf);
 
-        r.update_pipeline(
-            &self.sprite2d,
-            kit::ortho(self.window.width as u32, self.window.height as u32),
-            &mut f,
-        );
-
-        {
-            let mut p =
-                f.pass(PassOp::Clear(Rgba::TRANSPARENT), &self.screen_fb);
-
-            p.set_pipeline(&self.sprite2d);
-            p.draw(&buf, &self.font.binding);
-        }
-        {
-            let mut p = f.pass(PassOp::Clear(Rgba::TRANSPARENT), out);
-
-            p.set_pipeline(&self.screen2d);
-            p.set_binding(&self.screen_binding, &[]);
-            p.draw_buffer(&self.screen_vb)
-        }
-        // Submit frame for presenting.
-        r.present(f);
+        p.set_pipeline(&self.sprite2d);
+        p.draw(&text_buf, &self.font.binding);
     }
 
     pub fn frame(
@@ -462,11 +452,6 @@ impl Renderer {
 
         // Handle effects produced by the session.
         self.handle_effects(effects, &session.views, r);
-
-        if session.mode == Mode::Help {
-            self.render_help(session, r, textures);
-            return;
-        }
 
         let mut ui_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
@@ -641,6 +626,10 @@ impl Renderer {
             // Draw view animations to screen framebuffer.
             if session.settings["animation"].is_set() {
                 self.render_view_animations(&session.views, &mut p);
+            }
+            // Draw help menu.
+            if session.mode == Mode::Help {
+                self.render_help(session, r, &mut p);
             }
         }
 
