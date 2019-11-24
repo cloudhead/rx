@@ -14,8 +14,8 @@
 OVERVIEW
 
   `rx` is an extensible, modern and minimalist pixel editor implemented
-  in rust[0]. It's designed to have as little UI as possible, and instead
-  takes inspiration from vi's[1] modal nature and command mode.
+  in rust[0]. It is designed to have as little UI as possible, and instead
+  takes inspiration from vi's[1] modal nature.
 
   Compared to other pixel editors, rx aims to be smaller, yet more configurable
   and extendable. `rx` takes a different approach when it comes to animation
@@ -29,14 +29,15 @@ OVERVIEW
 GOALS
 
   * Minimal UI. Clean aesthetics. No clutter.
-  * Everything that should be controlled by the keyboard, is.
+  * Everything can be controlled by the keyboard.
   * Extensible and scriptable with a simple command-based language.
   * Familiar to anyone with vi(m) knowledge.
-  * Snappy. No perceptible input lag when painting. All commands run in < 16ms.
-  * Optimized for advanced users. No hand-holding. vi-like philosophy.
-  * Small, hackable codebase. At most 10 KLOC with only a handful of direct dependencies.
-  * First-class Linux support.
-  * CPU & memory efficient.
+  * Snappy. No perceptible input lag. All commands run in < 8ms.
+  * Optimized for advanced users. vi-like philosophy.
+  * Small, hackable codebase. At most 10 KLOC.
+  * Small dependency footprint.
+  * First-class Linux support, with good macOS and Windows support.
+  * CPU & memory efficient. Frame time should average < 1ms on commodity hardware.
 
 FEATURES
 
@@ -52,16 +53,16 @@ FEATURES
   * Animated GIF output.
   * Multi-brush / synchronous editing.
   * Brush filtering a.k.a. "pixel-perfect" mode.
+  * Visual mode with keyboard-controlled painting.
 
   * (Coming soon: Layers)
-  * (Coming soon: Visual mode)
   * (Coming soon: Workspaces)
 
 PLATFORM SUPPORT
 
-  * Linux     (vulkan)         [GOOD]
-  * macOS     (metal)          [GOOD]
-  * Windows   (vulkan)         [OKAY]
+  * Linux     (vulkan)
+  * macOS     (metal)
+  * Windows   (vulkan)
 
 BUILD DEPENDENCIES
 
@@ -115,14 +116,14 @@ USAGE
     :source <path>           Source an rx script (eg. a palette)
     :f/resize <w> <h>        Resize frames
 
-  For example, to create a 32x32 sprite with 4 frames:
+  For example, to create a 32x32 animation with 4 frames:
 
     1. Open `rx`.
     2. Type `:f/resize 32 32`.
     3. Press <return> three times to create a total of four frames.
     4. Zoom in/out with `.` and `,`.
     5. Draw something great!
-    6. Type `:w animation.png` to save it.
+    6. Type `:w animation.gif` to export it as a GIF.
 
 SUPPORT
 
@@ -145,7 +146,6 @@ TROUBLESHOOTING
     the program can be run without loading the initialization script like so:
 
         rx -u -
-
 
 LICENSE
 
