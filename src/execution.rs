@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 use std::fmt;
 use std::fs::File;
 use std::io;
-use std::io::BufRead;
+use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time;
@@ -12,6 +12,12 @@ use std::time;
 use digest::generic_array::{sequence::*, typenum::consts::*, GenericArray};
 use digest::Digest;
 use meowhash::MeowHasher;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum GifMode {
+    Ignore,
+    Record,
+}
 
 /// Determines whether frame digests are recorded, verified or ignored.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,12 +30,9 @@ pub enum DigestMode {
     Ignore,
 }
 
-#[derive(Debug, Clone)]
 pub struct DigestState {
     pub mode: DigestMode,
     pub path: Option<PathBuf>,
-
-    pub recorder: FrameRecorder,
 }
 
 impl DigestState {
@@ -65,7 +68,6 @@ impl DigestState {
 
         Ok(Self {
             mode: DigestMode::Verify,
-            recorder: FrameRecorder::from(frames),
             path: Some(path.into()),
         })
     }
@@ -73,7 +75,6 @@ impl DigestState {
     pub fn record<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         Ok(Self {
             mode: DigestMode::Record,
-            recorder: FrameRecorder::new(),
             path: Some(path.as_ref().into()),
         })
     }
@@ -81,16 +82,21 @@ impl DigestState {
     pub fn ignore() -> io::Result<Self> {
         Ok(Self {
             mode: DigestMode::Ignore,
-            recorder: FrameRecorder::new(),
             path: None,
         })
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum ExecutionMode {
+    Normal,
+    Record(PathBuf, DigestMode, GifMode),
+    Replay(PathBuf, DigestMode),
+}
+
 /// Execution mode. Controls whether the session is playing or recording
 /// commands.
 // TODO: Make this a `struct` and have `ExecutionMode`.
-#[derive(Debug, Clone)]
 pub enum Execution {
     /// Normal execution. User inputs are processed normally.
     Normal,
@@ -104,6 +110,8 @@ pub enum Execution {
         path: PathBuf,
         /// Digest mode.
         digest: DigestState,
+        /// Frame recorder.
+        recorder: FrameRecorder,
     },
     /// Replaying inputs from log.
     Replaying {
@@ -117,6 +125,8 @@ pub enum Execution {
         digest: DigestState,
         /// Replay result.
         result: ReplayResult,
+        /// Frame recorder.
+        recorder: FrameRecorder,
     },
 }
 
@@ -127,7 +137,13 @@ impl Execution {
     }
 
     /// Create a recording.
-    pub fn recording<P: AsRef<Path>>(path: P, mode: DigestMode) -> io::Result<Self> {
+    pub fn recording<P: AsRef<Path>>(
+        path: P,
+        digest_mode: DigestMode,
+        w: u16,
+        h: u16,
+        gif_mode: GifMode,
+    ) -> io::Result<Self> {
         use io::{Error, ErrorKind};
 
         let path = path.as_ref();
@@ -139,13 +155,22 @@ impl Execution {
             ))?
             .as_ref();
 
-        let digest = DigestState::from(mode, path.join(file_name).with_extension("digest"))?;
+        std::fs::create_dir_all(path)?;
+
+        let digest = DigestState::from(digest_mode, path.join(file_name).with_extension("digest"))?;
+        let gif_recorder = if gif_mode == GifMode::Record {
+            GifRecorder::new(path.join(file_name).with_extension("gif"), w, h)?
+        } else {
+            GifRecorder::dummy()
+        };
+        let recorder = FrameRecorder::new(gif_recorder, gif_mode, digest_mode);
 
         Ok(Self::Recording {
             events: Vec::new(),
             start: time::Instant::now(),
             path: path.to_path_buf(),
             digest,
+            recorder,
         })
     }
 
@@ -165,6 +190,35 @@ impl Execution {
             .as_ref();
 
         let digest = DigestState::from(mode, path.join(file_name).with_extension("digest"))?;
+
+        let recorder = match &digest {
+            DigestState {
+                path: Some(path),
+                mode: DigestMode::Verify,
+            } => {
+                let mut frames = Vec::new();
+
+                match File::open(&path) {
+                    Ok(f) => {
+                        let r = io::BufReader::new(f);
+                        for line in r.lines() {
+                            let line = line?;
+                            let hash = Hash::from_str(line.as_str())
+                                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+                            frames.push(hash);
+                        }
+                    }
+                    Err(e) => {
+                        return Err(io::Error::new(
+                            e.kind(),
+                            format!("{}: {}", path.display(), e),
+                        ));
+                    }
+                }
+                FrameRecorder::from(frames, mode)
+            }
+            _ => FrameRecorder::new(GifRecorder::dummy(), GifMode::Ignore, mode),
+        };
 
         let events_path = path.join(file_name).with_extension("events");
         match File::open(&events_path) {
@@ -186,6 +240,7 @@ impl Execution {
                     path: path.to_path_buf(),
                     digest,
                     result: ReplayResult::new(),
+                    recorder,
                 })
             }
             Err(e) => Err(io::Error::new(
@@ -202,44 +257,27 @@ impl Execution {
             false
         }
     }
-
-    pub fn record(&mut self, data: &[u8]) {
+    pub fn record(&mut self, data: &[u8]) -> io::Result<()> {
         match self {
             // Replaying and verifying digests.
             Self::Replaying {
                 digest:
                     DigestState {
                         mode: DigestMode::Verify,
-                        recorder,
                         ..
                     },
                 result,
+                recorder,
                 ..
             } => {
                 result.record(recorder.verify_frame(data));
+                Ok(())
             }
             // Replaying/Recording and recording digests.
-            Self::Replaying {
-                digest:
-                    DigestState {
-                        mode: DigestMode::Record,
-                        recorder,
-                        ..
-                    },
-                ..
+            Self::Replaying { recorder, .. } | Self::Recording { recorder, .. } => {
+                recorder.record_frame(data)
             }
-            | Self::Recording {
-                digest:
-                    DigestState {
-                        mode: DigestMode::Record,
-                        recorder,
-                        ..
-                    },
-                ..
-            } => {
-                recorder.record_frame(data);
-            }
-            _ => {}
+            _ => Ok(()),
         }
     }
 
@@ -247,16 +285,15 @@ impl Execution {
 
     pub fn stop_recording(&mut self) -> io::Result<PathBuf> {
         use io::{Error, ErrorKind};
-        use std::io::Write;
 
         let result = if let Execution::Recording {
             events,
             path,
             digest,
+            recorder,
             ..
         } = &self
         {
-            std::fs::create_dir_all(path)?;
             let file_name: &Path = path
                 .file_name()
                 .ok_or(Error::new(
@@ -273,7 +310,6 @@ impl Execution {
             if let DigestState {
                 mode: DigestMode::Record,
                 path: Some(path),
-                recorder,
                 ..
             } = digest
             {
@@ -295,10 +331,10 @@ impl Execution {
             digest:
                 DigestState {
                     mode: DigestMode::Record,
-                    recorder,
                     path: Some(path),
                     ..
                 },
+            recorder,
             ..
         } = &self
         {
@@ -312,8 +348,6 @@ impl Execution {
     ////////////////////////////////////////////////////////////////////////////
 
     fn write_digest<P: AsRef<Path>>(recorder: &FrameRecorder, path: P) -> io::Result<()> {
-        use std::io::Write;
-
         let path = path.as_ref();
 
         if let Some(parent) = path.parent() {
@@ -334,35 +368,108 @@ impl Default for Execution {
     }
 }
 
+pub struct GifRecorder {
+    width: u16,
+    height: u16,
+    encoder: Option<gif::Encoder<Box<File>>>,
+    last_frame: Option<time::Instant>,
+}
+
+impl GifRecorder {
+    const GIF_ENCODING_SPEED: i32 = 30;
+
+    pub fn new<P: AsRef<Path>>(path: P, width: u16, height: u16) -> io::Result<Self> {
+        let file = Box::new(File::create(path.as_ref())?);
+        let encoder = Some(gif::Encoder::new(file, width, height, &[])?);
+
+        Ok(Self {
+            width,
+            height,
+            encoder,
+            last_frame: None,
+        })
+    }
+
+    fn dummy() -> Self {
+        Self {
+            width: 0,
+            height: 0,
+            encoder: None,
+            last_frame: None,
+        }
+    }
+
+    fn record(&mut self, data: &[u8]) -> io::Result<()> {
+        use std::convert::TryInto;
+
+        if let Some(encoder) = &mut self.encoder {
+            let mut gif_data: Vec<u8> = data.into();
+            let mut frame = gif::Frame::from_rgba_speed(
+                self.width,
+                self.height,
+                &mut gif_data,
+                Self::GIF_ENCODING_SPEED,
+            );
+            let delay = self
+                .last_frame
+                .map_or(time::Duration::from_secs(1), |t| t.elapsed());
+            self.last_frame = Some(time::Instant::now());
+
+            frame.delay = (delay.as_millis() / 10)
+                .try_into()
+                .expect("`delay` is not an unreasonably large number");
+            frame.dispose = gif::DisposalMethod::Background;
+
+            encoder.write_frame(&frame)
+        } else {
+            Ok(())
+        }
+    }
+}
+
 /// Records and verifies frames being replayed.
-#[derive(Debug, Clone)]
 pub struct FrameRecorder {
     frames: VecDeque<Hash>,
     last_verified: Option<Hash>,
+    gif_recorder: GifRecorder,
+    gif_mode: GifMode,
+    digest_mode: DigestMode,
 }
 
 impl FrameRecorder {
-    fn new() -> Self {
+    fn new(gif_recorder: GifRecorder, gif_mode: GifMode, digest_mode: DigestMode) -> Self {
         Self {
             frames: VecDeque::new(),
             last_verified: None,
+            gif_recorder,
+            gif_mode,
+            digest_mode,
         }
     }
 
-    fn from(frames: Vec<Hash>) -> Self {
+    fn from(frames: Vec<Hash>, digest_mode: DigestMode) -> Self {
         Self {
             frames: frames.into(),
             last_verified: None,
+            gif_recorder: GifRecorder::dummy(),
+            gif_mode: GifMode::Ignore,
+            digest_mode,
         }
     }
 
-    fn record_frame(&mut self, data: &[u8]) {
+    fn record_frame(&mut self, data: &[u8]) -> io::Result<()> {
         let hash = Self::hash(data);
 
         if self.frames.back().map(|h| h != &hash).unwrap_or(true) {
             info!("frame: {}", hash);
-            self.frames.push_back(hash);
+
+            if self.digest_mode == DigestMode::Record || self.gif_mode == GifMode::Record {
+                self.frames.push_back(hash);
+            }
+
+            self.gif_recorder.record(data)?;
         }
+        Ok(())
     }
 
     fn verify_frame(&mut self, data: &[u8]) -> VerifyResult {

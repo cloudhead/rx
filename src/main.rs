@@ -1,5 +1,5 @@
 use rx;
-use rx::execution::{DigestMode, Execution};
+use rx::execution::{DigestMode, ExecutionMode, GifMode};
 
 use env_logger;
 use pico_args;
@@ -57,6 +57,7 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
     let width = args.opt_value_from_str("--width")?;
     let height = args.opt_value_from_str("--height")?;
     let record_digests = args.contains("--record-digests");
+    let record_gif = args.contains("--record-gif");
     let verify_digests = args.contains("--verify-digests");
     let headless = args.contains("--headless");
     let source = args.opt_value_from_str::<_, PathBuf>("-u")?;
@@ -68,7 +69,7 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         return Err("'--replay' and '--record' can't both be specified".into());
     }
 
-    let digest = if record_digests && !verify_digests {
+    let digest_mode = if record_digests && !verify_digests {
         DigestMode::Record
     } else if verify_digests && !record_digests {
         DigestMode::Verify
@@ -76,6 +77,12 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         DigestMode::Ignore
     } else {
         return Err("'--record-digests' and '--verify-digests' can't both be specified".into());
+    };
+
+    let gif_mode = if record_gif {
+        GifMode::Record
+    } else {
+        GifMode::Ignore
     };
 
     let log = match args
@@ -93,21 +100,24 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
     logger.parse_filters(log);
     logger.init();
 
+    let width = width.unwrap_or(default.width);
+    let height = height.unwrap_or(default.height);
+
     let exec = if let Some(path) = replay {
-        Execution::replaying(path, digest)?
+        ExecutionMode::Replay(path, digest_mode)
     } else if let Some(path) = record {
-        Execution::recording(path, digest)?
+        ExecutionMode::Record(path, digest_mode, gif_mode)
     } else {
-        default.exec
+        ExecutionMode::Normal
     };
 
     let options = rx::Options {
-        exec,
-        width: width.unwrap_or(default.width),
-        height: height.unwrap_or(default.height),
+        width,
+        height,
         headless,
         resizable,
         source,
+        exec,
     };
 
     match args.free() {

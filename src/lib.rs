@@ -9,7 +9,8 @@
     clippy::type_complexity,
     clippy::or_fun_call,
     clippy::nonminimal_bool,
-    clippy::single_match
+    clippy::single_match,
+    clippy::large_enum_variant
 )]
 
 pub mod execution;
@@ -39,7 +40,7 @@ mod util;
 
 use cmd::Value;
 use event::Event;
-use execution::{DigestMode, Execution};
+use execution::{DigestMode, Execution, ExecutionMode, GifMode};
 use platform::{LogicalSize, WindowEvent, WindowHint};
 use renderer::Renderer;
 use resources::ResourceManager;
@@ -70,23 +71,23 @@ pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 
 #[derive(Debug)]
 pub struct Options {
-    pub exec: Execution,
     pub width: u32,
     pub height: u32,
     pub resizable: bool,
     pub headless: bool,
     pub source: Option<PathBuf>,
+    pub exec: ExecutionMode,
 }
 
 impl Default for Options {
     fn default() -> Self {
         Self {
-            exec: Execution::default(),
             width: 1280,
             height: 720,
             headless: false,
             resizable: true,
             source: None,
+            exec: ExecutionMode::Normal,
         }
     }
 }
@@ -115,9 +116,28 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     let mut session = Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
         .init(options.source.clone())?;
 
+    if let ExecutionMode::Record(_, _, GifMode::Record) = options.exec {
+        session
+            .settings
+            .set("input/delay", Value::Float(0.0))
+            .expect("'input/delay' is a float");
+        session
+            .settings
+            .set("vsync", Value::Bool(true))
+            .expect("'vsync' is a bool");
+    }
+
+    let exec = match options.exec {
+        ExecutionMode::Normal => Execution::normal(),
+        ExecutionMode::Replay(path, digest) => Execution::replaying(path, digest),
+        ExecutionMode::Record(path, digest, gif) => {
+            Execution::recording(path, digest, win_w as u16, win_h as u16, gif)
+        }
+    }?;
+
     // When working with digests, certain settings need to be overwritten
     // to ensure things work correctly.
-    match &options.exec {
+    match &exec {
         Execution::Replaying { digest, .. } | Execution::Recording { digest, .. }
             if digest.mode != DigestMode::Ignore =>
         {
@@ -137,7 +157,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         _ => {}
     }
 
-    let execution = Rc::new(RefCell::new(options.exec));
+    let execution = Rc::new(RefCell::new(exec));
     let mut present_mode = session.settings.present_mode();
     let mut r = core::Renderer::new(win.handle())?;
     let mut renderer = Renderer::new(&mut r, win_size, resources);
