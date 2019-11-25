@@ -86,21 +86,21 @@ impl ResourceManager {
     }
 
     pub fn add_blank_view(&mut self, id: ViewId, w: u32, h: u32) {
-        let len = w as usize * h as usize * 4;
-        let pixels = vec![0; len];
+        let len = w as usize * h as usize;
+        let pixels = vec![Bgra8::TRANSPARENT; len];
 
         self.add_view(id, w, h, &pixels);
     }
 
-    pub fn load_image<P: AsRef<Path>>(path: P) -> io::Result<(u32, u32, Vec<u8>)> {
+    pub fn load_image<P: AsRef<Path>>(path: P) -> io::Result<(u32, u32, Vec<Bgra8>)> {
         let (buffer, width, height) = image::load(path)?;
 
         // Convert pixels to BGRA, since they are going to be loaded into
         // the view framebuffer, which is BGRA.
-        let mut pixels: Vec<u8> = Vec::with_capacity(buffer.len());
+        let mut pixels: Vec<Bgra8> = Vec::with_capacity(buffer.len() / 4);
         for rgba in buffer.chunks(4) {
             match rgba {
-                [r, g, b, a] => pixels.extend_from_slice(&[*b, *g, *r, *a]),
+                [r, g, b, a] => pixels.push(Bgra8::new(*b, *g, *r, *a)),
                 _ => {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
@@ -206,7 +206,7 @@ impl ResourceManager {
         Ok(frame_nbytes * nframes)
     }
 
-    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: &[u8]) {
+    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: &[Bgra8]) {
         self.resources
             .borrow_mut()
             .data
@@ -226,8 +226,7 @@ pub struct ViewResources {
 }
 
 impl ViewResources {
-    fn new(pixels: &[u8], fw: u32, fh: u32) -> Self {
-        let pxs = Bgra8::align(&pixels);
+    fn new(pixels: &[Bgra8], fw: u32, fh: u32) -> Self {
         Self {
             snapshots: NonEmpty::new(Snapshot::new(
                 SnapshotId(0),
@@ -235,7 +234,7 @@ impl ViewResources {
                 ViewExtent::new(fw, fh, 1),
             )),
             snapshot: 0,
-            pixels: pxs.into(),
+            pixels: pixels.into(),
         }
     }
 
@@ -257,7 +256,7 @@ impl ViewResources {
         )
     }
 
-    pub fn push_snapshot(&mut self, pixels: &[u8], extent: ViewExtent) {
+    pub fn push_snapshot(&mut self, pixels: &[Bgra8], extent: ViewExtent) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
         // If we try to add a snapshot when we're not at the
@@ -267,7 +266,7 @@ impl ViewResources {
             self.snapshot = self.snapshots.len() - 1;
         }
         self.snapshot += 1;
-        self.pixels = Bgra8::align(&pixels).into();
+        self.pixels = pixels.into();
 
         self.snapshots
             .push(Snapshot::new(SnapshotId(self.snapshot), pixels, extent));
@@ -324,13 +323,13 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub fn new(id: SnapshotId, pixels: &[u8], extent: ViewExtent) -> Self {
+    pub fn new(id: SnapshotId, pixels: &[Bgra8], extent: ViewExtent) -> Self {
         let size = pixels.len();
         let pixels =
             Compressed::from(pixels).expect("compressing snapshot shouldn't result in an error");
 
         debug_assert!(
-            (extent.fw * extent.fh) as usize * extent.nframes * mem::size_of::<Rgba8>() == size,
+            (extent.fw * extent.fh) as usize * extent.nframes == size,
             "the pixel buffer has the expected size"
         );
 
@@ -370,9 +369,10 @@ impl Snapshot {
 pub struct Compressed<T>(T);
 
 impl Compressed<Box<[u8]>> {
-    fn from(input: &[u8]) -> snap::Result<Self> {
+    fn from(input: &[Bgra8]) -> snap::Result<Self> {
         let mut enc = snap::Encoder::new();
-        enc.compress_vec(input).map(|v| Self(v.into_boxed_slice()))
+        let (_, bytes, _) = unsafe { input.align_to::<u8>() };
+        enc.compress_vec(bytes).map(|v| Self(v.into_boxed_slice()))
     }
 
     fn decompress(&self) -> snap::Result<Vec<u8>> {

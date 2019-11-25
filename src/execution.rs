@@ -12,6 +12,7 @@ use std::time;
 use digest::generic_array::{sequence::*, typenum::consts::*, GenericArray};
 use digest::Digest;
 use meowhash::MeowHasher;
+use rgx::core::{Bgra8, Rgba8};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum GifMode {
@@ -257,7 +258,7 @@ impl Execution {
             false
         }
     }
-    pub fn record(&mut self, data: &[u8]) -> io::Result<()> {
+    pub fn record(&mut self, data: &[Bgra8]) -> io::Result<()> {
         match self {
             // Replaying and verifying digests.
             Self::Replaying {
@@ -399,15 +400,19 @@ impl GifRecorder {
         }
     }
 
-    fn record(&mut self, data: &[u8]) -> io::Result<()> {
+    fn record(&mut self, data: &[Bgra8]) -> io::Result<()> {
         use std::convert::TryInto;
 
         if let Some(encoder) = &mut self.encoder {
-            let mut gif_data: Vec<u8> = data.into();
-            let mut frame = gif::Frame::from_rgba_speed(
+            let mut gif_data: Vec<u8> = Vec::with_capacity(data.len());
+            for bgra in data.iter().cloned() {
+                let rgba: Rgba8 = bgra.into();
+                gif_data.extend_from_slice(&[rgba.r, rgba.g, rgba.b]);
+            }
+            let mut frame = gif::Frame::from_rgb_speed(
                 self.width,
                 self.height,
-                &mut gif_data,
+                &gif_data,
                 Self::GIF_ENCODING_SPEED,
             );
             let delay = self
@@ -457,11 +462,11 @@ impl FrameRecorder {
         }
     }
 
-    fn record_frame(&mut self, data: &[u8]) -> io::Result<()> {
+    fn record_frame(&mut self, data: &[Bgra8]) -> io::Result<()> {
         let hash = Self::hash(data);
 
         if self.frames.back().map(|h| h != &hash).unwrap_or(true) {
-            info!("frame: {}", hash);
+            debug!("frame: {}", hash);
 
             if self.digest_mode == DigestMode::Record || self.gif_mode == GifMode::Record {
                 self.frames.push_back(hash);
@@ -472,7 +477,7 @@ impl FrameRecorder {
         Ok(())
     }
 
-    fn verify_frame(&mut self, data: &[u8]) -> VerifyResult {
+    fn verify_frame(&mut self, data: &[Bgra8]) -> VerifyResult {
         let actual = Self::hash(data);
 
         if self.frames.is_empty() {
@@ -494,7 +499,8 @@ impl FrameRecorder {
         }
     }
 
-    fn hash(data: &[u8]) -> Hash {
+    fn hash(data: &[Bgra8]) -> Hash {
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
         let bytes: GenericArray<u8, U64> = MeowHasher::digest(data);
         let (prefix, _): (GenericArray<u8, U4>, _) = bytes.split();
 
