@@ -258,7 +258,8 @@ impl Execution {
             false
         }
     }
-    pub fn record(&mut self, data: &[Bgra8]) -> io::Result<()> {
+
+    pub fn record(&mut self, data: &[Bgra8]) {
         match self {
             // Replaying and verifying digests.
             Self::Replaying {
@@ -272,13 +273,12 @@ impl Execution {
                 ..
             } => {
                 result.record(recorder.verify_frame(data));
-                Ok(())
             }
             // Replaying/Recording and recording digests.
             Self::Replaying { recorder, .. } | Self::Recording { recorder, .. } => {
-                recorder.record_frame(data)
+                recorder.record_frame(data);
             }
-            _ => Ok(()),
+            _ => {}
         }
     }
 
@@ -293,8 +293,10 @@ impl Execution {
             digest,
             recorder,
             ..
-        } = &self
+        } = self
         {
+            recorder.finish()?;
+
             let file_name: &Path = path
                 .file_name()
                 .ok_or(Error::new(
@@ -316,6 +318,7 @@ impl Execution {
             {
                 Execution::write_digest(recorder, path)?;
             }
+
             Ok(path.clone())
         } else {
             panic!("record finalizer called outside of recording context")
@@ -373,7 +376,7 @@ pub struct GifRecorder {
     width: u16,
     height: u16,
     encoder: Option<gif::Encoder<Box<File>>>,
-    last_frame: Option<time::Instant>,
+    frames: Vec<(time::Instant, Vec<u8>)>,
 }
 
 impl GifRecorder {
@@ -387,7 +390,7 @@ impl GifRecorder {
             width,
             height,
             encoder,
-            last_frame: None,
+            frames: Vec::new(),
         })
     }
 
@@ -396,39 +399,47 @@ impl GifRecorder {
             width: 0,
             height: 0,
             encoder: None,
-            last_frame: None,
+            frames: Vec::new(),
         }
     }
 
-    fn record(&mut self, data: &[Bgra8]) -> io::Result<()> {
+    fn record(&mut self, data: &[Bgra8]) {
+        let now = time::Instant::now();
+        let mut gif_data: Vec<u8> = Vec::with_capacity(data.len());
+        for bgra in data.iter().cloned() {
+            let rgba: Rgba8 = bgra.into();
+            gif_data.extend_from_slice(&[rgba.r, rgba.g, rgba.b]);
+        }
+        self.frames.push((now, gif_data));
+    }
+
+    fn finish(&mut self) -> io::Result<()> {
         use std::convert::TryInto;
 
         if let Some(encoder) = &mut self.encoder {
-            let mut gif_data: Vec<u8> = Vec::with_capacity(data.len());
-            for bgra in data.iter().cloned() {
-                let rgba: Rgba8 = bgra.into();
-                gif_data.extend_from_slice(&[rgba.r, rgba.g, rgba.b]);
+            for (i, (t1, gif_data)) in self.frames.iter().enumerate() {
+                let delay = if let Some((t2, _)) = self.frames.get(i + 1) {
+                    *t2 - *t1
+                } else {
+                    // Let the last frame linger for a second...
+                    time::Duration::from_secs(1)
+                };
+
+                let mut frame = gif::Frame::from_rgb_speed(
+                    self.width,
+                    self.height,
+                    &gif_data,
+                    Self::GIF_ENCODING_SPEED,
+                );
+                frame.dispose = gif::DisposalMethod::Background;
+                frame.delay = (delay.as_millis() / 10)
+                    .try_into()
+                    .expect("`delay` is not an unreasonably large number");
+
+                encoder.write_frame(&frame)?;
             }
-            let mut frame = gif::Frame::from_rgb_speed(
-                self.width,
-                self.height,
-                &gif_data,
-                Self::GIF_ENCODING_SPEED,
-            );
-            let delay = self
-                .last_frame
-                .map_or(time::Duration::from_secs(1), |t| t.elapsed());
-            self.last_frame = Some(time::Instant::now());
-
-            frame.delay = (delay.as_millis() / 10)
-                .try_into()
-                .expect("`delay` is not an unreasonably large number");
-            frame.dispose = gif::DisposalMethod::Background;
-
-            encoder.write_frame(&frame)
-        } else {
-            Ok(())
         }
+        Ok(())
     }
 }
 
@@ -462,7 +473,7 @@ impl FrameRecorder {
         }
     }
 
-    fn record_frame(&mut self, data: &[Bgra8]) -> io::Result<()> {
+    fn record_frame(&mut self, data: &[Bgra8]) {
         let hash = Self::hash(data);
 
         if self.frames.back().map(|h| h != &hash).unwrap_or(true) {
@@ -472,9 +483,8 @@ impl FrameRecorder {
                 self.frames.push_back(hash);
             }
 
-            self.gif_recorder.record(data)?;
+            self.gif_recorder.record(data);
         }
-        Ok(())
     }
 
     fn verify_frame(&mut self, data: &[Bgra8]) -> VerifyResult {
@@ -497,6 +507,10 @@ impl FrameRecorder {
         } else {
             VerifyResult::EOF
         }
+    }
+
+    fn finish(&mut self) -> io::Result<()> {
+        self.gif_recorder.finish()
     }
 
     fn hash(data: &[Bgra8]) -> Hash {

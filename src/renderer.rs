@@ -624,11 +624,7 @@ impl Renderer {
 
         if !execution.borrow().is_normal() {
             r.read(&self.screen_fb, move |data| {
-                execution
-                    .clone()
-                    .borrow_mut()
-                    .record(data)
-                    .expect("frame should be recorded with no error");
+                execution.clone().borrow_mut().record(data);
             });
         }
     }

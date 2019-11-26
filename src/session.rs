@@ -92,6 +92,11 @@ impl ToString for Rgb8 {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+enum InternalCommand {
+    StopRecording,
+}
+
 /// Session coordinates.
 /// Encompasses anything within the window, such as the cursor position.
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -709,6 +714,12 @@ pub struct Session {
     /// Input state of the mouse.
     mouse_state: InputState,
 
+    /// Internal command bus. Used to send internal messages asynchronously.
+    /// We do this when we want the renderer to have a chance to run before
+    /// the command is processed. For example, when displaying a message before
+    /// an expensive process is kicked off.
+    queue: Vec<InternalCommand>,
+
     #[allow(dead_code)]
     _onion: bool,
     #[allow(dead_code)]
@@ -799,6 +810,7 @@ impl Session {
             resources,
             avg_time: time::Duration::from_secs(0),
             frame_number: 0,
+            queue: Vec::new(),
 
             // Unused
             _onion: false,
@@ -975,6 +987,11 @@ impl Session {
                 })
             {
                 events.drain(..events.len() - 1);
+            }
+
+            let cmds: Vec<_> = self.queue.drain(..).collect();
+            for cmd in cmds.into_iter() {
+                self.handle_internal_cmd(cmd, exec);
             }
 
             for event in events.drain(..) {
@@ -1695,6 +1712,28 @@ impl Session {
     }
 
     ///////////////////////////////////////////////////////////////////////////
+    // Internal command handler
+    ///////////////////////////////////////////////////////////////////////////
+
+    fn handle_internal_cmd(&mut self, cmd: InternalCommand, exec: &mut Execution) {
+        match cmd {
+            InternalCommand::StopRecording => match exec.stop_recording() {
+                Ok(path) => {
+                    self.message(
+                        format!("Recording saved to `{}`", path.display()),
+                        MessageType::Replay,
+                    );
+                    info!("recording: events saved to `{}`", path.display());
+                    self.quit(ExitReason::Normal);
+                }
+                Err(e) => {
+                    error!("recording: error stopping: {}", e);
+                }
+            },
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
     // Event handlers
     ///////////////////////////////////////////////////////////////////////////
 
@@ -2043,20 +2082,8 @@ impl Session {
             if let Execution::Recording { events, .. } = exec {
                 if key == platform::Key::End {
                     events.pop(); // Discard this key event.
-
-                    match exec.stop_recording() {
-                        Ok(path) => {
-                            self.message(
-                                format!("Recording saved to `{}`", path.display()),
-                                MessageType::Replay,
-                            );
-                            info!("recording: events saved to `{}`", path.display());
-                            self.quit(ExitReason::Normal);
-                        }
-                        Err(e) => {
-                            error!("recording: error stopping: {}", e);
-                        }
-                    }
+                    self.message("Saving recording...", MessageType::Info);
+                    self.queue.push(InternalCommand::StopRecording);
                 }
             }
         }
