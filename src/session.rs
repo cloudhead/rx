@@ -2007,9 +2007,11 @@ impl Session {
             ..
         } = input;
 
-        if state == InputState::Repeated && self.mode != Mode::Command {
-            return;
-        }
+        let state = if state == InputState::Repeated {
+            InputState::Pressed
+        } else {
+            state
+        };
 
         let mut repeat = false;
 
@@ -2072,8 +2074,8 @@ impl Session {
             {
                 // For toggle-like key bindings, we don't want to run the command
                 // on key repeats. For regular key bindings, we run the command
-                // either way.
-                if !kb.is_toggle || kb.is_toggle && !repeat {
+                // depending on if it's supposed to repeat.
+                if (repeat && kb.command.repeats() && !kb.is_toggle) || !repeat {
                     self.command(kb.command);
                 }
                 return;

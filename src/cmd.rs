@@ -76,6 +76,25 @@ pub enum Command {
     Zoom(Op),
 }
 
+impl Command {
+    pub fn repeats(&self) -> bool {
+        match self {
+            Self::Zoom(_)
+            | Self::BrushSize(_)
+            | Self::Pan(_, _)
+            | Self::Undo
+            | Self::Redo
+            | Self::ViewNext
+            | Self::ViewPrev
+            | Self::SelectionMove(_, _)
+            | Self::SelectionJump(_)
+            | Self::SelectionResize(_, _)
+            | Self::SelectionOffset(_, _) => true,
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Command {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
