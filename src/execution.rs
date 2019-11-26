@@ -403,7 +403,14 @@ impl GifRecorder {
         }
     }
 
+    fn is_dummy(&self) -> bool {
+        self.width == 0 && self.height == 0
+    }
+
     fn record(&mut self, data: &[Bgra8]) {
+        if self.is_dummy() {
+            return;
+        }
         let now = time::Instant::now();
         let mut gif_data: Vec<u8> = Vec::with_capacity(data.len());
         for bgra in data.iter().cloned() {
