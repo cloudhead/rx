@@ -361,6 +361,11 @@ impl View {
         self.rect().contains(*p)
     }
 
+    /// Get the center of the view.
+    pub fn center(&self) -> ViewCoords<f32> {
+        ViewCoords::new(self.width() as f32 / 2., self.height() as f32 / 2.)
+    }
+
     /// View has been modified. Called when using the brush on the view,
     /// or resizing the view.
     pub fn touch(&mut self) {

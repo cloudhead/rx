@@ -2162,6 +2162,12 @@ impl Session {
         self.center_active_view_h();
     }
 
+    /// The session center.
+    #[allow(dead_code)]
+    fn center(&self) -> SessionCoords {
+        SessionCoords::new(self.width / 2., self.height / 2.)
+    }
+
     ///////////////////////////////////////////////////////////////////////////
     /// Zoom functions
     ///////////////////////////////////////////////////////////////////////////
@@ -2208,40 +2214,28 @@ impl Session {
         let px = center.x - self.offset.x;
         let py = center.y - self.offset.y;
 
-        let within = self.active_view().contains(center - self.offset);
         let zprev = self.active_view().zoom;
+        let zdiff = z / zprev;
 
-        debug!("zoom: {} -> {}", zprev, z);
+        let nx = (px * zdiff).floor();
+        let ny = (py * zdiff).floor();
 
-        self.offset = if within {
-            let zdiff = z / zprev;
+        let mut offset = Vector2::new(center.x - nx, center.y - ny);
 
-            let nx = (px * zdiff).floor();
-            let ny = (py * zdiff).floor();
+        let v = self.active_view_mut();
 
-            let mut offset = Vector2::new(center.x - nx, center.y - ny);
+        let vx = v.offset.x;
+        let vy = v.offset.y;
 
-            let v = self.active_view_mut();
+        v.zoom = z;
 
-            let vx = v.offset.x;
-            let vy = v.offset.y;
+        let dx = v.offset.x - (vx * zdiff);
+        let dy = v.offset.y - (vy * zdiff);
 
-            v.zoom = z;
+        offset.x -= dx;
+        offset.y -= dy;
 
-            let dx = v.offset.x - (vx * zdiff);
-            let dy = v.offset.y - (vy * zdiff);
-
-            offset.x -= dx;
-            offset.y -= dy;
-
-            offset.map(f32::floor)
-        } else {
-            let v = self.active_view_mut();
-            v.zoom = z;
-
-            self.center_active_view();
-            self.offset
-        };
+        self.offset = offset.map(f32::floor);
         self.organize_views();
     }
 
@@ -2382,15 +2376,12 @@ impl Session {
                 self.unimplemented();
             }
             Command::Zoom(op) => {
-                let center = self
-                    .selection
-                    .map(|s| {
-                        self.session_coords(
-                            self.views.active_id,
-                            s.bounds().center().map(|n| n as f32).into(),
-                        )
-                    })
-                    .unwrap_or(self.cursor);
+                let center = self.session_coords(
+                    self.views.active_id,
+                    self.selection
+                        .map(|s| s.bounds().center().map(|n| n as f32).into())
+                        .unwrap_or(self.active_view().center()),
+                );
 
                 match op {
                     Op::Incr => {
