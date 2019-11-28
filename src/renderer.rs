@@ -895,6 +895,8 @@ impl Renderer {
                     }
                     _ => color::WHITE.into(),
                 }
+            } else if session.hover_view == Some(*id) {
+                Rgba::new(0.7, 0.7, 0.7, 1.0)
             } else {
                 Rgba::new(0.5, 0.5, 0.5, 1.0)
             };
