@@ -36,7 +36,6 @@ pub enum Command {
     Fill(Rgba8),
     ForceQuit,
     ForceQuitAll,
-    Help,
     Map(Box<KeyMapping>),
     Mode(Mode),
     AddFrame,
@@ -111,7 +110,6 @@ impl fmt::Display for Command {
             Self::Fill(c) => write!(f, "Fill view with {color}", color = c),
             Self::ForceQuit => write!(f, "Quit view without saving"),
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
-            Self::Help => write!(f, "Toggle help"),
             Self::Map(_) => write!(f, "Map a key combination to a command"),
             Self::Mode(m) => write!(f, "Switch session mode to {}", m),
             Self::AddFrame => write!(f, "Add a blank frame to the view"),
@@ -187,7 +185,6 @@ impl From<Command> for String {
             Command::Fill(c) => format!("v/fill {}", c),
             Command::ForceQuit => format!("q!"),
             Command::ForceQuitAll => format!("qa!"),
-            Command::Help => format!("help"),
             Command::Map(_) => format!("map <key> <command> {{<command>}}"),
             Command::Mode(m) => format!("mode {}", m),
             Command::AddFrame => format!("f/add"),
@@ -515,7 +512,7 @@ impl<'a> Parse<'a> for Command {
                     Ok((Command::Edit(edits), q))
                 }
             }
-            "help" => Ok((Command::Help, p)),
+            "help" => Ok((Command::Mode(Mode::Help), p)),
             "set" => {
                 let (k, p) = p.identifier()?;
                 let (_, p) = p.whitespace()?;

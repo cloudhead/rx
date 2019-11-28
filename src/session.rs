@@ -464,7 +464,7 @@ impl Default for KeyBindings {
         KeyBindings {
             elems: vec![
                 KeyBinding {
-                    modes: vec![Mode::Normal],
+                    modes: vec![Mode::Normal, Mode::Help],
                     modifiers: ModifiersState {
                         shift: true,
                         ctrl: false,
@@ -473,32 +473,9 @@ impl Default for KeyBindings {
                     },
                     key: Key::Virtual(platform::Key::Slash),
                     state: InputState::Pressed,
-                    command: Command::Help,
-                    is_toggle: true,
-                    display: Some("?".to_string()),
-                },
-                KeyBinding {
-                    modes: vec![Mode::Help],
-                    modifiers: ModifiersState {
-                        shift: true,
-                        ctrl: false,
-                        alt: false,
-                        meta: false,
-                    },
-                    key: Key::Virtual(platform::Key::Slash),
-                    state: InputState::Released,
-                    command: Command::Help,
-                    is_toggle: true,
-                    display: None,
-                },
-                KeyBinding {
-                    modes: vec![Mode::Normal],
-                    modifiers: ModifiersState::default(),
-                    key: Key::Virtual(platform::Key::Colon),
-                    state: InputState::Pressed,
-                    command: Command::Mode(Mode::Command),
+                    command: Command::Mode(Mode::Help),
                     is_toggle: false,
-                    display: None,
+                    display: Some("?".to_string()),
                 },
                 KeyBinding {
                     modes: vec![Mode::Normal],
@@ -513,6 +490,21 @@ impl Default for KeyBindings {
                     command: Command::Mode(Mode::Command),
                     is_toggle: false,
                     display: Some(":".to_string()),
+                },
+                #[cfg(winit)]
+                KeyBinding {
+                    modes: vec![Mode::Normal],
+                    modifiers: ModifiersState {
+                        shift: true,
+                        ctrl: false,
+                        alt: false,
+                        meta: false,
+                    },
+                    key: Key::Virtual(platform::Key::Colon),
+                    state: InputState::Pressed,
+                    command: Command::Mode(Mode::Command),
+                    is_toggle: false,
+                    display: None,
                 },
             ],
         }
@@ -2259,13 +2251,6 @@ impl Session {
                 let ids: Vec<ViewId> = self.views.keys().cloned().collect();
                 for id in ids {
                     self.quit_view_safe(id);
-                }
-            }
-            Command::Help => {
-                if self.mode == Mode::Help {
-                    self.switch_mode(Mode::Normal);
-                } else {
-                    self.switch_mode(Mode::Help);
                 }
             }
             Command::SwapColors => {
