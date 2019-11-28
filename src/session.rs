@@ -1901,6 +1901,9 @@ impl Session {
 
     fn handle_mouse_wheel(&mut self, delta: platform::LogicalDelta) {
         if delta.y > 0. {
+            if let Some(v) = self.hover_view {
+                self.activate(v);
+            }
             self.zoom_in(self.cursor);
         } else if delta.y < 0. {
             self.zoom_out(self.cursor);
@@ -2199,8 +2202,7 @@ impl Session {
         }
     }
 
-    /// Set the active view zoom. Optionally takes a center
-    /// to zoom to. Otherwise zooms towards cursor.
+    /// Set the active view zoom. Takes a center to zoom to.
     fn zoom(&mut self, z: f32, center: SessionCoords) {
         let px = center.x - self.offset.x;
         let py = center.y - self.offset.y;
