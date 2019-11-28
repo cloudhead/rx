@@ -478,7 +478,11 @@ impl Default for KeyBindings {
                     display: Some("?".to_string()),
                 },
                 KeyBinding {
-                    modes: vec![Mode::Normal],
+                    modes: vec![
+                        Mode::Normal,
+                        Mode::Visual(VisualState::Pasting),
+                        Mode::Visual(VisualState::selecting()),
+                    ],
                     modifiers: ModifiersState {
                         shift: true,
                         ctrl: false,
