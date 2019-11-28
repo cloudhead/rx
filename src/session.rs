@@ -525,9 +525,9 @@ impl KeyBindings {
         state: InputState,
         mode: Mode,
     ) -> Option<KeyBinding> {
-        self.elems.iter().cloned().find(|kb| {
+        self.elems.iter().rev().cloned().find(|kb| {
             kb.key == key
-                && (kb.modifiers == ModifiersState::default() || kb.modifiers == modifiers)
+                && kb.modifiers == modifiers
                 && kb.state == state
                 && kb.modes.contains(&mode)
         })
@@ -1999,13 +1999,8 @@ impl Session {
             ..
         } = input;
 
-        let state = if state == InputState::Repeated {
-            InputState::Pressed
-        } else {
-            state
-        };
-
-        let mut repeat = false;
+        let mut repeat = state == InputState::Repeated;
+        let state = if repeat { InputState::Pressed } else { state };
 
         if let Some(key) = key {
             // While the mouse is down, don't accept keyboard input.
@@ -2014,7 +2009,7 @@ impl Session {
             }
 
             if state == InputState::Pressed {
-                repeat = !self.keys_pressed.insert(key);
+                repeat = repeat || !self.keys_pressed.insert(key);
             } else if state == InputState::Released {
                 if !self.keys_pressed.remove(&key) {
                     return;
