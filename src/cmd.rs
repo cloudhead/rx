@@ -229,6 +229,16 @@ pub enum Key {
     Virtual(platform::Key),
 }
 
+impl Key {
+    pub fn is_modifier(self) -> bool {
+        let Self::Virtual(key) = self;
+        match key {
+            platform::Key::Alt | platform::Key::Control | platform::Key::Shift => true,
+            _ => false,
+        }
+    }
+}
+
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

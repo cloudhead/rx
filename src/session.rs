@@ -531,9 +531,9 @@ impl KeyBindings {
     ) -> Option<KeyBinding> {
         self.elems.iter().rev().cloned().find(|kb| {
             kb.key == key
-                && kb.modifiers == modifiers
                 && kb.state == state
                 && kb.modes.contains(&mode)
+                && (kb.modifiers == modifiers || state == InputState::Released)
         })
     }
 
