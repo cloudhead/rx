@@ -34,6 +34,8 @@ pub enum BrushMode {
     XSym,
     /// Y-Symmetry mode.
     YSym,
+    /// X-Ray mode.
+    XRay,
 }
 
 impl fmt::Display for BrushMode {
@@ -44,6 +46,7 @@ impl fmt::Display for BrushMode {
             Self::Perfect => "perfect".fmt(f),
             Self::XSym => "xsym".fmt(f),
             Self::YSym => "ysym".fmt(f),
+            Self::XRay => "xray".fmt(f),
         }
     }
 }

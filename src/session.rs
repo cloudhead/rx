@@ -2752,7 +2752,7 @@ impl Session {
     }
 
     /// Get the color at the given view coordinate.
-    fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Option<Rgba8> {
+    pub fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Option<Rgba8> {
         let resources = self.resources.lock();
         let (snapshot, pixels) = resources.get_snapshot(v);
 

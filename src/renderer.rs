@@ -1,4 +1,4 @@
-use crate::brush::BrushMode;
+use crate::brush::{BrushMode, BrushState};
 use crate::color;
 use crate::data;
 use crate::execution::Execution;
@@ -10,7 +10,7 @@ use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::screen2d;
 use crate::session::{self, Effect, Mode, Rgb8, Session, Tool, VisualState};
-use crate::view::{View, ViewId, ViewManager, ViewOp};
+use crate::view::{View, ViewCoords, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
 use rgx::core::{Blending, Filter, Op, PassOp, Rgba};
@@ -1203,7 +1203,7 @@ impl Renderer {
                             (Stroke::NONE, Fill::Solid(session.fg.into()))
                         };
 
-                        let view_coords = session.active_view_coords(session.cursor);
+                        let view_coords = session.active_view_coords(c);
                         for p in brush.expand(view_coords.into(), v.extent()) {
                             shapes.add(brush.shape(
                                 *session.session_coords(v.id, p.into()),
@@ -1213,6 +1213,66 @@ impl Renderer {
                                 v.zoom,
                                 Origin::BottomLeft,
                             ));
+                        }
+
+                        // X-Ray brush mode.
+                        if brush.state == BrushState::NotDrawing && brush.is_set(BrushMode::XRay) {
+                            let p: ViewCoords<u32> = view_coords.into();
+                            let center = session.color_at(v.id, p);
+                            let top =
+                                session.color_at(v.id, ViewCoords::new(p.x, p.y + 1)) != center;
+                            let bottom =
+                                session.color_at(v.id, ViewCoords::new(p.x, p.y - 1)) != center;
+                            let left =
+                                session.color_at(v.id, ViewCoords::new(p.x - 1, p.y)) != center;
+                            let right =
+                                session.color_at(v.id, ViewCoords::new(p.x + 1, p.y)) != center;
+
+                            let p = *session
+                                .session_coords(v.id, ViewCoords::new(p.x as f32, p.y as f32));
+                            let w = brush.size as f32 * v.zoom;
+
+                            let t: f32 = 1.;
+                            let stroke = Stroke::new(
+                                t,
+                                center
+                                    .map(|c| c.alpha(0xff))
+                                    .unwrap_or(Rgba8::TRANSPARENT)
+                                    .into(),
+                            );
+
+                            if top {
+                                shapes.add(Shape::Line(
+                                    Line::new(p.x, p.y + w - t / 2., p.x + w, p.y + w - t / 2.),
+                                    Renderer::UI_LAYER,
+                                    Rotation::ZERO,
+                                    stroke,
+                                ));
+                            }
+                            if bottom {
+                                shapes.add(Shape::Line(
+                                    Line::new(p.x, p.y + t / 2., p.x + w, p.y + t / 2.),
+                                    Renderer::UI_LAYER,
+                                    Rotation::ZERO,
+                                    stroke,
+                                ));
+                            }
+                            if left {
+                                shapes.add(Shape::Line(
+                                    Line::new(p.x + t / 2., p.y, p.x + t / 2., p.y + w),
+                                    Renderer::UI_LAYER,
+                                    Rotation::ZERO,
+                                    stroke,
+                                ));
+                            }
+                            if right {
+                                shapes.add(Shape::Line(
+                                    Line::new(p.x + w - t / 2., p.y, p.x + w - t / 2., p.y + w),
+                                    Renderer::UI_LAYER,
+                                    Rotation::ZERO,
+                                    stroke,
+                                ));
+                            }
                         }
                     // Draw disabled brush
                     } else {
