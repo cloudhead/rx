@@ -2562,6 +2562,9 @@ impl Session {
                     });
                 }
             }
+            Command::MapClear => {
+                self.key_bindings = KeyBindings::default();
+            }
             Command::Undo => {
                 self.undo(self.views.active_id);
             }

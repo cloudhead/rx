@@ -37,6 +37,7 @@ pub enum Command {
     ForceQuit,
     ForceQuitAll,
     Map(Box<KeyMapping>),
+    MapClear,
     Mode(Mode),
     AddFrame,
     CloneFrame(i32),
@@ -112,6 +113,7 @@ impl fmt::Display for Command {
             Self::ForceQuit => write!(f, "Quit view without saving"),
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
             Self::Map(_) => write!(f, "Map a key combination to a command"),
+            Self::MapClear => write!(f, "Clear all key mappings"),
             Self::Mode(m) => write!(f, "Switch session mode to {}", m),
             Self::AddFrame => write!(f, "Add a blank frame to the view"),
             Self::CloneFrame(i) => write!(f, "Clone frame {} and add it to the view", i),
@@ -629,6 +631,7 @@ impl<'a> Parse<'a> for Command {
                 )?;
                 Ok((Command::Map(Box::new(km)), p))
             }
+            "map/clear!" => Ok((Command::MapClear, p)),
             "p/add" => {
                 let (rgba, p) = p.parse::<Rgba8>()?;
                 Ok((Command::PaletteAdd(rgba), p))
