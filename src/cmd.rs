@@ -48,6 +48,7 @@ pub enum Command {
     Pan(i32, i32),
     Quit,
     QuitAll,
+    Reset,
     Redo,
     ResizeFrame(u32, u32),
     SelectionMove(i32, i32),
@@ -148,6 +149,7 @@ impl fmt::Display for Command {
             Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
             Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
             Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
+            Self::Reset => write!(f, "Reset all settings to default"),
             Self::SelectionFill(None) => write!(f, "Fill selection with foreground color"),
             Self::SelectionYank => write!(f, "Yank/copy selection"),
             Self::SelectionDelete => write!(f, "Delete/cut selection"),
@@ -659,6 +661,7 @@ impl<'a> Parse<'a> for Command {
             }
             "tool/prev" => Ok((Command::ToolPrev, p)),
             "swap" => Ok((Command::SwapColors, p)),
+            "reset!" => Ok((Command::Reset, p)),
             "selection/move" => {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;
                 Ok((Command::SelectionMove(x, y), p))

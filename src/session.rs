@@ -406,7 +406,7 @@ pub enum MessageType {
     Warning,
     /// Replay-related message.
     Replay,
-    #[allow(dead_code)]
+    /// Success message.
     Okay,
 }
 
@@ -783,11 +783,11 @@ impl Session {
             cursor: SessionCoords::new(0., 0.),
             base_dirs,
             offset: Vector2::zero(),
-            tool: Tool::Brush(Brush::default()),
-            prev_tool: None,
+            tool: Tool::default(),
+            prev_tool: Option::default(),
             mouse_state: InputState::Released,
-            hover_color: None,
-            hover_view: None,
+            hover_color: Option::default(),
+            hover_view: Option::default(),
             fg: color::WHITE,
             bg: color::BLACK,
             settings: Settings::default(),
@@ -800,8 +800,8 @@ impl Session {
             ignore_received_characters: false,
             cmdline: CommandLine::new(),
             mode: Mode::Normal,
-            prev_mode: None,
-            selection: None,
+            prev_mode: Option::default(),
+            selection: Option::default(),
             message: Message::default(),
             resources,
             avg_time: time::Duration::from_secs(0),
@@ -829,26 +829,37 @@ impl Session {
                 })?
             }
         } else {
-            let dir = self.base_dirs.config_dir();
+            let dir = self.base_dirs.config_dir().to_owned();
             let cfg = dir.join(Self::INIT);
 
             if cfg.exists() {
                 self.source_path(cfg)?;
             } else {
-                if let Err(e) = fs::create_dir_all(dir).and_then(|_| fs::write(&cfg, data::CONFIG))
-                {
+                let cfg_data = self.reset()?;
+
+                if let Err(e) = fs::create_dir_all(dir).and_then(|_| fs::write(&cfg, cfg_data)) {
                     warn!(
                         "Warning: couldn't create configuration file {:?}: {}",
                         cfg, e
                     );
                 }
-                self.source_reader(io::BufReader::new(data::CONFIG), "<init>")?;
             }
         }
         self.source_dir(cwd).ok();
         self.message(format!("rx v{}", crate::VERSION), MessageType::Echo);
 
         Ok(self)
+    }
+
+    pub fn reset(&mut self) -> io::Result<&'static [u8]> {
+        self.key_bindings = KeyBindings::default();
+        self.settings = Settings::default();
+        self.tool = Tool::default();
+
+        self.source_reader(io::BufReader::new(data::CONFIG), "<init>")?;
+        self.message("Settings reset to default values", MessageType::Okay);
+
+        Ok(data::CONFIG)
     }
 
     /// Create a blank view.
@@ -2384,6 +2395,11 @@ impl Session {
                         }
                     }
                 }
+            }
+            Command::Reset => {
+                if let Err(e) = self.reset() {
+                    self.message(format!("Error: {}", e), MessageType::Error);
+                };
             }
             Command::Fill(color) => {
                 self.active_view_mut().clear(color);
