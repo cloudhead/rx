@@ -2367,12 +2367,16 @@ impl Session {
                 self.unimplemented();
             }
             Command::Zoom(op) => {
-                let center = self.session_coords(
-                    self.views.active_id,
-                    self.selection
-                        .map(|s| s.bounds().center().map(|n| n as f32).into())
-                        .unwrap_or(self.active_view().center()),
-                );
+                let center = if let Some(s) = self.selection {
+                    self.session_coords(
+                        self.views.active_id,
+                        s.bounds().center().map(|n| n as f32).into(),
+                    )
+                } else if self.hover_view.is_some() {
+                    self.cursor
+                } else {
+                    self.session_coords(self.views.active_id, self.active_view().center())
+                };
 
                 match op {
                     Op::Incr => {
