@@ -1117,6 +1117,9 @@ impl Session {
     /// when the cursor hasn't moved relative to the session, but things
     /// within the session have moved relative to the cursor.
     fn cursor_dirty(&mut self) {
+        if !self.settings["input/mouse"].is_set() {
+            return;
+        }
         let cursor = self.cursor;
         let palette_hover = self.palette.hover.is_some();
 
