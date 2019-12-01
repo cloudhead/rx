@@ -1,5 +1,6 @@
 use crate::brush::{BrushMode, BrushState};
 use crate::color;
+use crate::cursor2d;
 use crate::data;
 use crate::execution::Execution;
 use crate::font::{Font, TextBatch};
@@ -58,6 +59,9 @@ pub struct Renderer {
     /// Pipeline for pasting to the view.
     paste2d: kit::sprite2d::Pipeline,
 
+    /// Pipeline for rendering the cursor.
+    cursor2d: cursor2d::Pipeline,
+
     /// Pipeline used to render to the screen/window.
     screen2d: screen2d::Pipeline,
     /// Screen framebuffer. Everything seen by the user is rendered here first.
@@ -107,11 +111,18 @@ impl Checker {
 }
 
 struct Cursors {
-    binding: core::BindingGroup,
     texture: core::Texture,
+    binding: core::BindingGroup,
 }
 
 impl Cursors {
+    fn invert(t: &Tool) -> bool {
+        match t {
+            Tool::Brush(_) => true,
+            _ => false,
+        }
+    }
+
     fn offset(t: &Tool) -> Vector2<f32> {
         match t {
             Tool::Sampler => Vector2::new(1., 1.),
@@ -196,7 +207,7 @@ impl Renderer {
     const TEXT_LAYER: ZDepth = ZDepth(-0.6);
     const PALETTE_LAYER: ZDepth = ZDepth(-0.4);
     const HELP_LAYER: ZDepth = ZDepth(-0.3);
-    const CURSOR_LAYER: ZDepth = ZDepth(-0.2);
+    const CURSOR_LAYER: ZDepth = ZDepth(0.0);
 
     pub fn new(r: &mut core::Renderer, window: LogicalSize, resources: ResourceManager) -> Self {
         let (win_w, win_h) = (window.width as u32, window.height as u32);
@@ -225,13 +236,18 @@ impl Renderer {
                 img,
             )
         };
+
+        let mut cursor2d: cursor2d::Pipeline = r.pipeline(Blending::default());
         let (cursors, cursors_img) = {
             let (img, width, height) = image::decode(data::CURSORS).unwrap();
             let texture = r.texture(width, height);
             let binding = sprite2d.binding(r, &texture, &sampler);
 
+            cursor2d.set_cursor(&texture, &sampler, &r);
+
             (Cursors { texture, binding }, img)
         };
+
         let (checker, checker_img) = {
             #[rustfmt::skip]
             let texels: [u8; 16] = [
@@ -286,6 +302,7 @@ impl Renderer {
             const2d,
             paste2d,
             screen2d,
+            cursor2d,
             resources,
             screen_fb,
             screen_vb,
@@ -434,7 +451,9 @@ impl Renderer {
         let mut ui_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
         let mut overlay_batch = TextBatch::new(&self.font);
-        let mut cursor_batch = sprite2d::Batch::new(self.cursors.texture.w, self.cursors.texture.h);
+        let mut cursor_sprite =
+            cursor2d::Sprite::new(self.cursors.texture.w, self.cursors.texture.h);
+        let mut tool_batch = sprite2d::Batch::new(self.cursors.texture.w, self.cursors.texture.h);
         let mut paste_batch = sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h);
         let mut checker_batch =
             sprite2d::Batch::new(self.checker.texture.w, self.checker.texture.h);
@@ -456,11 +475,12 @@ impl Renderer {
             execution.clone(),
         );
         Self::draw_palette(&session, &mut ui_batch);
-        Self::draw_cursor(&session, &mut cursor_batch);
+        Self::draw_cursor(&session, &mut cursor_sprite, &mut tool_batch);
         Self::draw_checker(&session, &mut checker_batch);
 
         let ui_buf = ui_batch.finish(&r);
-        let cursor_buf = cursor_batch.finish(&r);
+        let cursor_buf = cursor_sprite.finish(&r);
+        let tool_buf = tool_batch.finish(&r);
         let checker_buf = checker_batch.finish(&r);
         let text_buf = text_batch.finish(&r);
         let overlay_buf = overlay_batch.finish(&r);
@@ -485,6 +505,7 @@ impl Renderer {
 
         self.update_view_animations(session, r);
         self.update_view_transforms(session.views.values(), session.offset, &r, &mut f);
+        self.cursor2d.set_framebuffer(&self.screen_fb, r);
 
         let v = session.active_view();
         let view_data = self
@@ -498,6 +519,7 @@ impl Renderer {
             r.update_pipeline(&self.shape2d, ortho, &mut f);
             r.update_pipeline(&self.sprite2d, ortho, &mut f);
             r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
+            r.update_pipeline(&self.cursor2d, ortho, &mut f);
 
             self.cache.ortho = Some(ortho);
         }
@@ -579,7 +601,7 @@ impl Renderer {
             // Draw text & cursor to screen framebuffer.
             p.set_pipeline(&self.sprite2d);
             p.draw(&text_buf, &self.font.binding);
-            p.draw(&cursor_buf, &self.cursors.binding);
+            p.draw(&tool_buf, &self.cursors.binding);
 
             // Draw view animations to screen framebuffer.
             if session.settings["animation"].is_set() {
@@ -603,6 +625,18 @@ impl Renderer {
             if session.settings["debug"].is_set() || !execution.borrow().is_normal() {
                 p.set_pipeline(&self.sprite2d);
                 p.draw(&overlay_buf, &self.font.binding);
+            }
+
+            {
+                if let (Some(fb), Some(cursor)) = (
+                    &self.cursor2d.framebuffer_binding,
+                    &self.cursor2d.cursor_binding,
+                ) {
+                    p.set_pipeline(&self.cursor2d);
+                    p.set_binding(cursor, &[]);
+                    p.set_binding(fb, &[]);
+                    p.draw_buffer(&cursor_buf);
+                }
             }
         }
 
@@ -1106,10 +1140,11 @@ impl Renderer {
         }
     }
 
-    fn draw_cursor(session: &Session, batch: &mut sprite2d::Batch) {
+    fn draw_cursor(session: &Session, sprite: &mut cursor2d::Sprite, batch: &mut sprite2d::Batch) {
         if !session.settings["ui/cursor"].is_set() {
             return;
         }
+
         // TODO: Cursor should be greyed out in command mode.
         match session.mode {
             Mode::Present | Mode::Help => {}
@@ -1138,13 +1173,10 @@ impl Renderer {
                 if let Some(rect) = Cursors::rect(&Tool::default()) {
                     let offset = Cursors::offset(&Tool::default());
                     let cursor = session.cursor;
-                    batch.add(
+                    sprite.set(
                         rect,
                         rect.with_origin(cursor.x, cursor.y) + offset,
                         Renderer::CURSOR_LAYER,
-                        Rgba::TRANSPARENT,
-                        1.,
-                        kit::Repeat::default(),
                     );
                 }
             }
@@ -1152,14 +1184,23 @@ impl Renderer {
                 if let Some(rect) = Cursors::rect(&session.tool) {
                     let offset = Cursors::offset(&session.tool);
                     let cursor = session.cursor;
-                    batch.add(
-                        rect,
-                        rect.with_origin(cursor.x, cursor.y) + offset,
-                        Renderer::CURSOR_LAYER,
-                        Rgba::TRANSPARENT,
-                        1.,
-                        kit::Repeat::default(),
-                    );
+
+                    if Cursors::invert(&session.tool) {
+                        sprite.set(
+                            rect,
+                            rect.with_origin(cursor.x, cursor.y) + offset,
+                            Renderer::CURSOR_LAYER,
+                        );
+                    } else {
+                        batch.add(
+                            rect,
+                            rect.with_origin(cursor.x, cursor.y) + offset,
+                            Renderer::CURSOR_LAYER,
+                            Rgba::TRANSPARENT,
+                            1.,
+                            kit::Repeat::default(),
+                        );
+                    }
                 }
             }
         }

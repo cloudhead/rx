@@ -20,6 +20,7 @@ mod alloc;
 mod brush;
 mod cmd;
 mod color;
+mod cursor2d;
 mod data;
 mod event;
 mod font;
