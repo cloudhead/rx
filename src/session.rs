@@ -608,6 +608,10 @@ impl Default for Settings {
                 "ui/switcher" => Value::Bool(true),
                 "ui/view-info" => Value::Bool(true),
 
+                "grid" => Value::Bool(false),
+                "grid/color" => Value::Rgba8(color::BLUE),
+                "grid/spacing" => Value::UInt2(8, 8),
+
                 // Deprecated.
                 "frame_delay" => Value::Float(0.0)
             },

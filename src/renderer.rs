@@ -203,6 +203,8 @@ const MARGIN: f32 = 10.;
 impl Renderer {
     const CHECKER_LAYER: ZDepth = ZDepth(-0.9);
     const VIEW_LAYER: ZDepth = ZDepth(-0.85);
+    const BRUSH_LAYER: ZDepth = ZDepth(-0.82);
+    const GRID_LAYER: ZDepth = ZDepth(-0.81);
     const UI_LAYER: ZDepth = ZDepth(-0.8);
     const TEXT_LAYER: ZDepth = ZDepth(-0.6);
     const PALETTE_LAYER: ZDepth = ZDepth(-0.4);
@@ -467,6 +469,7 @@ impl Renderer {
 
         Self::draw_brush(&session, &mut ui_batch);
         Self::draw_paste(&session, &self.paste, &mut paste_batch);
+        Self::draw_grid(&session, &mut ui_batch);
         Self::draw_ui(&session, &mut ui_batch, &mut text_batch);
         Self::draw_overlay(
             &session,
@@ -1140,6 +1143,55 @@ impl Renderer {
         }
     }
 
+    fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
+        if session.settings["grid"].is_set() {
+            let color = session.settings["grid/color"].color();
+            let (gx, gy) = session.settings["grid/spacing"].uint2();
+
+            let v = session.active_view();
+            let w = v.width();
+            let h = v.height();
+
+            let col_iter = (0..).step_by(gx as usize).skip(1);
+            let row_iter = (0..).step_by(gy as usize).skip(1);
+
+            // Grid rows.
+            for x in row_iter {
+                if x >= w {
+                    break;
+                }
+
+                let h = h as f32 * v.zoom;
+                let x = x as f32 * v.zoom + session.offset.x;
+                let y = session.offset.y;
+
+                batch.add(Shape::Line(
+                    Line::new(x, y, x, y + h),
+                    Renderer::GRID_LAYER,
+                    Rotation::ZERO,
+                    Stroke::new(1., color.into()),
+                ));
+            }
+            // Grid columns.
+            for y in col_iter {
+                if y >= h {
+                    break;
+                }
+
+                let w = w as f32 * v.zoom;
+                let y = y as f32 * v.zoom + session.offset.y;
+                let x = session.offset.x;
+
+                batch.add(Shape::Line(
+                    Line::new(x, y, x + w, y),
+                    Renderer::GRID_LAYER,
+                    Rotation::ZERO,
+                    Stroke::new(1., color.into()),
+                ));
+            }
+        }
+    }
+
     fn draw_cursor(session: &Session, sprite: &mut cursor2d::Sprite, batch: &mut sprite2d::Batch) {
         if !session.settings["ui/cursor"].is_set() {
             return;
@@ -1248,7 +1300,7 @@ impl Renderer {
                         for p in brush.expand(view_coords.into(), v.extent()) {
                             shapes.add(brush.shape(
                                 *session.session_coords(v.id, p.into()),
-                                Renderer::UI_LAYER,
+                                Renderer::BRUSH_LAYER,
                                 stroke,
                                 fill,
                                 v.zoom,
