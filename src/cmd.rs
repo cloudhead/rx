@@ -321,6 +321,7 @@ pub enum Value {
     Bool(bool),
     U32(u32),
     Float(f64),
+    UInt2(u32, u32),
     Float2(f32, f32),
     Str(String),
     Ident(String),
@@ -356,12 +357,20 @@ impl Value {
         panic!("expected {:?} to be a `Rgba8`", self);
     }
 
+    pub fn uint2(&self) -> (u32, u32) {
+        if let Value::UInt2(x, y) = self {
+            return (*x, *y);
+        }
+        panic!("expected {:?} to be a `(u32, u32)`", self);
+    }
+
     pub fn description(&self) -> &'static str {
         match self {
             Self::Bool(_) => "on / off",
             Self::U32(_) => "positive integer, eg. 32",
             Self::Float(_) => "float, eg. 1.33",
-            Self::Float2(_, _) => "two floats, eg. 32.0, 48.0",
+            Self::UInt2(_, _) => "two positive integers, eg. 32, 48",
+            Self::Float2(_, _) => "two floats , eg. 32.17, 48.29",
             Self::Str(_) => "string, eg. \"fnord\"",
             Self::Rgba8(_) => "color, eg. #ffff00",
             Self::Ident(_) => "identifier, eg. fnord",
@@ -380,7 +389,9 @@ impl<'a> Parse<'a> for Value {
             let (v, p) = p.parse::<Rgba8>()?;
             Ok((Value::Rgba8(v), p))
         } else if c.map_or(false, |c| c.is_digit(10)) {
-            if let Ok((v, p)) = p.clone().parse::<u32>() {
+            if let Ok(((x, y), p)) = p.clone().parse::<(u32, u32)>() {
+                Ok((Value::UInt2(x, y), p))
+            } else if let Ok((v, p)) = p.clone().parse::<u32>() {
                 Ok((Value::U32(v), p))
             } else if let Ok((v, p)) = p.clone().parse::<f64>() {
                 Ok((Value::Float(v), p))
@@ -406,6 +417,7 @@ impl fmt::Display for Value {
             Value::Bool(false) => "off".fmt(f),
             Value::U32(u) => u.fmt(f),
             Value::Float(x) => x.fmt(f),
+            Value::UInt2(x, y) => write!(f, "{},{}", x, y),
             Value::Float2(x, y) => write!(f, "{},{}", x, y),
             Value::Str(s) => s.fmt(f),
             Value::Rgba8(c) => c.fmt(f),
