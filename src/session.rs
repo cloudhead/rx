@@ -596,9 +596,9 @@ impl Default for Settings {
                 "checker" => Value::Bool(false),
                 "background" => Value::Rgba8(color::BLACK),
                 "vsync" => Value::Bool(false),
-                "input/delay" => Value::Float(8.0),
+                "input/delay" => Value::F32(8.0),
                 "input/mouse" => Value::Bool(true),
-                "scale" => Value::Float(1.0),
+                "scale" => Value::F32(1.0),
                 "animation" => Value::Bool(true),
                 "animation/delay" => Value::U32(160),
                 "ui/palette" => Value::Bool(true),
@@ -610,10 +610,10 @@ impl Default for Settings {
 
                 "grid" => Value::Bool(false),
                 "grid/color" => Value::Rgba8(color::BLUE),
-                "grid/spacing" => Value::UInt2(8, 8),
+                "grid/spacing" => Value::U32Tuple(8, 8),
 
                 // Deprecated.
-                "frame_delay" => Value::Float(0.0)
+                "frame_delay" => Value::F32(0.0)
             },
         }
     }
@@ -2345,12 +2345,12 @@ impl Session {
                             self.base_dirs.config_dir().display()
                         ))),
                         "s/hidpi" => Ok(Value::Str(format!("{:.1}", self.hidpi_factor))),
-                        "s/offset" => Ok(Value::Float2(self.offset.x, self.offset.y)),
+                        "s/offset" => Ok(Value::F32Tuple(self.offset.x, self.offset.y)),
                         "v/offset" => {
                             let v = self.active_view();
-                            Ok(Value::Float2(v.offset.x, v.offset.y))
+                            Ok(Value::F32Tuple(v.offset.x, v.offset.y))
                         }
-                        "v/zoom" => Ok(Value::Float(self.active_view().zoom as f64)),
+                        "v/zoom" => Ok(Value::F32(self.active_view().zoom as f64)),
                         _ => match self.settings.get(s) {
                             None => Err(format!("Error: {} is undefined", s)),
                             Some(result) => Ok(Value::Str(format!("{} = {}", v.clone(), result))),

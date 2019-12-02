@@ -618,7 +618,7 @@ impl Renderer {
 
         {
             // Present screen framebuffer to screen.
-            let bg = Rgba::from(session.settings["background"].color());
+            let bg = Rgba::from(session.settings["background"].rgba8());
             let mut p = f.pass(PassOp::Clear(bg), present);
 
             p.set_pipeline(&self.screen2d);
@@ -1145,8 +1145,8 @@ impl Renderer {
 
     fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
         if session.settings["grid"].is_set() {
-            let color = session.settings["grid/color"].color();
-            let (gx, gy) = session.settings["grid/spacing"].uint2();
+            let color = session.settings["grid/color"].rgba8();
+            let (gx, gy) = session.settings["grid/spacing"].clone().into();
 
             let v = session.active_view();
             let w = v.width();
