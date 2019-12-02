@@ -1155,8 +1155,8 @@ impl Renderer {
             let col_iter = (0..).step_by(gx as usize).skip(1);
             let row_iter = (0..).step_by(gy as usize).skip(1);
 
-            // Grid rows.
-            for x in row_iter {
+            // Grid columns.
+            for x in col_iter {
                 if x >= w {
                     break;
                 }
@@ -1172,8 +1172,8 @@ impl Renderer {
                     Stroke::new(1., color.into()),
                 ));
             }
-            // Grid columns.
-            for y in col_iter {
+            // Grid rows.
+            for y in row_iter {
                 if y >= h {
                     break;
                 }
