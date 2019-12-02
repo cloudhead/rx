@@ -1152,15 +1152,8 @@ impl Renderer {
             let w = v.width();
             let h = v.height();
 
-            let col_iter = (0..).step_by(gx as usize).skip(1);
-            let row_iter = (0..).step_by(gy as usize).skip(1);
-
             // Grid columns.
-            for x in col_iter {
-                if x >= w {
-                    break;
-                }
-
+            for x in (0..).step_by(gx as usize).skip(1).take_while(|x| *x < w) {
                 let h = h as f32 * v.zoom;
                 let x = x as f32 * v.zoom + session.offset.x;
                 let y = session.offset.y;
@@ -1173,11 +1166,7 @@ impl Renderer {
                 ));
             }
             // Grid rows.
-            for y in row_iter {
-                if y >= h {
-                    break;
-                }
-
+            for y in (0..).step_by(gy as usize).skip(1).take_while(|y| *y < h) {
                 let w = w as f32 * v.zoom;
                 let y = y as f32 * v.zoom + session.offset.y;
                 let x = session.offset.x;
