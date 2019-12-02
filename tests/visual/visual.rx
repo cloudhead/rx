@@ -21,7 +21,6 @@ map/visual  ]       :selection/offset  1  1
 map/visual  [       :selection/offset -1 -1
 map/visual  \       :selection/expand
 map/visual  <space> :selection/fill
-map/visual  <space> :selection/fill
 map/visual  y       :selection/yank
 map/visual  d       :selection/delete
 map/visual  p       :selection/paste
