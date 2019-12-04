@@ -1322,19 +1322,11 @@ impl Session {
         self.effects.push(Effect::ViewActivated(id));
 
         match self.mode {
-            Mode::Visual(VisualState::Selecting { .. }) => {
-                self.selection = None;
-            }
-            Mode::Visual(VisualState::Pasting) => {
-                // When pasting, if the selection fits in the activated
-                // view, we allow it to transfer. Otherwise we switch
-                // back to selection mode.
-                if let Some(s) = self.selection {
-                    let r = self.active_view().bounds();
-                    if !r.contains(s.min()) || !r.contains(s.max()) {
-                        self.selection = None;
-                        self.mode = Mode::Visual(VisualState::default());
-                    }
+            Mode::Visual(_) => {
+                // It's hard to know where to transfer the selection between views,
+                // so if the cursor isn't in the newly active view, don't transfer it.
+                if self.hover_view != Some(id) {
+                    self.selection = None;
                 }
             }
             _ => {}
@@ -1878,6 +1870,7 @@ impl Session {
                         }
                     } else {
                         self.activate(id);
+                        self.center_selection(self.cursor);
                     }
                 } else {
                     // Clicking outside a view...
@@ -1982,14 +1975,7 @@ impl Session {
                 }
             }
             Mode::Visual(VisualState::Pasting) => {
-                // Center paste selection on cursor.
-                let c = self.active_view_coords(cursor);
-                if let Some(ref mut s) = self.selection {
-                    let r = s.abs().bounds();
-                    let (w, h) = (r.width(), r.height());
-                    let (x, y) = (c.x as i32 - w / 2, c.y as i32 - h / 2);
-                    *s = Selection::new(x, y, x + w, y + h);
-                }
+                self.center_selection(cursor);
             }
             _ => {}
         }
@@ -2172,6 +2158,17 @@ impl Session {
     #[allow(dead_code)]
     fn center(&self) -> SessionCoords {
         SessionCoords::new(self.width / 2., self.height / 2.)
+    }
+
+    /// Center the selection to the given session coordinates.
+    fn center_selection(&mut self, p: SessionCoords) {
+        let c = self.active_view_coords(p);
+        if let Some(ref mut s) = self.selection {
+            let r = s.abs().bounds();
+            let (w, h) = (r.width(), r.height());
+            let (x, y) = (c.x as i32 - w / 2, c.y as i32 - h / 2);
+            *s = Selection::new(x, y, x + w, y + h);
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////
