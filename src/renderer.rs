@@ -203,13 +203,13 @@ const MARGIN: f32 = 10.;
 
 impl Renderer {
     const CHECKER_LAYER: ZDepth = ZDepth(-0.9);
-    const VIEW_LAYER: ZDepth = ZDepth(-0.85);
-    const BRUSH_LAYER: ZDepth = ZDepth(-0.82);
-    const GRID_LAYER: ZDepth = ZDepth(-0.81);
-    const UI_LAYER: ZDepth = ZDepth(-0.8);
-    const TEXT_LAYER: ZDepth = ZDepth(-0.6);
-    const PALETTE_LAYER: ZDepth = ZDepth(-0.4);
-    const HELP_LAYER: ZDepth = ZDepth(-0.3);
+    const VIEW_LAYER: ZDepth = ZDepth(-0.7);
+    const BRUSH_LAYER: ZDepth = ZDepth(-0.6);
+    const GRID_LAYER: ZDepth = ZDepth(-0.5);
+    const UI_LAYER: ZDepth = ZDepth(-0.4);
+    const TEXT_LAYER: ZDepth = ZDepth(-0.3);
+    const PALETTE_LAYER: ZDepth = ZDepth(-0.2);
+    const HELP_LAYER: ZDepth = ZDepth(-0.1);
     const CURSOR_LAYER: ZDepth = ZDepth(0.0);
 
     pub fn new(r: &mut core::Renderer, window: LogicalSize, resources: ResourceManager) -> Self {
