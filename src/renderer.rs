@@ -125,6 +125,7 @@ impl Cursors {
     fn offset(t: &Tool) -> Vector2<f32> {
         match t {
             Tool::Sampler => Vector2::new(1., 1.),
+            Tool::Brush(b) if b.is_set(BrushMode::Erase) => Vector2::new(-8., -8.),
             Tool::Brush(_) => Vector2::new(-8., -8.),
             Tool::Pan(_) => Vector2::new(-8., -8.),
             Tool::Move => Vector2::new(-8., -8.),
@@ -134,6 +135,7 @@ impl Cursors {
     fn rect(t: &Tool) -> Option<Rect<f32>> {
         match t {
             Tool::Sampler => Some(Rect::new(0., 0., 16., 16.)),
+            Tool::Brush(b) if b.is_set(BrushMode::Erase) => Some(Rect::new(64., 0., 80., 16.)),
             Tool::Brush(_) => Some(Rect::new(16., 0., 32., 16.)),
             Tool::Move => Some(Rect::new(32., 0., 48., 16.)),
             Tool::Pan(_) => Some(Rect::new(48., 0., 64., 16.)),
