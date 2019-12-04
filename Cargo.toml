@@ -26,7 +26,7 @@ digest = "0.8.1"
 nonempty = "0.1.4"
 
 [dependencies.rgx]
-version = "0.4.1"
+version = "0.5.0"
 
 [dev-dependencies]
 lazy_static = "*"

@@ -5,7 +5,6 @@ use crate::data;
 use crate::execution::Execution;
 use crate::font::{Font, TextBatch};
 use crate::framebuffer2d;
-use crate::gpu;
 use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
@@ -15,10 +14,10 @@ use crate::view::{View, ViewCoords, ViewId, ViewManager, ViewOp};
 
 use rgx::core;
 use rgx::core::{Blending, Filter, Op, PassOp, Rgba};
-use rgx::kit;
 use rgx::kit::shape2d;
 use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use rgx::kit::sprite2d;
+use rgx::kit::{self, Geometry};
 use rgx::kit::{Bgra8, Origin, Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
@@ -41,7 +40,7 @@ pub struct Renderer {
     view_transforms: Vec<Matrix4<f32>>,
     /// View transform buffer, created from the transform matrices. This is bound
     /// as a dynamic uniform buffer, to render all views in a single pass.
-    view_transforms_buf: gpu::TransformBuffer,
+    view_transforms_buf: kit::TransformBuffer,
     /// Sampler used for literally everything.
     sampler: core::Sampler,
 
@@ -221,7 +220,7 @@ impl Renderer {
 
         let sampler = r.sampler(Filter::Nearest, Filter::Nearest);
 
-        let view_transforms_buf = gpu::TransformBuffer::with_capacity(
+        let view_transforms_buf = kit::TransformBuffer::with_capacity(
             Session::MAX_VIEWS,
             &framebuffer2d.pipeline.layout.sets[1],
             &r.device,
@@ -888,9 +887,11 @@ impl Renderer {
                 text.add(&t, x + offset.x, y + offset.y, Renderer::TEXT_LAYER, stroke);
             }
 
+            let t = Matrix4::from_translation(offset.extend(0.)) * Matrix4::from_scale(view.zoom);
+
             // Selection stroke.
             canvas.add(Shape::Rectangle(
-                r.map(|n| n as f32) * view.zoom + offset,
+                r.map(|n| n as f32).transform(t),
                 Renderer::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1., stroke.into()),
@@ -899,7 +900,7 @@ impl Renderer {
             // Selection fill.
             if r.intersects(view.bounds()) {
                 canvas.add(Shape::Rectangle(
-                    r.intersection(view.bounds()).map(|n| n as f32) * view.zoom + offset,
+                    r.intersection(view.bounds()).map(|n| n as f32).transform(t),
                     Renderer::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::NONE,
@@ -1148,18 +1149,19 @@ impl Renderer {
             let color = session.settings["grid/color"].rgba8();
             let (gx, gy) = session.settings["grid/spacing"].clone().into();
 
+            let t = session.offset;
             let v = session.active_view();
             let w = v.width();
             let h = v.height();
+            let m = Matrix4::from_translation(t.extend(0.)) * Matrix4::from_scale(v.zoom);
 
             // Grid columns.
             for x in (0..).step_by(gx as usize).skip(1).take_while(|x| *x < w) {
-                let h = h as f32 * v.zoom;
-                let x = x as f32 * v.zoom + session.offset.x;
-                let y = session.offset.y;
+                let h = h as f32;
+                let x = x as f32;
 
                 batch.add(Shape::Line(
-                    Line::new(x, y, x, y + h),
+                    Line::new(x, 0., x, h).transform(m),
                     Renderer::GRID_LAYER,
                     Rotation::ZERO,
                     Stroke::new(1., color.into()),
@@ -1167,12 +1169,11 @@ impl Renderer {
             }
             // Grid rows.
             for y in (0..).step_by(gy as usize).skip(1).take_while(|y| *y < h) {
-                let w = w as f32 * v.zoom;
-                let y = y as f32 * v.zoom + session.offset.y;
-                let x = session.offset.x;
+                let w = w as f32;
+                let y = y as f32;
 
                 batch.add(Shape::Line(
-                    Line::new(x, y, x + w, y),
+                    Line::new(0., y, w, y).transform(m),
                     Renderer::GRID_LAYER,
                     Rotation::ZERO,
                     Stroke::new(1., color.into()),
@@ -1395,7 +1396,7 @@ impl Renderer {
         for ((_, v), off) in self
             .view_data
             .iter()
-            .zip(self.view_transforms_buf.iter_offset())
+            .zip(self.view_transforms_buf.offsets())
         {
             // FIXME: (rgx) Why is it that ommitting this line yields an obscure error
             // message?

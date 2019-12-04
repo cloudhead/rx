@@ -25,7 +25,6 @@ mod data;
 mod event;
 mod font;
 mod framebuffer2d;
-mod gpu;
 mod image;
 mod palette;
 mod parser;
