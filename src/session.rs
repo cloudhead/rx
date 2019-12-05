@@ -1320,17 +1320,6 @@ impl Session {
         }
         self.views.activate(id);
         self.effects.push(Effect::ViewActivated(id));
-
-        match self.mode {
-            Mode::Visual(_) => {
-                // It's hard to know where to transfer the selection between views,
-                // so if the cursor isn't in the newly active view, don't transfer it.
-                if self.hover_view != Some(id) {
-                    self.selection = None;
-                }
-            }
-            _ => {}
-        }
     }
 
     /// Check whether a view is active.
