@@ -498,7 +498,7 @@ impl ViewManager {
         self.views.remove(&id);
         self.lru.retain(|v| *v != id);
 
-        if let Some(v) = self.last() {
+        if let Some(v) = self.recent() {
             self.activate(v);
         } else {
             self.active_id = ViewId::default();
@@ -506,7 +506,7 @@ impl ViewManager {
     }
 
     /// Return the id of the last recently active view, if any.
-    pub fn last(&self) -> Option<ViewId> {
+    pub fn recent(&self) -> Option<ViewId> {
         self.lru.front().cloned()
     }
 
