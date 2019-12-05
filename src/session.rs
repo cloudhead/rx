@@ -2403,14 +2403,28 @@ impl Session {
             }
             Command::ViewNext => {
                 let id = self.views.active_id;
-                if let Some(id) = self.views.range(id..).nth(1).map(|(id, _)| *id) {
+
+                if let Some(id) = self
+                    .views
+                    .range(id..)
+                    .nth(1)
+                    .map(|(id, _)| *id)
+                    .or_else(|| self.views.keys().next().cloned())
+                {
                     self.activate(id);
                     self.center_active_view_v();
                 }
             }
             Command::ViewPrev => {
                 let id = self.views.active_id;
-                if let Some(id) = self.views.range(..id).next_back().map(|(id, _)| *id) {
+
+                if let Some(id) = self
+                    .views
+                    .range(..id)
+                    .next_back()
+                    .map(|(id, _)| *id)
+                    .or_else(|| self.views.keys().next_back().cloned())
+                {
                     self.activate(id);
                     self.center_active_view_v();
                 }
