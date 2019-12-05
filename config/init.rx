@@ -14,6 +14,7 @@ map         ,             :zoom -                                   --  Zoom out
 map         /             :zoom 1.0                                 --  Reset active view zoom
 map/normal  j             :v/prev                                   --  Go to previous view
 map/normal  k             :v/next                                   --  Go to next view
+map         <tab>         :v/prev                                   --  Go to previous view (all modes)
 map         z             :v/center                                 --  Center active view
 map         u             :undo                                     --  Undo active view edit
 map         r             :redo                                     --  Redo active view edit
