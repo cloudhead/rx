@@ -2,7 +2,7 @@
 -- init.rx --
 -------------
 
-reset! -- Reset configuration to defaults.
+-- Default `rx` configuration
 
 ----------- ------------- -------------------------------------------- -----------------------------------
 --           KEY           COMMAND                                       DESCRIPTION
