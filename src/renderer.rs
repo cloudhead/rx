@@ -211,6 +211,8 @@ impl Renderer {
     const PALETTE_LAYER: ZDepth = ZDepth(-0.2);
     const HELP_LAYER: ZDepth = ZDepth(-0.1);
     const CURSOR_LAYER: ZDepth = ZDepth(0.0);
+    const XRAY_RADIUS: f32 = 3.0;
+    const XRAY_MIN_ZOOM: f32 = 16.0;
 
     pub fn new(r: &mut core::Renderer, window: LogicalSize, resources: ResourceManager) -> Self {
         let (win_w, win_h) = (window.width as u32, window.height as u32);
@@ -1259,6 +1261,7 @@ impl Renderer {
         }
         let v = session.active_view();
         let c = session.cursor;
+        let z = v.zoom;
 
         match session.mode {
             Mode::Visual(VisualState::Selecting { .. }) => {
@@ -1267,7 +1270,6 @@ impl Renderer {
                 }
 
                 if v.contains(c - session.offset) {
-                    let z = v.zoom;
                     let c = session.snap(c, v.offset.x, v.offset.y, z);
                     shapes.add(Shape::Rectangle(
                         Rect::new(c.x, c.y, c.x + z, c.y + z),
@@ -1301,62 +1303,28 @@ impl Renderer {
                         }
 
                         // X-Ray brush mode.
-                        if brush.state == BrushState::NotDrawing && brush.is_set(BrushMode::XRay) {
+                        if brush.is_set(BrushMode::XRay)
+                            && brush.size == 1
+                            && v.zoom >= Self::XRAY_MIN_ZOOM
+                        {
                             let p: ViewCoords<u32> = view_coords.into();
-                            let center = session.color_at(v.id, p);
-                            let top =
-                                session.color_at(v.id, ViewCoords::new(p.x, p.y + 1)) != center;
-                            let bottom =
-                                session.color_at(v.id, ViewCoords::new(p.x, p.y - 1)) != center;
-                            let left =
-                                session.color_at(v.id, ViewCoords::new(p.x - 1, p.y)) != center;
-                            let right =
-                                session.color_at(v.id, ViewCoords::new(p.x + 1, p.y)) != center;
 
-                            let p = *session
-                                .session_coords(v.id, ViewCoords::new(p.x as f32, p.y as f32));
-                            let w = brush.size as f32 * v.zoom;
+                            if let Some(xray) = session.color_at(v.id, p) {
+                                if xray != session.fg {
+                                    let center = *session.session_coords(
+                                        v.id,
+                                        ViewCoords::new(p.x as f32, p.y as f32),
+                                    ) + Vector2::new(z / 2., z / 2.);
 
-                            let t: f32 = 1.;
-                            let stroke = Stroke::new(
-                                t,
-                                center
-                                    .map(|c| c.alpha(0xff))
-                                    .unwrap_or(Rgba8::TRANSPARENT)
-                                    .into(),
-                            );
-
-                            if top {
-                                shapes.add(Shape::Line(
-                                    Line::new(p.x, p.y + w - t / 2., p.x + w, p.y + w - t / 2.),
-                                    Renderer::UI_LAYER,
-                                    Rotation::ZERO,
-                                    stroke,
-                                ));
-                            }
-                            if bottom {
-                                shapes.add(Shape::Line(
-                                    Line::new(p.x, p.y + t / 2., p.x + w, p.y + t / 2.),
-                                    Renderer::UI_LAYER,
-                                    Rotation::ZERO,
-                                    stroke,
-                                ));
-                            }
-                            if left {
-                                shapes.add(Shape::Line(
-                                    Line::new(p.x + t / 2., p.y, p.x + t / 2., p.y + w),
-                                    Renderer::UI_LAYER,
-                                    Rotation::ZERO,
-                                    stroke,
-                                ));
-                            }
-                            if right {
-                                shapes.add(Shape::Line(
-                                    Line::new(p.x + w - t / 2., p.y, p.x + w - t / 2., p.y + w),
-                                    Renderer::UI_LAYER,
-                                    Rotation::ZERO,
-                                    stroke,
-                                ));
+                                    shapes.add(Shape::Circle(
+                                        center,
+                                        Renderer::BRUSH_LAYER,
+                                        Self::XRAY_RADIUS,
+                                        16,
+                                        Stroke::NONE,
+                                        Fill::Solid(xray.alpha(0xff).into()),
+                                    ));
+                                }
                             }
                         }
                     // Draw disabled brush
