@@ -296,10 +296,7 @@ pub enum Tool {
     /// Used to sample colors.
     Sampler,
     /// Used to pan the workspace.
-    #[allow(dead_code)]
     Pan(PanState),
-    /// Used to move things,
-    Move,
 }
 
 impl Default for Tool {
@@ -1833,7 +1830,6 @@ impl Session {
                                     self.sample_color();
                                 }
                                 Tool::Pan(_) => {}
-                                Tool::Move => {}
                             },
                             Mode::Command => {
                                 // TODO

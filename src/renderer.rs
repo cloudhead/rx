@@ -109,39 +109,58 @@ impl Checker {
     }
 }
 
+struct Cursor {
+    rect: Rect<f32>,
+    offset: Vector2<f32>,
+    invert: bool,
+}
+
+impl Cursor {
+    const fn new(rect: Rect<f32>, off_x: f32, off_y: f32, invert: bool) -> Self {
+        Self {
+            rect,
+            offset: Vector2::new(off_x, off_y),
+            invert,
+        }
+    }
+}
+
 struct Cursors {
     texture: core::Texture,
     binding: core::BindingGroup,
 }
 
 impl Cursors {
-    fn invert(t: &Tool) -> bool {
-        match t {
-            Tool::Brush(_) => true,
-            _ => false,
-        }
-    }
+    const CROSSHAIR: Cursor = Cursor::new(Rect::new(16., 0., 32., 16.), -8., -8., true);
+    const SAMPLER: Cursor = Cursor::new(Rect::new(0., 0., 16., 16.), 1., 1., false);
+    const PAN: Cursor = Cursor::new(Rect::new(48., 0., 64., 16.), -8., -8., false);
+    const OMNI: Cursor = Cursor::new(Rect::new(32., 0., 48., 16.), -8., -8., false);
+    const ERASE: Cursor = Cursor::new(Rect::new(64., 0., 80., 16.), -8., -8., true);
 
-    fn offset(t: &Tool) -> Vector2<f32> {
-        match t {
-            Tool::Sampler => Vector2::new(1., 1.),
-            Tool::Brush(b) if b.is_set(BrushMode::Erase) => Vector2::new(-8., -8.),
-            Tool::Brush(_) => Vector2::new(-8., -8.),
-            Tool::Pan(_) => Vector2::new(-8., -8.),
-            Tool::Move => Vector2::new(-8., -8.),
+    fn info(t: &Tool, m: Mode, in_view: bool, in_selection: bool) -> Option<Cursor> {
+        match m {
+            Mode::Help | Mode::Present => return None,
+            _ => {}
         }
-    }
+        let cursor = match t {
+            Tool::Sampler => Self::SAMPLER,
+            Tool::Pan(_) => Self::PAN,
 
-    fn info(t: &Tool) -> (Rect<f32>, Vector2<f32>) {
-        match t {
-            Tool::Sampler => (Rect::new(0., 0., 16., 16.), Self::offset(t)),
-            Tool::Brush(b) if b.is_set(BrushMode::Erase) => {
-                (Rect::new(64., 0., 80., 16.), Self::offset(t))
-            }
-            Tool::Brush(_) => (Rect::new(16., 0., 32., 16.), Self::offset(t)),
-            Tool::Move => (Rect::new(32., 0., 48., 16.), Self::offset(t)),
-            Tool::Pan(_) => (Rect::new(48., 0., 64., 16.), Self::offset(t)),
-        }
+            Tool::Brush(b) => match m {
+                Mode::Visual(_) if in_selection && in_view => Self::OMNI,
+                Mode::Visual(VisualState::Selecting { dragging: true }) if in_selection => {
+                    Self::OMNI
+                }
+                _ => {
+                    if b.is_set(BrushMode::Erase) {
+                        Self::ERASE
+                    } else {
+                        Self::CROSSHAIR
+                    }
+                }
+            },
+        };
+        Some(cursor)
     }
 }
 
@@ -1188,62 +1207,41 @@ impl Renderer {
         }
     }
 
-    fn draw_cursor(session: &Session, sprite: &mut cursor2d::Sprite, batch: &mut sprite2d::Batch) {
+    fn draw_cursor(
+        session: &Session,
+        inverted: &mut cursor2d::Sprite,
+        batch: &mut sprite2d::Batch,
+    ) {
         if !session.settings["ui/cursor"].is_set() {
             return;
         }
+        let v = session.active_view();
+        let c = session.cursor;
 
-        // TODO: Cursor should be greyed out in command mode.
-        match session.mode {
-            Mode::Present | Mode::Help => {}
-            Mode::Visual(mode) => {
-                if let VisualState::Selecting { .. } = mode {
-                    let c = session.cursor;
-                    let v = session.active_view();
-                    if v.contains(c - session.offset) {
-                        if session.is_selected(session.view_coords(v.id, c).into()) {
-                            let (rect, offset) = Cursors::info(&Tool::Move);
-                            batch.add(
-                                rect,
-                                rect.with_origin(c.x, c.y) + offset,
-                                Renderer::CURSOR_LAYER,
-                                Rgba::TRANSPARENT,
-                                1.,
-                                kit::Repeat::default(),
-                            );
-                            return;
-                        }
-                    }
-                }
+        if let Some(Cursor {
+            rect,
+            offset,
+            invert,
+        }) = Cursors::info(
+            &session.tool,
+            session.mode,
+            v.contains(c - session.offset),
+            session.is_selected(session.view_coords(v.id, c).into()),
+        ) {
+            let dst = rect.with_origin(c.x, c.y) + offset;
+            let zdepth = Renderer::CURSOR_LAYER;
 
-                let (rect, offset) = Cursors::info(&Tool::default());
-                let cursor = session.cursor;
-                sprite.set(
+            if invert {
+                inverted.set(rect, dst, zdepth);
+            } else {
+                batch.add(
                     rect,
-                    rect.with_origin(cursor.x, cursor.y) + offset,
-                    Renderer::CURSOR_LAYER,
+                    dst,
+                    zdepth,
+                    Rgba::TRANSPARENT,
+                    1.,
+                    kit::Repeat::default(),
                 );
-            }
-            Mode::Normal | Mode::Command => {
-                let (rect, offset) = Cursors::info(&session.tool);
-                let cursor = session.cursor;
-
-                if Cursors::invert(&session.tool) {
-                    sprite.set(
-                        rect,
-                        rect.with_origin(cursor.x, cursor.y) + offset,
-                        Renderer::CURSOR_LAYER,
-                    );
-                } else {
-                    batch.add(
-                        rect,
-                        rect.with_origin(cursor.x, cursor.y) + offset,
-                        Renderer::CURSOR_LAYER,
-                        Rgba::TRANSPARENT,
-                        1.,
-                        kit::Repeat::default(),
-                    );
-                }
             }
         }
     }
