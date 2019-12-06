@@ -132,13 +132,15 @@ impl Cursors {
         }
     }
 
-    fn rect(t: &Tool) -> Option<Rect<f32>> {
+    fn info(t: &Tool) -> (Rect<f32>, Vector2<f32>) {
         match t {
-            Tool::Sampler => Some(Rect::new(0., 0., 16., 16.)),
-            Tool::Brush(b) if b.is_set(BrushMode::Erase) => Some(Rect::new(64., 0., 80., 16.)),
-            Tool::Brush(_) => Some(Rect::new(16., 0., 32., 16.)),
-            Tool::Move => Some(Rect::new(32., 0., 48., 16.)),
-            Tool::Pan(_) => Some(Rect::new(48., 0., 64., 16.)),
+            Tool::Sampler => (Rect::new(0., 0., 16., 16.), Self::offset(t)),
+            Tool::Brush(b) if b.is_set(BrushMode::Erase) => {
+                (Rect::new(64., 0., 80., 16.), Self::offset(t))
+            }
+            Tool::Brush(_) => (Rect::new(16., 0., 32., 16.), Self::offset(t)),
+            Tool::Move => (Rect::new(32., 0., 48., 16.), Self::offset(t)),
+            Tool::Pan(_) => (Rect::new(48., 0., 64., 16.), Self::offset(t)),
         }
     }
 }
@@ -1200,53 +1202,47 @@ impl Renderer {
                     let v = session.active_view();
                     if v.contains(c - session.offset) {
                         if session.is_selected(session.view_coords(v.id, c).into()) {
-                            if let Some(rect) = Cursors::rect(&Tool::Move) {
-                                let offset = Cursors::offset(&Tool::Move);
-                                batch.add(
-                                    rect,
-                                    rect.with_origin(c.x, c.y) + offset,
-                                    Renderer::CURSOR_LAYER,
-                                    Rgba::TRANSPARENT,
-                                    1.,
-                                    kit::Repeat::default(),
-                                );
-                                return;
-                            }
+                            let (rect, offset) = Cursors::info(&Tool::Move);
+                            batch.add(
+                                rect,
+                                rect.with_origin(c.x, c.y) + offset,
+                                Renderer::CURSOR_LAYER,
+                                Rgba::TRANSPARENT,
+                                1.,
+                                kit::Repeat::default(),
+                            );
+                            return;
                         }
                     }
                 }
 
-                if let Some(rect) = Cursors::rect(&Tool::default()) {
-                    let offset = Cursors::offset(&Tool::default());
-                    let cursor = session.cursor;
+                let (rect, offset) = Cursors::info(&Tool::default());
+                let cursor = session.cursor;
+                sprite.set(
+                    rect,
+                    rect.with_origin(cursor.x, cursor.y) + offset,
+                    Renderer::CURSOR_LAYER,
+                );
+            }
+            Mode::Normal | Mode::Command => {
+                let (rect, offset) = Cursors::info(&session.tool);
+                let cursor = session.cursor;
+
+                if Cursors::invert(&session.tool) {
                     sprite.set(
                         rect,
                         rect.with_origin(cursor.x, cursor.y) + offset,
                         Renderer::CURSOR_LAYER,
                     );
-                }
-            }
-            Mode::Normal | Mode::Command => {
-                if let Some(rect) = Cursors::rect(&session.tool) {
-                    let offset = Cursors::offset(&session.tool);
-                    let cursor = session.cursor;
-
-                    if Cursors::invert(&session.tool) {
-                        sprite.set(
-                            rect,
-                            rect.with_origin(cursor.x, cursor.y) + offset,
-                            Renderer::CURSOR_LAYER,
-                        );
-                    } else {
-                        batch.add(
-                            rect,
-                            rect.with_origin(cursor.x, cursor.y) + offset,
-                            Renderer::CURSOR_LAYER,
-                            Rgba::TRANSPARENT,
-                            1.,
-                            kit::Repeat::default(),
-                        );
-                    }
+                } else {
+                    batch.add(
+                        rect,
+                        rect.with_origin(cursor.x, cursor.y) + offset,
+                        Renderer::CURSOR_LAYER,
+                        Rgba::TRANSPARENT,
+                        1.,
+                        kit::Repeat::default(),
+                    );
                 }
             }
         }
