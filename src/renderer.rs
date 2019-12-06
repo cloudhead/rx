@@ -1276,15 +1276,34 @@ impl Renderer {
             }
             Mode::Normal => {
                 if let Tool::Brush(ref brush) = session.tool {
+                    let view_coords = session.active_view_coords(c);
+
                     // Draw enabled brush
                     if v.contains(c - session.offset) {
                         let (stroke, fill) = if brush.is_set(BrushMode::Erase) {
-                            (Stroke::new(1.0, Rgba::WHITE), Fill::Empty())
+                            // When erasing, we draw a stroke that is the inverse of the underlying
+                            // color at the cursor. Note that this isn't perfect, since it uses
+                            // the current snapshot to get the color, so it may be incorrect
+                            // while erasing over previously erased pixels in the same stroke.
+                            // To make this 100% correct, we have to read the underlying color
+                            // from the view's staging buffer.
+                            if let Some(color) =
+                                session.color_at(v.id, view_coords.into()).map(Rgba::from)
+                            {
+                                (
+                                    Stroke::new(
+                                        1.0,
+                                        Rgba::new(1. - color.r, 1. - color.g, 1. - color.b, 1.0),
+                                    ),
+                                    Fill::Empty(),
+                                )
+                            } else {
+                                (Stroke::new(1.0, Rgba::WHITE), Fill::Empty())
+                            }
                         } else {
                             (Stroke::NONE, Fill::Solid(session.fg.into()))
                         };
 
-                        let view_coords = session.active_view_coords(c);
                         for p in brush.expand(view_coords.into(), v.extent()) {
                             shapes.add(brush.shape(
                                 *session.session_coords(v.id, p.into()),
