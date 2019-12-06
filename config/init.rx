@@ -26,7 +26,7 @@ map/normal  =             :brush/toggle perfect                     --  Pixel-pe
 map/normal  ]             :brush/size +                             --  Increase brush size
 map/normal  [             :brush/size -                             --  Decrease brush size
 map/normal  <ctrl>        :tool sampler {:tool/prev}                --  Sample color (hold)
-map/normal  <space>       :tool pan {:tool/prev}                    --  Pan workspace (hold)
+map         <space>       :tool pan {:tool/prev}                    --  Pan workspace (hold)
 map         <up>          :pan  0  1                                --  Pan view up
 map         <down>        :pan  0 -1                                --  Pan view down
 map         <left>        :pan -1  0                                --  Pan view left
@@ -41,7 +41,7 @@ map/visual  l             :selection/move    1  0
 map/visual  ]             :selection/offset  1  1
 map/visual  [             :selection/offset -1 -1
 map/visual  \             :selection/expand
-map/visual  <space>       :selection/fill
+map/visual  f             :selection/fill
 map/visual  y             :selection/yank
 map/visual  d             :selection/delete
 map/visual  p             :selection/paste

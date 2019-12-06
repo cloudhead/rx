@@ -1909,61 +1909,66 @@ impl Session {
         let prev_p = self.active_view_coords(self.cursor);
         let (vw, vh) = self.active_view().size();
 
-        match self.mode {
-            Mode::Normal => match self.tool {
-                Tool::Brush(ref mut brush) if p != prev_p => match brush.state {
-                    BrushState::DrawStarted { .. } | BrushState::Drawing { .. } => {
-                        let mut p: ViewCoords<i32> = p.into();
-                        if brush.is_set(BrushMode::Multi) {
-                            p.clamp(Rect::new(
-                                (brush.size / 2) as i32,
-                                (brush.size / 2) as i32,
-                                vw as i32 - (brush.size / 2) as i32 - 1,
-                                vh as i32 - (brush.size / 2) as i32 - 1,
-                            ));
-                            brush.draw(p);
-                        } else {
-                            brush.draw(p);
+        match self.tool {
+            Tool::Pan(PanState::Panning) => {
+                self.pan(cursor.x - self.cursor.x, cursor.y - self.cursor.y);
+            }
+            Tool::Sampler if self.mouse_state == InputState::Pressed => {
+                self.sample_color();
+            }
+            _ => {
+                match self.mode {
+                    Mode::Normal => match self.tool {
+                        Tool::Brush(ref mut brush) if p != prev_p => match brush.state {
+                            BrushState::DrawStarted { .. } | BrushState::Drawing { .. } => {
+                                let mut p: ViewCoords<i32> = p.into();
+                                if brush.is_set(BrushMode::Multi) {
+                                    p.clamp(Rect::new(
+                                        (brush.size / 2) as i32,
+                                        (brush.size / 2) as i32,
+                                        vw as i32 - (brush.size / 2) as i32 - 1,
+                                        vh as i32 - (brush.size / 2) as i32 - 1,
+                                    ));
+                                    brush.draw(p);
+                                } else {
+                                    brush.draw(p);
+                                }
+                            }
+                            _ => {}
+                        },
+                        _ => {}
+                    },
+                    Mode::Visual(VisualState::Selecting { dragging: false }) => {
+                        if self.mouse_state == InputState::Pressed {
+                            if let Some(ref mut s) = self.selection {
+                                *s = Selection::new(s.x1, s.y1, p.x as i32 + 1, p.y as i32 + 1);
+                            }
                         }
+                    }
+                    Mode::Visual(VisualState::Selecting { dragging: true }) => {
+                        let view = self.active_view().bounds();
+
+                        if self.mouse_state == InputState::Pressed && p != prev_p {
+                            if let Some(ref mut s) = self.selection {
+                                // TODO: (rgx) Better API.
+                                let delta = *p - Vector2::new(prev_p.x, prev_p.y);
+                                let delta = Vector2::new(delta.x as i32, delta.y as i32);
+                                let t = Selection::from(s.bounds() + delta);
+
+                                if view.intersects(t.abs().bounds()) {
+                                    *s = t;
+                                }
+                            }
+                        }
+                    }
+                    Mode::Visual(VisualState::Pasting) => {
+                        self.center_selection(cursor);
                     }
                     _ => {}
-                },
-                Tool::Pan(PanState::Panning) => {
-                    self.pan(cursor.x - self.cursor.x, cursor.y - self.cursor.y);
-                }
-                Tool::Sampler if self.mouse_state == InputState::Pressed => {
-                    self.sample_color();
-                }
-                _ => {}
-            },
-            Mode::Visual(VisualState::Selecting { dragging: false }) => {
-                if self.mouse_state == InputState::Pressed {
-                    if let Some(ref mut s) = self.selection {
-                        *s = Selection::new(s.x1, s.y1, p.x as i32 + 1, p.y as i32 + 1);
-                    }
                 }
             }
-            Mode::Visual(VisualState::Selecting { dragging: true }) => {
-                let view = self.active_view().bounds();
-
-                if self.mouse_state == InputState::Pressed && p != prev_p {
-                    if let Some(ref mut s) = self.selection {
-                        // TODO: (rgx) Better API.
-                        let delta = *p - Vector2::new(prev_p.x, prev_p.y);
-                        let delta = Vector2::new(delta.x as i32, delta.y as i32);
-                        let t = Selection::from(s.bounds() + delta);
-
-                        if view.intersects(t.abs().bounds()) {
-                            *s = t;
-                        }
-                    }
-                }
-            }
-            Mode::Visual(VisualState::Pasting) => {
-                self.center_selection(cursor);
-            }
-            _ => {}
         }
+
         self.cursor = cursor;
         self.cursor_dirty();
     }
