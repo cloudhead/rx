@@ -60,6 +60,7 @@ pub enum Command {
     SelectionYank,
     SelectionDelete,
     SelectionFill(Option<Rgba8>),
+    SelectionErase,
     SelectionJump(Direction),
     Set(String, Value),
     Slice(Option<usize>),
@@ -701,6 +702,7 @@ impl<'a> Parse<'a> for Command {
             "selection/delete" => Ok((Command::SelectionDelete, p)),
             "selection/paste" => Ok((Command::SelectionPaste, p)),
             "selection/expand" => Ok((Command::SelectionExpand, p)),
+            "selection/erase" => Ok((Command::SelectionErase, p)),
             "selection/offset" => {
                 let ((x, y), p) = p.parse::<(i32, i32)>()?;
                 Ok((Command::SelectionOffset(x, y), p))

@@ -1631,7 +1631,7 @@ impl Session {
     }
 
     /// Yank the selection.
-    fn yank(&mut self) -> Option<Rect<i32>> {
+    fn yank_selection(&mut self) -> Option<Rect<i32>> {
         if let (Mode::Visual(VisualState::Selecting { .. }), Some(s)) = (self.mode, self.selection)
         {
             let v = self.active_view_mut();
@@ -2660,22 +2660,13 @@ impl Session {
                 }
             }
             Command::SelectionYank => {
-                self.yank();
+                self.yank_selection();
             }
             Command::SelectionDelete => {
                 // To mimick the behavior of `vi`, we yank the selection
                 // before deleting it.
-                if let Some(s) = self.yank() {
-                    self.effects.extend_from_slice(&[
-                        Effect::ViewBlendingChanged(Blending::constant()),
-                        Effect::ViewPaintFinal(vec![Shape::Rectangle(
-                            s.map(|n| n as f32),
-                            ZDepth::default(),
-                            Rotation::ZERO,
-                            Stroke::NONE,
-                            Fill::Solid(Rgba8::TRANSPARENT.into()),
-                        )]),
-                    ]);
+                if self.yank_selection().is_some() {
+                    self.command(Command::SelectionErase);
                     self.active_view_mut().touch();
                 }
             }
@@ -2690,6 +2681,20 @@ impl Session {
                             Fill::Solid(color.unwrap_or(self.fg).into()),
                         )]));
                     self.active_view_mut().touch();
+                }
+            }
+            Command::SelectionErase => {
+                if let Some(s) = self.selection {
+                    self.effects.extend_from_slice(&[
+                        Effect::ViewBlendingChanged(Blending::constant()),
+                        Effect::ViewPaintFinal(vec![Shape::Rectangle(
+                            s.abs().bounds().map(|n| n as f32),
+                            ZDepth::default(),
+                            Rotation::ZERO,
+                            Stroke::NONE,
+                            Fill::Solid(Rgba8::TRANSPARENT.into()),
+                        )]),
+                    ]);
                 }
             }
         };
