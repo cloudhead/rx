@@ -2662,7 +2662,7 @@ impl Session {
             Command::SelectionYank => {
                 self.yank_selection();
             }
-            Command::SelectionDelete => {
+            Command::SelectionCut => {
                 // To mimick the behavior of `vi`, we yank the selection
                 // before deleting it.
                 if self.yank_selection().is_some() {

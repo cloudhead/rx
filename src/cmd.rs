@@ -58,7 +58,7 @@ pub enum Command {
     SelectionExpand,
     SelectionPaste,
     SelectionYank,
-    SelectionDelete,
+    SelectionCut,
     SelectionFill(Option<Rgba8>),
     SelectionErase,
     SelectionJump(Direction),
@@ -154,8 +154,8 @@ impl fmt::Display for Command {
             Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
             Self::Reset => write!(f, "Reset all settings to default"),
             Self::SelectionFill(None) => write!(f, "Fill selection with foreground color"),
-            Self::SelectionYank => write!(f, "Yank/copy selection"),
-            Self::SelectionDelete => write!(f, "Delete/cut selection"),
+            Self::SelectionYank => write!(f, "Yank (copy) selection"),
+            Self::SelectionCut => write!(f, "Cut selection"),
             Self::SelectionPaste => write!(f, "Paste selection"),
             Self::SelectionExpand => write!(f, "Expand selection to frame"),
             Self::SelectionOffset(1, 1) => write!(f, "Outset selection"),
@@ -699,7 +699,7 @@ impl<'a> Parse<'a> for Command {
                 Ok((Command::SelectionResize(x, y), p))
             }
             "selection/yank" => Ok((Command::SelectionYank, p)),
-            "selection/delete" => Ok((Command::SelectionDelete, p)),
+            "selection/cut" => Ok((Command::SelectionCut, p)),
             "selection/paste" => Ok((Command::SelectionPaste, p)),
             "selection/expand" => Ok((Command::SelectionExpand, p)),
             "selection/erase" => Ok((Command::SelectionErase, p)),

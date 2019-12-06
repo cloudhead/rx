@@ -22,7 +22,7 @@ map/visual  [           :selection/offset -1 -1
 map/visual  \           :selection/expand
 map/visual  <space>     :selection/fill
 map/visual  y           :selection/yank
-map/visual  d           :selection/delete
+map/visual  d           :selection/cut
 map/visual  p           :selection/paste
 map/visual  w           :selection/jump +
 map/visual  b           :selection/jump -

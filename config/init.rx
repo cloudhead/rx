@@ -43,7 +43,7 @@ map/visual  [             :selection/offset -1 -1
 map/visual  \             :selection/expand
 map/visual  f             :selection/fill
 map/visual  y             :selection/yank
-map/visual  d             :selection/delete
+map/visual  d             :selection/cut
 map/visual  e             :selection/erase
 map/visual  p             :selection/paste
 map/visual  w             :selection/jump +
