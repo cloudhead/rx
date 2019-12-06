@@ -1,4 +1,4 @@
-use crate::brush::{BrushMode, BrushState};
+use crate::brush::BrushMode;
 use crate::color;
 use crate::cursor2d;
 use crate::data;
