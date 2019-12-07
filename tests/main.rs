@@ -94,6 +94,21 @@ fn grid() {
     test("grid");
 }
 
+#[test]
+fn source() {
+    test("source");
+}
+
+#[test]
+fn mouse() {
+    test("mouse");
+}
+
+#[test]
+fn visual_mouse() {
+    test("visual-mouse");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {

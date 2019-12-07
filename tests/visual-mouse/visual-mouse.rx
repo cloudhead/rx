@@ -1,0 +1,14 @@
+set ui/message = off
+set ui/status = off
+set ui/view-info = off
+set ui/switcher = off
+set ui/cursor = off
+set ui/palette = off
+
+set input/mouse = on
+
+map         ; :mode command
+map         v :mode visual
+map/normal  j :v/prev
+map/normal  k :v/next
+map/visual  y :selection/yank
