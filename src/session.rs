@@ -2413,7 +2413,7 @@ impl Session {
                     .or_else(|| self.views.keys().next().cloned())
                 {
                     self.activate(id);
-                    self.center_active_view_v();
+                    self.center_active_view();
                 }
             }
             Command::ViewPrev => {
@@ -2427,7 +2427,7 @@ impl Session {
                     .or_else(|| self.views.keys().next_back().cloned())
                 {
                     self.activate(id);
-                    self.center_active_view_v();
+                    self.center_active_view();
                 }
             }
             Command::ViewCenter => {
