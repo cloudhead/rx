@@ -3,6 +3,17 @@ use rgx::core::*;
 use rgx::kit::ZDepth;
 use rgx::math::{Matrix4, Vector2, Vector3};
 
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct Uniforms {
+    ortho: Matrix4<f32>,
+    scale: f32,
+}
+
+pub fn context(ortho: Matrix4<f32>, scale: f32) -> Uniforms {
+    Uniforms { ortho, scale }
+}
+
 pub struct Pipeline {
     pipeline: core::Pipeline,
 
@@ -14,15 +25,15 @@ pub struct Pipeline {
 }
 
 impl<'a> AbstractPipeline<'a> for Pipeline {
-    type PrepareContext = Matrix4<f32>;
-    type Uniforms = Matrix4<f32>;
+    type PrepareContext = self::Uniforms;
+    type Uniforms = self::Uniforms;
 
     fn description() -> PipelineDescription<'a> {
         core::PipelineDescription {
             vertex_layout: &[VertexFormat::Float3, VertexFormat::Float2],
             pipeline_layout: &[
                 Set(&[Binding {
-                    // Ortho matrix.
+                    // Ortho matrix & scaling factor.
                     binding: BindingType::UniformBuffer,
                     stage: ShaderStage::Vertex,
                 }]),
@@ -52,7 +63,8 @@ impl<'a> AbstractPipeline<'a> for Pipeline {
     }
 
     fn setup(pipeline: core::Pipeline, dev: &core::Device) -> Self {
-        let m: Matrix4<f32> = Matrix4::identity();
+        // XXX You can use any type here, and it won't complain!
+        let m: Self::Uniforms = self::context(Matrix4::identity(), 1.0);
         let ortho_buffer = dev.create_uniform_buffer(&[m]);
         let ortho_binding = dev.create_binding_group(&pipeline.layout.sets[0], &[&ortho_buffer]);
         let framebuffer_binding = None;
@@ -74,9 +86,9 @@ impl<'a> AbstractPipeline<'a> for Pipeline {
 
     fn prepare(
         &'a self,
-        ortho: Matrix4<f32>,
-    ) -> Option<(&'a core::UniformBuffer, Vec<Matrix4<f32>>)> {
-        Some((&self.ortho_buffer, vec![ortho]))
+        ctx: Self::Uniforms,
+    ) -> Option<(&'a core::UniformBuffer, Vec<Self::Uniforms>)> {
+        Some((&self.ortho_buffer, vec![ctx]))
     }
 }
 

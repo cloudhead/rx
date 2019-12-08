@@ -322,6 +322,7 @@ pub enum Value {
     Bool(bool),
     U32(u32),
     U32Tuple(u32, u32),
+    // XXX: Should be f32.
     F32(f64),
     F32Tuple(f32, f32),
     Str(String),
@@ -378,6 +379,15 @@ impl Into<(u32, u32)> for Value {
             return (x, y);
         }
         panic!("expected {:?} to be a `(u32, u32)`", self);
+    }
+}
+
+impl Into<f32> for Value {
+    fn into(self) -> f32 {
+        if let Value::F32(x) = self {
+            return x as f32;
+        }
+        panic!("expected {:?} to be a `f32`", self);
     }
 }
 

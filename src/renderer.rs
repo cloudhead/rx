@@ -88,6 +88,7 @@ pub struct Renderer {
 struct Cache {
     ortho: Option<Matrix4<f32>>,
     view_ortho: Option<Matrix4<f32>>,
+    scale: f32,
 }
 
 /// Paste buffer.
@@ -341,6 +342,7 @@ impl Renderer {
             cache: Cache {
                 ortho: None,
                 view_ortho: None,
+                scale: 0.,
             },
         }
     }
@@ -541,12 +543,22 @@ impl Renderer {
             .expect("the view data for the active view must exist");
         let view_ortho = kit::ortho(v.width(), v.height());
         let ortho = kit::ortho(self.window.width as u32, self.window.height as u32);
+        let scale: f32 = session.settings["scale"].clone().into();
+
+        if (scale - self.cache.scale).abs() > std::f32::EPSILON {
+            r.update_pipeline(&self.cursor2d, cursor2d::context(ortho, scale), &mut f);
+            self.cache.scale = scale;
+        }
 
         if self.cache.ortho.map_or(true, |m| m != ortho) {
             r.update_pipeline(&self.shape2d, ortho, &mut f);
             r.update_pipeline(&self.sprite2d, ortho, &mut f);
             r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
-            r.update_pipeline(&self.cursor2d, ortho, &mut f);
+            r.update_pipeline(
+                &self.cursor2d,
+                cursor2d::context(ortho, self.cache.scale),
+                &mut f,
+            );
 
             self.cache.ortho = Some(ortho);
         }
