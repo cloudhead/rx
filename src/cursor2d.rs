@@ -20,8 +20,8 @@ pub struct Pipeline {
     pub cursor_binding: Option<core::BindingGroup>,
     pub framebuffer_binding: Option<core::BindingGroup>,
 
-    ortho_buffer: core::UniformBuffer,
-    ortho_binding: core::BindingGroup,
+    uniform_buffer: core::UniformBuffer,
+    uniform_binding: core::BindingGroup,
 }
 
 impl<'a> AbstractPipeline<'a> for Pipeline {
@@ -65,15 +65,16 @@ impl<'a> AbstractPipeline<'a> for Pipeline {
     fn setup(pipeline: core::Pipeline, dev: &core::Device) -> Self {
         // XXX You can use any type here, and it won't complain!
         let m: Self::Uniforms = self::context(Matrix4::identity(), 1.0);
-        let ortho_buffer = dev.create_uniform_buffer(&[m]);
-        let ortho_binding = dev.create_binding_group(&pipeline.layout.sets[0], &[&ortho_buffer]);
+        let uniform_buffer = dev.create_uniform_buffer(&[m]);
+        let uniform_binding =
+            dev.create_binding_group(&pipeline.layout.sets[0], &[&uniform_buffer]);
         let framebuffer_binding = None;
         let cursor_binding = None;
 
         Self {
             pipeline,
-            ortho_buffer,
-            ortho_binding,
+            uniform_buffer,
+            uniform_binding,
             framebuffer_binding,
             cursor_binding,
         }
@@ -81,14 +82,14 @@ impl<'a> AbstractPipeline<'a> for Pipeline {
 
     fn apply(&self, pass: &mut Pass) {
         pass.set_pipeline(&self.pipeline);
-        pass.set_binding(&self.ortho_binding, &[]);
+        pass.set_binding(&self.uniform_binding, &[]);
     }
 
     fn prepare(
         &'a self,
         ctx: Self::Uniforms,
     ) -> Option<(&'a core::UniformBuffer, Vec<Self::Uniforms>)> {
-        Some((&self.ortho_buffer, vec![ctx]))
+        Some((&self.uniform_buffer, vec![ctx]))
     }
 }
 
