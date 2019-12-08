@@ -625,6 +625,7 @@ impl<'a> Parse<'a> for Command {
                 let (mode, p) = p.parse::<Mode>()?;
                 Ok((Command::Mode(mode), p))
             }
+            "visual" => Ok((Command::Mode(Mode::Visual(VisualState::default())), p)),
             "sampler" => Ok((Command::Tool(Tool::Sampler), p)),
             "sampler/off" => Ok((Command::ToolPrev, p)),
             "v/next" => Ok((Command::ViewNext, p)),
