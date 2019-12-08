@@ -3,6 +3,7 @@ ERRORS
 flamegraph.svg
 /target
 /images
+/docs/html
 **/*.rs.bk
 *.AppImage
 AppDir
