@@ -85,6 +85,13 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         GifMode::Ignore
     };
 
+    if record_gif && record.is_none() {
+        return Err("'--record-gif' has no effect without '--record'".into());
+    }
+    if record_digests && record.is_none() {
+        return Err("'--record-digests' has no effect without '--record'".into());
+    }
+
     let log = match args
         .opt_value_from_str("--verbosity")?
         .unwrap_or(if verbose { 2 } else { 0 })
