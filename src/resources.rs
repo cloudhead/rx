@@ -203,7 +203,7 @@ impl ResourceManager {
             encoder.write_frame(&frame)?;
         }
 
-        Ok(frame_nbytes * nframes)
+        Ok(frame_nbytes * nframes / mem::size_of::<Rgba8>())
     }
 
     pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: &[Bgra8]) {
