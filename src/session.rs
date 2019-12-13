@@ -1582,7 +1582,9 @@ impl Session {
     /// Save a view as a gif animation.
     fn save_view_gif<P: AsRef<Path>>(&mut self, id: ViewId, path: P) -> io::Result<()> {
         let delay = self.view(id).animation.delay;
-        let npixels = self.resources.save_view_gif(id, &path, delay)?;
+        let npixels = self
+            .resources
+            .save_view_gif(id, &path, delay, &self.palette.colors)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels,),

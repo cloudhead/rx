@@ -1,4 +1,5 @@
 use crate::image;
+use crate::session::Rgb8;
 use crate::view::{ViewExtent, ViewId};
 
 use nonempty::NonEmpty;
@@ -12,13 +13,9 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io;
-use std::mem;
 use std::path::Path;
 use std::rc::Rc;
 use std::time;
-
-/// Speed at which to encode gifs. This mainly affects quantization.
-const GIF_ENCODING_SPEED: i32 = 10;
 
 pub struct ResourceManager {
     resources: Rc<RefCell<Resources>>,
@@ -148,6 +145,7 @@ impl ResourceManager {
         id: ViewId,
         path: P,
         frame_delay: time::Duration,
+        palette: &[Rgba8],
     ) -> io::Result<usize> {
         // The gif encoder expects the frame delay in units of 10ms.
         let frame_delay = frame_delay.as_millis() / 10;
@@ -160,23 +158,36 @@ impl ResourceManager {
         let extent = snapshot.extent;
         let nframes = extent.nframes;
 
-        // Convert pixels from BGRA to RGBA, for writing to disk.
+        // Create a color palette for the gif, where the zero index is used
+        // for transparency.
+        let transparent: u8 = 0;
+        let mut palette = palette.to_vec();
+        palette.push(Rgba8::TRANSPARENT);
+        palette.sort();
+
+        assert!(palette[transparent as usize] == Rgba8::TRANSPARENT);
+        assert!(palette.len() <= 256);
+
+        // Convert BGRA pixels into indexed pixels.
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
         for bgra in pixels.iter().cloned() {
             let rgba: Rgba8 = bgra.into();
-            image.extend_from_slice(&[rgba.r, rgba.g, rgba.b, rgba.a]);
+
+            if let Ok(index) = palette.binary_search(&rgba) {
+                image.push(index as u8);
+            } else {
+                image.push(transparent);
+            }
         }
 
         let (fw, fh) = (extent.fw as usize, extent.fh as usize);
-        let frame_nbytes = fw * fh as usize * mem::size_of::<Rgba8>();
-
         let mut frames: Vec<Vec<u8>> = Vec::with_capacity(nframes);
-        frames.resize(nframes, Vec::with_capacity(frame_nbytes));
+        frames.resize(nframes, Vec::with_capacity(fw * fh));
 
         {
             // Convert animation strip into discrete frames for gif encoder.
             let nrows = fh as usize * nframes;
-            let row_nbytes = fw as usize * mem::size_of::<Rgba8>();
+            let row_nbytes = fw as usize;
 
             for i in 0..nrows {
                 let offset = i * row_nbytes;
@@ -186,24 +197,25 @@ impl ResourceManager {
             }
         }
 
+        // Discard alpha channel and convert to a `&[u8]`.
+        let palette: Vec<Rgb8> = palette.into_iter().map(Rgb8::from).collect();
+        let (head, palette, tail) = unsafe { palette.align_to::<u8>() };
+        assert!(head.is_empty() && tail.is_empty());
+
         let mut f = File::create(path.as_ref())?;
-        let mut encoder = gif::Encoder::new(&mut f, fw as u16, fh as u16, &[])?;
+        let mut encoder = gif::Encoder::new(&mut f, fw as u16, fh as u16, palette)?;
         encoder.set(gif::Repeat::Infinite)?;
 
-        for mut frame in frames.iter_mut() {
-            let mut frame = gif::Frame::from_rgba_speed(
-                fw as u16,
-                fh as u16,
-                &mut frame,
-                self::GIF_ENCODING_SPEED,
-            );
+        for frame in frames.iter_mut() {
+            let mut frame =
+                gif::Frame::from_indexed_pixels(fw as u16, fh as u16, &frame, Some(transparent));
             frame.delay = frame_delay;
             frame.dispose = gif::DisposalMethod::Background;
 
             encoder.write_frame(&frame)?;
         }
 
-        Ok(frame_nbytes * nframes / mem::size_of::<Rgba8>())
+        Ok(fw * fh * nframes)
     }
 
     pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: &[Bgra8]) {
