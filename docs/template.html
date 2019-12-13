@@ -5,21 +5,18 @@
   <meta http-equiv="content-type" content="text/html;charset=utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
     body {
       color: #eee;
-      background-color: black;
-      max-width: 640px;
+      background-color: #05050a;
+      max-width: 720px;
       margin: 0 auto;
       padding: 90px 0;
-      line-height: 1.4em;
+      line-height: 1.5em;
+      font-size: 18px;
     }
 
     body, code, pre, kbd, h1, h2, h3, h4, h5 {
-      font-family: 'Inconsolata', 'Consolas', monospace;
+      font-family: Consolas, monospace;
     }
 
     h1, h2, h3, h4, h5 {
@@ -30,6 +27,11 @@
 
     h3, h4, h5 {
       font-weight: normal !important;
+      color: #aaa;
+    }
+
+    h2 {
+      margin-top: 60px;
     }
 
     h1:before {
@@ -73,13 +75,19 @@
       color: #BBFFEE;
     }
 
+    video {
+      border: 1px solid #888;
+      margin: 30px 0;
+      outline: none;
+    }
+
     kbd {
       border: 1px solid white;
-      padding: 1px 5px 3px 5px;
+      padding: 2px 5px 2px 5px;
       border-radius: 5px;
       border-bottom-width: 2px;
       color: #BBB;
-      border-color: #BBB;
+      border-color: #999;
       text-align: center;
       font-style: normal;
       font-size: 0.9em;
@@ -89,7 +97,7 @@
       border: 1px solid #CC2266;
       font-size: 0.9em;
       padding: 15px;
-      margin: 30px 30px 30px 0;
+      margin: 30px 0px 30px 0;
     }
 
     blockquote > p:first-child > strong:first-child {
@@ -105,6 +113,16 @@
   </style>
 </head>
 <body>
+
 <!-- # -->
+
+<script>
+  document.querySelectorAll("video").forEach(function (e) {
+    e.setAttribute("controls", "");
+    e.setAttribute("preload", "auto");
+    e.setAttribute("disablePictureInPicture", "");
+    e.setAttribute("controlslist", "nodownload nofullscreen");
+  });
+</script>
 </body>
 </html>
