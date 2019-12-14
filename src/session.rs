@@ -716,13 +716,6 @@ pub struct Session {
     /// the command is processed. For example, when displaying a message before
     /// an expensive process is kicked off.
     queue: Vec<InternalCommand>,
-
-    #[allow(dead_code)]
-    _onion: bool,
-    #[allow(dead_code)]
-    _grid_w: u32,
-    #[allow(dead_code)]
-    _grid_h: u32,
 }
 
 impl Session {
@@ -808,11 +801,6 @@ impl Session {
             avg_time: time::Duration::from_secs(0),
             frame_number: 0,
             queue: Vec::new(),
-
-            // Unused
-            _onion: false,
-            _grid_w: 0,
-            _grid_h: 0,
         }
     }
 
