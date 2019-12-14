@@ -1379,6 +1379,8 @@ impl Session {
     ///
     /// If a path doesn't exist, creates a blank view for that path.
     pub fn edit<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
+        use std::ffi::OsStr;
+
         // TODO: Keep loading paths even if some fail?
         for path in paths {
             let path = path.as_ref();
@@ -1389,6 +1391,9 @@ impl Session {
                     let path = entry.path();
 
                     if path.is_dir() {
+                        continue;
+                    }
+                    if path.file_name() == Some(OsStr::new(".rxrc")) {
                         continue;
                     }
 
