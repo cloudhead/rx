@@ -45,8 +45,10 @@ visually, but not painted. Visual mode is activated with the <kbd>v</kbd> key.
 
 **Command mode** finally, allows the user to run commands on the session, the
 views, or the visual selection. Command mode is activated with <kbd>:</kbd>.
-Commands start with a colon, for example `:q!` is the command to quit
-without saving, and are submitted by pressing <kbd>return</kbd>.
+For this reason, commands are described with a colon in front, for example
+`:q!` is the command to quit without saving. Commands are submitted with the
+<kbd>return</kbd> key, or loaded from a file with `:source <path>`. When
+saved in a file, commands are not prefixed with a colon.
 
 > **Tip:** Key bindings are *mode-specific*. This means some shortcuts will
 > work accross all modes, while others only work in one or two modes.
@@ -213,6 +215,84 @@ vsync = off` or `:unset vsync`. Alternatively, they can be toggled with the
 
 > **Tip:** The current value of a setting can be displayed with the `:echo`
 > command.  For example: `:echo background` or `:echo grid/spacing`.
+
+## configuring rx
+
+There are three ways of configuring `rx`:
+
+1. By entering commands in a running session or sourcing a command script with
+   the `:source` command.
+
+    Changes made in this fashion will not persist after the session is closed,
+    but this may be useful for loading color configuration for example.
+
+2. By editing the `init.rx` script found in the user's configuration directory.
+
+    This is typically `~/.config/rx` on Linux systems, and can be displayed to
+    the user by entering `:echo config/dir` from inside `rx`.
+
+3. By creating a file called `.rxrc` in the working directory from which `rx`
+   is launched, or in a folder that is loaded through `rx`.
+
+    This file, taking its name from the traditional *run command* scripts found in
+    unix systems has the same syntax as `init.rx`, and can be useful when the
+    user wants to load configuration specific to a set of files or project.
+
+The *same* commands that are used in `rx` to change settings can be used inside
+of scripts. This is not limited to the `:set` family of commands, but extends
+to almost all commands available in `rx`. There is one important difference,
+which is that commands entered in the editor start with '`:`', which is not
+necessary when loading commands from a script.
+
+> **Tip:** Comments are supported inside `rx` scripts by prefixing any line
+> with a double dash, eg. `-- This is a comment`.
+
+## working with colors
+
+`rx` was designed to work with 32-bit sRGB images and colors. On the left
+of the interface is a color palette that can be configured by the user
+through `rx`'s command language: to add a color to the palette, the `:p/add`
+command can be used by specifying a hexadecimal color code. To clear the
+palette, `:p/clear` is used.
+
+Palettes can be easily loaded from `rx` scripts, for example a three color
+palette might be saved in the following script under the path `rgb.rx`:
+
+    p/clear
+    p/add #ff0000
+    p/add #00ff00
+    p/add #0000ff
+
+and loaded with `:source rgb.rx`.
+
+> **Tip:** Simply entering `#ff0000` as a command will expand to `p/add
+> #ff0000`.
+
+## creating and modifying key bindings
+
+Key bindings or *shortcuts* in `rx` are configured like everything else:
+in plain text with the command language. A shortcut is created with the
+`:map` family of commands which has the form `map <key> <command>`. For
+example:
+
+    :map / :zoom 1.0
+
+maps the `/` (slash) key to the `zoom` command. Printable characters can be
+specified plainly, eg. `:map x :swap`, while non-printable characters have to
+be enclosed in `<` `>`, eg. `:map <return> :f/add`.  The set of active key
+bindings can be shown at all times with the `:help` command.
+
+To clear all key bindings (including the default set), the `:map/clear!`
+command may be used.
+
+> **Tip:** Sometimes, it's useful to create a binding that has a different
+> command associated with the *pressed* and *released* states. For example for
+> tools that should only be active while a key is held down. This is done
+> by adding an optional argument to `:map`, enclosed in braces. An example
+> of this is the `erase` brush mode, which is mapped with:
+>
+>     map e :brush/set erase {:brush/unset erase}
+>
 
 ## debugging
 
