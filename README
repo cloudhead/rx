@@ -36,8 +36,8 @@ GOALS
   * Optimized for advanced users. vi-like philosophy.
   * Small, hackable codebase. At most 10 KLOC.
   * Small dependency footprint.
-  * First-class Linux support, with good macOS and Windows support.
-  * CPU & memory efficient. Frame time should average < 1ms on commodity hardware.
+  * First-class Linux support, macOS and Windows support.
+  * CPU efficient. Frame time should average ~1ms @ 1080p on commodity hardware.
 
 FEATURES
 
@@ -45,7 +45,6 @@ FEATURES
   * Work with multiple files simultaneously.
   * Extensible command system.
   * Text-based configuration.
-  * Built using modern graphics.
   * HiDPI display support.
   * UI scaling.
   * Undo/redo any edit.
@@ -54,9 +53,6 @@ FEATURES
   * Multi-brush / synchronous editing.
   * Brush filtering a.k.a. "pixel-perfect" mode.
   * Visual mode with keyboard-controlled painting.
-
-  * (Coming soon: Layers)
-  * (Coming soon: Workspaces)
 
 PLATFORM SUPPORT
 
