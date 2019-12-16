@@ -1,4 +1,4 @@
-#![deny(clippy::all)]
+#![forbid(clippy::all)]
 #![allow(
     clippy::collapsible_if,
     clippy::many_single_char_names,

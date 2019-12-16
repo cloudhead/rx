@@ -140,6 +140,41 @@ impl ResourceManager {
         Ok((snapshot.id, (w * h) as usize))
     }
 
+    pub fn save_view_svg<P: AsRef<Path>>(&self, id: ViewId, path: P) -> io::Result<usize> {
+        use std::io::Write;
+
+        let resources = self.lock();
+        let (snapshot, pixels) = resources.get_snapshot(id);
+        let (w, h) = (snapshot.width() as usize, snapshot.height() as usize);
+
+        let f = File::create(path.as_ref())?;
+        let out = &mut io::BufWriter::new(f);
+
+        writeln!(
+            out,
+            r#"<svg width="{}" height="{}" viewBox="0 0 {} {}" fill="none" xmlns="http://www.w3.org/2000/svg">"#,
+            w, h, w, h,
+        )?;
+
+        for (i, bgra) in pixels.iter().cloned().enumerate().filter(|(_, c)| c.a > 0) {
+            let rgba: Rgba8 = bgra.into();
+            let rgb: Rgb8 = rgba.into();
+
+            let x = i % w;
+            let y = i / h;
+
+            writeln!(
+                out,
+                r#"<rect x="{}" y="{}" width="1" height="1" fill="{}"/>"#,
+                x, y, rgb
+            )?;
+        }
+
+        writeln!(out, "</svg>")?;
+
+        Ok(w * h)
+    }
+
     pub fn save_view_gif<P: AsRef<Path>>(
         &self,
         id: ViewId,

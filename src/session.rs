@@ -86,9 +86,9 @@ impl From<Rgba8> for Rgb8 {
     }
 }
 
-impl ToString for Rgb8 {
-    fn to_string(&self) -> String {
-        format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
+impl fmt::Display for Rgb8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
     }
 }
 
@@ -727,7 +727,7 @@ impl Session {
     pub const DEFAULT_VIEW_H: u32 = 128;
 
     /// Supported image formats for writing.
-    const SUPPORTED_FORMATS: &'static [&'static str] = &["png", "gif"];
+    const SUPPORTED_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
     /// Minimum margin between views, in pixels.
     const VIEW_MARGIN: f32 = 24.;
     /// Size of palette cells, in pixels.
@@ -1455,6 +1455,8 @@ impl Session {
 
         if ext == "gif" {
             return self.save_view_gif(id, path);
+        } else if ext == "svg" {
+            return self.save_view_svg(id, path);
         }
 
         // Make sure we don't overwrite other files!
@@ -1580,7 +1582,18 @@ impl Session {
             .save_view_gif(id, &path, delay, &self.palette.colors)?;
 
         self.message(
-            format!("\"{}\" {} pixels written", path.as_ref().display(), npixels,),
+            format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
+            MessageType::Info,
+        );
+        Ok(())
+    }
+
+    /// Save a view as an svg.
+    fn save_view_svg<P: AsRef<Path>>(&mut self, id: ViewId, path: P) -> io::Result<()> {
+        let npixels = self.resources.save_view_svg(id, &path)?;
+
+        self.message(
+            format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
             MessageType::Info,
         );
         Ok(())
