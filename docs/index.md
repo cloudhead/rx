@@ -55,6 +55,8 @@ tool for artists and hackers.
 
 ## system requirements
 
+`rx` currently supports Linux, macOS and Windows.
+
 ### linux
 
 On Linux, [Vulkan][vulkan] support is required.
@@ -82,16 +84,28 @@ On Windows, *Vulkan* support is required.
 
 ## download
 
-On Linux, the simplest way to get rx is to download the AppImage from here:
+At the moment, only *Linux* binaries are available. You can download the
+latest version here:
 
 > [rx-0.3.0-x86_64-unknown-linux-gnu.AppImage][app]
 
-Then make it executable with eg. `chmod +x`, rename it to `rx` and move it
-somewhere in your `PATH`.
+This is an [AppImage][appimage], a self-contained application. Before opening
+it, make it executable with `chmod +x`. You can then double-click it or execute
+it directly from your terminal.
+
+Feel free to rename it to `rx` and move it to your `PATH`. To uninstall,
+simply delete the file.
 
 [app]: https://github.com/cloudhead/rx/releases/download/v0.3.0/rx-0.3.0-x86_64-unknown-linux-gnu.AppImage
+[appimage]: https://appimage.org/
 
-For macOS and Windows, see the [build][build] section.
+### macOS & Windows
+
+For *macOS* and *Windows*, official builds are not yet available. See the
+[build][build] section to build and install *rx* from source.
+
+*If you'd like to help the project by offering macOS or Windows builds, please
+contact the author at <rx@cloudhead.io>.*
 
 ## usage
 
@@ -107,9 +121,16 @@ the following address:
 
     1MpF7p9A8LJabZn7ehHpGbLcN5PCXRdGqm
 
-or by [sponsoring][sponsor] the author.
+or by [sponsoring][sponsor] the author on GitHub.
 
 [sponsor]: https://github.com/sponsors/cloudhead
+
+## bugs
+
+If you encounter a bug, please open an issue on the [tracker][tracker], or
+send an email to <rx@cloudhead.io>.
+
+[tracker]: https://github.com/cloudhead/rx/issues
 
 ## license & copyright
 
