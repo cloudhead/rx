@@ -1,5 +1,5 @@
 
-# rx/guide
+# guide
 
 To use `rx` effectively, the user must understand a few basic properties of the
 tool. First, it is a *modal* editor. This means that at any given time, the
@@ -294,7 +294,7 @@ command may be used.
 >     map e :brush/set erase {:brush/unset erase}
 >
 
-## debugging
+## troubleshooting
 
 If comes the need to debug performance problems, `rx` can be set to show
 some runtime information with the `debug` setting. When *on*, frame update
@@ -303,3 +303,10 @@ as memory consumption.
 
 Alternatively, `rx` can be started with the `-v` command-line flag, which
 turns on verbose logging.
+
+If `rx` is crashing, run it with `RUST_BACKTRACE=1` set in your environment to
+show a backtrace on crash.  It could be that the issue is related to your
+configuration - in that case the program can be run without loading the
+initialization script like so:
+
+    rx -u -
