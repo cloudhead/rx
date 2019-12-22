@@ -1,12 +1,12 @@
 
 
-        ██╗████╗██╗██╗
-        ╚███╔██║╚███╔╝
-         ██╔╝══╝██╔██╗
-         ██║   ██╔╝ ██╗
-         ╚═╝   ╚═╝  ╚═╝
+        ██ ████ ██ ██
+         ███ ██  ███
+         ██     ██ ██
+         ██    ██   ██
 
-    `rx` is a modern pixel editor implemented in rust.
+
+    `rx` is a modern and minimalist pixel editor.
 
   Designed with great care and love
     with pixel artists and animators in mind.
@@ -14,62 +14,38 @@
 OVERVIEW
 
   `rx` is an extensible, modern and minimalist pixel editor implemented
-  in rust[0]. It is designed to have as little UI as possible, and instead
-  takes inspiration from vi's[1] modal nature.
+  in rust[0]. rx is free software, licensed under the GPLv3.
 
-  Compared to other pixel editors, rx aims to be smaller, yet more configurable
-  and extendable. `rx` takes a different approach when it comes to animation
-  as well, which is done with *strips*.
+  Most of the information on how to use rx is on the website:
+  https://cloudhead.io/rx. There, you can also find a user guide
+  (https://cloudhead.io/rx/guide.html), installation instructions,
+  and binary download links.
 
-  See the screenshots/ folder to get an idea of what this looks like.
+  To build rx from source, see the build sections bellow.
+
+  Once inside rx, enter the `:help` command to get a list of key bindings
+  and commands.
 
   [0]: https://rust-lang.org
-  [1]: https://en.wikipedia.org/wiki/Vi
 
-GOALS
+REQUIREMENTS
 
-  * Minimal UI. Clean aesthetics. No clutter.
-  * Everything can be controlled by the keyboard.
-  * Extensible and scriptable with a simple command-based language.
-  * Familiar to anyone with vi(m) knowledge.
-  * Snappy. No perceptible input lag. All commands run in < 8ms.
-  * Optimized for advanced users. vi-like philosophy.
-  * Small, hackable codebase. At most 10 KLOC.
-  * Small dependency footprint.
-  * First-class Linux support, macOS and Windows support.
-  * CPU efficient. Frame time should average ~1ms @ 1080p on commodity hardware.
+  On Linux and Windows, Vulkan[0] is currently required, with a compatible
+  graphics adapter.
 
-FEATURES
+  On macOS, Metal[1] is required.
 
-  * Built-in sprite animation support, with live preview.
-  * Work with multiple files simultaneously.
-  * Extensible command system.
-  * Text-based configuration.
-  * HiDPI display support.
-  * UI scaling.
-  * Undo/redo any edit.
-  * PNG support.
-  * Animated GIF output.
-  * Multi-brush / synchronous editing.
-  * Brush filtering a.k.a. "pixel-perfect" mode.
-  * Visual mode with keyboard-controlled painting.
-
-PLATFORM SUPPORT
-
-  * Linux     (vulkan)
-  * macOS     (metal)
-  * Windows   (vulkan)
+  [0]: https://www.khronos.org/vulkan/
+  [1]: https://developer.apple.com/metal/
 
 BUILD DEPENDENCIES
 
   * rust (https://www.rust-lang.org/tools/install)
   * cmake (https://cmake.org/download/)
 
-  macOS
-
-    * `Xcode` and the `Xcode Command Line Tools` are required.
-      The latter can be obtained by running `xcode-select --install`
-    * CMake might be required. You can install it with `brew install cmake`.
+  On macOS, `Xcode` and the `Xcode Command Line Tools` are required.
+  The latter can be obtained by running `xcode-select --install`
+  CMake can be installed with `brew install cmake`.
 
 BUILD & INSTALLATION
 
@@ -84,54 +60,18 @@ BUILD & INSTALLATION
   via the `--root <prefix>` flag, where <prefix> is for example
   '/usr/local'.
 
-CONFIGURATION
+CONTRIBUTING
 
-  Configuring `rx` involves editing the `init.rx` script, which is found in a
-  platform-dependent location. On Linux, this is in the XDG config directory,
-  eg. `~/.config/rx/init.rx`, while on macOS this is in the
-  `~/Library/Preferences` folder. If a config file isn't found, the default
-  configuration (`config/init.rx`) will be written.
-
-  To get the exact location of the config directory, enter `:echo config/dir`
-  from inside `rx`.
+  See the CONTRIBUTING file for details. Contributions are appreciated.
 
 USAGE
 
-  After installing, simply run `rx` from a shell or application launcher.
-
-  You can then use the :help command to show the default set of key mappings
-  and commands.
-
-  Common commands:
-
-    :help                    Display help
-    :e <path..>              Edit path(s)
-    :w                       Write/save view
-    :q                       Quit view
-    :slice <n>               Slice view into <n> frames
-    :source <path>           Source an rx script (eg. a palette)
-    :f/resize <w> <h>        Resize frames
-
-  For example, to create a 32x32 animation with 4 frames:
-
-    1. Open `rx`.
-    2. Type `:f/resize 32 32`.
-    3. Press <return> three times to create a total of four frames.
-    4. Zoom in/out with `.` and `,`.
-    5. Draw something great!
-    6. Type `:w animation.gif` to export it as a GIF.
-
-SUPPORT
-
-  If you find this project useful, consider supporting it by sending ₿ (Bitcoin) to
-  the following address:
-
-    1MpF7p9A8LJabZn7ehHpGbLcN5PCXRdGqm
+  See the guide at https://cloudhead.io/rx/guide.html.
 
 TROUBLESHOOTING
 
-  If something ain't working like it's supposed to, there are various things you can
-  do to debug the problem:
+  If something isn't working like it's supposed to, there are various things
+  you can do to debug the problem:
 
   * Run `rx` with verbose logging, by using the `-v` command-line flag. This
     will log errors from the underlying libraries that are usually suppressed,
@@ -149,4 +89,4 @@ LICENSE
 
 COPYRIGHT
 
-  (c) 2019 Alexis Sellier <self@cloudhead.io>
+  (c) 2019 Alexis Sellier
