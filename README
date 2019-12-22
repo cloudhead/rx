@@ -55,9 +55,9 @@ BUILD & INSTALLATION
 
     $ cargo install --git https://github.com/cloudhead/rx --locked
 
-  This will download `rx` and install it under `~/.cargo/bin/rx`.
-  If you prefer a different install location, you can specify it
-  via the `--root <prefix>` flag, where <prefix> is for example
+  This will download and install the current *master* branch under
+  `~/.cargo/bin/rx`.  If you prefer a different install location, you can
+  specify it via the `--root <prefix>` flag, where <prefix> is for example
   '/usr/local'.
 
 CONTRIBUTING

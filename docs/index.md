@@ -22,7 +22,6 @@ tool for artists and hackers.
 * [Read][guide] the guide
 * [Build][build] from source
 
-
 ## goals
 
 * **Minimal.** Small, hackable codebase and dependency footprint.
@@ -84,6 +83,14 @@ On Windows, *Vulkan* support is required.
 
 ## download
 
+With [cargo][cargo] installed, it's as simple as:
+
+    $ cargo install rx
+
+See the [build][build] section for further details.
+
+### Binaries
+
 At the moment, only *Linux* binaries are available. You can download the
 latest version here:
 
@@ -96,16 +103,36 @@ it directly from your terminal.
 Feel free to rename it to `rx` and move it to your `PATH`. To uninstall,
 simply delete the file.
 
+If you'd prefer to install `rx` from source, see the [build][build] section.
+
 [app]: https://github.com/cloudhead/rx/releases/download/v0.3.0/rx-0.3.0-x86_64-unknown-linux-gnu.AppImage
 [appimage]: https://appimage.org/
-
-### macOS & Windows
 
 For *macOS* and *Windows*, official builds are not yet available. See the
 [build][build] section to build and install *rx* from source.
 
 *If you'd like to help the project by offering macOS or Windows builds, please
 contact the author at <rx@cloudhead.io>.*
+
+<a id="build"></a>
+
+## build & install from source
+
+If you have [cargo][cargo] and [cmake][cmake] installed, simply run:
+
+    $ cargo install rx
+
+This will download the latest *stable* release of `rx` and install it under
+`~/.cargo/bin/rx`.  If you prefer a different install location, you can specify
+it via the `--root <prefix>` flag, where `<prefix>` is for example
+`/usr/local`.
+
+[cargo]: https://crates.io/install
+[cmake]: https://cmake.org/download/
+
+On **macOS**, `Xcode` and the `Xcode Command Line Tools` are required.  The
+latter can be obtained by running `xcode-select --install`. CMake can be
+installed with `brew install cmake`.
 
 ## usage
 
@@ -140,4 +167,4 @@ the code repository for more details.
 &copy; 2019 Alexis Sellier
 
 [guide]: guide.html
-[build]: build.html
+[build]: #build
