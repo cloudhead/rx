@@ -33,3 +33,36 @@
 
     * [macOS] Better retina support
     * [macOS] Quit with Command + Q
+
+0.3.0
+
+  New features
+
+    * Visual mode
+
+      * Move selection with mouse
+      * Move selection by whole frames with `:selection/jump`
+      * Offset selection with `:selection/offset`
+      * Fill selection with `:selection/fill <color>`
+      * Cut selection with `:selection/cut`
+      * Erase selection with `:selection/erase`
+      * Create selection with mouse
+      * Nudge selection with `:selection/nudge <x> <y>`
+      * Expand selection with `:selection/expand`
+      * Yank (copy) selection with `:selection/yank`
+      * Paste selection with `:selection/paste`
+
+    * Mouse wheel zooms in/out of views
+    * New tool `Pan` to pan the view with the mouse (defaults to <space>)
+    * New command `:qa` and `:qa!` to quit all views
+    * New command `:brush/toggle` to toggle a brush mode
+    * New command `:reset!`
+    * New command `:map/clear!`
+    * Record/replay functionality with `--record` and `--replay` flags
+    * `-u` CLI flag to skip loading default settings, and load an rxscript
+
+  Changes
+
+    * Optimize large canvas sizes (4096 x 4096)
+    * Have ability to disable UI elements
+    * Change `map` command syntax
