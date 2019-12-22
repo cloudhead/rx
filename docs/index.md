@@ -89,7 +89,7 @@ With [cargo][cargo] installed, it's as simple as:
 
 See the [build][build] section for further details.
 
-### Binaries
+### binaries
 
 At the moment, only *Linux* binaries are available. You can download the
 latest version here:
