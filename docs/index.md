@@ -103,8 +103,6 @@ it directly from your terminal.
 Feel free to rename it to `rx` and move it to your `PATH`. To uninstall,
 simply delete the file.
 
-If you'd prefer to install `rx` from source, see the [build][build] section.
-
 [app]: https://github.com/cloudhead/rx/releases/download/v0.3.0/rx-0.3.0-x86_64-unknown-linux-gnu.AppImage
 [appimage]: https://appimage.org/
 
