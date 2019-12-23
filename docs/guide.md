@@ -226,7 +226,7 @@ There are three ways of configuring `rx`:
     Changes made in this fashion will not persist after the session is closed,
     but this may be useful for loading color configuration for example.
 
-2. By editing the `init.rx` script found in the user's configuration directory.
+2. By creating an `init.rx` script in the user's configuration directory.
 
     This is typically `~/.config/rx` on Linux systems, and can be displayed to
     the user by entering `:echo config/dir` from inside `rx`.
