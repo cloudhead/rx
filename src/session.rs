@@ -2675,7 +2675,6 @@ impl Session {
                 // before deleting it.
                 if self.yank_selection().is_some() {
                     self.command(Command::SelectionErase);
-                    self.active_view_mut().touch();
                 }
             }
             Command::SelectionFill(color) => {
@@ -2703,6 +2702,7 @@ impl Session {
                             Fill::Solid(Rgba8::TRANSPARENT.into()),
                         )]),
                     ]);
+                    self.active_view_mut().touch();
                 }
             }
         };
