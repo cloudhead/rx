@@ -362,6 +362,10 @@ impl Message {
         self.message_type == MessageType::Replay
     }
 
+    pub fn is_debug(&self) -> bool {
+        self.message_type == MessageType::Debug
+    }
+
     /// Log a message to stdout/stderr.
     fn log(&self) {
         match self.message_type {
@@ -372,6 +376,7 @@ impl Message {
             MessageType::Warning => warn!("{}", self),
             MessageType::Replay => {}
             MessageType::Okay => info!("{}", self),
+            MessageType::Debug => debug!("{}", self),
         }
     }
 }
@@ -403,6 +408,8 @@ pub enum MessageType {
     Warning,
     /// Replay-related message.
     Replay,
+    /// Debug message.
+    Debug,
     /// Success message.
     Okay,
 }
@@ -417,6 +424,7 @@ impl MessageType {
             MessageType::Error => color::RED,
             MessageType::Warning => color::YELLOW,
             MessageType::Replay => color::GREY,
+            MessageType::Debug => color::LIGHT_GREEN,
             MessageType::Okay => color::GREEN,
         }
     }
@@ -835,7 +843,7 @@ impl Session {
             }
         }
         self.source_dir(cwd).ok();
-        self.message(format!("rx v{}", crate::VERSION), MessageType::Echo);
+        self.message(format!("rx v{}", crate::VERSION), MessageType::Debug);
 
         Ok(self)
     }

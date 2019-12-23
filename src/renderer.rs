@@ -1057,7 +1057,10 @@ impl Renderer {
         if session.mode == Mode::Command {
             let s = format!("{}", &session.cmdline.input());
             text.add(&s, MARGIN, MARGIN, Renderer::TEXT_LAYER, Rgba8::WHITE);
-        } else if !session.message.is_replay() && session.settings["ui/message"].is_set() {
+        } else if !session.message.is_replay()
+            && !session.message.is_debug()
+            && session.settings["ui/message"].is_set()
+        {
             let s = format!("{}", &session.message);
             text.add(
                 &s,
@@ -1075,6 +1078,8 @@ impl Renderer {
         text: &mut TextBatch,
         exec: Rc<RefCell<Execution>>,
     ) {
+        let debug = session.settings["debug"].is_set();
+
         match &*exec.borrow() {
             Execution::Recording { path, .. } => {
                 text.add(
@@ -1103,7 +1108,7 @@ impl Renderer {
             Execution::Normal => {}
         }
 
-        if session.settings["debug"].is_set() {
+        if debug {
             let mem = crate::ALLOCATOR.allocated();
 
             // Frame-time
@@ -1124,7 +1129,7 @@ impl Renderer {
             );
         }
 
-        if session.message.is_replay() {
+        if session.message.is_replay() || (session.message.is_debug() && debug) {
             text.add(
                 &format!("{}", session.message),
                 MARGIN,
