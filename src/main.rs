@@ -29,6 +29,7 @@ OPTIONS
     --replay <dir>       Replay user input from a directory
     --width <width>      Set the window width
     --height <height>    Set the window height
+    --debug              Set debug mode
 "#;
 
 fn main() {
@@ -54,6 +55,7 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
     }
 
     let verbose = args.contains("-v");
+    let debug = args.contains("--debug");
     let width = args.opt_value_from_str("--width")?;
     let height = args.opt_value_from_str("--height")?;
     let record_digests = args.contains("--record-digests");
@@ -125,6 +127,7 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         resizable,
         source,
         exec,
+        debug,
     };
 
     match args.free() {

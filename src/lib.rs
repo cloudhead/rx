@@ -77,6 +77,7 @@ pub struct Options {
     pub headless: bool,
     pub source: Option<PathBuf>,
     pub exec: ExecutionMode,
+    pub debug: bool,
 }
 
 impl Default for Options {
@@ -88,6 +89,7 @@ impl Default for Options {
             resizable: true,
             source: None,
             exec: ExecutionMode::Normal,
+            debug: false,
         }
     }
 }
@@ -115,6 +117,13 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
     let mut session = Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
         .init(options.source.clone())?;
+
+    if options.debug {
+        session
+            .settings
+            .set("debug", Value::Bool(true))
+            .expect("'debug' is a bool'");
+    }
 
     if let ExecutionMode::Record(_, _, GifMode::Record) = options.exec {
         session

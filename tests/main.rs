@@ -138,6 +138,7 @@ fn run(name: &str) -> io::Result<()> {
         width: cfg.window.width,
         height: cfg.window.height,
         exec: ExecutionMode::Replay(path.clone(), DigestMode::Verify),
+        debug: false,
     };
 
     {
