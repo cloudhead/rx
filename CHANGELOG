@@ -40,17 +40,16 @@
 
     * Visual mode
 
-      * Move selection with mouse
       * Move selection by whole frames with `:selection/jump`
-      * Offset selection with `:selection/offset`
+      * Offset selection with `:selection/offset <x> <y>`
       * Fill selection with `:selection/fill <color>`
       * Cut selection with `:selection/cut`
       * Erase selection with `:selection/erase`
-      * Create selection with mouse
-      * Nudge selection with `:selection/nudge <x> <y>`
+      * Move selection with `:selection/move <x> <y>`
       * Expand selection with `:selection/expand`
       * Yank (copy) selection with `:selection/yank`
       * Paste selection with `:selection/paste`
+      * Create & move selections with mouse
 
     * Mouse wheel zooms in/out of views
     * New tool `Pan` to pan the view with the mouse (defaults to <space>)
