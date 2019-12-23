@@ -1,4 +1,4 @@
-PAGES    := guide.html index.html build.html
+PAGES    := guide.html index.html
 TEMPLATE := template.html
 
 build: $(PAGES)

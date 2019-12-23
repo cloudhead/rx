@@ -121,6 +121,43 @@ blockquote a:only-child {
 	text-align: center;
 }
 
+.github {
+	display: none;
+}
+.github img {
+	border: none;
+	margin: 15px;
+}
+
+::selection {
+	background: #999999;
+}
+
+@media only screen and (max-device-width: 720px),
+only screen and (max-width: 720px) {
+	body {
+		font-size: 16px;
+		width: 100%;
+	}
+	body > p, h1, h2, h3, h4 {
+		margin-left: 15px;
+		margin-right: 15px;
+	}
+	blockquote {
+		border-right: none;
+		border-left: none;
+	}
+	h2 {
+		margin-top: 30px;
+	}
+	img[src="gifs/demo.gif"] {
+		width: 100%;
+	}
+	.github {
+		display: none !important;
+	}
+}
+
 /*******************************************************/
 
 #index {
@@ -145,3 +182,9 @@ blockquote a:only-child {
 	margin: 30px 0;
 }
 
+#index .github {
+	display: block;
+	position: fixed;
+	top: 0;
+	right: 0;
+}

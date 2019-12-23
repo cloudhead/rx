@@ -15,12 +15,16 @@ tool for artists and hackers.
 [0]: https://en.wikipedia.org/wiki/Vi
 [1]: https://rust-lang.org
 
----
+## get started
 
-* [Download](#download) rx
-* [Browse](https://github.com/cloudhead/rx) the source code
-* [Read][guide] the guide
-* [Build][build] from source
+*rx* can be installed on Linux, macOS and Windows with:
+
+    $ cargo install rx
+
+See the [download](#download) section for further details.
+
+* To learn how to use *rx*, read the [guide][guide].
+* To learn how *rx* works, browse the [source](https://github.com/cloudhead/rx).
 
 ## goals
 
