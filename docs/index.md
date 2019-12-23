@@ -21,7 +21,7 @@ tool for artists and hackers.
 
     $ cargo install rx
 
-See the [download](#download) section for further details.
+See the [build][build] section for further details.
 
 * To learn how to use *rx*, read the [guide][guide].
 * To learn how *rx* works, browse the [source](https://github.com/cloudhead/rx).
@@ -86,14 +86,6 @@ On Windows, *Vulkan* support is required.
 <a id="download"></a>
 
 ## download
-
-With [cargo][cargo] installed, it's as simple as:
-
-    $ cargo install rx
-
-See the [build][build] section for further details.
-
-### binaries
 
 At the moment, only *Linux* binaries are available. You can download the
 latest version here:
