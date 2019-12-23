@@ -87,11 +87,11 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         GifMode::Ignore
     };
 
-    if record_gif && record.is_none() {
-        return Err("'--record-gif' has no effect without '--record'".into());
+    if record_gif && record.is_none() && replay.is_none() {
+        return Err("'--record-gif' has no effect without '--record' or '--replay'".into());
     }
-    if record_digests && record.is_none() {
-        return Err("'--record-digests' has no effect without '--record'".into());
+    if record_digests && record.is_none() && replay.is_none() {
+        return Err("'--record-digests' has no effect without '--record' or '--replay'".into());
     }
 
     let log = match args
