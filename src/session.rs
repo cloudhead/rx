@@ -21,7 +21,7 @@ use directories as dirs;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io;
 use std::ops::{Add, Deref, Sub};
 use std::path::{Path, PathBuf};
@@ -815,6 +815,7 @@ impl Session {
     /// Initialize a session.
     pub fn init(mut self, source: Option<PathBuf>) -> std::io::Result<Self> {
         self.transition(State::Running);
+        self.reset()?;
 
         let cwd = std::env::current_dir()?;
 
@@ -831,15 +832,6 @@ impl Session {
 
             if cfg.exists() {
                 self.source_path(cfg)?;
-            } else {
-                let cfg_data = self.reset()?;
-
-                if let Err(e) = fs::create_dir_all(dir).and_then(|_| fs::write(&cfg, cfg_data)) {
-                    warn!(
-                        "Warning: couldn't create configuration file {:?}: {}",
-                        cfg, e
-                    );
-                }
             }
         }
         self.source_dir(cwd).ok();
@@ -848,15 +840,13 @@ impl Session {
         Ok(self)
     }
 
-    pub fn reset(&mut self) -> io::Result<&'static [u8]> {
+    // Reset to factory defaults.
+    pub fn reset(&mut self) -> io::Result<()> {
         self.key_bindings = KeyBindings::default();
         self.settings = Settings::default();
         self.tool = Tool::default();
 
-        self.source_reader(io::BufReader::new(data::CONFIG), "<init>")?;
-        self.message("Settings reset to default values", MessageType::Okay);
-
-        Ok(data::CONFIG)
+        self.source_reader(io::BufReader::new(data::CONFIG), "<init>")
     }
 
     /// Create a blank view.
@@ -2407,7 +2397,9 @@ impl Session {
             Command::Reset => {
                 if let Err(e) = self.reset() {
                     self.message(format!("Error: {}", e), MessageType::Error);
-                };
+                } else {
+                    self.message("Settings reset to default values", MessageType::Okay);
+                }
             }
             Command::Fill(color) => {
                 self.active_view_mut().clear(color);

@@ -5,6 +5,7 @@ set ui/switcher = off
 set ui/cursor = off
 set ui/palette = off
 
+map/clear!
 map         ;       :mode command
 map         v       :mode visual
 map         .       :zoom +

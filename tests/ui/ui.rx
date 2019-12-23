@@ -7,4 +7,5 @@ set ui/palette = off
 
 set input/mouse = off
 
+map/clear!
 map ; :mode command

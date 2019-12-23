@@ -7,6 +7,7 @@ set ui/palette = off
 
 set input/mouse = off
 
+map/clear!
 map         ;       :mode command
 map         v       :mode visual
 map         .       :zoom +
