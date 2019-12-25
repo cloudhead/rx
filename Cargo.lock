@@ -1066,8 +1066,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "rx"
-version = "0.2.0"
+name = "rx-editor"
+version = "0.3.0"
 dependencies = [
  "digest 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "directories 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -1,6 +1,6 @@
 [package]
-name = "rx"
-version = "0.2.0"
+name = "rx-editor"
+version = "0.3.0"
 description = "a modern, extensible pixel editor"
 license = "GPL-3.0-only"
 repository = "https://github.com/cloudhead/rx"
@@ -33,3 +33,10 @@ lazy_static = "*"
 toml = "0.5"
 serde = "*"
 serde_derive = "*"
+
+[lib]
+name = "rx"
+
+[[bin]]
+name = "rx"
+path = "src/main.rs"
