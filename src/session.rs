@@ -822,9 +822,7 @@ impl Session {
         if let Some(init) = source {
             // The special source '-' is used to skip initialization.
             if init.as_os_str() != "-" {
-                self.source_path(&init).map_err(|e| {
-                    io::Error::new(e.kind(), format!("error sourcing {:?}: {}", init, e))
-                })?
+                self.source_path(&init)?;
             }
         } else {
             let dir = self.base_dirs.config_dir().to_owned();
@@ -2089,10 +2087,15 @@ impl Session {
         let path = path.as_ref();
         debug!("source: {}", path.display());
 
-        let f =
-            File::open(&path).or_else(|_| File::open(self.base_dirs.config_dir().join(path)))?;
-
-        self.source_reader(io::BufReader::new(f), path)
+        File::open(&path)
+            .or_else(|_| File::open(self.base_dirs.config_dir().join(path)))
+            .and_then(|f| self.source_reader(io::BufReader::new(f), path))
+            .map_err(|e| {
+                io::Error::new(
+                    e.kind(),
+                    format!("error sourcing {}: {}", path.display(), e),
+                )
+            })
     }
 
     /// Source a directory which contains a `.rxrc` script. Returns an
@@ -2103,14 +2106,19 @@ impl Session {
 
     /// Source a script from an [`io::BufRead`].
     fn source_reader<P: AsRef<Path>, R: io::BufRead>(&mut self, r: R, _path: P) -> io::Result<()> {
-        for line in r.lines() {
+        for (i, line) in r.lines().enumerate() {
             let line = line?;
 
             if line.starts_with(cmd::COMMENT) {
                 continue;
             }
             match Command::from_str(&format!(":{}", line)) {
-                Err(e) => return Err(io::Error::new(io::ErrorKind::Other, e)),
+                Err(e) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("{} on line {}", e, i + 1),
+                    ))
+                }
                 Ok(cmd) => self.command(cmd),
             }
         }
