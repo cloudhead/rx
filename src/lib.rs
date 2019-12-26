@@ -113,7 +113,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     info!("hidpi factor: {}", hidpi_factor);
 
     let resources = ResourceManager::new();
-    let base_dirs = dirs::ProjectDirs::from("org", "void", "rx")
+    let base_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
     let mut session = Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
         .init(options.source.clone())?;
