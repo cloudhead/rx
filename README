@@ -17,8 +17,8 @@ OVERVIEW
   in rust[0]. rx is free software, licensed under the GPLv3.
 
   Most of the information on how to use rx is on the website:
-  https://cloudhead.io/rx. There, you can also find a user guide
-  (https://cloudhead.io/rx/guide.html), installation instructions,
+  https://rx.cloudhead.io. There, you can also find a user guide
+  (https://rx.cloudhead.io/guide.html), installation instructions,
   and binary download links.
 
   To build rx from source, see the build sections bellow.
@@ -51,14 +51,13 @@ BUILD & INSTALLATION
 
   Before proceeding, make sure the BUILD DEPENDENCIES have been installed.
 
-  Then, run:
+  Then, clone this repository and from its root, run:
 
-    $ cargo install --git https://github.com/cloudhead/rx --locked
+    $ cargo install --locked --path .
 
-  This will download and install the current *master* branch under
-  `~/.cargo/bin/rx`.  If you prefer a different install location, you can
-  specify it via the `--root <prefix>` flag, where <prefix> is for example
-  '/usr/local'.
+  This will install rx under `~/.cargo/bin/rx`.  If you prefer a different
+  install location, you can specify it via the `--root <prefix>` flag, where
+  <prefix> is for example '/usr/local'.
 
 CONTRIBUTING
 
@@ -66,7 +65,7 @@ CONTRIBUTING
 
 USAGE
 
-  See the guide at https://cloudhead.io/rx/guide.html.
+  See the guide at https://rx.cloudhead.io/guide.html.
 
 TROUBLESHOOTING
 
