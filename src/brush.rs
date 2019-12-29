@@ -307,31 +307,21 @@ impl Brush {
     fn filter(stroke: &[Point2<i32>]) -> Vec<Point2<i32>> {
         let mut filtered = Vec::with_capacity(stroke.len());
 
-        if stroke.len() <= 2 {
-            return stroke.to_owned();
-        }
+        filtered.extend(stroke.first().cloned());
 
-        let mut iter = 0..stroke.len();
-        if let Some(i) = iter.next() {
-            filtered.push(stroke[i]);
-        }
-        while let Some(i) = iter.next() {
-            let p = stroke[i];
-
-            if let Some(prev) = stroke.get(i - 1) {
-                if let Some(next) = stroke.get(i + 1) {
-                    if (prev.y == p.y && next.y != p.y && next.x == p.x)
-                        || (prev.x == p.x && next.x != p.x && next.y == p.y)
-                    {
-                        if let Some(i) = iter.next() {
-                            filtered.push(stroke[i]);
-                        }
-                        continue;
-                    }
-                }
+        let mut triples = stroke.windows(3);
+        while let Some(triple) = triples.next() {
+            let (prev, curr, next) = (triple[0], triple[1], triple[2]);
+            if (prev.y == curr.y && next.x == curr.x) || (prev.x == curr.x && next.y == curr.y) {
+                filtered.push(next);
+                triples.next();
+            } else {
+                filtered.push(curr);
             }
-            filtered.push(p);
         }
+
+        filtered.extend(stroke.last().cloned());
+
         filtered
     }
 }
