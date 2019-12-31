@@ -49,9 +49,6 @@ use session::*;
 use timer::FrameTimer;
 use view::FileStatus;
 
-use rgx;
-use rgx::kit;
-
 #[macro_use]
 extern crate log;
 

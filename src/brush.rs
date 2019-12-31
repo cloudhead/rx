@@ -1,8 +1,8 @@
-use crate::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use crate::kit::{Origin, ZDepth};
 use crate::view::{ViewCoords, ViewExtent};
 
 use rgx::core::{Rect, Rgba8};
+use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
+use rgx::kit::{Origin, ZDepth};
 use rgx::math::{Point2, Vector2};
 
 use std::collections::BTreeSet;

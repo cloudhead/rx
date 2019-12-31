@@ -11,11 +11,8 @@ use crate::screen2d;
 use crate::session::{self, Effect, Mode, Session};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
-use rgx::core;
-use rgx::core::{Blending, Filter, Op, PassOp, Rgba};
-use rgx::kit;
-use rgx::kit::shape2d;
-use rgx::kit::sprite2d;
+use rgx::core::{self, Blending, Filter, Op, PassOp, Rgba};
+use rgx::kit::{self, shape2d, sprite2d};
 use rgx::kit::{Bgra8, Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
