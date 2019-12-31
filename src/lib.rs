@@ -35,6 +35,7 @@ mod resources;
 mod screen2d;
 mod timer;
 mod view;
+mod wgpu;
 
 #[macro_use]
 mod util;
@@ -100,7 +101,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         WindowHint::Resizable(options.resizable),
         WindowHint::Visible(!options.headless),
     ];
-    let (win, events) = platform::init("rx", options.width, options.height, hints)?;
+    let (mut win, events) = platform::init("rx", options.width, options.height, hints)?;
 
     let hidpi_factor = win.hidpi_factor();
     let win_size = win.size();
@@ -165,7 +166,9 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
 
     let execution = Rc::new(RefCell::new(exec));
     let present_mode = session.settings.present_mode();
-    let mut renderer = Renderer::new(&win, win_size, hidpi_factor, present_mode, resources)?;
+
+    let mut renderer: wgpu::Renderer =
+        Renderer::new(&mut win, win_size, hidpi_factor, present_mode, resources)?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
