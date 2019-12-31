@@ -22,6 +22,7 @@ mod cmd;
 mod color;
 mod cursor2d;
 mod data;
+mod draw;
 mod event;
 mod font;
 mod framebuffer2d;
