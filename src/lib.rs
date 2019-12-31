@@ -50,7 +50,6 @@ use timer::FrameTimer;
 use view::FileStatus;
 
 use rgx;
-use rgx::core;
 use rgx::kit;
 
 #[macro_use]
@@ -168,9 +167,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     }
 
     let execution = Rc::new(RefCell::new(exec));
-    let mut present_mode = session.settings.present_mode();
-    let mut r = core::Renderer::new(win.handle())?;
-    let mut renderer = Renderer::new(&mut r, win_size, resources);
+    let present_mode = session.settings.present_mode();
+    let mut renderer = Renderer::new(&win, win_size, hidpi_factor, present_mode, resources)?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
@@ -183,11 +181,9 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         );
     }
 
-    renderer.init(session.effects(), &session.views, &mut r);
+    renderer.init(session.effects(), &session.views);
 
-    let physical = win_size.to_physical(hidpi_factor);
     let mut logical = win_size;
-    let mut swap_chain = r.swap_chain(physical.width as u32, physical.height as u32, present_mode);
 
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();
@@ -225,20 +221,13 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
             WindowEvent::Ready => {
                 let scale = session.settings["scale"].float64();
                 let renderer_size = LogicalSize::new(
-                    renderer.window.width * scale,
-                    renderer.window.height * scale,
+                    renderer.win_size.width * scale,
+                    renderer.win_size.height * scale,
                 );
                 logical = w.size();
 
                 if logical != renderer_size {
-                    self::resize(
-                        &mut session,
-                        &mut r,
-                        &mut swap_chain,
-                        logical,
-                        hidpi_factor,
-                        present_mode,
-                    );
+                    self::resize(&mut session, logical);
                 } else {
                     let input_delay: f64 = session.settings["input/delay"].float64();
                     std::thread::sleep(time::Duration::from_micros((input_delay * 1000.) as u64));
@@ -256,35 +245,14 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                 let effects = update_timer
                     .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
                 render_timer.run(|avg| {
-                    renderer.frame(
-                        &session,
-                        execution.clone(),
-                        effects,
-                        &avg,
-                        &mut r,
-                        &mut swap_chain,
-                    );
+                    renderer.frame(&session, execution.clone(), effects, &avg);
                 });
 
                 if session.settings_changed.contains("scale") {
-                    self::resize(
-                        &mut session,
-                        &mut r,
-                        &mut swap_chain,
-                        logical,
-                        hidpi_factor,
-                        present_mode,
-                    );
+                    self::resize(&mut session, logical);
                 }
-
                 if session.settings_changed.contains("vsync") {
-                    present_mode = session.settings.present_mode();
-
-                    swap_chain = r.swap_chain(
-                        swap_chain.width as u32,
-                        swap_chain.height as u32,
-                        present_mode,
-                    );
+                    renderer.update_present_mode(session.settings.present_mode());
                 }
             }
             WindowEvent::Minimized => {
@@ -341,18 +309,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     }
 }
 
-fn resize(
-    session: &mut Session,
-    r: &mut core::Renderer,
-    swap_chain: &mut core::SwapChain,
-    size: platform::LogicalSize,
-    hidpi_factor: f64,
-    present_mode: core::PresentMode,
-) {
+fn resize(session: &mut Session, size: platform::LogicalSize) {
     let scale: f64 = session.settings["scale"].float64();
     let logical_size = platform::LogicalSize::new(size.width / scale, size.height / scale);
     session.handle_resized(logical_size);
-
-    let physical = size.to_physical(hidpi_factor);
-    *swap_chain = r.swap_chain(physical.width as u32, physical.height as u32, present_mode);
 }

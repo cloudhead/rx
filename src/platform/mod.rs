@@ -5,15 +5,15 @@ use std::fmt;
 
 #[cfg(not(any(feature = "winit", feature = "glfw")))]
 #[path = "dummy.rs"]
-mod backend;
+pub mod backend;
 
 #[cfg(feature = "winit")]
 #[path = "winit.rs"]
-mod backend;
+pub mod backend;
 
 #[cfg(all(feature = "glfw", not(feature = "winit")))]
 #[path = "glfw.rs"]
-mod backend;
+pub mod backend;
 
 /// Initialize the platform.
 pub fn init<T>(

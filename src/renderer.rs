@@ -27,8 +27,16 @@ use std::time;
 
 /// 2D Renderer. Renders the [`Session`] to screen.
 pub struct Renderer {
+    /// Renderer backend.
+    r: core::Renderer,
+    /// Swap chain.
+    swap_chain: core::SwapChain,
+    /// Presentation mode, eg. vsync.
+    present_mode: core::PresentMode,
+    /// HiDPI scaling factor.
+    hidpi_factor: f64,
     /// Window size.
-    pub window: LogicalSize,
+    pub win_size: LogicalSize,
 
     /// The font used to render text.
     font: Font,
@@ -160,8 +168,15 @@ impl ViewData {
 ///////////////////////////////////////////////////////////////////////////////
 
 impl Renderer {
-    pub fn new(r: &mut core::Renderer, window: LogicalSize, resources: ResourceManager) -> Self {
-        let (win_w, win_h) = (window.width as u32, window.height as u32);
+    pub fn new<T>(
+        win: &platform::backend::Window<T>,
+        win_size: LogicalSize,
+        hidpi_factor: f64,
+        present_mode: core::PresentMode,
+        resources: ResourceManager,
+    ) -> std::io::Result<Self> {
+        let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
+        let mut r = core::Renderer::new(win.handle())?;
 
         let sprite2d: kit::sprite2d::Pipeline = r.pipeline(Blending::default());
         let shape2d: kit::shape2d::Pipeline = r.pipeline(Blending::default());
@@ -180,7 +195,7 @@ impl Renderer {
         let (font, font_img) = {
             let (img, width, height) = image::decode(data::GLYPHS).unwrap();
             let texture = r.texture(width, height);
-            let binding = sprite2d.binding(r, &texture, &sampler);
+            let binding = sprite2d.binding(&r, &texture, &sampler);
 
             (
                 Font::new(texture, binding, draw::GLYPH_WIDTH, draw::GLYPH_HEIGHT),
@@ -192,7 +207,7 @@ impl Renderer {
         let (cursors, cursors_img) = {
             let (img, width, height) = image::decode(data::CURSORS).unwrap();
             let texture = r.texture(width, height);
-            let binding = sprite2d.binding(r, &texture, &sampler);
+            let binding = sprite2d.binding(&r, &texture, &sampler);
 
             cursor2d.set_cursor(&texture, &sampler, &r);
 
@@ -201,7 +216,7 @@ impl Renderer {
 
         let (checker, checker_img) = {
             let texture = r.texture(2, 2);
-            let binding = sprite2d.binding(r, &texture, &sampler);
+            let binding = sprite2d.binding(&r, &texture, &sampler);
 
             (Checker { texture, binding }, draw::CHECKER)
         };
@@ -212,7 +227,7 @@ impl Renderer {
 
         let paste = {
             let texture = r.texture(1, 1);
-            let binding = paste2d.binding(r, &texture, &sampler);
+            let binding = paste2d.binding(&r, &texture, &sampler);
             Paste {
                 texture,
                 binding,
@@ -221,9 +236,9 @@ impl Renderer {
             }
         };
 
-        let screen_vb = screen2d::Pipeline::vertex_buffer(r);
+        let screen_vb = screen2d::Pipeline::vertex_buffer(&r);
         let screen_fb = r.framebuffer(win_w, win_h);
-        let screen_binding = screen2d.binding(r, &screen_fb, &sampler);
+        let screen_binding = screen2d.binding(&r, &screen_fb, &sampler);
 
         r.submit(&[
             Op::Fill(&font.texture, Rgba8::align(&font_img)),
@@ -231,8 +246,15 @@ impl Renderer {
             Op::Fill(&checker.texture, Rgba8::align(&checker_img)),
         ]);
 
-        Self {
-            window,
+        let physical = win_size.to_physical(hidpi_factor);
+        let swap_chain = r.swap_chain(physical.width as u32, physical.height as u32, present_mode);
+
+        Ok(Self {
+            r,
+            swap_chain,
+            present_mode,
+            hidpi_factor,
+            win_size,
             font,
             cursors,
             checker,
@@ -261,21 +283,21 @@ impl Renderer {
                 view_ortho: None,
                 scale: 0.,
             },
-        }
+        })
     }
 
-    pub fn init(&mut self, effects: Vec<Effect>, views: &ViewManager, r: &mut core::Renderer) {
-        self.handle_effects(effects, &views, r);
+    pub fn init(&mut self, effects: Vec<Effect>, views: &ViewManager) {
+        self.handle_effects(effects, &views);
     }
 
-    fn render_help(&self, session: &Session, r: &mut core::Renderer, p: &mut core::Pass) {
+    fn render_help(&self, session: &Session, p: &mut core::Pass) {
         let mut win = shape2d::Batch::new();
         let mut text = TextBatch::new(&self.font);
 
         draw::draw_help(session, &mut text, &mut win);
 
-        let win_buf = win.finish(&r);
-        let text_buf = text.finish(&r);
+        let win_buf = win.finish(&self.r);
+        let text_buf = text.finish(&self.r);
 
         p.set_pipeline(&self.sprite2d);
         p.draw(&text_buf, &self.font.binding);
@@ -290,8 +312,6 @@ impl Renderer {
         execution: Rc<RefCell<Execution>>,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
-        r: &mut core::Renderer,
-        textures: &mut core::SwapChain,
     ) {
         if session.state != session::State::Running {
             return;
@@ -300,7 +320,7 @@ impl Renderer {
         self.final_batch.clear();
 
         // Handle effects produced by the session.
-        self.handle_effects(effects, &session.views, r);
+        self.handle_effects(effects, &session.views);
 
         let mut ui_batch = shape2d::Batch::new();
         let mut text_batch = TextBatch::new(&self.font);
@@ -315,7 +335,7 @@ impl Renderer {
         // Handle view operations.
         for v in session.views.values() {
             if !v.ops.is_empty() {
-                self.handle_view_ops(&v, r);
+                self.handle_view_ops(&v);
             }
         }
 
@@ -333,34 +353,34 @@ impl Renderer {
         draw::draw_cursor(&session, &mut cursor_sprite, &mut tool_batch);
         draw::draw_checker(&session, &mut checker_batch);
 
-        let ui_buf = ui_batch.finish(&r);
-        let cursor_buf = cursor_sprite.finish(&r);
-        let tool_buf = tool_batch.finish(&r);
-        let checker_buf = checker_batch.finish(&r);
-        let text_buf = text_batch.finish(&r);
-        let overlay_buf = overlay_batch.finish(&r);
+        let ui_buf = ui_batch.finish(&self.r);
+        let cursor_buf = cursor_sprite.finish(&self.r);
+        let tool_buf = tool_batch.finish(&self.r);
+        let checker_buf = checker_batch.finish(&self.r);
+        let text_buf = text_batch.finish(&self.r);
+        let overlay_buf = overlay_batch.finish(&self.r);
         let staging_buf = if self.staging_batch.is_empty() {
             None
         } else {
-            Some(self.staging_batch.buffer(&r))
+            Some(self.staging_batch.buffer(&self.r))
         };
         let final_buf = if self.final_batch.is_empty() {
             None
         } else {
-            Some(self.final_batch.buffer(&r))
+            Some(self.final_batch.buffer(&self.r))
         };
         let paste_buf = if paste_batch.is_empty() {
             None
         } else {
-            Some(paste_batch.finish(&r))
+            Some(paste_batch.finish(&self.r))
         };
 
         // Start the render frame.
-        let mut f = r.frame();
+        let mut f = self.r.frame();
 
-        self.update_view_animations(session, r);
-        self.update_view_transforms(session.views.values(), session.offset, &r, &mut f);
-        self.cursor2d.set_framebuffer(&self.screen_fb, r);
+        self.update_view_animations(session);
+        self.update_view_transforms(session.views.values(), session.offset, &mut f);
+        self.cursor2d.set_framebuffer(&self.screen_fb, &self.r);
 
         let v = session.active_view();
         let view_data = self
@@ -368,19 +388,20 @@ impl Renderer {
             .get(&v.id)
             .expect("the view data for the active view must exist");
         let view_ortho = kit::ortho(v.width(), v.height());
-        let ortho = kit::ortho(self.window.width as u32, self.window.height as u32);
+        let ortho = kit::ortho(self.win_size.width as u32, self.win_size.height as u32);
         let scale: f32 = session.settings["scale"].clone().into();
 
         if (scale - self.cache.scale).abs() > std::f32::EPSILON {
-            r.update_pipeline(&self.cursor2d, cursor2d::context(ortho, scale), &mut f);
+            self.r
+                .update_pipeline(&self.cursor2d, cursor2d::context(ortho, scale), &mut f);
             self.cache.scale = scale;
         }
 
         if self.cache.ortho.map_or(true, |m| m != ortho) {
-            r.update_pipeline(&self.shape2d, ortho, &mut f);
-            r.update_pipeline(&self.sprite2d, ortho, &mut f);
-            r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
-            r.update_pipeline(
+            self.r.update_pipeline(&self.shape2d, ortho, &mut f);
+            self.r.update_pipeline(&self.sprite2d, ortho, &mut f);
+            self.r.update_pipeline(&self.framebuffer2d, ortho, &mut f);
+            self.r.update_pipeline(
                 &self.cursor2d,
                 cursor2d::context(ortho, self.cache.scale),
                 &mut f,
@@ -389,14 +410,12 @@ impl Renderer {
             self.cache.ortho = Some(ortho);
         }
         if self.cache.view_ortho.map_or(true, |m| m != view_ortho) {
-            r.update_pipeline(&self.brush2d, view_ortho, &mut f);
-            r.update_pipeline(&self.const2d, view_ortho, &mut f);
-            r.update_pipeline(&self.paste2d, view_ortho, &mut f);
+            self.r.update_pipeline(&self.brush2d, view_ortho, &mut f);
+            self.r.update_pipeline(&self.const2d, view_ortho, &mut f);
+            self.r.update_pipeline(&self.paste2d, view_ortho, &mut f);
 
             self.cache.view_ortho = Some(view_ortho);
         }
-
-        let present = &textures.next();
 
         {
             // Draw to view staging buffer.
@@ -474,12 +493,13 @@ impl Renderer {
             }
             // Draw help menu.
             if session.mode == Mode::Help {
-                self.render_help(&session, r, &mut p);
+                self.render_help(&session, &mut p);
             }
         }
 
+        // Present screen framebuffer to screen.
+        let present = &self.swap_chain.next();
         {
-            // Present screen framebuffer to screen.
             let bg = Rgba::from(session.settings["background"].rgba8());
             let mut p = f.pass(PassOp::Clear(bg), present);
 
@@ -506,7 +526,7 @@ impl Renderer {
         }
 
         // Submit frame to device.
-        r.present(f);
+        self.r.present(f);
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
@@ -514,7 +534,7 @@ impl Renderer {
             let extent = v.extent();
             let resources = self.resources.clone();
 
-            r.read(&view_data.fb, move |data| {
+            self.r.read(&view_data.fb, move |data| {
                 if let Some(s) = resources.lock_mut().get_view_mut(id) {
                     s.push_snapshot(data, extent);
                 }
@@ -522,18 +542,13 @@ impl Renderer {
         }
 
         if !execution.borrow().is_normal() {
-            r.read(&self.screen_fb, move |data| {
+            self.r.read(&self.screen_fb, move |data| {
                 execution.borrow_mut().record(data);
             });
         }
     }
 
-    fn handle_effects(
-        &mut self,
-        mut effects: Vec<Effect>,
-        views: &ViewManager,
-        r: &mut core::Renderer,
-    ) {
+    fn handle_effects(&mut self, mut effects: Vec<Effect>, views: &ViewManager) {
         for eff in effects.drain(..) {
             // When switching views, or when the view is dirty (eg. it has been resized),
             // we have to resize the brush pipelines, for the brush strokes to
@@ -542,18 +557,18 @@ impl Renderer {
             // on "damaged" too.
             match eff {
                 Effect::SessionResized(size) => {
-                    self.handle_resized(size, r);
+                    self.handle_resized(size);
                 }
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
-                    self.add_views(&[id], r);
+                    self.add_views(&[id]);
                 }
                 Effect::ViewRemoved(id) => {
                     self.view_data.remove(&id);
                 }
                 Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
                     let v = views.get(&id).expect("view must exist");
-                    self.handle_view_dirty(v, r);
+                    self.handle_view_dirty(v);
                 }
                 Effect::ViewBlendingChanged(blending) => {
                     self.blending = blending;
@@ -568,7 +583,7 @@ impl Renderer {
         }
     }
 
-    fn handle_view_dirty(&mut self, v: &View, r: &mut core::Renderer) {
+    fn handle_view_dirty(&mut self, v: &View) {
         let fb = &self
             .view_data
             .get(&v.id)
@@ -587,7 +602,7 @@ impl Renderer {
             //
             // Either way, we handle it equally, by re-creating the view-data and restoring
             // the current snapshot.
-            let view_data = ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, r);
+            let view_data = ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, &self.r);
 
             // We don't want the lock to be held when `submit` is called below,
             // because in some cases it'll trigger the read-back which claims
@@ -603,7 +618,7 @@ impl Renderer {
             let tw = u32::min(sw, vw);
             let th = u32::min(sh, vh);
 
-            r.submit(&[
+            self.r.submit(&[
                 Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Transfer(
@@ -623,11 +638,11 @@ impl Renderer {
                 let (_, pixels) = rs.get_snapshot(v.id);
                 pixels.to_owned()
             };
-            r.submit(&[Op::Fill(fb, &*pixels)]);
+            self.r.submit(&[Op::Fill(fb, &*pixels)]);
         }
     }
 
-    fn handle_view_ops(&mut self, v: &View, r: &mut core::Renderer) {
+    fn handle_view_ops(&mut self, v: &View) {
         let fb = &self
             .view_data
             .get(&v.id)
@@ -637,10 +652,10 @@ impl Renderer {
         for op in &v.ops {
             match op {
                 ViewOp::Clear(color) => {
-                    r.submit(&[Op::Clear(fb, (*color).into())]);
+                    self.r.submit(&[Op::Clear(fb, (*color).into())]);
                 }
                 ViewOp::Blit(src, dst) => {
-                    r.submit(&[Op::Blit(fb, *src, *dst)]);
+                    self.r.submit(&[Op::Blit(fb, *src, *dst)]);
                 }
                 ViewOp::Yank(src) => {
                     let pixels = {
@@ -670,13 +685,14 @@ impl Renderer {
 
                         if self.paste.texture.w != w as u32 || self.paste.texture.h != h as u32 {
                             self.paste.ready = false;
-                            self.paste.texture = r.texture(w as u32, h as u32);
+                            self.paste.texture = self.r.texture(w as u32, h as u32);
                             self.paste.binding =
-                                self.paste2d.binding(r, &self.paste.texture, &self.sampler);
+                                self.paste2d
+                                    .binding(&self.r, &self.paste.texture, &self.sampler);
                         }
                         pixels
                     };
-                    r.submit(&[Op::Fill(&self.paste.texture, &pixels)]);
+                    self.r.submit(&[Op::Fill(&self.paste.texture, &pixels)]);
                 }
                 ViewOp::Paste(dst) => {
                     let buffer = sprite2d::Batch::singleton(
@@ -689,7 +705,7 @@ impl Renderer {
                         1.,
                         kit::Repeat::default(),
                     )
-                    .finish(&r);
+                    .finish(&self.r);
 
                     self.paste.outputs.push(buffer);
                 }
@@ -697,16 +713,16 @@ impl Renderer {
         }
     }
 
-    fn add_views(&mut self, views: &[ViewId], r: &mut core::Renderer) {
+    fn add_views(&mut self, views: &[ViewId]) {
         for id in views {
             let resources = self.resources.lock();
             let (s, pixels) = resources.get_snapshot(*id);
             let (w, h) = (s.width(), s.height());
 
-            let view_data = ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, r);
+            let view_data = ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, &self.r);
 
             debug_assert!(!pixels.is_empty());
-            r.submit(&[
+            self.r.submit(&[
                 Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Fill(&view_data.fb, &pixels),
@@ -757,21 +773,37 @@ impl Renderer {
         p.draw_buffer(&paint_buf);
     }
 
-    pub fn handle_resized(&mut self, size: platform::LogicalSize, r: &core::Renderer) {
+    pub fn handle_resized(&mut self, size: platform::LogicalSize) {
         let (w, h) = (size.width as u32, size.height as u32);
 
-        self.window = size;
-        self.screen_fb = r.framebuffer(w, h);
-        self.screen_binding = self.screen2d.binding(r, &self.screen_fb, &self.sampler);
+        self.win_size = size;
+        self.screen_fb = self.r.framebuffer(w, h);
+        self.screen_binding = self
+            .screen2d
+            .binding(&self.r, &self.screen_fb, &self.sampler);
+
+        let physical = size.to_physical(self.hidpi_factor);
+        self.swap_chain = self.r.swap_chain(
+            physical.width as u32,
+            physical.height as u32,
+            self.present_mode,
+        );
     }
 
-    fn update_view_transforms<'a, I>(
-        &mut self,
-        views: I,
-        offset: Vector2<f32>,
-        r: &core::Renderer,
-        f: &mut core::Frame,
-    ) where
+    pub fn update_present_mode(&mut self, present_mode: core::PresentMode) {
+        if self.present_mode == present_mode {
+            return;
+        }
+        self.present_mode = present_mode;
+        self.swap_chain = self.r.swap_chain(
+            self.swap_chain.width as u32,
+            self.swap_chain.height as u32,
+            present_mode,
+        );
+    }
+
+    fn update_view_transforms<'a, I>(&mut self, views: I, offset: Vector2<f32>, f: &mut core::Frame)
+    where
         I: Iterator<Item = &'a View>,
     {
         self.view_transforms.clear();
@@ -782,10 +814,10 @@ impl Renderer {
             );
         }
         self.view_transforms_buf
-            .update(self.view_transforms.as_slice(), r, f);
+            .update(self.view_transforms.as_slice(), &self.r, f);
     }
 
-    fn update_view_animations(&mut self, s: &Session, r: &core::Renderer) {
+    fn update_view_animations(&mut self, s: &Session) {
         if !s.settings["animation"].is_set() {
             return;
         }
@@ -795,7 +827,7 @@ impl Renderer {
             }
             // FIXME: When `v.animation.val()` doesn't change, we don't need
             // to re-create the buffer.
-            let buf = draw::draw_view_animation(s, &v).finish(&r);
+            let buf = draw::draw_view_animation(s, &v).finish(&self.r);
 
             if let Some(d) = self.view_data.get_mut(&id) {
                 d.anim_vb = Some(buf);
