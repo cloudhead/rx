@@ -105,7 +105,35 @@ mod checker {
     }
 }
 
-pub fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch) {
+pub struct DrawContext {
+    pub ui_batch: shape2d::Batch,
+    pub text_batch: TextBatch,
+    pub overlay_batch: TextBatch,
+    pub cursor_sprite: cursor2d::Sprite,
+    pub tool_batch: sprite2d::Batch,
+    pub paste_batch: sprite2d::Batch,
+    pub checker_batch: sprite2d::Batch,
+}
+
+impl DrawContext {
+    pub fn draw(
+        &mut self,
+        session: &Session,
+        avg_frametime: &time::Duration,
+        execution: Rc<RefCell<Execution>>,
+    ) {
+        self::draw_brush(&session, &mut self.ui_batch);
+        self::draw_paste(&session, &mut self.paste_batch);
+        self::draw_grid(&session, &mut self.ui_batch);
+        self::draw_ui(&session, &mut self.ui_batch, &mut self.text_batch);
+        self::draw_overlay(&session, avg_frametime, &mut self.overlay_batch, execution);
+        self::draw_palette(&session, &mut self.ui_batch);
+        self::draw_cursor(&session, &mut self.cursor_sprite, &mut self.tool_batch);
+        self::draw_checker(&session, &mut self.checker_batch);
+    }
+}
+
+fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch) {
     let view = session.active_view();
 
     if let Some(selection) = session.selection {
@@ -287,7 +315,7 @@ pub fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBa
     }
 }
 
-pub fn draw_overlay(
+fn draw_overlay(
     session: &Session,
     avg_frametime: &time::Duration,
     text: &mut TextBatch,
@@ -355,7 +383,7 @@ pub fn draw_overlay(
     }
 }
 
-pub fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
+fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
     if !session.settings["ui/palette"].is_set() {
         return;
     }
@@ -382,7 +410,7 @@ pub fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
     }
 }
 
-pub fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
+fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
     if session.settings["checker"].is_set() {
         for (_, v) in session.views.iter() {
             let ratio = v.width() as f32 / v.height() as f32;
@@ -401,7 +429,7 @@ pub fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
     }
 }
 
-pub fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
+fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
     if session.settings["grid"].is_set() {
         let color = session.settings["grid/color"].rgba8();
         let (gx, gy) = session.settings["grid/spacing"].clone().into();
@@ -439,11 +467,7 @@ pub fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
     }
 }
 
-pub fn draw_cursor(
-    session: &Session,
-    inverted: &mut cursor2d::Sprite,
-    batch: &mut sprite2d::Batch,
-) {
+fn draw_cursor(session: &Session, inverted: &mut cursor2d::Sprite, batch: &mut sprite2d::Batch) {
     if !session.settings["ui/cursor"].is_set() {
         return;
     }
@@ -478,7 +502,7 @@ pub fn draw_cursor(
     }
 }
 
-pub fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
+fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
     if session.palette.hover.is_some() {
         return;
     }
@@ -593,10 +617,10 @@ pub fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
     }
 }
 
-pub fn draw_paste(session: &Session, rect: Rect<f32>, batch: &mut sprite2d::Batch) {
+fn draw_paste(session: &Session, batch: &mut sprite2d::Batch) {
     if let (Mode::Visual(VisualState::Pasting), Some(s)) = (session.mode, session.selection) {
         batch.add(
-            rect,
+            Rect::origin(batch.w as f32, batch.h as f32),
             Rect::new(s.x1 as f32, s.y1 as f32, s.x2 as f32 + 1., s.y2 as f32 + 1.),
             ZDepth::default(),
             Rgba::TRANSPARENT,

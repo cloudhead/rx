@@ -304,15 +304,15 @@ impl renderer::Renderer for Renderer {
         // Handle effects produced by the session.
         self.handle_effects(effects, &session.views);
 
-        let mut ui_batch = shape2d::Batch::new();
-        let mut text_batch = TextBatch::new(&self.font);
-        let mut overlay_batch = TextBatch::new(&self.font);
-        let mut cursor_sprite =
-            cursor2d::Sprite::new(self.cursors.texture.w, self.cursors.texture.h);
-        let mut tool_batch = sprite2d::Batch::new(self.cursors.texture.w, self.cursors.texture.h);
-        let mut paste_batch = sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h);
-        let mut checker_batch =
-            sprite2d::Batch::new(self.checker.texture.w, self.checker.texture.h);
+        let mut ctx = draw::DrawContext {
+            ui_batch: shape2d::Batch::new(),
+            text_batch: TextBatch::new(&self.font),
+            overlay_batch: TextBatch::new(&self.font),
+            cursor_sprite: cursor2d::Sprite::new(self.cursors.texture.w, self.cursors.texture.h),
+            tool_batch: sprite2d::Batch::new(self.cursors.texture.w, self.cursors.texture.h),
+            paste_batch: sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h),
+            checker_batch: sprite2d::Batch::new(self.checker.texture.w, self.checker.texture.h),
+        };
 
         // Handle view operations.
         for v in session.views.values() {
@@ -321,26 +321,14 @@ impl renderer::Renderer for Renderer {
             }
         }
 
-        draw::draw_brush(&session, &mut ui_batch);
-        draw::draw_paste(&session, self.paste.texture.rect(), &mut paste_batch);
-        draw::draw_grid(&session, &mut ui_batch);
-        draw::draw_ui(&session, &mut ui_batch, &mut text_batch);
-        draw::draw_overlay(
-            &session,
-            avg_frametime,
-            &mut overlay_batch,
-            execution.clone(),
-        );
-        draw::draw_palette(&session, &mut ui_batch);
-        draw::draw_cursor(&session, &mut cursor_sprite, &mut tool_batch);
-        draw::draw_checker(&session, &mut checker_batch);
+        ctx.draw(&session, avg_frametime, execution.clone());
 
-        let ui_buf = ui_batch.finish(&self.r);
-        let cursor_buf = cursor_sprite.finish(&self.r);
-        let tool_buf = tool_batch.finish(&self.r);
-        let checker_buf = checker_batch.finish(&self.r);
-        let text_buf = text_batch.finish(&self.r);
-        let overlay_buf = overlay_batch.finish(&self.r);
+        let ui_buf = ctx.ui_batch.finish(&self.r);
+        let cursor_buf = ctx.cursor_sprite.finish(&self.r);
+        let tool_buf = ctx.tool_batch.finish(&self.r);
+        let checker_buf = ctx.checker_batch.finish(&self.r);
+        let text_buf = ctx.text_batch.finish(&self.r);
+        let overlay_buf = ctx.overlay_batch.finish(&self.r);
         let staging_buf = if self.staging_batch.is_empty() {
             None
         } else {
@@ -351,10 +339,10 @@ impl renderer::Renderer for Renderer {
         } else {
             Some(self.final_batch.buffer(&self.r))
         };
-        let paste_buf = if paste_batch.is_empty() {
+        let paste_buf = if ctx.paste_batch.is_empty() {
             None
         } else {
-            Some(paste_batch.finish(&self.r))
+            Some(ctx.paste_batch.finish(&self.r))
         };
 
         // Start the render frame.
