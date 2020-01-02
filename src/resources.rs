@@ -4,6 +4,7 @@ use crate::view::{ViewExtent, ViewId};
 
 use nonempty::NonEmpty;
 use rgx::core::{Bgra8, Rgba8};
+use rgx::rect::Rect;
 
 use gif::{self, SetParameter};
 use png;
@@ -50,6 +51,34 @@ impl Resources {
                 "view #{} must exist and have an associated snapshot",
                 id
             ))
+    }
+
+    pub fn get_snapshot_rect(&self, id: ViewId, rect: &Rect<i32>) -> Vec<Rgba8> {
+        let (snapshot, pixels) = self.get_snapshot(id);
+
+        let w = rect.width() as usize;
+        let h = rect.height() as usize;
+
+        let total_w = snapshot.width() as usize;
+        let total_h = snapshot.height() as usize;
+
+        let mut buffer: Vec<Bgra8> = Vec::with_capacity(w * h);
+
+        for y in (rect.y1 as usize..rect.y2 as usize).rev() {
+            let y = total_h - y - 1;
+            let offset = y * total_w + rect.x1 as usize;
+            let row = &pixels[offset..offset + w];
+
+            buffer.extend_from_slice(row);
+        }
+
+        let mut pixels: Vec<Rgba8> = Vec::with_capacity(buffer.len());
+        for c in buffer.into_iter() {
+            pixels.push(c.into());
+        }
+        assert!(pixels.len() == w * h);
+
+        pixels
     }
 
     pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResources> {
