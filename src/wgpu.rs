@@ -7,7 +7,7 @@ use crate::framebuffer2d;
 use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::renderer;
-use crate::resources::ResourceManager;
+use crate::resources::{Pixels, ResourceManager};
 use crate::screen2d;
 use crate::session::{self, Effect, Mode, Session};
 use crate::view::{View, ViewId, ViewManager, ViewOp};
@@ -506,7 +506,7 @@ impl renderer::Renderer for Renderer {
 
             self.r.read(&view_data.fb, move |data| {
                 if let Some(s) = resources.lock_mut().get_view_mut(id) {
-                    s.push_snapshot(data, extent);
+                    s.push_snapshot(Pixels::Bgra(data.into()), extent);
                 }
             });
         }
@@ -607,7 +607,7 @@ impl Renderer {
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Transfer(
                     &view_data.fb,
-                    &*pixels,
+                    &pixels.into_bgra8(),
                     sw, // Source width
                     sh, // Source height
                     Rect::origin(tw as i32, th as i32),
@@ -622,7 +622,7 @@ impl Renderer {
                 let (_, pixels) = rs.get_snapshot(v.id);
                 pixels.to_owned()
             };
-            self.r.submit(&[Op::Fill(fb, &*pixels)]);
+            self.r.submit(&[Op::Fill(fb, &pixels.into_bgra8())]);
         }
     }
 
@@ -686,7 +686,7 @@ impl Renderer {
             self.r.submit(&[
                 Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
-                Op::Fill(&view_data.fb, &pixels),
+                Op::Fill(&view_data.fb, &pixels.clone().into_bgra8()),
             ]);
 
             self.view_data.insert(*id, view_data);

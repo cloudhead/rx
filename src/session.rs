@@ -8,7 +8,7 @@ use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::ResourceManager;
+use crate::resources::{Pixels, ResourceManager};
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{Blending, PresentMode, Rect};
@@ -1528,7 +1528,8 @@ impl Session {
             .add(FileStatus::Saved(path.into()), width as u32, height as u32);
 
         self.effects.push(Effect::ViewAdded(id));
-        self.resources.add_view(id, width, height, &pixels);
+        self.resources
+            .add_view(id, width, height, Pixels::Rgba(pixels.into()));
         self.message(
             format!("\"{}\" {} pixels read", path.display(), width * height),
             MessageType::Info,
@@ -2788,11 +2789,7 @@ impl Session {
             .and_then(|x| x.checked_sub(1));
         let index = y_offset.map(|y| (y * snapshot.width() + p.x) as usize);
 
-        if let Some(bgra) = index.and_then(|idx| pixels.get(idx)) {
-            Some(Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a))
-        } else {
-            None
-        }
+        index.and_then(|idx| pixels.get(idx))
     }
 
     fn sample_color(&mut self) {

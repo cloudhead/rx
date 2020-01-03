@@ -413,6 +413,7 @@ impl GifRecorder {
         }
         let now = time::Instant::now();
         let mut gif_data: Vec<u8> = Vec::with_capacity(data.len());
+        // TODO: (perf) Is it faster to convert to `Vec<Rgba8>` and then `align_to`?
         for bgra in data.iter().cloned() {
             let rgba: Rgba8 = bgra.into();
             gif_data.extend_from_slice(&[rgba.r, rgba.g, rgba.b]);

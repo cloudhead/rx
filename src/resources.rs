@@ -18,6 +18,87 @@ use std::path::Path;
 use std::rc::Rc;
 use std::time;
 
+// TODO: It's probably better to represent this as a `Vec<u8>` with a "format" tag.
+// It would avoid a bunch of pattern matching at least..
+#[derive(Debug, Clone)]
+pub enum Pixels {
+    Bgra(Box<[Bgra8]>),
+    Rgba(Box<[Rgba8]>),
+}
+
+impl Pixels {
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Bgra(buf) => buf.len(),
+            Self::Rgba(buf) => buf.len(),
+        }
+    }
+
+    pub fn slice(&self, r: core::ops::Range<usize>) -> Vec<Rgba8> {
+        match self {
+            Self::Bgra(buf) => {
+                let slice = &buf[r];
+                slice.iter().map(|bgra| (*bgra).into()).collect()
+            }
+            Self::Rgba(buf) => buf[r].to_owned(),
+        }
+    }
+
+    pub fn get(&self, idx: usize) -> Option<Rgba8> {
+        match self {
+            Self::Bgra(buf) => buf
+                .get(idx)
+                .map(|bgra| Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a)),
+            Self::Rgba(buf) => buf.get(idx).cloned(),
+        }
+    }
+
+    pub fn into_rgba8(self) -> Vec<Rgba8> {
+        match self {
+            Self::Bgra(buf) => {
+                let mut pixels: Vec<Rgba8> = Vec::with_capacity(buf.len());
+                for c in buf.into_iter() {
+                    pixels.push((*c).into());
+                }
+                pixels
+            }
+            Self::Rgba(buf) => buf.into(),
+        }
+    }
+
+    pub fn into_bgra8(self) -> Vec<Bgra8> {
+        match self {
+            Self::Rgba(buf) => {
+                let mut pixels: Vec<Bgra8> = Vec::with_capacity(buf.len());
+                for c in buf.into_iter() {
+                    pixels.push((*c).into());
+                }
+                pixels
+            }
+            Self::Bgra(buf) => buf.into(),
+        }
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            Self::Bgra(buf) => {
+                let (head, body, tail) = unsafe { buf.align_to::<u8>() };
+                assert!(head.is_empty() && tail.is_empty());
+                body
+            }
+            Self::Rgba(buf) => {
+                let (head, body, tail) = unsafe { buf.align_to::<u8>() };
+                assert!(head.is_empty() && tail.is_empty());
+                body
+            }
+        }
+    }
+}
+
 pub struct ResourceManager {
     resources: Rc<RefCell<Resources>>,
 }
@@ -33,7 +114,7 @@ impl Resources {
         }
     }
 
-    pub fn get_snapshot(&self, id: ViewId) -> (&Snapshot, &[Bgra8]) {
+    pub fn get_snapshot(&self, id: ViewId) -> (&Snapshot, &Pixels) {
         self.data
             .get(&id)
             .map(|r| r.current_snapshot())
@@ -43,7 +124,7 @@ impl Resources {
             ))
     }
 
-    pub fn get_snapshot_mut(&mut self, id: ViewId) -> (&mut Snapshot, &[Bgra8]) {
+    pub fn get_snapshot_mut(&mut self, id: ViewId) -> (&mut Snapshot, &Pixels) {
         self.data
             .get_mut(&id)
             .map(|r| r.current_snapshot_mut())
@@ -62,23 +143,18 @@ impl Resources {
         let total_w = snapshot.width() as usize;
         let total_h = snapshot.height() as usize;
 
-        let mut buffer: Vec<Bgra8> = Vec::with_capacity(w * h);
+        let mut buffer: Vec<Rgba8> = Vec::with_capacity(w * h);
 
         for y in (rect.y1 as usize..rect.y2 as usize).rev() {
             let y = total_h - y - 1;
             let offset = y * total_w + rect.x1 as usize;
-            let row = &pixels[offset..offset + w];
+            let row = &pixels.slice(offset..offset + w);
 
             buffer.extend_from_slice(row);
         }
+        assert!(buffer.len() == w * h);
 
-        let mut pixels: Vec<Rgba8> = Vec::with_capacity(buffer.len());
-        for c in buffer.into_iter() {
-            pixels.push(c.into());
-        }
-        assert!(pixels.len() == w * h);
-
-        pixels
+        buffer
     }
 
     pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResources> {
@@ -113,30 +189,18 @@ impl ResourceManager {
 
     pub fn add_blank_view(&mut self, id: ViewId, w: u32, h: u32) {
         let len = w as usize * h as usize;
-        let pixels = vec![Bgra8::TRANSPARENT; len];
+        let pixels = vec![Rgba8::TRANSPARENT; len];
 
-        self.add_view(id, w, h, &pixels);
+        self.add_view(id, w, h, Pixels::Rgba(pixels.into()));
     }
 
-    pub fn load_image<P: AsRef<Path>>(path: P) -> io::Result<(u32, u32, Vec<Bgra8>)> {
+    pub fn load_image<P: AsRef<Path>>(path: P) -> io::Result<(u32, u32, Vec<Rgba8>)> {
         let (buffer, width, height) = image::load(path)?;
+        let pixels = Rgba8::align(&buffer);
 
-        // Convert pixels to BGRA, since they are going to be loaded into
-        // the view framebuffer, which is BGRA.
-        let mut pixels: Vec<Bgra8> = Vec::with_capacity(buffer.len() / 4);
-        for rgba in buffer.chunks(4) {
-            match rgba {
-                [r, g, b, a] => pixels.push(Bgra8::new(*b, *g, *r, *a)),
-                _ => {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        "invalid pixel buffer size",
-                    ))
-                }
-            }
-        }
+        // TODO: (perf) Avoid the copy?
 
-        Ok((width, height, pixels))
+        Ok((width, height, pixels.into()))
     }
 
     pub fn save_view<P: AsRef<Path>>(
@@ -155,11 +219,13 @@ impl ResourceManager {
         encoder.set_color(png::ColorType::RGBA);
         encoder.set_depth(png::BitDepth::Eight);
 
+        let pixels = pixels.clone().into_rgba8();
+
         // Convert pixels from BGRA to RGBA, for writing to disk.
+        // TODO: Use `align_to`
         // TODO: (perf) Can this be made faster?
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for bgra in pixels.iter().cloned() {
-            let rgba: Rgba8 = bgra.into();
+        for rgba in pixels.iter().cloned() {
             image.extend_from_slice(&[rgba.r, rgba.g, rgba.b, rgba.a]);
         }
 
@@ -185,8 +251,14 @@ impl ResourceManager {
             w, h, w, h,
         )?;
 
-        for (i, bgra) in pixels.iter().cloned().enumerate().filter(|(_, c)| c.a > 0) {
-            let rgba: Rgba8 = bgra.into();
+        for (i, rgba) in pixels
+            .clone()
+            .into_rgba8()
+            .iter()
+            .cloned()
+            .enumerate()
+            .filter(|(_, c)| c.a > 0)
+        {
             let rgb: Rgb8 = rgba.into();
 
             let x = i % w;
@@ -234,9 +306,7 @@ impl ResourceManager {
 
         // Convert BGRA pixels into indexed pixels.
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for bgra in pixels.iter().cloned() {
-            let rgba: Rgba8 = bgra.into();
-
+        for rgba in pixels.clone().into_rgba8().iter().cloned() {
             if let Ok(index) = palette.binary_search(&rgba) {
                 image.push(index as u8);
             } else {
@@ -282,7 +352,7 @@ impl ResourceManager {
         Ok(fw * fh * nframes)
     }
 
-    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: &[Bgra8]) {
+    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: Pixels) {
         self.resources
             .borrow_mut()
             .data
@@ -298,23 +368,23 @@ pub struct ViewResources {
     snapshot: usize,
     /// Current view pixels. We keep a separate decompressed
     /// cache of the view pixels for performance reasons.
-    pixels: Box<[Bgra8]>,
+    pixels: Pixels,
 }
 
 impl ViewResources {
-    fn new(pixels: &[Bgra8], fw: u32, fh: u32) -> Self {
+    fn new(pixels: Pixels, fw: u32, fh: u32) -> Self {
         Self {
             snapshots: NonEmpty::new(Snapshot::new(
                 SnapshotId(0),
-                pixels,
+                pixels.clone(),
                 ViewExtent::new(fw, fh, 1),
             )),
             snapshot: 0,
-            pixels: pixels.into(),
+            pixels,
         }
     }
 
-    pub fn current_snapshot(&self) -> (&Snapshot, &[Bgra8]) {
+    pub fn current_snapshot(&self) -> (&Snapshot, &Pixels) {
         (
             self.snapshots
                 .get(self.snapshot)
@@ -323,7 +393,7 @@ impl ViewResources {
         )
     }
 
-    pub fn current_snapshot_mut(&mut self) -> (&mut Snapshot, &[Bgra8]) {
+    pub fn current_snapshot_mut(&mut self) -> (&mut Snapshot, &Pixels) {
         (
             self.snapshots
                 .get_mut(self.snapshot)
@@ -332,7 +402,7 @@ impl ViewResources {
         )
     }
 
-    pub fn push_snapshot(&mut self, pixels: &[Bgra8], extent: ViewExtent) {
+    pub fn push_snapshot(&mut self, pixels: Pixels, extent: ViewExtent) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
         // If we try to add a snapshot when we're not at the
@@ -342,7 +412,7 @@ impl ViewResources {
             self.snapshot = self.snapshots.len() - 1;
         }
         self.snapshot += 1;
-        self.pixels = pixels.into();
+        self.pixels = pixels.clone();
 
         self.snapshots
             .push(Snapshot::new(SnapshotId(self.snapshot), pixels, extent));
@@ -389,6 +459,12 @@ impl Default for SnapshotId {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+enum SnapshotFormat {
+    Rgba8,
+    Bgra8,
+}
+
 #[derive(Debug)]
 pub struct Snapshot {
     pub id: SnapshotId,
@@ -396,10 +472,17 @@ pub struct Snapshot {
 
     size: usize,
     pixels: Compressed<Box<[u8]>>,
+
+    format: SnapshotFormat,
 }
 
 impl Snapshot {
-    pub fn new(id: SnapshotId, pixels: &[Bgra8], extent: ViewExtent) -> Self {
+    pub fn new(id: SnapshotId, pixels: Pixels, extent: ViewExtent) -> Self {
+        let format = match pixels {
+            Pixels::Rgba(_) => SnapshotFormat::Rgba8,
+            Pixels::Bgra(_) => SnapshotFormat::Bgra8,
+        };
+
         let size = pixels.len();
         let pixels =
             Compressed::from(pixels).expect("compressing snapshot shouldn't result in an error");
@@ -414,6 +497,7 @@ impl Snapshot {
             extent,
             size,
             pixels,
+            format,
         }
     }
 
@@ -427,15 +511,15 @@ impl Snapshot {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    fn pixels(&self) -> Vec<Bgra8> {
-        // TODO: (perf) Any way not to clone here?
-        Bgra8::align(
-            &self
-                .pixels
-                .decompress()
-                .expect("decompressing snapshot shouldn't result in an error"),
-        )
-        .to_owned()
+    fn pixels(&self) -> Pixels {
+        let bytes = self
+            .pixels
+            .decompress()
+            .expect("decompressing snapshot shouldn't result in an error");
+        match self.format {
+            SnapshotFormat::Rgba8 => Pixels::Rgba(Rgba8::align(&bytes).into()),
+            SnapshotFormat::Bgra8 => Pixels::Bgra(Bgra8::align(&bytes).into()),
+        }
     }
 }
 
@@ -445,9 +529,9 @@ impl Snapshot {
 pub struct Compressed<T>(T);
 
 impl Compressed<Box<[u8]>> {
-    fn from(input: &[Bgra8]) -> snap::Result<Self> {
+    fn from(input: Pixels) -> snap::Result<Self> {
         let mut enc = snap::Encoder::new();
-        let (_, bytes, _) = unsafe { input.align_to::<u8>() };
+        let bytes = input.as_bytes();
         enc.compress_vec(bytes).map(|v| Self(v.into_boxed_slice()))
     }
 
