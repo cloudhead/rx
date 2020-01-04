@@ -1,4 +1,4 @@
-use crate::brush::BrushMode;
+use crate::brush::{Align, BrushMode};
 use crate::color;
 use crate::cursor2d;
 use crate::execution::Execution;
@@ -12,7 +12,7 @@ use rgx::core::Rgba;
 use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use rgx::kit::{self, Geometry};
 use rgx::kit::{shape2d, sprite2d};
-use rgx::kit::{Origin, Rgba8, ZDepth};
+use rgx::kit::{Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
 
@@ -567,7 +567,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                             stroke,
                             fill,
                             v.zoom,
-                            Origin::BottomLeft,
+                            Align::BottomLeft,
                         ));
                     }
 
@@ -608,7 +608,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                         Stroke::new(1.0, color.into()),
                         Fill::Empty(),
                         v.zoom,
-                        Origin::Center,
+                        Align::Center,
                     ));
                 }
             }

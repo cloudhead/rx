@@ -21,8 +21,9 @@ pub fn init<T>(
     w: u32,
     h: u32,
     hints: &[WindowHint],
+    context: GraphicsContext,
 ) -> io::Result<(backend::Window<T>, backend::Events)> {
-    backend::init(title, w, h, hints)
+    backend::init(title, w, h, hints, context)
 }
 
 /// Run the main event loop.
@@ -32,6 +33,12 @@ where
     T: Default,
 {
     backend::run(win, events, callback)
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum GraphicsContext {
+    None,
+    Gl,
 }
 
 #[derive(Debug, PartialEq, Eq)]

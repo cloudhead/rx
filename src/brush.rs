@@ -2,7 +2,7 @@ use crate::view::{ViewCoords, ViewExtent};
 
 use rgx::core::{Rect, Rgba8};
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use rgx::kit::{Origin, ZDepth};
+use rgx::kit::ZDepth;
 use rgx::math::{Point2, Vector2};
 
 use std::collections::BTreeSet;
@@ -49,6 +49,12 @@ impl fmt::Display for BrushMode {
             Self::XRay => "xray".fmt(f),
         }
     }
+}
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+pub enum Align {
+    Center,
+    BottomLeft,
 }
 
 /// Brush context.
@@ -207,7 +213,7 @@ impl Brush {
     }
 
     /// Return the brush's output strokes as shapes.
-    pub fn output(&self, stroke: Stroke, fill: Fill, scale: f32, origin: Origin) -> Vec<Shape> {
+    pub fn output(&self, stroke: Stroke, fill: Fill, scale: f32, align: Align) -> Vec<Shape> {
         match self.state {
             BrushState::DrawStarted(extent)
             | BrushState::Drawing(extent)
@@ -228,7 +234,7 @@ impl Brush {
                             stroke,
                             fill,
                             scale,
-                            origin,
+                            align,
                         )
                     })
                     .collect()
@@ -248,17 +254,16 @@ impl Brush {
         stroke: Stroke,
         fill: Fill,
         scale: f32,
-        origin: Origin,
+        align: Align,
     ) -> Shape {
         let x = p.x;
         let y = p.y;
 
         let size = self.size as f32;
 
-        let offset = match origin {
-            Origin::Center => size * scale / 2.,
-            Origin::BottomLeft => (self.size / 2) as f32 * scale,
-            Origin::TopLeft => unreachable!(),
+        let offset = match align {
+            Align::Center => size * scale / 2.,
+            Align::BottomLeft => (self.size / 2) as f32 * scale,
         };
 
         Shape::Rectangle(

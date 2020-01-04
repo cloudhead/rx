@@ -1,4 +1,6 @@
+#[cfg(not(feature = "compatibility"))]
 use rgx::core;
+
 use rgx::core::*;
 use rgx::kit::ZDepth;
 use rgx::math::{Matrix4, Vector2, Vector3};
@@ -10,10 +12,12 @@ pub struct Uniforms {
     scale: f32,
 }
 
+#[cfg(not(feature = "compatibility"))]
 pub fn context(ortho: Matrix4<f32>, scale: f32) -> Uniforms {
     Uniforms { ortho, scale }
 }
 
+#[cfg(not(feature = "compatibility"))]
 pub struct Pipeline {
     pipeline: core::Pipeline,
 
@@ -24,6 +28,7 @@ pub struct Pipeline {
     uniform_binding: core::BindingGroup,
 }
 
+#[cfg(not(feature = "compatibility"))]
 impl<'a> AbstractPipeline<'a> for Pipeline {
     type PrepareContext = self::Uniforms;
     type Uniforms = self::Uniforms;
@@ -93,6 +98,7 @@ impl<'a> AbstractPipeline<'a> for Pipeline {
     }
 }
 
+#[cfg(not(feature = "compatibility"))]
 impl Pipeline {
     pub fn set_cursor(&mut self, texture: &Texture, sampler: &Sampler, r: &Renderer) {
         self.cursor_binding = Some(
@@ -111,7 +117,7 @@ impl Pipeline {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-struct Vertex(Vector3<f32>, Vector2<f32>);
+pub struct Vertex(Vector3<f32>, Vector2<f32>);
 
 pub struct Sprite {
     w: u32,
@@ -147,6 +153,12 @@ impl Sprite {
         ]);
     }
 
+    #[cfg(feature = "compatibility")]
+    pub fn vertices(self) -> Vec<Vertex> {
+        self.buf
+    }
+
+    #[cfg(not(feature = "compatibility"))]
     pub fn finish(self, r: &Renderer) -> core::VertexBuffer {
         r.device.create_buffer(self.buf.as_slice())
     }
