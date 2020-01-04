@@ -245,6 +245,8 @@ impl Deref for Selection {
 pub enum Effect {
     /// When the session has been resized.
     SessionResized(LogicalSize),
+    /// When the session UI scale has changed.
+    SessionScaled(f64),
     /// When a view has been activated.
     ViewActivated(ViewId),
     /// When a view has been added.
@@ -1157,6 +1159,7 @@ impl Session {
                 // from the window coordinates. Currently, cursor position
                 // is stored only in `SessionCoords`, which would have
                 // to change.
+                self.rescale(old.float64(), new.float64());
             }
             _ => {}
         }
@@ -1764,14 +1767,26 @@ impl Session {
         }
     }
 
-    pub fn handle_resized(&mut self, size: platform::LogicalSize) {
-        self.width = size.width as f32;
-        self.height = size.height as f32;
+    pub fn resize(&mut self, size: platform::LogicalSize, scale: f64) {
+        let (w, h) = (size.width / scale, size.height / scale);
+
+        self.width = w as f32;
+        self.height = h as f32;
 
         // TODO: Reset session cursor coordinates
         self.center_palette();
         self.center_active_view();
+    }
 
+    pub fn rescale(&mut self, old: f64, new: f64) {
+        let (w, h) = (self.width as f64 * old, self.height as f64 * old);
+
+        self.resize(platform::LogicalSize::new(w, h), new);
+        self.effects.push(Effect::SessionScaled(new));
+    }
+
+    pub fn handle_resized(&mut self, size: platform::LogicalSize) {
+        self.resize(size, self.settings["scale"].float64());
         self.effects.push(Effect::SessionResized(size));
     }
 

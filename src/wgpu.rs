@@ -33,6 +33,8 @@ pub struct Renderer {
     present_mode: core::PresentMode,
     /// HiDPI scaling factor.
     hidpi_factor: f64,
+    /// UI scaling factor.
+    scale: f64,
     /// Window size.
     pub win_size: LogicalSize,
 
@@ -252,6 +254,7 @@ impl renderer::Renderer for Renderer {
             swap_chain,
             present_mode,
             hidpi_factor,
+            scale: 1.,
             win_size,
             font,
             cursors,
@@ -358,7 +361,10 @@ impl renderer::Renderer for Renderer {
             .get(&v.id)
             .expect("the view data for the active view must exist");
         let view_ortho = kit::ortho(v.width(), v.height());
-        let ortho = kit::ortho(self.win_size.width as u32, self.win_size.height as u32);
+        let ortho = kit::ortho(
+            self.screen_fb.width() as u32,
+            self.screen_fb.height() as u32,
+        );
         let scale: f32 = session.settings["scale"].clone().into();
 
         if (scale - self.cache.scale).abs() > std::f32::EPSILON {
@@ -542,6 +548,9 @@ impl Renderer {
             match eff {
                 Effect::SessionResized(size) => {
                     self.handle_resized(size);
+                }
+                Effect::SessionScaled(scale) => {
+                    self.handle_scaled(scale);
                 }
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
@@ -756,20 +765,25 @@ impl Renderer {
     }
 
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
-        let (w, h) = (size.width as u32, size.height as u32);
-
-        self.win_size = size;
-        self.screen_fb = self.r.framebuffer(w, h);
-        self.screen_binding = self
-            .screen2d
-            .binding(&self.r, &self.screen_fb, &self.sampler);
-
         let physical = size.to_physical(self.hidpi_factor);
+
         self.swap_chain = self.r.swap_chain(
             physical.width as u32,
             physical.height as u32,
             self.present_mode,
         );
+        self.win_size = size;
+        self.handle_scaled(self.scale);
+    }
+
+    pub fn handle_scaled(&mut self, scale: f64) {
+        let (fb_w, fb_h) = (self.win_size.width / scale, self.win_size.height / scale);
+
+        self.screen_fb = self.r.framebuffer(fb_w as u32, fb_h as u32);
+        self.screen_binding = self
+            .screen2d
+            .binding(&self.r, &self.screen_fb, &self.sampler);
+        self.scale = scale;
     }
 
     fn update_view_transforms<'a, I>(&mut self, views: I, offset: Vector2<f32>, f: &mut core::Frame)

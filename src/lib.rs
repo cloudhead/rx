@@ -43,7 +43,7 @@ mod util;
 use cmd::Value;
 use event::Event;
 use execution::{DigestMode, Execution, ExecutionMode, GifMode};
-use platform::{LogicalSize, WindowEvent, WindowHint};
+use platform::{WindowEvent, WindowHint};
 use renderer::Renderer;
 use resources::ResourceManager;
 use session::*;
@@ -183,12 +183,11 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
 
     renderer.init(session.effects(), &session.views);
 
-    let mut logical = win_size;
-
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();
     let mut session_events = Vec::with_capacity(16);
     let mut last = time::Instant::now();
+    let mut resized = false;
 
     let exit = platform::run(win, events, move |w, event| {
         // Don't process events while the window is minimized.
@@ -208,6 +207,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                     return platform::ControlFlow::Wait;
                 } else {
                     session.transition(State::Running);
+                    resized = true;
                 }
             }
             WindowEvent::CursorEntered { .. } => {
@@ -219,17 +219,11 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                 w.set_cursor_visible(true);
             }
             WindowEvent::Ready => {
-                let scale = session.settings["scale"].float64();
-                let renderer_size = LogicalSize::new(
-                    renderer.win_size.width * scale,
-                    renderer.win_size.height * scale,
-                );
-                logical = w.size();
-
-                if logical != renderer_size {
-                    self::resize(&mut session, logical);
+                if resized {
+                    session.handle_resized(w.size());
+                    resized = false;
                 } else {
-                    let input_delay: f64 = session.settings["input/delay"].float64();
+                    let input_delay: f64 = session.settings["input/delay"].clone().into();
                     std::thread::sleep(time::Duration::from_micros((input_delay * 1000.) as u64));
                 }
 
@@ -248,9 +242,6 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                     renderer.frame(&session, execution.clone(), effects, &avg);
                 });
 
-                if session.settings_changed.contains("scale") {
-                    self::resize(&mut session, logical);
-                }
                 if session.settings_changed.contains("vsync") {
                     renderer.update_present_mode(session.settings.present_mode());
                 }
@@ -307,10 +298,4 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         ExitReason::Normal => Ok(()),
         ExitReason::Error(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
     }
-}
-
-fn resize(session: &mut Session, size: platform::LogicalSize) {
-    let scale: f64 = session.settings["scale"].float64();
-    let logical_size = platform::LogicalSize::new(size.width / scale, size.height / scale);
-    session.handle_resized(logical_size);
 }

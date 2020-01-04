@@ -391,6 +391,15 @@ impl Into<f32> for Value {
     }
 }
 
+impl Into<f64> for Value {
+    fn into(self) -> f64 {
+        if let Value::F32(x) = self {
+            return x as f64;
+        }
+        panic!("expected {:?} to be a `f64`", self);
+    }
+}
+
 impl<'a> Parse<'a> for Value {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         let c = p.peek();
