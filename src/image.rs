@@ -1,4 +1,5 @@
 use png;
+use rgx::core::Rgba8;
 
 use std::fs::File;
 use std::io;
@@ -45,4 +46,22 @@ pub fn load<P: AsRef<Path>>(path: P) -> io::Result<(Vec<u8>, u32, u32)> {
     })?;
 
     Ok((buffer, width, height))
+}
+
+pub fn save<P: AsRef<Path>>(path: P, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
+    let f = File::create(path.as_ref())?;
+    let out = &mut io::BufWriter::new(f);
+    let mut encoder = png::Encoder::new(out, w, h);
+
+    encoder.set_color(png::ColorType::RGBA);
+    encoder.set_depth(png::BitDepth::Eight);
+
+    let (head, pixels, tail) = unsafe { pixels.align_to::<u8>() };
+    assert!(head.is_empty() && tail.is_empty());
+
+    let mut writer = encoder.write_header()?;
+
+    writer
+        .write_image_data(pixels)
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
 }

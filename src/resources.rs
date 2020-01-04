@@ -7,7 +7,6 @@ use rgx::core::{Bgra8, Rgba8};
 use rgx::rect::Rect;
 
 use gif::{self, SetParameter};
-use png;
 
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
@@ -212,25 +211,8 @@ impl ResourceManager {
         let (snapshot, pixels) = resources.get_snapshot_mut(id);
         let (w, h) = (snapshot.width(), snapshot.height());
 
-        let f = File::create(path.as_ref())?;
-        let out = &mut io::BufWriter::new(f);
-        let mut encoder = png::Encoder::new(out, w, h);
-
-        encoder.set_color(png::ColorType::RGBA);
-        encoder.set_depth(png::BitDepth::Eight);
-
         let pixels = pixels.clone().into_rgba8();
-
-        // Convert pixels from BGRA to RGBA, for writing to disk.
-        // TODO: Use `align_to`
-        // TODO: (perf) Can this be made faster?
-        let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for rgba in pixels.iter().cloned() {
-            image.extend_from_slice(&[rgba.r, rgba.g, rgba.b, rgba.a]);
-        }
-
-        let mut writer = encoder.write_header()?;
-        writer.write_image_data(&image)?;
+        image::save(path, w, h, &pixels)?;
 
         Ok((snapshot.id, (w * h) as usize))
     }
