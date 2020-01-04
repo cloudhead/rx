@@ -2,7 +2,7 @@ use crate::cursor2d;
 use crate::data;
 use crate::draw;
 use crate::execution::Execution;
-use crate::font::{Font, TextBatch};
+use crate::font::TextBatch;
 use crate::framebuffer2d;
 use crate::image;
 use crate::platform::{self, LogicalSize};
@@ -14,7 +14,7 @@ use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core::{self, Blending, Filter, Op, PassOp, Rgba};
 use rgx::kit::{self, shape2d, sprite2d};
-use rgx::kit::{Bgra8, Rgba8, ZDepth};
+use rgx::kit::{Bgra8, Origin, Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
 
@@ -103,6 +103,33 @@ struct Paste {
     texture: core::Texture,
     outputs: Vec<core::VertexBuffer>,
     ready: bool,
+}
+
+pub struct Font {
+    gw: f32,
+    gh: f32,
+
+    width: u32,
+    height: u32,
+
+    binding: core::BindingGroup,
+    texture: core::Texture,
+}
+
+impl Font {
+    pub fn new(texture: core::Texture, binding: core::BindingGroup, gw: f32, gh: f32) -> Font {
+        let width = texture.w;
+        let height = texture.h;
+
+        Font {
+            gw,
+            gh,
+            width,
+            height,
+            texture,
+            binding,
+        }
+    }
 }
 
 struct Checker {
@@ -309,8 +336,18 @@ impl renderer::Renderer for Renderer {
 
         let mut ctx = draw::DrawContext {
             ui_batch: shape2d::Batch::new(),
-            text_batch: TextBatch::new(&self.font),
-            overlay_batch: TextBatch::new(&self.font),
+            text_batch: TextBatch::new(
+                self.font.width,
+                self.font.height,
+                self.font.gw,
+                self.font.gh,
+            ),
+            overlay_batch: TextBatch::new(
+                self.font.width,
+                self.font.height,
+                self.font.gw,
+                self.font.gh,
+            ),
             cursor_sprite: cursor2d::Sprite::new(self.cursors.texture.w, self.cursors.texture.h),
             tool_batch: sprite2d::Batch::new(self.cursors.texture.w, self.cursors.texture.h),
             paste_batch: sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h),
@@ -360,10 +397,11 @@ impl renderer::Renderer for Renderer {
             .view_data
             .get(&v.id)
             .expect("the view data for the active view must exist");
-        let view_ortho = kit::ortho(v.width(), v.height());
+        let view_ortho = kit::ortho(v.width(), v.height(), Origin::TopLeft);
         let ortho = kit::ortho(
             self.screen_fb.width() as u32,
             self.screen_fb.height() as u32,
+            Origin::TopLeft,
         );
         let scale: f32 = session.settings["scale"].clone().into();
 
@@ -750,7 +788,12 @@ impl Renderer {
 
     fn render_help(&self, session: &Session, p: &mut core::Pass) {
         let mut win = shape2d::Batch::new();
-        let mut text = TextBatch::new(&self.font);
+        let mut text = TextBatch::new(
+            self.font.width,
+            self.font.height,
+            self.font.gw,
+            self.font.gh,
+        );
 
         draw::draw_help(session, &mut text, &mut win);
 

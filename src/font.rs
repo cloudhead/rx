@@ -1,50 +1,21 @@
+#[cfg(not(feature = "compatibility"))]
 use rgx::core as gfx;
+
 use rgx::core::Rect;
 use rgx::kit::sprite2d;
 use rgx::kit::{Repeat, Rgba8, ZDepth};
 
-pub struct Font {
-    gw: f32,
-    gh: f32,
-
-    width: f32,
-    height: f32,
-
-    pub binding: gfx::BindingGroup,
-    pub texture: gfx::Texture,
-}
-
-impl Font {
-    pub fn new(texture: gfx::Texture, binding: gfx::BindingGroup, gw: f32, gh: f32) -> Font {
-        let width = texture.w as f32;
-        let height = texture.h as f32;
-
-        Font {
-            gw,
-            gh,
-            width,
-            height,
-            texture,
-            binding,
-        }
-    }
-}
-
 pub struct TextBatch {
-    raw: sprite2d::Batch,
+    pub raw: sprite2d::Batch,
     gw: f32,
     gh: f32,
 }
 
 impl TextBatch {
-    pub fn new(f: &Font) -> Self {
-        let raw = sprite2d::Batch::new(f.width as u32, f.height as u32);
+    pub fn new(w: u32, h: u32, gw: f32, gh: f32) -> Self {
+        let raw = sprite2d::Batch::new(w, h);
 
-        Self {
-            raw,
-            gw: f.gw,
-            gh: f.gh,
-        }
+        Self { raw, gw, gh }
     }
 
     pub fn add(&mut self, text: &str, mut sx: f32, sy: f32, z: ZDepth, color: Rgba8) {
@@ -69,6 +40,7 @@ impl TextBatch {
         }
     }
 
+    #[cfg(not(feature = "compatibility"))]
     pub fn finish(self, r: &gfx::Renderer) -> gfx::VertexBuffer {
         self.raw.finish(r)
     }

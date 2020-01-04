@@ -1,9 +1,10 @@
 use crate::platform::{
-    ControlFlow, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition, LogicalSize,
-    ModifiersState, MouseButton, WindowEvent, WindowHint,
+    ControlFlow, GraphicsContext, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition,
+    LogicalSize, ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use glfw;
+use glfw::Context;
 
 use std::{io, sync};
 
@@ -14,6 +15,7 @@ pub fn init<T>(
     w: u32,
     h: u32,
     hints: &[WindowHint],
+    context: GraphicsContext,
 ) -> io::Result<(Window<T>, Events)> {
     let mut glfw =
         glfw::init(glfw::FAIL_ON_ERRORS).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
@@ -22,7 +24,20 @@ pub fn init<T>(
     glfw.window_hint(glfw::WindowHint::Visible(true));
     glfw.window_hint(glfw::WindowHint::Focused(true));
     glfw.window_hint(glfw::WindowHint::RefreshRate(None));
-    glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
+
+    match context {
+        GraphicsContext::None => {
+            glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
+        }
+        GraphicsContext::Gl => {
+            glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::OpenGl));
+            glfw.window_hint(glfw::WindowHint::ContextVersion(3, 3));
+            glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
+            glfw.window_hint(glfw::WindowHint::OpenGlProfile(
+                glfw::OpenGlProfileHint::Core,
+            ));
+        }
+    }
 
     for hint in hints {
         glfw.window_hint((*hint).into());
@@ -39,6 +54,7 @@ pub fn init<T>(
             handle: window,
             redraw_requested: false,
             exit_reason: None,
+            context,
         },
         Events {
             handle: events,
@@ -61,10 +77,12 @@ where
             win.send_event(event.into(), &mut callback, &mut glfw);
         }
         win.send_event(WindowEvent::Ready, &mut callback, &mut glfw);
+        win.swap_buffers();
 
         if win.redraw_requested {
             win.redraw_requested = false;
             win.send_event(WindowEvent::RedrawRequested, &mut callback, &mut glfw);
+            win.swap_buffers();
         }
     }
     callback(&mut win, WindowEvent::Destroyed);
@@ -81,6 +99,7 @@ pub struct Window<T> {
     pub handle: glfw::Window,
     redraw_requested: bool,
     exit_reason: Option<T>,
+    context: GraphicsContext,
 }
 
 impl<T> Window<T> {
@@ -90,6 +109,10 @@ impl<T> Window<T> {
 
     pub fn handle(&self) -> &glfw::Window {
         &self.handle
+    }
+
+    pub fn get_proc_address(&mut self, s: &str) -> *const std::ffi::c_void {
+        self.handle.get_proc_address(s)
     }
 
     pub fn set_cursor_visible(&mut self, visible: bool) {
@@ -112,6 +135,12 @@ impl<T> Window<T> {
     pub fn size(&self) -> LogicalSize {
         let (w, h) = self.handle.get_size();
         LogicalSize::new(w as f64, h as f64)
+    }
+
+    pub fn swap_buffers(&mut self) {
+        if self.context == GraphicsContext::Gl {
+            self.handle.swap_buffers();
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////

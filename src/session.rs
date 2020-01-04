@@ -13,7 +13,7 @@ use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
 use rgx::core::{Blending, PresentMode, Rect};
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use rgx::kit::{Origin, Rgba8, ZDepth};
+use rgx::kit::{Rgba8, ZDepth};
 use rgx::math::*;
 
 use directories as dirs;
@@ -998,7 +998,7 @@ impl Session {
                 Stroke::NONE,
                 Fill::Solid(brush.color.into()),
                 1.0,
-                Origin::BottomLeft,
+                Align::BottomLeft,
             );
             if !output.is_empty() {
                 match brush.state {

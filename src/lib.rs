@@ -25,17 +25,27 @@ mod data;
 mod draw;
 mod event;
 mod font;
-mod framebuffer2d;
 mod image;
 mod palette;
 mod parser;
 mod platform;
 mod renderer;
 mod resources;
-mod screen2d;
 mod timer;
 mod view;
-mod wgpu;
+
+#[cfg(feature = "compatibility")]
+#[path = "gl.rs"]
+mod gfx;
+
+#[cfg(not(feature = "compatibility"))]
+#[path = "wgpu.rs"]
+mod gfx;
+
+#[cfg(not(feature = "compatibility"))]
+mod framebuffer2d;
+#[cfg(not(feature = "compatibility"))]
+mod screen2d;
 
 #[macro_use]
 mod util;
@@ -97,11 +107,17 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
 
     debug!("options: {:?}", options);
 
+    let context = if cfg!(feature = "gl") {
+        platform::GraphicsContext::Gl
+    } else {
+        platform::GraphicsContext::None
+    };
+
     let hints = &[
         WindowHint::Resizable(options.resizable),
         WindowHint::Visible(!options.headless),
     ];
-    let (mut win, events) = platform::init("rx", options.width, options.height, hints)?;
+    let (mut win, events) = platform::init("rx", options.width, options.height, hints, context)?;
 
     let hidpi_factor = win.hidpi_factor();
     let win_size = win.size();
@@ -167,7 +183,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     let execution = Rc::new(RefCell::new(exec));
     let present_mode = session.settings.present_mode();
 
-    let mut renderer: wgpu::Renderer =
+    let mut renderer: gfx::Renderer =
         Renderer::new(&mut win, win_size, hidpi_factor, present_mode, resources)?;
 
     if let Err(e) = session.edit(paths) {
