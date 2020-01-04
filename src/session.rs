@@ -2141,16 +2141,19 @@ impl Session {
 
     /// Vertically the active view in the workspace.
     fn center_active_view_v(&mut self) {
-        let v = self.active_view();
-        self.offset.y = (self.height / 2. - v.height() as f32 / 2. * v.zoom - v.offset.y).floor();
-        self.cursor_dirty();
+        if let Some(v) = self.views.active() {
+            self.offset.y =
+                (self.height / 2. - v.height() as f32 / 2. * v.zoom - v.offset.y).floor();
+            self.cursor_dirty();
+        }
     }
 
     /// Horizontally center the active view in the workspace.
     fn center_active_view_h(&mut self) {
-        let v = self.active_view();
-        self.offset.x = (self.width / 2. - v.width() as f32 * v.zoom / 2. - v.offset.x).floor();
-        self.cursor_dirty();
+        if let Some(v) = self.views.active() {
+            self.offset.x = (self.width / 2. - v.width() as f32 * v.zoom / 2. - v.offset.x).floor();
+            self.cursor_dirty();
+        }
     }
 
     /// Center the active view in the workspace.
