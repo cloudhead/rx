@@ -743,11 +743,11 @@ impl Renderer {
         let win_buf = win.finish(&self.r);
         let text_buf = text.finish(&self.r);
 
-        p.set_pipeline(&self.sprite2d);
-        p.draw(&text_buf, &self.font.binding);
-
         p.set_pipeline(&self.shape2d);
         p.draw_buffer(&win_buf);
+
+        p.set_pipeline(&self.sprite2d);
+        p.draw(&text_buf, &self.font.binding);
     }
 
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
