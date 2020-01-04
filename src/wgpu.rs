@@ -591,10 +591,10 @@ impl Renderer {
             // We don't want the lock to be held when `submit` is called below,
             // because in some cases it'll trigger the read-back which claims
             // a write lock on resources.
-            let (sw, sh, pixels) = {
+            let (sw, sh) = {
                 let resources = self.resources.lock();
-                let (snapshot, pixels) = resources.get_snapshot(v.id);
-                (snapshot.width(), snapshot.height(), pixels.to_owned())
+                let (snapshot, _) = resources.get_snapshot(v.id);
+                (snapshot.width(), snapshot.height())
             };
 
             // Ensure not to transfer more data than can fit
@@ -602,14 +602,19 @@ impl Renderer {
             let tw = u32::min(sw, vw);
             let th = u32::min(sh, vh);
 
+            let texels = self
+                .resources
+                .lock()
+                .get_snapshot_rect(v.id, &Rect::origin(tw as i32, th as i32));
+
             self.r.submit(&[
                 Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
                 Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
                 Op::Transfer(
                     &view_data.fb,
-                    &pixels.into_bgra8(),
-                    sw, // Source width
-                    sh, // Source height
+                    &Pixels::Rgba(texels.into()).into_bgra8(),
+                    tw, // Source width
+                    th, // Source height
                     Rect::origin(tw as i32, th as i32),
                 ),
             ]);
