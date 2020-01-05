@@ -22,7 +22,7 @@ pub enum Op {
 /// User command. Most of the interactions available to
 /// the user are modeled as commands that are processed
 /// by the session.
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Command {
     Brush,
     BrushSet(BrushMode),
@@ -225,7 +225,7 @@ impl From<Command> for String {
     }
 }
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum Key {
     Virtual(platform::Key),
 }
@@ -279,7 +279,7 @@ impl<'a> Parse<'a> for Key {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct KeyMapping {
     pub key: Key,
     pub press: Command,

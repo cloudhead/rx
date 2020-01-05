@@ -58,7 +58,7 @@ pub enum Align {
 }
 
 /// Brush context.
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Brush {
     /// Brush size in pixels.
     pub size: usize,

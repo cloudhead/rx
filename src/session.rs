@@ -294,7 +294,7 @@ pub enum State {
 }
 
 /// An editing tool.
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Tool {
     /// The standard drawing tool.
     Brush(Brush),
@@ -310,7 +310,7 @@ impl Default for Tool {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum PanState {
     Panning,
     NotPanning,
@@ -441,7 +441,7 @@ impl MessageType {
 type Error = String;
 
 /// A key binding.
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct KeyBinding {
     /// The `Mode`s this binding applies to.
     pub modes: Vec<Mode>,
@@ -458,6 +458,15 @@ pub struct KeyBinding {
     /// How this key binding should be displayed to the user.
     /// If `None`, then this binding shouldn't be shown to the user.
     pub display: Option<String>,
+}
+
+impl KeyBinding {
+    fn is_match(&self, key: Key, state: InputState, modifiers: ModifiersState, mode: Mode) -> bool {
+        self.key == key
+            && self.state == state
+            && self.modes.contains(&mode)
+            && (self.modifiers == modifiers || state == InputState::Released)
+    }
 }
 
 /// Manages a list of key bindings.
@@ -526,9 +535,22 @@ impl Default for KeyBindings {
 }
 
 impl KeyBindings {
+    /// Create an empty set of key bindings.
+    pub fn new() -> Self {
+        Self { elems: Vec::new() }
+    }
+
     /// Add a key binding.
     pub fn add(&mut self, binding: KeyBinding) {
+        for mode in binding.modes.iter() {
+            self.elems
+                .retain(|kb| !kb.is_match(binding.key, binding.state, binding.modifiers, *mode));
+        }
         self.elems.push(binding);
+    }
+
+    pub fn len(&self) -> usize {
+        self.elems.len()
     }
 
     /// Find a key binding based on some input state.
@@ -539,12 +561,11 @@ impl KeyBindings {
         state: InputState,
         mode: Mode,
     ) -> Option<KeyBinding> {
-        self.elems.iter().rev().cloned().find(|kb| {
-            kb.key == key
-                && kb.state == state
-                && kb.modes.contains(&mode)
-                && (kb.modifiers == modifiers || state == InputState::Released)
-        })
+        self.elems
+            .iter()
+            .rev()
+            .cloned()
+            .find(|kb| kb.is_match(key, state, modifiers, mode))
     }
 
     /// Iterate over all key bindings.
@@ -2824,5 +2845,53 @@ impl Session {
         if let Some(color) = self.hover_color {
             self.pick_color(color);
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_key_bindings() {
+        use super::*;
+
+        let mut kbs = KeyBindings::new();
+        let state = InputState::Pressed;
+        let modifiers = Default::default();
+
+        let kb1 = KeyBinding {
+            modes: vec![Mode::Normal],
+            key: Key::Virtual(platform::Key::A),
+            command: Command::Noop,
+            is_toggle: false,
+            display: None,
+            modifiers,
+            state,
+        };
+        let kb2 = KeyBinding {
+            modes: vec![Mode::Command],
+            ..kb1.clone()
+        };
+
+        kbs.add(kb1.clone());
+        kbs.add(kb2.clone());
+
+        assert_eq!(
+            kbs.len(),
+            2,
+            "identical bindings for different modes can co-exist"
+        );
+
+        let kb3 = KeyBinding {
+            command: Command::Quit,
+            ..kb2.clone()
+        };
+        kbs.add(kb3.clone());
+
+        assert_eq!(kbs.len(), 2, "bindings can be overwritten");
+        assert_eq!(
+            kbs.find(kb2.key, kb2.modifiers, kb2.state, kb2.modes[0]),
+            Some(kb3),
+            "bindings can be overwritten"
+        );
     }
 }
