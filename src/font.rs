@@ -1,6 +1,3 @@
-#[cfg(not(feature = "compatibility"))]
-use rgx::core as gfx;
-
 use rgx::core::Rect;
 use rgx::kit::sprite2d;
 use rgx::kit::{Repeat, Rgba8, ZDepth};
@@ -41,7 +38,7 @@ impl TextBatch {
     }
 
     #[cfg(not(feature = "compatibility"))]
-    pub fn finish(self, r: &gfx::Renderer) -> gfx::VertexBuffer {
+    pub fn finish(self, r: &rgx::core::Renderer) -> rgx::core::VertexBuffer {
         self.raw.finish(r)
     }
 
