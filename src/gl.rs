@@ -18,6 +18,7 @@ use luminance::blending::{Equation, Factor};
 use luminance::context::GraphicsContext;
 use luminance::depth_test::DepthComparison;
 use luminance::framebuffer::Framebuffer;
+use luminance::linear;
 use luminance::pipeline::{BoundTexture, Builder, PipelineState};
 use luminance::pixel;
 use luminance::render_state::RenderState;
@@ -85,8 +86,8 @@ struct Sprite2dVertex {
 
 #[derive(UniformInterface)]
 struct Shape2dInterface {
-    ortho: Uniform<[[f32; 4]; 4]>,
-    transform: Uniform<[[f32; 4]; 4]>,
+    ortho: Uniform<linear::M44>,
+    transform: Uniform<linear::M44>,
 }
 
 #[derive(Vertex)]
@@ -203,8 +204,7 @@ impl ViewData {
             .unwrap();
 
         if let Some(pixels) = pixels {
-            let (head, aligned, tail) = unsafe { pixels.align_to::<u8>() };
-            assert!(head.is_empty() && tail.is_empty());
+            let aligned = self::align_u8(pixels);
             fb.color_slot().upload_raw(GenMipmaps::No, aligned).unwrap();
         }
 
@@ -367,17 +367,22 @@ impl renderer::Renderer for Renderer {
             }
         }
 
-        let ortho = kit::ortho(
-            self.screen_fb.width(),
-            self.screen_fb.height(),
-            Origin::TopLeft,
-        );
-        let ortho_flip = kit::ortho(
-            self.screen_fb.width(),
-            self.screen_fb.height(),
-            Origin::BottomLeft,
-        );
+        let ortho: linear::M44 = unsafe {
+            mem::transmute(kit::ortho(
+                self.screen_fb.width(),
+                self.screen_fb.height(),
+                Origin::TopLeft,
+            ))
+        };
+        let ortho_flip: linear::M44 = unsafe {
+            mem::transmute(kit::ortho(
+                self.screen_fb.width(),
+                self.screen_fb.height(),
+                Origin::BottomLeft,
+            ))
+        };
         let identity: Matrix4<f32> = Matrix4::identity();
+        let identity: linear::M44 = unsafe { mem::transmute(identity) };
 
         let Self {
             draw_ctx,
@@ -468,7 +473,8 @@ impl renderer::Renderer for Renderer {
 
         let v = session.active_view();
         let v_data = view_data.get(&v.id).unwrap();
-        let view_ortho = kit::ortho(v.width(), v.height(), Origin::TopLeft);
+        let view_ortho: linear::M44 =
+            unsafe { mem::transmute(kit::ortho(v.width(), v.height(), Origin::TopLeft)) };
 
         let mut builder = self.ctx.pipeline_builder();
 
@@ -480,8 +486,8 @@ impl renderer::Renderer for Renderer {
                 // Render staged brush strokes.
                 if let Some(tess) = staging_tess {
                     shd_gate.shade(&shape2d, |iface, mut rdr_gate| {
-                        iface.ortho.update(unsafe { mem::transmute(view_ortho) });
-                        iface.transform.update(unsafe { mem::transmute(identity) });
+                        iface.ortho.update(view_ortho);
+                        iface.transform.update(identity);
 
                         rdr_gate.render(render_st, |mut tess_gate| {
                             tess_gate.render(&tess);
@@ -493,8 +499,8 @@ impl renderer::Renderer for Renderer {
                     if paste_ready {
                         let bound_paste = pipeline.bind_texture(paste);
                         shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                            iface.ortho.update(unsafe { mem::transmute(view_ortho) });
-                            iface.transform.update(unsafe { mem::transmute(identity) });
+                            iface.ortho.update(view_ortho);
+                            iface.transform.update(identity);
                             iface.tex.update(&bound_paste);
 
                             rdr_gate.render(render_st, |mut tess_gate| {
@@ -518,8 +524,8 @@ impl renderer::Renderer for Renderer {
                 // Render final brush strokes.
                 if let Some(tess) = final_tess {
                     shd_gate.shade(&shape2d, |iface, mut rdr_gate| {
-                        iface.ortho.update(unsafe { mem::transmute(view_ortho) });
-                        iface.transform.update(unsafe { mem::transmute(identity) });
+                        iface.ortho.update(view_ortho);
+                        iface.transform.update(identity);
 
                         let render_st = if blending == &Blending::constant() {
                             render_st.clone().set_blending((
@@ -538,8 +544,8 @@ impl renderer::Renderer for Renderer {
                 }
                 if !paste_outputs.is_empty() {
                     shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                        iface.ortho.update(unsafe { mem::transmute(view_ortho) });
-                        iface.transform.update(unsafe { mem::transmute(identity) });
+                        iface.ortho.update(view_ortho);
+                        iface.transform.update(identity);
                         iface.tex.update(&bound_paste);
 
                         for out in paste_outputs.drain(..) {
@@ -577,7 +583,7 @@ impl renderer::Renderer for Renderer {
                     // Render views.
                     shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
                         iface.tex.update(&bound_view);
-                        iface.ortho.update(unsafe { mem::transmute(ortho) });
+                        iface.ortho.update(ortho);
                         iface.transform.update(unsafe { mem::transmute(transform) });
 
                         rdr_gate.render(render_st, |mut tess_gate| {
@@ -594,8 +600,8 @@ impl renderer::Renderer for Renderer {
 
             // Render UI.
             shd_gate.shade(&shape2d, |iface, mut rdr_gate| {
-                iface.ortho.update(unsafe { mem::transmute(ortho) });
-                iface.transform.update(unsafe { mem::transmute(identity) });
+                iface.ortho.update(ortho);
+                iface.transform.update(identity);
 
                 rdr_gate.render(render_st, |mut tess_gate| {
                     tess_gate.render(&ui_tess);
@@ -608,8 +614,8 @@ impl renderer::Renderer for Renderer {
                     let bound_font = pipeline.bind_texture(font);
 
                     iface.tex.update(&bound_font);
-                    iface.ortho.update(unsafe { mem::transmute(ortho) });
-                    iface.transform.update(unsafe { mem::transmute(identity) });
+                    iface.ortho.update(ortho);
+                    iface.transform.update(identity);
 
                     // Render text.
                     rdr_gate.render(render_st, |mut tess_gate| {
@@ -620,7 +626,7 @@ impl renderer::Renderer for Renderer {
                     let bound_tool = pipeline.bind_texture(cursors);
                     iface.tex.update(&bound_tool);
 
-                    // Render text.
+                    // Render tool.
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&tool_tess);
                     });
@@ -656,8 +662,8 @@ impl renderer::Renderer for Renderer {
                     let bound_font = pipeline.bind_texture(font);
 
                     iface.tex.update(&bound_font);
-                    iface.ortho.update(unsafe { mem::transmute(ortho) });
-                    iface.transform.update(unsafe { mem::transmute(identity) });
+                    iface.ortho.update(ortho);
+                    iface.transform.update(identity);
 
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&text_tess);
@@ -683,7 +689,7 @@ impl renderer::Renderer for Renderer {
 
                 shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
                     iface.tex.update(&bound_font);
-                    iface.ortho.update(unsafe { mem::transmute(ortho_flip) });
+                    iface.ortho.update(ortho_flip);
 
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&overlay_tess);
@@ -696,7 +702,7 @@ impl renderer::Renderer for Renderer {
             shd_gate.shade(&cursor2d, |iface, mut rdr_gate| {
                 iface.cursor.update(&bound_cursors);
                 iface.framebuffer.update(&bound_screen);
-                iface.ortho.update(unsafe { mem::transmute(ortho) });
+                iface.ortho.update(ortho);
                 iface.scale.update(session.settings["scale"].clone().into());
 
                 rdr_gate.render(render_st, |mut tess_gate| {
@@ -813,9 +819,7 @@ impl Renderer {
                         .resources
                         .lock()
                         .get_snapshot_rect(v.id, &src.map(|n| n as i32));
-
-                    let (head, texels, tail) = unsafe { texels.align_to::<u8>() };
-                    assert!(head.is_empty() && tail.is_empty());
+                    let texels = self::align_u8(&texels);
 
                     fb.color_slot()
                         .upload_part_raw(
@@ -838,8 +842,7 @@ impl Renderer {
                             Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
                                 .unwrap();
                     }
-                    let (head, body, tail) = unsafe { pixels.align_to::<u8>() };
-                    assert!(head.is_empty() && tail.is_empty());
+                    let body = self::align_u8(&pixels);
 
                     self.paste.upload_raw(GenMipmaps::No, body).unwrap();
                 }
@@ -893,9 +896,7 @@ impl Renderer {
                 .resources
                 .lock()
                 .get_snapshot_rect(v.id, &Rect::origin(tw as i32, th as i32));
-
-            let (head, texels, tail) = unsafe { texels.align_to::<u8>() };
-            assert!(head.is_empty() && tail.is_empty());
+            let texels = self::align_u8(&texels);
 
             view_data
                 .fb
@@ -979,4 +980,13 @@ where
 
 fn text_batch([w, h]: [u32; 2]) -> TextBatch {
     TextBatch::new(w, h, draw::GLYPH_WIDTH, draw::GLYPH_HEIGHT)
+}
+
+fn align_u8<T>(data: &[T]) -> &[u8] {
+    let (head, body, tail) = unsafe { data.align_to::<u8>() };
+
+    assert!(head.is_empty());
+    assert!(tail.is_empty());
+
+    body
 }
