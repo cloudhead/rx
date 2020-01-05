@@ -65,6 +65,9 @@ scale             1.0..4.0           UI scale
 animation         on/off             View animation toggle
 animation/delay   1..1000            View animation delay (ms)
 background        #000000..#ffffff   Set background appearance to <color>, eg. #ff0011
+grid              on/off             Grid display
+grid/color        #000000..#ffffff   Grid color
+grid/spacing      <x> <y>            Grid spacing
 "#;
 
 /// An RGB 8-bit color. Used when the alpha value isn't used.

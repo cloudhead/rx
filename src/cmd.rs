@@ -171,6 +171,7 @@ impl fmt::Display for Command {
             Self::SelectionJump(Direction::Backward) => {
                 write!(f, "Move selection backward by one frame")
             }
+            Self::SelectionErase => write!(f, "Erase selection contents"),
             _ => write!(f, "..."),
         }
     }
