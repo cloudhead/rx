@@ -31,6 +31,7 @@ pub enum Command {
     BrushUnset(BrushMode),
     #[allow(dead_code)]
     Crop(Rect<u32>),
+    ChangeDir(String),
     Echo(Value),
     Edit(Vec<String>),
     Fill(Rgba8),
@@ -108,6 +109,7 @@ impl fmt::Display for Command {
             Self::BrushSize(Op::Set(s)) => write!(f, "Set brush size to {}", s),
             Self::BrushUnset(m) => write!(f, "Unset brush `{}` mode", m),
             Self::Crop(_) => write!(f, "Crop view"),
+            Self::ChangeDir(_) => write!(f, "Change the current working directory"),
             Self::Echo(_) => write!(f, "Echo a value"),
             Self::Edit(_) => write!(f, "Edit path(s)"),
             Self::Fill(c) => write!(f, "Fill view with {color}", color = c),
@@ -596,6 +598,10 @@ impl<'a> Parse<'a> for Command {
             "source" => {
                 let (path, p) = p.path()?;
                 Ok((Command::Source(path), p))
+            }
+            "cd" => {
+                let (path, p) = p.path()?;
+                Ok((Command::ChangeDir(path), p))
             }
             "zoom" => {
                 if let Ok((_, p)) = p.clone().sigil('+') {

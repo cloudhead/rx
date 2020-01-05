@@ -2582,6 +2582,10 @@ impl Session {
             Command::Noop => {
                 // Nothing happening!
             }
+            Command::ChangeDir(ref path) => match std::env::set_current_dir(path) {
+                Ok(()) => {}
+                Err(e) => self.message(format!("Error: {}: {}", e, path), MessageType::Error),
+            },
             Command::Source(ref path) => {
                 if let Err(ref e) = self.source_path(path) {
                     self.message(
