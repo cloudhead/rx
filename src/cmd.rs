@@ -221,7 +221,6 @@ impl From<Command> for String {
             Command::Zoom(Op::Set(z)) => format!("v/zoom {}", z),
             _ => unimplemented!(),
         }
-        .to_string()
     }
 }
 

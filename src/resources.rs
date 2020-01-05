@@ -58,26 +58,14 @@ impl Pixels {
 
     pub fn into_rgba8(self) -> Vec<Rgba8> {
         match self {
-            Self::Bgra(buf) => {
-                let mut pixels: Vec<Rgba8> = Vec::with_capacity(buf.len());
-                for c in buf.into_iter() {
-                    pixels.push((*c).into());
-                }
-                pixels
-            }
+            Self::Bgra(buf) => buf.iter().cloned().map(Bgra8::into).collect::<Vec<_>>(),
             Self::Rgba(buf) => buf.into(),
         }
     }
 
     pub fn into_bgra8(self) -> Vec<Bgra8> {
         match self {
-            Self::Rgba(buf) => {
-                let mut pixels: Vec<Bgra8> = Vec::with_capacity(buf.len());
-                for c in buf.into_iter() {
-                    pixels.push((*c).into());
-                }
-                pixels
-            }
+            Self::Rgba(buf) => buf.iter().cloned().map(Bgra8::from).collect::<Vec<_>>(),
             Self::Bgra(buf) => buf.into(),
         }
     }
@@ -406,7 +394,7 @@ impl ViewResources {
         }
         if let Some(snapshot) = self.snapshots.get(self.snapshot - 1) {
             self.snapshot -= 1;
-            self.pixels = snapshot.pixels().into();
+            self.pixels = snapshot.pixels();
 
             Some(snapshot)
         } else {
@@ -417,7 +405,7 @@ impl ViewResources {
     pub fn next_snapshot(&mut self) -> Option<&Snapshot> {
         if let Some(snapshot) = self.snapshots.get(self.snapshot + 1) {
             self.snapshot += 1;
-            self.pixels = snapshot.pixels().into();
+            self.pixels = snapshot.pixels();
 
             Some(snapshot)
         } else {
