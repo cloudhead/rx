@@ -105,7 +105,7 @@ mod checker {
     }
 }
 
-pub struct DrawContext {
+pub struct Context {
     pub ui_batch: shape2d::Batch,
     pub text_batch: TextBatch,
     pub overlay_batch: TextBatch,
@@ -115,7 +115,7 @@ pub struct DrawContext {
     pub checker_batch: sprite2d::Batch,
 }
 
-impl DrawContext {
+impl Context {
     pub fn draw(
         &mut self,
         session: &Session,
@@ -130,6 +130,16 @@ impl DrawContext {
         self::draw_palette(&session, &mut self.ui_batch);
         self::draw_cursor(&session, &mut self.cursor_sprite, &mut self.tool_batch);
         self::draw_checker(&session, &mut self.checker_batch);
+    }
+
+    pub fn clear(&mut self) {
+        self.ui_batch.clear();
+        self.text_batch.clear();
+        self.overlay_batch.clear();
+        self.cursor_sprite.clear();
+        self.tool_batch.clear();
+        self.paste_batch.clear();
+        self.checker_batch.clear();
     }
 }
 

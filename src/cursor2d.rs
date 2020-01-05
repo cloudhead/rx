@@ -154,12 +154,16 @@ impl Sprite {
     }
 
     #[cfg(feature = "compatibility")]
-    pub fn vertices(self) -> Vec<Vertex> {
-        self.buf
+    pub fn vertices(&self) -> Vec<Vertex> {
+        self.buf.clone()
     }
 
     #[cfg(not(feature = "compatibility"))]
     pub fn finish(self, r: &Renderer) -> core::VertexBuffer {
         r.device.create_buffer(self.buf.as_slice())
+    }
+
+    pub fn clear(&mut self) {
+        self.buf.clear();
     }
 }

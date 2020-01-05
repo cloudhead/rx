@@ -6,7 +6,7 @@ use rgx::kit::sprite2d;
 use rgx::kit::{Repeat, Rgba8, ZDepth};
 
 pub struct TextBatch {
-    pub raw: sprite2d::Batch,
+    raw: sprite2d::Batch,
     gw: f32,
     gh: f32,
 }
@@ -43,5 +43,14 @@ impl TextBatch {
     #[cfg(not(feature = "compatibility"))]
     pub fn finish(self, r: &gfx::Renderer) -> gfx::VertexBuffer {
         self.raw.finish(r)
+    }
+
+    #[cfg(feature = "compatibility")]
+    pub fn vertices(&self) -> Vec<sprite2d::Vertex> {
+        self.raw.vertices()
+    }
+
+    pub fn clear(&mut self) {
+        self.raw.clear()
     }
 }

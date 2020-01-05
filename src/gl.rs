@@ -130,6 +130,7 @@ pub struct Renderer {
     pub win_size: LogicalSize,
 
     ctx: Context,
+    draw_ctx: draw::Context,
     hidpi_factor: f64,
     scale: f64,
     _present_mode: PresentMode,
@@ -247,11 +248,13 @@ impl renderer::Renderer for Renderer {
 
         let (font_img, font_w, font_h) = image::decode(data::GLYPHS)?;
         let (cursors_img, cursors_w, cursors_h) = image::decode(data::CURSORS)?;
+        let (checker_w, checker_h) = (2, 2);
+        let (paste_w, paste_h) = (8, 8);
 
         let font = Texture::new(&mut ctx, [font_w, font_h], 0, self::SAMPLER).unwrap();
         let cursors = Texture::new(&mut ctx, [cursors_w, cursors_h], 0, self::SAMPLER).unwrap();
-        let paste = Texture::new(&mut ctx, [8, 8], 0, self::SAMPLER).unwrap();
-        let checker = Texture::new(&mut ctx, [2, 2], 0, self::SAMPLER).unwrap();
+        let paste = Texture::new(&mut ctx, [paste_w, paste_h], 0, self::SAMPLER).unwrap();
+        let checker = Texture::new(&mut ctx, [checker_w, checker_h], 0, self::SAMPLER).unwrap();
 
         font.upload_raw(GenMipmaps::No, &font_img).unwrap();
         cursors.upload_raw(GenMipmaps::No, &cursors_img).unwrap();
@@ -298,8 +301,19 @@ impl renderer::Renderer for Renderer {
             .enable_clear_depth(true)
             .enable_clear_color(true);
 
+        let draw_ctx = draw::Context {
+            ui_batch: shape2d::Batch::new(),
+            text_batch: self::text_batch(font.size()),
+            overlay_batch: self::text_batch(font.size()),
+            cursor_sprite: cursor2d::Sprite::new(cursors_w, cursors_h),
+            tool_batch: sprite2d::Batch::new(cursors_w, cursors_h),
+            paste_batch: sprite2d::Batch::new(paste_w, paste_h),
+            checker_batch: sprite2d::Batch::new(checker_w, checker_h),
+        };
+
         Ok(Renderer {
             ctx,
+            draw_ctx,
             win_size,
             hidpi_factor,
             scale: 1.0,
@@ -346,6 +360,13 @@ impl renderer::Renderer for Renderer {
         self.handle_effects(effects, &session.views);
         self.update_view_animations(session);
 
+        // Handle view operations.
+        for v in session.views.values() {
+            if !v.ops.is_empty() {
+                self.handle_view_ops(&v);
+            }
+        }
+
         let ortho = kit::ortho(
             self.screen_fb.width(),
             self.screen_fb.height(),
@@ -358,75 +379,47 @@ impl renderer::Renderer for Renderer {
         );
         let identity: Matrix4<f32> = Matrix4::identity();
 
-        let mut ctx = draw::DrawContext {
-            ui_batch: shape2d::Batch::new(),
-            text_batch: TextBatch::new(
-                self.font.size()[0],
-                self.font.size()[1],
-                draw::GLYPH_WIDTH,
-                draw::GLYPH_HEIGHT,
-            ),
-            overlay_batch: TextBatch::new(
-                self.font.size()[0],
-                self.font.size()[1],
-                draw::GLYPH_WIDTH,
-                draw::GLYPH_HEIGHT,
-            ),
-            cursor_sprite: cursor2d::Sprite::new(self.cursors.size()[0], self.cursors.size()[1]),
-            tool_batch: sprite2d::Batch::new(self.cursors.size()[0], self.cursors.size()[1]),
-            paste_batch: sprite2d::Batch::new(self.paste.size()[0], self.paste.size()[1]),
-            checker_batch: sprite2d::Batch::new(self.checker.size()[0], self.checker.size()[1]),
-        };
+        let Self {
+            draw_ctx,
+            font,
+            cursors,
+            checker,
+            sprite2d,
+            shape2d,
+            cursor2d,
+            screen2d,
+            present_fb,
+            blending,
+            screen_fb,
+            render_st,
+            pipeline_st,
+            paste,
+            paste_outputs,
+            mut paste_ready,
+            view_data,
+            ..
+        } = self;
 
-        // Handle view operations.
-        for v in session.views.values() {
-            if !v.ops.is_empty() {
-                self.handle_view_ops(&v);
-            }
-        }
+        draw_ctx.clear();
+        draw_ctx.draw(&session, avg_frametime, execution.clone());
 
-        let font = &self.font;
-        let cursors = &self.cursors;
-        let checker = &self.checker;
-        let sprite2d = &self.sprite2d;
-        let shape2d = &self.shape2d;
-        let cursor2d = &self.cursor2d;
-        let screen2d = &self.screen2d;
-        let present_fb = &self.present_fb;
-        let blending = &self.blending;
-        let screen_fb = &self.screen_fb;
-        let render_st = &self.render_st;
-        let pipeline_st = self.pipeline_st.clone();
-        let paste = &self.paste;
-        let paste_outputs = &mut self.paste_outputs;
-        let mut paste_ready = self.paste_ready;
-        let view_data = &mut self.view_data;
-
-        ctx.draw(&session, avg_frametime, execution.clone());
-
-        let text_tess = self::tessellation::<_, Sprite2dVertex>(
-            &mut self.ctx,
-            ctx.text_batch.raw.vertices().as_slice(),
-        );
+        let text_tess =
+            self::tessellation::<_, Sprite2dVertex>(&mut self.ctx, &draw_ctx.text_batch.vertices());
         let overlay_tess = self::tessellation::<_, Sprite2dVertex>(
             &mut self.ctx,
-            ctx.overlay_batch.raw.vertices().as_slice(),
+            &draw_ctx.overlay_batch.vertices(),
         );
-        let ui_tess = self::tessellation::<_, Shape2dVertex>(
-            &mut self.ctx,
-            ctx.ui_batch.vertices().as_slice(),
-        );
-        let tool_tess = self::tessellation::<_, Sprite2dVertex>(
-            &mut self.ctx,
-            ctx.tool_batch.vertices().as_slice(),
-        );
+        let ui_tess =
+            self::tessellation::<_, Shape2dVertex>(&mut self.ctx, &draw_ctx.ui_batch.vertices());
+        let tool_tess =
+            self::tessellation::<_, Sprite2dVertex>(&mut self.ctx, &draw_ctx.tool_batch.vertices());
         let cursor_tess = self::tessellation::<_, Cursor2dVertex>(
             &mut self.ctx,
-            ctx.cursor_sprite.vertices().as_slice(),
+            &draw_ctx.cursor_sprite.vertices(),
         );
         let checker_tess = self::tessellation::<_, Sprite2dVertex>(
             &mut self.ctx,
-            ctx.checker_batch.vertices().as_slice(),
+            &draw_ctx.checker_batch.vertices(),
         );
         let screen_tess = TessBuilder::new(&mut self.ctx)
             .set_vertex_nb(6)
@@ -434,12 +427,12 @@ impl renderer::Renderer for Renderer {
             .build()
             .unwrap();
 
-        let paste_tess = if ctx.paste_batch.is_empty() {
+        let paste_tess = if draw_ctx.paste_batch.is_empty() {
             None
         } else {
             Some(self::tessellation::<_, Sprite2dVertex>(
                 &mut self.ctx,
-                ctx.paste_batch.vertices().as_slice(),
+                &draw_ctx.paste_batch.vertices(),
             ))
         };
         let staging_tess = if self.staging_batch.is_empty() {
@@ -447,7 +440,7 @@ impl renderer::Renderer for Renderer {
         } else {
             Some(self::tessellation::<_, Shape2dVertex>(
                 &mut self.ctx,
-                self.staging_batch.vertices().as_slice(),
+                &self.staging_batch.vertices(),
             ))
         };
         let final_tess = if self.final_batch.is_empty() {
@@ -455,26 +448,19 @@ impl renderer::Renderer for Renderer {
         } else {
             Some(self::tessellation::<_, Shape2dVertex>(
                 &mut self.ctx,
-                self.final_batch.vertices().as_slice(),
+                &self.final_batch.vertices(),
             ))
         };
 
         let help_tess = if session.mode == session::Mode::Help {
             let mut win = shape2d::Batch::new();
-            let mut text = TextBatch::new(
-                font.size()[0],
-                font.size()[1],
-                draw::GLYPH_WIDTH,
-                draw::GLYPH_HEIGHT,
-            );
+            let mut text = self::text_batch(font.size());
             draw::draw_help(session, &mut text, &mut win);
 
             let win_tess =
                 self::tessellation::<_, Shape2dVertex>(&mut self.ctx, win.vertices().as_slice());
-            let text_tess = self::tessellation::<_, Sprite2dVertex>(
-                &mut self.ctx,
-                text.raw.vertices().as_slice(),
-            );
+            let text_tess =
+                self::tessellation::<_, Sprite2dVertex>(&mut self.ctx, text.vertices().as_slice());
             Some((win_tess, text_tess))
         } else {
             None
@@ -989,4 +975,8 @@ where
     Program::<VertexSemantics, (), T>::from_strings(None, vert, None, frag)
         .unwrap()
         .ignore_warnings()
+}
+
+fn text_batch([w, h]: [u32; 2]) -> TextBatch {
+    TextBatch::new(w, h, draw::GLYPH_WIDTH, draw::GLYPH_HEIGHT)
 }
