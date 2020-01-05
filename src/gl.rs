@@ -229,6 +229,7 @@ enum RendererError {
     InitializationError,
     TextureError(luminance::texture::TextureError),
     FramebufferError(luminance::framebuffer::FramebufferError),
+    StateError(luminance::state::StateQueryError),
 }
 
 impl From<RendererError> for io::Error {
@@ -243,6 +244,7 @@ impl fmt::Display for RendererError {
             Self::InitializationError => write!(f, "initialization error"),
             Self::TextureError(e) => write!(f, "texture error: {}", e),
             Self::FramebufferError(e) => write!(f, "framebuffer error: {}", e),
+            Self::StateError(e) => write!(f, "state error: {}", e),
         }
     }
 }
@@ -271,7 +273,7 @@ impl renderer::Renderer for Renderer {
 
         gl::load_with(|s| win.get_proc_address(s) as *const _);
 
-        let gs = GraphicsState::new().unwrap();
+        let gs = GraphicsState::new().map_err(Error::StateError)?;
         let mut ctx = Context {
             gs: Rc::new(RefCell::new(gs)),
         };
