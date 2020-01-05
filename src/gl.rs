@@ -70,16 +70,13 @@ pub enum VertexSemantics {
 
 #[derive(Vertex)]
 #[vertex(sem = "VertexSemantics")]
+#[rustfmt::skip]
 struct Sprite2dVertex {
-    #[allow(dead_code)]
-    position: VertexPosition,
-    #[allow(dead_code)]
-    uv: VertexUV,
-    #[allow(dead_code)]
+    #[allow(dead_code)] position: VertexPosition,
+    #[allow(dead_code)] uv: VertexUV,
     #[vertex(normalized = "true")]
-    color: VertexColor,
-    #[allow(dead_code)]
-    opacity: VertexOpacity,
+    #[allow(dead_code)] color: VertexColor,
+    #[allow(dead_code)] opacity: VertexOpacity,
 }
 
 ////////////////////////////////////////////////////////////
@@ -92,16 +89,13 @@ struct Shape2dInterface {
 
 #[derive(Vertex)]
 #[vertex(sem = "VertexSemantics")]
+#[rustfmt::skip]
 struct Shape2dVertex {
-    #[allow(dead_code)]
-    position: VertexPosition,
-    #[allow(dead_code)]
-    angle: VertexAngle,
-    #[allow(dead_code)]
-    center: VertexCenter,
-    #[allow(dead_code)]
+    #[allow(dead_code)] position: VertexPosition,
+    #[allow(dead_code)] angle: VertexAngle,
+    #[allow(dead_code)] center: VertexCenter,
     #[vertex(normalized = "true")]
-    color: VertexColor,
+    #[allow(dead_code)] color: VertexColor,
 }
 
 #[derive(UniformInterface)]
@@ -114,16 +108,14 @@ struct Cursor2dInterface {
 
 #[derive(Vertex)]
 #[vertex(sem = "VertexSemantics")]
+#[rustfmt::skip]
 struct Cursor2dVertex {
-    #[allow(dead_code)]
-    position: VertexPosition,
-    #[allow(dead_code)]
-    uv: VertexUV,
+    #[allow(dead_code)] position: VertexPosition,
+    #[allow(dead_code)] uv: VertexUV,
 }
 
 #[derive(UniformInterface)]
 struct Screen2dInterface {
-    #[allow(dead_code)]
     framebuffer: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
 }
 
@@ -162,7 +154,6 @@ pub struct Renderer {
 
 struct ViewData {
     fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
-    #[allow(dead_code)]
     staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     tess: Tess,
     anim_tess: Option<Tess>,
