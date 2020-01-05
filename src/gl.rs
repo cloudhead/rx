@@ -31,6 +31,8 @@ use luminance_derive::{Semantics, UniformInterface, Vertex};
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::error::Error;
+use std::fmt;
 use std::io;
 use std::mem;
 use std::rc::Rc;
@@ -222,6 +224,41 @@ unsafe impl GraphicsContext for Context {
     }
 }
 
+#[derive(Debug)]
+enum RendererError {
+    InitializationError,
+    TextureError(luminance::texture::TextureError),
+    FramebufferError(luminance::framebuffer::FramebufferError),
+}
+
+impl From<RendererError> for io::Error {
+    fn from(err: RendererError) -> io::Error {
+        io::Error::new(io::ErrorKind::Other, err)
+    }
+}
+
+impl fmt::Display for RendererError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        match self {
+            Self::InitializationError => write!(f, "initialization error"),
+            Self::TextureError(e) => write!(f, "texture error: {}", e),
+            Self::FramebufferError(e) => write!(f, "framebuffer error: {}", e),
+        }
+    }
+}
+
+impl Error for RendererError {
+    fn description(&self) -> &str {
+        "Renderer error"
+    }
+
+    fn cause(&self) -> Option<&dyn Error> {
+        match self {
+            _ => None,
+        }
+    }
+}
+
 impl renderer::Renderer for Renderer {
     fn new<T>(
         win: &mut platform::backend::Window<T>,
@@ -230,6 +267,8 @@ impl renderer::Renderer for Renderer {
         _present_mode: PresentMode,
         resources: ResourceManager,
     ) -> io::Result<Self> {
+        use RendererError as Error;
+
         gl::load_with(|s| win.get_proc_address(s) as *const _);
 
         let gs = GraphicsState::new().unwrap();
@@ -242,14 +281,23 @@ impl renderer::Renderer for Renderer {
         let (checker_w, checker_h) = (2, 2);
         let (paste_w, paste_h) = (8, 8);
 
-        let font = Texture::new(&mut ctx, [font_w, font_h], 0, self::SAMPLER).unwrap();
-        let cursors = Texture::new(&mut ctx, [cursors_w, cursors_h], 0, self::SAMPLER).unwrap();
-        let paste = Texture::new(&mut ctx, [paste_w, paste_h], 0, self::SAMPLER).unwrap();
-        let checker = Texture::new(&mut ctx, [checker_w, checker_h], 0, self::SAMPLER).unwrap();
+        let font = Texture::new(&mut ctx, [font_w, font_h], 0, self::SAMPLER)
+            .map_err(Error::TextureError)?;
+        let cursors = Texture::new(&mut ctx, [cursors_w, cursors_h], 0, self::SAMPLER)
+            .map_err(Error::TextureError)?;
+        let paste = Texture::new(&mut ctx, [paste_w, paste_h], 0, self::SAMPLER)
+            .map_err(Error::TextureError)?;
+        let checker = Texture::new(&mut ctx, [checker_w, checker_h], 0, self::SAMPLER)
+            .map_err(Error::TextureError)?;
 
-        font.upload_raw(GenMipmaps::No, &font_img).unwrap();
-        cursors.upload_raw(GenMipmaps::No, &cursors_img).unwrap();
-        checker.upload_raw(GenMipmaps::No, &draw::CHECKER).unwrap();
+        font.upload_raw(GenMipmaps::No, &font_img)
+            .map_err(Error::TextureError)?;
+        cursors
+            .upload_raw(GenMipmaps::No, &cursors_img)
+            .map_err(Error::TextureError)?;
+        checker
+            .upload_raw(GenMipmaps::No, &draw::CHECKER)
+            .map_err(Error::TextureError)?;
 
         let sprite2d = self::program::<Sprite2dInterface>(
             include_str!("gl/data/sprite.vert"),
@@ -277,7 +325,7 @@ impl renderer::Renderer for Renderer {
             0,
             self::SAMPLER,
         )
-        .unwrap();
+        .map_err(Error::FramebufferError)?;
 
         let render_st = RenderState::default()
             .set_blending((
@@ -332,7 +380,7 @@ impl renderer::Renderer for Renderer {
     }
 
     fn init(&mut self, effects: Vec<Effect>, views: &ViewManager) {
-        self.handle_effects(effects, &views);
+        self.handle_effects(effects, &views).unwrap();
     }
 
     fn frame(
@@ -348,13 +396,13 @@ impl renderer::Renderer for Renderer {
         self.staging_batch.clear();
         self.final_batch.clear();
 
-        self.handle_effects(effects, &session.views);
+        self.handle_effects(effects, &session.views).unwrap();
         self.update_view_animations(session);
 
         // Handle view operations.
         for v in session.views.values() {
             if !v.ops.is_empty() {
-                self.handle_view_ops(&v);
+                self.handle_view_ops(&v).unwrap();
             }
         }
 
@@ -751,7 +799,11 @@ impl Renderer {
         .unwrap();
     }
 
-    fn handle_effects(&mut self, mut effects: Vec<Effect>, views: &ViewManager) {
+    fn handle_effects(
+        &mut self,
+        mut effects: Vec<Effect>,
+        views: &ViewManager,
+    ) -> Result<(), RendererError> {
         for eff in effects.drain(..) {
             match eff {
                 Effect::SessionResized(size) => {
@@ -776,7 +828,7 @@ impl Renderer {
                 }
                 Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
                     let v = views.get(&id).expect("view must exist");
-                    self.handle_view_dirty(v);
+                    self.handle_view_dirty(v)?;
                 }
                 Effect::ViewBlendingChanged(blending) => {
                     self.blending = blending;
@@ -789,9 +841,12 @@ impl Renderer {
                 }
             }
         }
+        Ok(())
     }
 
-    fn handle_view_ops(&mut self, v: &View) {
+    fn handle_view_ops(&mut self, v: &View) -> Result<(), RendererError> {
+        use RendererError as Error;
+
         let fb = &self
             .view_data
             .get(&v.id)
@@ -803,7 +858,7 @@ impl Renderer {
                 ViewOp::Clear(color) => {
                     fb.color_slot()
                         .clear(GenMipmaps::No, (color.r, color.g, color.b, color.a))
-                        .unwrap();
+                        .map_err(Error::TextureError)?;
                 }
                 ViewOp::Blit(src, dst) => {
                     let texels = self
@@ -819,7 +874,7 @@ impl Renderer {
                             [src.width() as u32, src.height() as u32],
                             &texels,
                         )
-                        .unwrap();
+                        .map_err(Error::TextureError)?;
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
@@ -831,11 +886,13 @@ impl Renderer {
                         self.paste_ready = false;
                         self.paste =
                             Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
-                                .unwrap();
+                                .map_err(Error::TextureError)?;
                     }
                     let body = self::align_u8(&pixels);
 
-                    self.paste.upload_raw(GenMipmaps::No, body).unwrap();
+                    self.paste
+                        .upload_raw(GenMipmaps::No, body)
+                        .map_err(Error::TextureError)?;
                 }
                 ViewOp::Paste(dst) => {
                     let [paste_w, paste_h] = self.paste.size();
@@ -858,9 +915,12 @@ impl Renderer {
                 }
             }
         }
+        Ok(())
     }
 
-    fn handle_view_dirty(&mut self, v: &View) {
+    fn handle_view_dirty(&mut self, v: &View) -> Result<(), RendererError> {
+        use RendererError as Error;
+
         let fb = &self
             .view_data
             .get(&v.id)
@@ -893,17 +953,17 @@ impl Renderer {
                 .fb
                 .color_slot()
                 .clear(GenMipmaps::No, (0, 0, 0, 0))
-                .unwrap();
+                .map_err(Error::TextureError)?;
             view_data
                 .staging_fb
                 .color_slot()
                 .clear(GenMipmaps::No, (0, 0, 0, 0))
-                .unwrap();
+                .map_err(Error::TextureError)?;
             view_data
                 .fb
                 .color_slot()
                 .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
-                .unwrap();
+                .map_err(Error::TextureError)?;
 
             self.view_data.insert(v.id, view_data);
         } else if v.is_damaged() {
@@ -915,11 +975,14 @@ impl Renderer {
                 pixels.to_owned()
             };
 
-            fb.color_slot().clear(GenMipmaps::No, (0, 0, 0, 0)).unwrap();
+            fb.color_slot()
+                .clear(GenMipmaps::No, (0, 0, 0, 0))
+                .map_err(Error::TextureError)?;
             fb.color_slot()
                 .upload_raw(GenMipmaps::No, pixels.as_bytes())
-                .unwrap();
+                .map_err(Error::TextureError)?;
         }
+        Ok(())
     }
 
     fn update_view_animations(&mut self, s: &Session) {
