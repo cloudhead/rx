@@ -413,13 +413,6 @@ impl renderer::Renderer for Renderer {
                 Origin::TopLeft,
             ))
         };
-        let ortho_flip: linear::M44 = unsafe {
-            mem::transmute(kit::ortho(
-                self.screen_fb.width(),
-                self.screen_fb.height(),
-                Origin::BottomLeft,
-            ))
-        };
         let identity: Matrix4<f32> = Matrix4::identity();
         let identity: linear::M44 = unsafe { mem::transmute(identity) };
 
@@ -728,7 +721,13 @@ impl renderer::Renderer for Renderer {
 
                 shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
                     iface.tex.update(&bound_font);
-                    iface.ortho.update(ortho_flip);
+                    iface.ortho.update(unsafe {
+                        mem::transmute::<_, linear::M44>(kit::ortho(
+                            screen_fb.width(),
+                            screen_fb.height(),
+                            Origin::BottomLeft,
+                        ))
+                    });
 
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&overlay_tess);
