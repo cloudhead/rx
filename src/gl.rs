@@ -48,8 +48,8 @@ const SAMPLER: Sampler = Sampler {
 #[derive(UniformInterface)]
 struct Sprite2dInterface {
     tex: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
-    ortho: Uniform<[[f32; 4]; 4]>,
-    transform: Uniform<[[f32; 4]; 4]>,
+    ortho: Uniform<linear::M44>,
+    transform: Uniform<linear::M44>,
 }
 
 #[derive(Copy, Clone, Debug, Semantics)]
@@ -102,7 +102,7 @@ struct Shape2dVertex {
 struct Cursor2dInterface {
     cursor: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
     framebuffer: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
-    ortho: Uniform<[[f32; 4]; 4]>,
+    ortho: Uniform<linear::M44>,
     scale: Uniform<f32>,
 }
 
