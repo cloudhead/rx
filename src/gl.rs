@@ -144,7 +144,6 @@ pub struct Renderer {
     checker: Texture<Flat, Dim2, pixel::SRGBA8UI>,
     paste: Texture<Flat, Dim2, pixel::SRGBA8UI>,
     paste_outputs: Vec<Tess>,
-    paste_ready: bool,
 
     sprite2d: Program<VertexSemantics, (), Sprite2dInterface>,
     shape2d: Program<VertexSemantics, (), Shape2dInterface>,
@@ -374,7 +373,6 @@ impl renderer::Renderer for Renderer {
             checker,
             paste,
             paste_outputs: Vec::new(),
-            paste_ready: false,
             staging_batch: shape2d::Batch::new(),
             final_batch: shape2d::Batch::new(),
             view_data: BTreeMap::new(),
@@ -434,7 +432,6 @@ impl renderer::Renderer for Renderer {
             pipeline_st,
             paste,
             paste_outputs,
-            mut paste_ready,
             view_data,
             ..
         } = self;
@@ -530,20 +527,16 @@ impl renderer::Renderer for Renderer {
                 }
                 // Render staging paste buffer.
                 if let Some(tess) = paste_tess {
-                    if paste_ready {
-                        let bound_paste = pipeline.bind_texture(paste);
-                        shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                            iface.ortho.update(view_ortho);
-                            iface.transform.update(identity);
-                            iface.tex.update(&bound_paste);
+                    let bound_paste = pipeline.bind_texture(paste);
+                    shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
+                        iface.ortho.update(view_ortho);
+                        iface.transform.update(identity);
+                        iface.tex.update(&bound_paste);
 
-                            rdr_gate.render(render_st, |mut tess_gate| {
-                                tess_gate.render(&tess);
-                            });
+                        rdr_gate.render(render_st, |mut tess_gate| {
+                            tess_gate.render(&tess);
                         });
-                    } else {
-                        paste_ready = true;
-                    }
+                    });
                 }
             },
         );
@@ -767,8 +760,6 @@ impl renderer::Renderer for Renderer {
                 .borrow_mut()
                 .record(&texels.iter().cloned().map(Bgra8::from).collect::<Vec<_>>());
         }
-
-        self.paste_ready = paste_ready;
     }
 
     fn update_present_mode(&mut self, _present_mode: PresentMode) {}
@@ -884,7 +875,6 @@ impl Renderer {
                     let [paste_w, paste_h] = self.paste.size();
 
                     if paste_w != w || paste_h != h {
-                        self.paste_ready = false;
                         self.paste =
                             Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
                                 .map_err(Error::TextureError)?;
