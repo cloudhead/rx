@@ -102,7 +102,6 @@ struct Paste {
     binding: core::BindingGroup,
     texture: core::Texture,
     outputs: Vec<core::VertexBuffer>,
-    ready: bool,
 }
 
 pub struct Font {
@@ -259,7 +258,6 @@ impl renderer::Renderer for Renderer {
                 texture,
                 binding,
                 outputs: Vec::new(),
-                ready: false,
             }
         };
 
@@ -448,18 +446,8 @@ impl renderer::Renderer for Renderer {
                 }
                 // Draw paste buffer to view staging buffer.
                 if let Some(buf) = paste_buf {
-                    // Nb. Strangely enough, when the paste texture is being
-                    // re-created at a different size within this frame,
-                    // it is displayed for a single frame at the wrong size.
-                    // Perhaps because there is some stale state in the render
-                    // pipeline... To prevent this, we don't allow the texture
-                    // to be resized and displayed within the same frame.
-                    if self.paste.ready {
-                        p.set_pipeline(&self.paste2d);
-                        p.draw(&buf, &self.paste.binding);
-                    } else {
-                        self.paste.ready = true;
-                    }
+                    p.set_pipeline(&self.paste2d);
+                    p.draw(&buf, &self.paste.binding);
                 }
             }
 
@@ -702,7 +690,6 @@ impl Renderer {
                     let (w, h) = (src.width() as u32, src.height() as u32);
 
                     if self.paste.texture.w != w || self.paste.texture.h != h {
-                        self.paste.ready = false;
                         self.paste.texture = self.r.texture(w as u32, h as u32);
                         self.paste.binding =
                             self.paste2d
