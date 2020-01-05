@@ -334,7 +334,7 @@ impl renderer::Renderer for Renderer {
         // Handle effects produced by the session.
         self.handle_effects(effects, &session.views);
 
-        let mut ctx = draw::DrawContext {
+        let mut ctx = draw::Context {
             ui_batch: shape2d::Batch::new(),
             text_batch: TextBatch::new(
                 self.font.width,
@@ -353,6 +353,9 @@ impl renderer::Renderer for Renderer {
             paste_batch: sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h),
             checker_batch: sprite2d::Batch::new(self.checker.texture.w, self.checker.texture.h),
         };
+
+        // TODO: Don't re-create the context every frame. Just clear it.
+        ctx.clear();
 
         // Handle view operations.
         for v in session.views.values() {
