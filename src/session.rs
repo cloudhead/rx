@@ -603,9 +603,9 @@ impl Default for Settings {
                 "checker" => Value::Bool(false),
                 "background" => Value::Rgba8(color::BLACK),
                 "vsync" => Value::Bool(false),
-                "input/delay" => Value::F32(8.0),
+                "input/delay" => Value::F64(8.0),
                 "input/mouse" => Value::Bool(true),
-                "scale" => Value::F32(1.0),
+                "scale" => Value::F64(1.0),
                 "animation" => Value::Bool(true),
                 "animation/delay" => Value::U32(160),
                 "ui/palette" => Value::Bool(true),
@@ -620,7 +620,7 @@ impl Default for Settings {
                 "grid/spacing" => Value::U32Tuple(8, 8),
 
                 // Deprecated.
-                "frame_delay" => Value::F32(0.0)
+                "frame_delay" => Value::F64(0.0)
             },
         }
     }
@@ -1152,14 +1152,14 @@ impl Session {
 
         match name {
             "animation/delay" => {
-                self.active_view_mut().set_animation_delay(new.uint64());
+                self.active_view_mut().set_animation_delay(new.to_u64());
             }
             "scale" => {
                 // TODO: We need to recompute the cursor position here
                 // from the window coordinates. Currently, cursor position
                 // is stored only in `SessionCoords`, which would have
                 // to change.
-                self.rescale(old.float64(), new.float64());
+                self.rescale(old.to_f64(), new.to_f64());
             }
             _ => {}
         }
@@ -1314,7 +1314,7 @@ impl Session {
     /// Convert "logical" window coordinates to session coordinates.
     pub fn window_to_session_coords(&self, position: platform::LogicalPosition) -> SessionCoords {
         let (x, y) = (position.x, position.y);
-        let scale: f64 = self.settings["scale"].float64();
+        let scale: f64 = self.settings["scale"].to_f64();
         SessionCoords::new(
             (x / scale).floor() as f32,
             self.height - (y / scale).floor() as f32 - 1.,
@@ -1786,7 +1786,7 @@ impl Session {
     }
 
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
-        self.resize(size, self.settings["scale"].float64());
+        self.resize(size, self.settings["scale"].to_f64());
         self.effects.push(Effect::SessionResized(size));
     }
 
@@ -2365,12 +2365,12 @@ impl Session {
                             self.base_dirs.config_dir().display()
                         ))),
                         "s/hidpi" => Ok(Value::Str(format!("{:.1}", self.hidpi_factor))),
-                        "s/offset" => Ok(Value::F32Tuple(self.offset.x, self.offset.y)),
+                        "s/offset" => Ok(Value::F64Tuple(self.offset.x, self.offset.y)),
                         "v/offset" => {
                             let v = self.active_view();
-                            Ok(Value::F32Tuple(v.offset.x, v.offset.y))
+                            Ok(Value::F64Tuple(v.offset.x, v.offset.y))
                         }
-                        "v/zoom" => Ok(Value::F32(self.active_view().zoom as f64)),
+                        "v/zoom" => Ok(Value::F64(self.active_view().zoom as f64)),
                         _ => match self.settings.get(s) {
                             None => Err(format!("Error: {} is undefined", s)),
                             Some(result) => Ok(Value::Str(format!("{} = {}", v.clone(), result))),

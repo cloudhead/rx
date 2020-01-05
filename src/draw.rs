@@ -431,7 +431,7 @@ fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
 
 fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
     if session.settings["grid"].is_set() {
-        let color = session.settings["grid/color"].rgba8();
+        let color = session.settings["grid/color"].to_rgba8();
         let (gx, gy) = session.settings["grid/spacing"].clone().into();
 
         let t = session.offset;

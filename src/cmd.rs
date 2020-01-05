@@ -321,9 +321,8 @@ pub enum Value {
     Bool(bool),
     U32(u32),
     U32Tuple(u32, u32),
-    // XXX: Should be f32.
-    F32(f64),
-    F32Tuple(f32, f32),
+    F64(f64),
+    F64Tuple(f32, f32),
     Str(String),
     Ident(String),
     Rgba8(Rgba8),
@@ -337,21 +336,21 @@ impl Value {
         panic!("expected {:?} to be a `bool`", self);
     }
 
-    pub fn float64(&self) -> f64 {
-        if let Value::F32(n) = self {
+    pub fn to_f64(&self) -> f64 {
+        if let Value::F64(n) = self {
             return *n;
         }
         panic!("expected {:?} to be a `float`", self);
     }
 
-    pub fn uint64(&self) -> u64 {
+    pub fn to_u64(&self) -> u64 {
         if let Value::U32(n) = self {
             return *n as u64;
         }
         panic!("expected {:?} to be a `uint`", self);
     }
 
-    pub fn rgba8(&self) -> Rgba8 {
+    pub fn to_rgba8(&self) -> Rgba8 {
         if let Value::Rgba8(rgba8) = self {
             return *rgba8;
         }
@@ -362,9 +361,9 @@ impl Value {
         match self {
             Self::Bool(_) => "on / off",
             Self::U32(_) => "positive integer, eg. 32",
-            Self::F32(_) => "float, eg. 1.33",
+            Self::F64(_) => "float, eg. 1.33",
             Self::U32Tuple(_, _) => "two positive integers, eg. 32, 48",
-            Self::F32Tuple(_, _) => "two floats , eg. 32.17, 48.29",
+            Self::F64Tuple(_, _) => "two floats , eg. 32.17, 48.29",
             Self::Str(_) => "string, eg. \"fnord\"",
             Self::Rgba8(_) => "color, eg. #ffff00",
             Self::Ident(_) => "identifier, eg. fnord",
@@ -383,16 +382,16 @@ impl Into<(u32, u32)> for Value {
 
 impl Into<f32> for Value {
     fn into(self) -> f32 {
-        if let Value::F32(x) = self {
+        if let Value::F64(x) = self {
             return x as f32;
         }
-        panic!("expected {:?} to be a `f32`", self);
+        panic!("expected {:?} to be a `f64`", self);
     }
 }
 
 impl Into<f64> for Value {
     fn into(self) -> f64 {
-        if let Value::F32(x) = self {
+        if let Value::F64(x) = self {
             return x as f64;
         }
         panic!("expected {:?} to be a `f64`", self);
@@ -415,7 +414,7 @@ impl<'a> Parse<'a> for Value {
             } else if let Ok((v, p)) = p.clone().parse::<u32>() {
                 Ok((Value::U32(v), p))
             } else if let Ok((v, p)) = p.clone().parse::<f64>() {
-                Ok((Value::F32(v), p))
+                Ok((Value::F64(v), p))
             } else {
                 let (input, _) = p.until(|c| c.is_whitespace())?;
                 Err(Error::new(format!("malformed number: `{}`", input)))
@@ -437,9 +436,9 @@ impl fmt::Display for Value {
             Value::Bool(true) => "on".fmt(f),
             Value::Bool(false) => "off".fmt(f),
             Value::U32(u) => u.fmt(f),
-            Value::F32(x) => x.fmt(f),
+            Value::F64(x) => x.fmt(f),
             Value::U32Tuple(x, y) => write!(f, "{},{}", x, y),
-            Value::F32Tuple(x, y) => write!(f, "{},{}", x, y),
+            Value::F64Tuple(x, y) => write!(f, "{},{}", x, y),
             Value::Str(s) => s.fmt(f),
             Value::Rgba8(c) => c.fmt(f),
             Value::Ident(i) => i.fmt(f),

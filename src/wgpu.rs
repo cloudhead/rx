@@ -476,7 +476,7 @@ impl renderer::Renderer for Renderer {
         // Present screen framebuffer to screen.
         let present = &self.swap_chain.next();
         {
-            let bg = Rgba::from(session.settings["background"].rgba8());
+            let bg = Rgba::from(session.settings["background"].to_rgba8());
             let mut p = f.pass(PassOp::Clear(bg), present);
 
             p.set_pipeline(&self.screen2d);

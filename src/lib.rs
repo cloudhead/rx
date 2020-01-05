@@ -126,7 +126,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     if let ExecutionMode::Record(_, _, GifMode::Record) = options.exec {
         session
             .settings
-            .set("input/delay", Value::F32(0.0))
+            .set("input/delay", Value::F64(0.0))
             .expect("'input/delay' is a float");
         session
             .settings
@@ -150,7 +150,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         {
             session
                 .settings
-                .set("input/delay", Value::F32(0.0))
+                .set("input/delay", Value::F64(0.0))
                 .expect("'input/delay' is a float");
             session
                 .settings
