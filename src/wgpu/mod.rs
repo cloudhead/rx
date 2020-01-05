@@ -1,15 +1,17 @@
-use crate::cursor2d;
+mod cursor2d;
+mod framebuffer2d;
+mod screen2d;
+
 use crate::data;
 use crate::draw;
 use crate::execution::Execution;
 use crate::font::TextBatch;
-use crate::framebuffer2d;
 use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
-use crate::screen2d;
 use crate::session::{self, Effect, Mode, Session};
+use crate::sprite;
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
 use rgx::core::{self, Blending, Filter, Op, PassOp, Rgba};
@@ -346,7 +348,7 @@ impl renderer::Renderer for Renderer {
                 self.font.gw,
                 self.font.gh,
             ),
-            cursor_sprite: cursor2d::Sprite::new(self.cursors.texture.w, self.cursors.texture.h),
+            cursor_sprite: sprite::Sprite::new(self.cursors.texture.w, self.cursors.texture.h),
             tool_batch: sprite2d::Batch::new(self.cursors.texture.w, self.cursors.texture.h),
             paste_batch: sprite2d::Batch::new(self.paste.texture.w, self.paste.texture.h),
             checker_batch: sprite2d::Batch::new(self.checker.texture.w, self.checker.texture.h),

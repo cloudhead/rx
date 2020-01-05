@@ -1,11 +1,11 @@
 use crate::brush::{Align, BrushMode};
 use crate::color;
-use crate::cursor2d;
 use crate::execution::Execution;
 use crate::font::TextBatch;
 use crate::platform;
 use crate::session;
 use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
+use crate::sprite;
 use crate::view::{View, ViewCoords};
 
 use rgx::core::Rgba;
@@ -109,7 +109,7 @@ pub struct Context {
     pub ui_batch: shape2d::Batch,
     pub text_batch: TextBatch,
     pub overlay_batch: TextBatch,
-    pub cursor_sprite: cursor2d::Sprite,
+    pub cursor_sprite: sprite::Sprite,
     pub tool_batch: sprite2d::Batch,
     pub paste_batch: sprite2d::Batch,
     pub checker_batch: sprite2d::Batch,
@@ -477,7 +477,7 @@ fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
     }
 }
 
-fn draw_cursor(session: &Session, inverted: &mut cursor2d::Sprite, batch: &mut sprite2d::Batch) {
+fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut sprite2d::Batch) {
     if !session.settings["ui/cursor"].is_set() {
         return;
     }

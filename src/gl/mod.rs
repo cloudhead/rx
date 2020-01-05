@@ -1,4 +1,3 @@
-use crate::cursor2d;
 use crate::draw;
 use crate::execution::Execution;
 use crate::font::TextBatch;
@@ -6,6 +5,7 @@ use crate::platform::{self, LogicalSize};
 use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
 use crate::session::{self, Effect, Session};
+use crate::sprite;
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 use crate::{data, image};
 
@@ -301,20 +301,20 @@ impl renderer::Renderer for Renderer {
             .map_err(Error::TextureError)?;
 
         let sprite2d = self::program::<Sprite2dInterface>(
-            include_str!("gl/data/sprite.vert"),
-            include_str!("gl/data/sprite.frag"),
+            include_str!("data/sprite.vert"),
+            include_str!("data/sprite.frag"),
         );
         let shape2d = self::program::<Shape2dInterface>(
-            include_str!("gl/data/shape.vert"),
-            include_str!("gl/data/shape.frag"),
+            include_str!("data/shape.vert"),
+            include_str!("data/shape.frag"),
         );
         let cursor2d = self::program::<Cursor2dInterface>(
-            include_str!("gl/data/cursor.vert"),
-            include_str!("gl/data/cursor.frag"),
+            include_str!("data/cursor.vert"),
+            include_str!("data/cursor.frag"),
         );
         let screen2d = self::program::<Screen2dInterface>(
-            include_str!("gl/data/screen.vert"),
-            include_str!("gl/data/screen.frag"),
+            include_str!("data/screen.vert"),
+            include_str!("data/screen.frag"),
         );
 
         let physical = win_size.to_physical(hidpi_factor);
@@ -345,7 +345,7 @@ impl renderer::Renderer for Renderer {
             ui_batch: shape2d::Batch::new(),
             text_batch: self::text_batch(font.size()),
             overlay_batch: self::text_batch(font.size()),
-            cursor_sprite: cursor2d::Sprite::new(cursors_w, cursors_h),
+            cursor_sprite: sprite::Sprite::new(cursors_w, cursors_h),
             tool_batch: sprite2d::Batch::new(cursors_w, cursors_h),
             paste_batch: sprite2d::Batch::new(paste_w, paste_h),
             checker_batch: sprite2d::Batch::new(checker_w, checker_h),

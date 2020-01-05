@@ -20,7 +20,6 @@ mod alloc;
 mod brush;
 mod cmd;
 mod color;
-mod cursor2d;
 mod data;
 mod draw;
 mod event;
@@ -31,21 +30,17 @@ mod parser;
 mod platform;
 mod renderer;
 mod resources;
+mod sprite;
 mod timer;
 mod view;
 
 #[cfg(feature = "compatibility")]
-#[path = "gl.rs"]
+#[path = "gl/mod.rs"]
 mod gfx;
 
 #[cfg(not(feature = "compatibility"))]
-#[path = "wgpu.rs"]
+#[path = "wgpu/mod.rs"]
 mod gfx;
-
-#[cfg(not(feature = "compatibility"))]
-mod framebuffer2d;
-#[cfg(not(feature = "compatibility"))]
-mod screen2d;
 
 #[macro_use]
 mod util;
