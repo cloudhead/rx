@@ -2395,7 +2395,14 @@ impl Session {
                             "{}",
                             self.base_dirs.config_dir().display()
                         ))),
-                        "s/hidpi" => Ok(Value::Str(format!("{:.1}", self.hidpi_factor))),
+                        "s/cwd" | "cwd" => {
+                            if let Ok(cwd) = std::env::current_dir() {
+                                Ok(Value::Str(format!("{}", cwd.display())))
+                            } else {
+                                Err(format!("Error: couldn't retrieve current directory"))
+                            }
+                        }
+                        "s/hidpi" | "hidpi" => Ok(Value::Str(format!("{:.1}", self.hidpi_factor))),
                         "s/offset" => Ok(Value::F64Tuple(self.offset.x, self.offset.y)),
                         "v/offset" => {
                             let v = self.active_view();
