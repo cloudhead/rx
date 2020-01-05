@@ -858,7 +858,7 @@ impl Session {
                 self.source_path(cfg)?;
             }
         }
-        self.source_dir(cwd).ok();
+        self.source_dir(cwd)?;
         self.message(format!("rx v{}", crate::VERSION), MessageType::Debug);
 
         Ok(self)
