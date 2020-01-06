@@ -124,8 +124,13 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     let resources = ResourceManager::new();
     let base_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
-    let mut session =
-        Session::new(win_w, win_h, resources.clone(), base_dirs).init(options.source.clone())?;
+    let mut session = Session::new(win_w, win_h, resources.clone(), base_dirs)
+        .with_blank(
+            FileStatus::NoFile,
+            Session::DEFAULT_VIEW_W,
+            Session::DEFAULT_VIEW_H,
+        )
+        .init(options.source.clone())?;
 
     if options.debug {
         session
@@ -183,13 +188,6 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
-    }
-    if session.views.is_empty() {
-        session.blank(
-            FileStatus::NoFile,
-            Session::DEFAULT_VIEW_W,
-            Session::DEFAULT_VIEW_H,
-        );
     }
 
     renderer.init(session.effects(), &session.views);
