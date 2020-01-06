@@ -3,8 +3,8 @@ use crate::parser::{Error, Parse, Parser, Result};
 use crate::platform;
 use crate::session::{Direction, Mode, PanState, Tool, VisualState};
 
-use rgx::core::Rect;
 use rgx::kit::Rgba8;
+use rgx::rect::Rect;
 
 use std::fmt;
 use std::result;

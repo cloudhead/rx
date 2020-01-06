@@ -1,10 +1,8 @@
 use crate::execution::Execution;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
-use crate::session::{self, Effect, Session};
+use crate::session::{self, Effect, PresentMode, Session};
 use crate::view::ViewManager;
-
-use rgx::core::PresentMode;
 
 use std::cell::RefCell;
 use std::rc::Rc;

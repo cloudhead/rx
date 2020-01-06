@@ -3,7 +3,7 @@ use crate::session::Rgb8;
 use crate::view::{ViewExtent, ViewId};
 
 use nonempty::NonEmpty;
-use rgx::core::{Bgra8, Rgba8};
+use rgx::color::{Bgra8, Rgba8};
 use rgx::rect::Rect;
 
 use gif::{self, SetParameter};

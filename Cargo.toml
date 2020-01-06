@@ -9,7 +9,7 @@ authors = ["Alexis Sellier <self@cloudhead.io>"]
 edition = "2018"
 
 [features]
-default = ["glfw"]
+default = ["glfw", "rgx/renderer"]
 compatibility = ["luminance", "luminance-derive", "gl"]
 
 [dependencies]
@@ -32,7 +32,7 @@ luminance-derive = { version = "0.5.0", optional = true }
 gl = { version = "0.14", optional = true }
 
 [dependencies.rgx]
-version = "0.6.0"
+version = "0.7.0"
 
 [dev-dependencies]
 lazy_static = "1.3"

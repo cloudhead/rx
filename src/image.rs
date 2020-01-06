@@ -1,5 +1,5 @@
 use png;
-use rgx::core::Rgba8;
+use rgx::color::Rgba8;
 
 use std::fs::File;
 use std::io;

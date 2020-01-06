@@ -10,7 +10,7 @@ use std::result;
 use std::str::FromStr;
 
 use directories as dirs;
-use rgx::core::Rgba8;
+use rgx::color::Rgba8;
 
 pub type Result<'a, T> = result::Result<(T, Parser<'a>), Error>;
 

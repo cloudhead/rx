@@ -2,9 +2,10 @@ use crate::resources::SnapshotId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
 
-use rgx::core::{Rect, Rgba8};
 use rgx::kit::Animation;
+use rgx::kit::Rgba8;
 use rgx::math::*;
+use rgx::rect::Rect;
 
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};

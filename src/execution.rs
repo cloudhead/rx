@@ -12,7 +12,7 @@ use std::time;
 use digest::generic_array::{sequence::*, typenum::consts::*, GenericArray};
 use digest::Digest;
 use meowhash::MeowHasher;
-use rgx::core::{Bgra8, Rgba8};
+use rgx::color::{Bgra8, Rgba8};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum GifMode {

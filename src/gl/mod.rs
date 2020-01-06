@@ -4,13 +4,12 @@ use crate::font::TextBatch;
 use crate::platform::{self, LogicalSize};
 use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
-use crate::session::{self, Effect, Session};
+use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 use crate::{data, image};
 
-use rgx::core::{Blending, PresentMode, Rgba};
-use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba8, ZDepth};
+use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
 use rgx::math::Matrix4;
 use rgx::rect::Rect;
 
@@ -358,7 +357,7 @@ impl renderer::Renderer for Renderer {
             hidpi_factor,
             scale: 1.0,
             _present_mode,
-            blending: Blending::default(),
+            blending: Blending::Alpha,
             resources,
             present_fb,
             screen_fb,
@@ -554,7 +553,7 @@ impl renderer::Renderer for Renderer {
                         iface.ortho.update(view_ortho);
                         iface.transform.update(identity);
 
-                        let render_st = if blending == &Blending::constant() {
+                        let render_st = if blending == &Blending::Constant {
                             render_st.clone().set_blending((
                                 Equation::Additive,
                                 Factor::One,

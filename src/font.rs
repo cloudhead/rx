@@ -1,6 +1,9 @@
-use rgx::core::Rect;
 use rgx::kit::sprite2d;
 use rgx::kit::{Repeat, Rgba8, ZDepth};
+use rgx::rect::Rect;
+
+#[cfg(not(feature = "compatibility"))]
+use rgx::core::Renderable;
 
 pub struct TextBatch {
     raw: sprite2d::Batch,

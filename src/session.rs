@@ -11,10 +11,10 @@ use crate::platform::{self, InputState, KeyboardInput, LogicalSize, ModifiersSta
 use crate::resources::{Pixels, ResourceManager};
 use crate::view::{FileStatus, View, ViewCoords, ViewId, ViewManager};
 
-use rgx::core::{Blending, PresentMode, Rect};
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
 use rgx::kit::{Rgba8, ZDepth};
 use rgx::math::*;
+use rgx::rect::Rect;
 
 use directories as dirs;
 
@@ -266,6 +266,18 @@ pub enum Effect {
     ViewPaintFinal(Vec<Shape>),
     /// The blend mode used for painting has changed.
     ViewBlendingChanged(Blending),
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum Blending {
+    Constant,
+    Alpha,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum PresentMode {
+    Vsync,
+    NoVsync,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -1030,7 +1042,7 @@ impl Session {
                     // need to be replacing pixels on the real buffer.
                     _ if brush.is_set(BrushMode::Erase) => {
                         self.effects.extend_from_slice(&[
-                            Effect::ViewBlendingChanged(Blending::constant()),
+                            Effect::ViewBlendingChanged(Blending::Constant),
                             Effect::ViewPaintFinal(output),
                         ]);
                     }
@@ -1041,7 +1053,7 @@ impl Session {
                     // Once we're done drawing, we can render into the real buffer.
                     BrushState::DrawEnded(_) => {
                         self.effects.extend_from_slice(&[
-                            Effect::ViewBlendingChanged(Blending::default()),
+                            Effect::ViewBlendingChanged(Blending::Alpha),
                             Effect::ViewPaintFinal(output),
                         ]);
                     }
@@ -2762,7 +2774,7 @@ impl Session {
             Command::SelectionErase => {
                 if let Some(s) = self.selection {
                     self.effects.extend_from_slice(&[
-                        Effect::ViewBlendingChanged(Blending::constant()),
+                        Effect::ViewBlendingChanged(Blending::Constant),
                         Effect::ViewPaintFinal(vec![Shape::Rectangle(
                             s.abs().bounds().map(|n| n as f32),
                             ZDepth::default(),

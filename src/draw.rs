@@ -8,8 +8,8 @@ use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
 use crate::sprite;
 use crate::view::{View, ViewCoords};
 
-use rgx::core::Rgba;
 use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
+use rgx::kit::Rgba;
 use rgx::kit::{self, Geometry};
 use rgx::kit::{shape2d, sprite2d};
 use rgx::kit::{Rgba8, ZDepth};
@@ -98,7 +98,7 @@ pub mod cursors {
 }
 
 mod checker {
-    use rgx::core::Rect;
+    use rgx::rect::Rect;
 
     pub fn rect() -> Rect<f32> {
         Rect::origin(2., 2.)

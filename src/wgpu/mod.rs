@@ -10,10 +10,12 @@ use crate::image;
 use crate::platform::{self, LogicalSize};
 use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
-use crate::session::{self, Effect, Mode, Session};
+use crate::session::{self, Effect, Mode, PresentMode, Session};
 use crate::sprite;
 use crate::view::{View, ViewId, ViewManager, ViewOp};
 
+use rgx::core::transform;
+use rgx::core::Renderable;
 use rgx::core::{self, Blending, Filter, Op, PassOp, Rgba};
 use rgx::kit::{self, shape2d, sprite2d};
 use rgx::kit::{Bgra8, Origin, Rgba8, ZDepth};
@@ -32,7 +34,7 @@ pub struct Renderer {
     /// Swap chain.
     swap_chain: core::SwapChain,
     /// Presentation mode, eg. vsync.
-    present_mode: core::PresentMode,
+    present_mode: PresentMode,
     /// HiDPI scaling factor.
     hidpi_factor: f64,
     /// UI scaling factor.
@@ -48,7 +50,7 @@ pub struct Renderer {
     view_transforms: Vec<Matrix4<f32>>,
     /// View transform buffer, created from the transform matrices. This is bound
     /// as a dynamic uniform buffer, to render all views in a single pass.
-    view_transforms_buf: kit::TransformBuffer,
+    view_transforms_buf: transform::TransformBuffer,
     /// Sampler used for literally everything.
     sampler: core::Sampler,
 
@@ -193,6 +195,24 @@ impl ViewData {
     }
 }
 
+impl session::Blending {
+    fn to_wgpu(&self) -> core::Blending {
+        match self {
+            Self::Alpha => core::Blending::default(),
+            Self::Constant => core::Blending::constant(),
+        }
+    }
+}
+
+impl PresentMode {
+    fn to_wgpu(&self) -> core::PresentMode {
+        match self {
+            Self::Vsync => core::PresentMode::Vsync,
+            Self::NoVsync => core::PresentMode::NoVsync,
+        }
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 impl renderer::Renderer for Renderer {
@@ -200,7 +220,7 @@ impl renderer::Renderer for Renderer {
         win: &mut platform::backend::Window<T>,
         win_size: LogicalSize,
         hidpi_factor: f64,
-        present_mode: core::PresentMode,
+        present_mode: PresentMode,
         resources: ResourceManager,
     ) -> std::io::Result<Self> {
         let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
@@ -213,7 +233,7 @@ impl renderer::Renderer for Renderer {
 
         let sampler = r.sampler(Filter::Nearest, Filter::Nearest);
 
-        let view_transforms_buf = kit::TransformBuffer::with_capacity(
+        let view_transforms_buf = transform::TransformBuffer::with_capacity(
             Session::MAX_VIEWS,
             &framebuffer2d.pipeline.layout.sets[1],
             &r.device,
@@ -274,7 +294,11 @@ impl renderer::Renderer for Renderer {
         ]);
 
         let physical = win_size.to_physical(hidpi_factor);
-        let swap_chain = r.swap_chain(physical.width as u32, physical.height as u32, present_mode);
+        let swap_chain = r.swap_chain(
+            physical.width as u32,
+            physical.height as u32,
+            present_mode.to_wgpu(),
+        );
 
         Ok(Self {
             r,
@@ -555,7 +579,7 @@ impl renderer::Renderer for Renderer {
         }
     }
 
-    fn update_present_mode(&mut self, present_mode: core::PresentMode) {
+    fn update_present_mode(&mut self, present_mode: PresentMode) {
         if self.present_mode == present_mode {
             return;
         }
@@ -563,7 +587,7 @@ impl renderer::Renderer for Renderer {
         self.swap_chain = self.r.swap_chain(
             self.swap_chain.width as u32,
             self.swap_chain.height as u32,
-            present_mode,
+            present_mode.to_wgpu(),
         );
     }
 }
@@ -595,7 +619,7 @@ impl Renderer {
                     self.handle_view_dirty(v);
                 }
                 Effect::ViewBlendingChanged(blending) => {
-                    self.blending = blending;
+                    self.blending = blending.to_wgpu();
                 }
                 Effect::ViewPaintDraft(shapes) => {
                     shapes.into_iter().for_each(|s| self.staging_batch.add(s));
@@ -805,7 +829,7 @@ impl Renderer {
         self.swap_chain = self.r.swap_chain(
             physical.width as u32,
             physical.height as u32,
-            self.present_mode,
+            self.present_mode.to_wgpu(),
         );
         self.win_size = size;
         self.handle_scaled(self.scale);
