@@ -24,6 +24,7 @@ pub fn init<T>(
     glfw.window_hint(glfw::WindowHint::Visible(true));
     glfw.window_hint(glfw::WindowHint::Focused(true));
     glfw.window_hint(glfw::WindowHint::RefreshRate(None));
+    glfw.window_hint(glfw::WindowHint::ScaleToMonitor(true));
 
     match context {
         GraphicsContext::None => {
