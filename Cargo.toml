@@ -9,8 +9,8 @@ authors = ["Alexis Sellier <self@cloudhead.io>"]
 edition = "2018"
 
 [features]
-default = ["glfw", "rgx/renderer"]
-compatibility = ["luminance", "luminance-derive", "gl"]
+default = ["glfw", "luminance", "luminance-derive", "gl"]
+wgpu = ["glfw", "rgx/renderer"]
 
 [dependencies]
 pico-args = "0.3.0"

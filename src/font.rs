@@ -2,7 +2,7 @@ use rgx::kit::sprite2d;
 use rgx::kit::{Repeat, Rgba8, ZDepth};
 use rgx::rect::Rect;
 
-#[cfg(not(feature = "compatibility"))]
+#[cfg(feature = "wgpu")]
 use rgx::core::Renderable;
 
 pub struct TextBatch {
@@ -40,12 +40,12 @@ impl TextBatch {
         }
     }
 
-    #[cfg(not(feature = "compatibility"))]
+    #[cfg(feature = "wgpu")]
     pub fn finish(self, r: &rgx::core::Renderer) -> rgx::core::VertexBuffer {
         self.raw.finish(r)
     }
 
-    #[cfg(feature = "compatibility")]
+    #[cfg(not(feature = "wgpu"))]
     pub fn vertices(&self) -> Vec<sprite2d::Vertex> {
         self.raw.vertices()
     }

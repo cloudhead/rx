@@ -34,8 +34,12 @@ mod sprite;
 mod timer;
 mod view;
 
-#[cfg_attr(feature = "compatibility", path = "gl/mod.rs")]
-#[cfg_attr(not(feature = "compatibility"), path = "wgpu/mod.rs")]
+#[cfg(feature = "wgpu")]
+#[path = "wgpu/mod.rs"]
+mod gfx;
+
+#[cfg(not(feature = "wgpu"))]
+#[path = "gl/mod.rs"]
 mod gfx;
 
 #[macro_use]
