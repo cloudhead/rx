@@ -1,33 +1,39 @@
-use raw_window_handle::RawWindowHandle;
+use crate::platform::{ControlFlow, GraphicsContext, LogicalSize, WindowEvent, WindowHint};
 
-use crate::platform::{ControlFlow, LogicalSize, WindowEvent};
-
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use std::io;
 
-///////////////////////////////////////////////////////////////////////////////
-
-pub fn run<F>(mut _win: Window, _events: Events, _callback: F)
+pub fn run<F, T>(mut _win: Window<T>, _events: Events, _callback: F) -> T
 where
-    F: 'static + FnMut(&mut Window, WindowEvent) -> ControlFlow,
+    F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
 {
     unimplemented!()
+}
+
+pub struct DummyWindow(());
+
+unsafe impl HasRawWindowHandle for DummyWindow {
+    fn raw_window_handle(&self) -> RawWindowHandle {
+        unreachable!()
+    }
 }
 
 pub struct Events {
     handle: (),
 }
 
-pub struct Window {
-    handle: (),
+pub struct Window<T> {
+    handle: DummyWindow,
+    phantom: std::marker::PhantomData<T>,
 }
 
-impl Window {
+impl<T> Window<T> {
     pub fn request_redraw(&self) {
         unreachable!()
     }
 
-    pub fn raw_handle(&self) -> RawWindowHandle {
-        unreachable!()
+    pub fn handle(&self) -> &DummyWindow {
+        &self.handle
     }
 
     pub fn set_cursor_visible(&mut self, _visible: bool) {
@@ -38,11 +44,17 @@ impl Window {
         unreachable!()
     }
 
-    pub fn size(&self) -> io::Result<LogicalSize> {
+    pub fn size(&self) -> LogicalSize {
         unreachable!()
     }
 }
 
-pub fn init(_title: &str) -> io::Result<(Window, Events)> {
+pub fn init<T>(
+    _title: &str,
+    _w: u32,
+    _h: u32,
+    _hints: &[WindowHint],
+    _context: GraphicsContext,
+) -> io::Result<(Window<T>, Events)> {
     panic!("`dummy` platform initialized");
 }

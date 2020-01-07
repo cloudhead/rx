@@ -3,15 +3,11 @@ use std::io;
 
 use std::fmt;
 
-#[cfg(not(any(feature = "winit", feature = "glfw")))]
+#[cfg(not(feature = "glfw"))]
 #[path = "dummy.rs"]
 pub mod backend;
 
-#[cfg(feature = "winit")]
-#[path = "winit.rs"]
-pub mod backend;
-
-#[cfg(all(feature = "glfw", not(feature = "winit")))]
+#[cfg(feature = "glfw")]
 #[path = "glfw.rs"]
 pub mod backend;
 
