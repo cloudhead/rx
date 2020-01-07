@@ -1,4 +1,4 @@
 {
   "rust-analyzer.cargo-watch.command": "clippy",
-  "rust-analyzer.cargo-watch.arguments": ""
+  "rust-analyzer.cargo-watch.arguments": []
 }
