@@ -125,7 +125,7 @@ pub struct Renderer {
 
     ctx: Context,
     draw_ctx: draw::Context,
-    hidpi_factor: f64,
+    scale_factor: f64,
     scale: f64,
     _present_mode: PresentMode,
     resources: ResourceManager,
@@ -263,7 +263,7 @@ impl renderer::Renderer for Renderer {
     fn new<T>(
         win: &mut platform::backend::Window<T>,
         win_size: LogicalSize,
-        hidpi_factor: f64,
+        scale_factor: f64,
         _present_mode: PresentMode,
         resources: ResourceManager,
     ) -> io::Result<Self> {
@@ -316,7 +316,7 @@ impl renderer::Renderer for Renderer {
             include_str!("data/screen.frag"),
         );
 
-        let physical = win_size.to_physical(hidpi_factor);
+        let physical = win_size.to_physical(scale_factor);
         let present_fb =
             Framebuffer::back_buffer(&mut ctx, [physical.width as u32, physical.height as u32]);
         let screen_fb = Framebuffer::new(
@@ -354,7 +354,7 @@ impl renderer::Renderer for Renderer {
             ctx,
             draw_ctx,
             win_size,
-            hidpi_factor,
+            scale_factor,
             scale: 1.0,
             _present_mode,
             blending: Blending::Alpha,
@@ -761,22 +761,27 @@ impl renderer::Renderer for Renderer {
         }
     }
 
-    fn update_present_mode(&mut self, _present_mode: PresentMode) {}
+    fn handle_present_mode_changed(&mut self, _present_mode: PresentMode) {}
+
+    fn handle_scale_factor_changed(&mut self, scale_factor: f64) {
+        self.scale_factor = scale_factor;
+        self.handle_resized(self.win_size);
+    }
 }
 
 impl Renderer {
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
-        let physical = size.to_physical(self.hidpi_factor);
+        let physical = size.to_physical(self.scale_factor);
 
         self.present_fb = Framebuffer::back_buffer(
             &mut self.ctx,
             [physical.width as u32, physical.height as u32],
         );
         self.win_size = size;
-        self.handle_scaled(self.scale);
+        self.handle_session_scale_changed(self.scale);
     }
 
-    pub fn handle_scaled(&mut self, scale: f64) {
+    pub fn handle_session_scale_changed(&mut self, scale: f64) {
         self.scale = scale;
         self.screen_fb = Framebuffer::new(
             &mut self.ctx,
@@ -801,7 +806,7 @@ impl Renderer {
                     self.handle_resized(size);
                 }
                 Effect::SessionScaled(scale) => {
-                    self.handle_scaled(scale);
+                    self.handle_session_scale_changed(scale);
                 }
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {

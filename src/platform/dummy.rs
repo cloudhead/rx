@@ -34,7 +34,7 @@ impl Window {
         unreachable!()
     }
 
-    pub fn hidpi_factor(&self) -> f64 {
+    pub fn scale_factor(&self) -> f64 {
         unreachable!()
     }
 

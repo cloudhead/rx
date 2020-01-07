@@ -114,18 +114,18 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     ];
     let (mut win, events) = platform::init("rx", options.width, options.height, hints, context)?;
 
-    let hidpi_factor = win.hidpi_factor();
+    let scale_factor = win.scale_factor();
     let win_size = win.size();
     let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
 
     info!("framebuffer size: {}x{}", win_size.width, win_size.height);
-    info!("hidpi factor: {}", hidpi_factor);
+    info!("scale factor: {}", scale_factor);
 
     let resources = ResourceManager::new();
     let base_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
-    let mut session = Session::new(win_w, win_h, hidpi_factor, resources.clone(), base_dirs)
-        .init(options.source.clone())?;
+    let mut session =
+        Session::new(win_w, win_h, resources.clone(), base_dirs).init(options.source.clone())?;
 
     if options.debug {
         session
@@ -179,7 +179,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     let present_mode = session.settings.present_mode();
 
     let mut renderer: gfx::Renderer =
-        Renderer::new(&mut win, win_size, hidpi_factor, present_mode, resources)?;
+        Renderer::new(&mut win, win_size, scale_factor, present_mode, resources)?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
@@ -254,7 +254,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                 });
 
                 if session.settings_changed.contains("vsync") {
-                    renderer.update_present_mode(session.settings.present_mode());
+                    renderer.handle_present_mode_changed(session.settings.present_mode());
                 }
             }
             WindowEvent::Minimized => {
@@ -274,8 +274,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                 // We currently don't draw in here, as it negatively
                 // affects resize smoothness.  (╯°□°）╯︵ ┻━┻
             }
-            WindowEvent::HiDpiFactorChanged(factor) => {
-                session.hidpi_factor = factor;
+            WindowEvent::ScaleFactorChanged(factor) => {
+                renderer.handle_scale_factor_changed(factor);
             }
             WindowEvent::CloseRequested => {
                 session.quit(ExitReason::Normal);

@@ -183,7 +183,7 @@ impl From<winit::event::WindowEvent> for WindowEvent {
             Winit::ReceivedCharacter(c) => WindowEvent::ReceivedCharacter(c),
             Winit::KeyboardInput { input, .. } => WindowEvent::KeyboardInput(input.into()),
             Winit::Focused(b) => WindowEvent::Focused(b),
-            Winit::HiDpiFactorChanged(n) => WindowEvent::HiDpiFactorChanged(n),
+            Winit::HiDpiFactorChanged(n) => WindowEvent::ScaleFactorChanged(n),
 
             _ => WindowEvent::Noop,
         }
