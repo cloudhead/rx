@@ -430,7 +430,8 @@ impl renderer::Renderer for Renderer {
             self.screen_fb.height() as u32,
             Origin::TopLeft,
         );
-        let scale: f32 = session.settings["scale"].clone().into();
+        let pixel_ratio = platform::pixel_ratio(self.scale_factor);
+        let scale = (session.settings["scale"].to_f64() * pixel_ratio) as f32;
 
         if (scale - self.cache.scale).abs() > std::f32::EPSILON {
             self.r

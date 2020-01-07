@@ -424,6 +424,7 @@ impl renderer::Renderer for Renderer {
             shape2d,
             cursor2d,
             screen2d,
+            scale_factor,
             present_fb,
             blending,
             screen_fb,
@@ -732,10 +733,13 @@ impl renderer::Renderer for Renderer {
             // Render cursor.
             let bound_cursors = pipeline.bind_texture(cursors);
             shd_gate.shade(&cursor2d, |iface, mut rdr_gate| {
+                let ui_scale = session.settings["scale"].to_f64();
+                let pixel_ratio = platform::pixel_ratio(*scale_factor);
+
                 iface.cursor.update(&bound_cursors);
                 iface.framebuffer.update(&bound_screen);
                 iface.ortho.update(ortho);
-                iface.scale.update(session.settings["scale"].clone().into());
+                iface.scale.update((ui_scale * pixel_ratio) as f32);
 
                 rdr_gate.render(render_st, |mut tess_gate| {
                     tess_gate.render(&cursor_tess);
