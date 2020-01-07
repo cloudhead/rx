@@ -470,7 +470,7 @@ impl Into<(u32, u32)> for PhysicalSize {
 /// our ratio between screen coordinates and pixels is whatever
 /// the scaling factor is, which is always `2.0` on modern hardware.
 #[cfg(target_os = "macos")]
-fn pixel_ratio(scale_factor: f64) -> f64 {
+pub fn pixel_ratio(scale_factor: f64) -> f64 {
     scale_factor
 }
 
@@ -480,6 +480,6 @@ fn pixel_ratio(scale_factor: f64) -> f64 {
 /// No matter the DPI settings and display, we always want to map a screen
 /// coordinate with a single pixel.
 #[cfg(not(target_os = "macos"))]
-fn pixel_ratio(_scale_factor: f64) -> f64 {
+pub fn pixel_ratio(_scale_factor: f64) -> f64 {
     1.0
 }
