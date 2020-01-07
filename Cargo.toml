@@ -1,5 +1,5 @@
 [package]
-name = "rx-editor"
+name = "rx"
 version = "0.3.0"
 description = "a modern, extensible pixel editor"
 license = "GPL-3.0-only"
@@ -39,10 +39,3 @@ lazy_static = "1.3"
 toml = "0.5"
 serde = "1.0"
 serde_derive = "1.0"
-
-[lib]
-name = "rx"
-
-[[bin]]
-name = "rx"
-path = "src/main.rs"
