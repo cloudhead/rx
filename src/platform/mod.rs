@@ -112,8 +112,9 @@ pub enum WindowEvent {
     /// There are no more inputs to process, the application can do work.
     Ready,
 
-    /// The DPI factor of the window has changed.
-    HiDpiFactorChanged(f64),
+    /// The content scale factor of the window has changed.  For example,
+    /// the window was moved to a higher DPI screen.
+    ScaleFactorChanged(f64),
 
     /// No-op event, for events we don't handle.
     Noop,
@@ -136,7 +137,7 @@ impl WindowEvent {
             | Self::CursorEntered
             | Self::CursorLeft
             | Self::MouseInput { .. }
-            | Self::HiDpiFactorChanged(_) => true,
+            | Self::ScaleFactorChanged(_) => true,
             _ => false,
         }
     }
@@ -353,13 +354,13 @@ impl LogicalPosition {
         LogicalPosition { x, y }
     }
 
-    pub fn from_physical<T: Into<PhysicalPosition>>(physical: T, dpi_factor: f64) -> Self {
-        physical.into().to_logical(dpi_factor)
+    pub fn from_physical<T: Into<PhysicalPosition>>(physical: T, scale_factor: f64) -> Self {
+        physical.into().to_logical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_physical(&self, dpi_factor: f64) -> PhysicalPosition {
-        let x = self.x * dpi_factor;
-        let y = self.y * dpi_factor;
+    pub fn to_physical(&self, scale_factor: f64) -> PhysicalPosition {
+        let x = self.x * self::pixel_ratio(scale_factor);
+        let y = self.y * self::pixel_ratio(scale_factor);
         PhysicalPosition::new(x, y)
     }
 }
@@ -376,13 +377,13 @@ impl PhysicalPosition {
         PhysicalPosition { x, y }
     }
 
-    pub fn from_logical<T: Into<LogicalPosition>>(logical: T, dpi_factor: f64) -> Self {
-        logical.into().to_physical(dpi_factor)
+    pub fn from_logical<T: Into<LogicalPosition>>(logical: T, scale_factor: f64) -> Self {
+        logical.into().to_physical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_logical(&self, dpi_factor: f64) -> LogicalPosition {
-        let x = self.x / dpi_factor;
-        let y = self.y / dpi_factor;
+    pub fn to_logical(&self, scale_factor: f64) -> LogicalPosition {
+        let x = self.x / self::pixel_ratio(scale_factor);
+        let y = self.y / self::pixel_ratio(scale_factor);
         LogicalPosition::new(x, y)
     }
 }
@@ -399,13 +400,13 @@ impl LogicalSize {
         LogicalSize { width, height }
     }
 
-    pub fn from_physical<T: Into<PhysicalSize>>(physical: T, dpi_factor: f64) -> Self {
-        physical.into().to_logical(dpi_factor)
+    pub fn from_physical<T: Into<PhysicalSize>>(physical: T, scale_factor: f64) -> Self {
+        physical.into().to_logical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_physical(&self, dpi_factor: f64) -> PhysicalSize {
-        let width = self.width * dpi_factor;
-        let height = self.height * dpi_factor;
+    pub fn to_physical(&self, scale_factor: f64) -> PhysicalSize {
+        let width = self.width * self::pixel_ratio(scale_factor);
+        let height = self.height * self::pixel_ratio(scale_factor);
         PhysicalSize::new(width, height)
     }
 
@@ -439,13 +440,13 @@ impl PhysicalSize {
         PhysicalSize { width, height }
     }
 
-    pub fn from_logical<T: Into<LogicalSize>>(logical: T, dpi_factor: f64) -> Self {
-        logical.into().to_physical(dpi_factor)
+    pub fn from_logical<T: Into<LogicalSize>>(logical: T, scale_factor: f64) -> Self {
+        logical.into().to_physical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_logical(&self, dpi_factor: f64) -> LogicalSize {
-        let width = self.width / dpi_factor;
-        let height = self.height / dpi_factor;
+    pub fn to_logical(&self, scale_factor: f64) -> LogicalSize {
+        let width = self.width / self::pixel_ratio(scale_factor);
+        let height = self.height / self::pixel_ratio(scale_factor);
         LogicalSize::new(width, height)
     }
 }
@@ -461,4 +462,24 @@ impl Into<(u32, u32)> for PhysicalSize {
     fn into(self) -> (u32, u32) {
         (self.width.round() as _, self.height.round() as _)
     }
+}
+
+/// The ratio between screen coordinates and pixels, given the
+/// content scale.
+/// On macOS, screen coordinates don't map 1:1 with pixels. Hence,
+/// our ratio between screen coordinates and pixels is whatever
+/// the scaling factor is, which is always `2.0` on modern hardware.
+#[cfg(target_os = "macos")]
+fn pixel_ratio(scale_factor: f64) -> f64 {
+    scale_factor
+}
+
+/// The ratio between screen coordinates and pixels, given the
+/// content scale.
+/// On Linux and Windows, screen coordinates always map 1:1 with pixels.
+/// No matter the DPI settings and display, we always want to map a screen
+/// coordinate with a single pixel.
+#[cfg(not(target_os = "macos"))]
+fn pixel_ratio(_scale_factor: f64) -> f64 {
+    1.0
 }

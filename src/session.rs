@@ -690,9 +690,6 @@ pub struct Session {
     /// The height of the session workspace.
     pub height: f32,
 
-    /// The HiDPI factor of the host.
-    pub hidpi_factor: f64,
-
     /// The cursor coordinates.
     pub cursor: SessionCoords,
 
@@ -808,18 +805,11 @@ impl Session {
     const INIT: &'static str = "init.rx";
 
     /// Create a new un-initialized session.
-    pub fn new(
-        w: u32,
-        h: u32,
-        hidpi_factor: f64,
-        resources: ResourceManager,
-        base_dirs: dirs::ProjectDirs,
-    ) -> Self {
+    pub fn new(w: u32, h: u32, resources: ResourceManager, base_dirs: dirs::ProjectDirs) -> Self {
         Self {
             state: State::Initializing,
             width: w as f32,
             height: h as f32,
-            hidpi_factor,
             cursor: SessionCoords::new(0., 0.),
             base_dirs,
             offset: Vector2::zero(),
@@ -2414,7 +2404,6 @@ impl Session {
                                 Err(format!("Error: couldn't retrieve current directory"))
                             }
                         }
-                        "s/hidpi" | "hidpi" => Ok(Value::Str(format!("{:.1}", self.hidpi_factor))),
                         "s/offset" => Ok(Value::F64Tuple(self.offset.x, self.offset.y)),
                         "v/offset" => {
                             let v = self.active_view();

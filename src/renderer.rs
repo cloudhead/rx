@@ -12,7 +12,7 @@ pub trait Renderer: std::marker::Sized {
     fn new<T>(
         win: &mut platform::backend::Window<T>,
         win_size: LogicalSize,
-        hidpi_factor: f64,
+        scale_factor: f64,
         present_mode: PresentMode,
         resources: ResourceManager,
     ) -> std::io::Result<Self>;
@@ -27,5 +27,6 @@ pub trait Renderer: std::marker::Sized {
         avg_frametime: &time::Duration,
     );
 
-    fn update_present_mode(&mut self, present_mode: PresentMode);
+    fn handle_present_mode_changed(&mut self, present_mode: PresentMode);
+    fn handle_scale_factor_changed(&mut self, scale_factor: f64);
 }

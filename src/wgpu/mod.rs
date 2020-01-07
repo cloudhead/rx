@@ -36,7 +36,7 @@ pub struct Renderer {
     /// Presentation mode, eg. vsync.
     present_mode: PresentMode,
     /// HiDPI scaling factor.
-    hidpi_factor: f64,
+    scale_factor: f64,
     /// UI scaling factor.
     scale: f64,
     /// Window size.
@@ -219,7 +219,7 @@ impl renderer::Renderer for Renderer {
     fn new<T>(
         win: &mut platform::backend::Window<T>,
         win_size: LogicalSize,
-        hidpi_factor: f64,
+        scale_factor: f64,
         present_mode: PresentMode,
         resources: ResourceManager,
     ) -> std::io::Result<Self> {
@@ -293,7 +293,7 @@ impl renderer::Renderer for Renderer {
             Op::Fill(&checker.texture, Rgba8::align(&checker_img)),
         ]);
 
-        let physical = win_size.to_physical(hidpi_factor);
+        let physical = win_size.to_physical(scale_factor);
         let swap_chain = r.swap_chain(
             physical.width as u32,
             physical.height as u32,
@@ -304,7 +304,7 @@ impl renderer::Renderer for Renderer {
             r,
             swap_chain,
             present_mode,
-            hidpi_factor,
+            scale_factor,
             scale: 1.,
             win_size,
             font,
@@ -579,7 +579,7 @@ impl renderer::Renderer for Renderer {
         }
     }
 
-    fn update_present_mode(&mut self, present_mode: PresentMode) {
+    fn handle_present_mode_changed(&mut self, present_mode: PresentMode) {
         if self.present_mode == present_mode {
             return;
         }
@@ -589,6 +589,11 @@ impl renderer::Renderer for Renderer {
             self.swap_chain.height as u32,
             present_mode.to_wgpu(),
         );
+    }
+
+    fn handle_scale_factor_changed(&mut self, scale_factor: f64) {
+        self.scale_factor = scale_factor;
+        self.handle_resized(self.win_size);
     }
 }
 
@@ -605,7 +610,7 @@ impl Renderer {
                     self.handle_resized(size);
                 }
                 Effect::SessionScaled(scale) => {
-                    self.handle_scaled(scale);
+                    self.handle_session_scale_changed(scale);
                 }
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
@@ -824,7 +829,7 @@ impl Renderer {
     }
 
     pub fn handle_resized(&mut self, size: platform::LogicalSize) {
-        let physical = size.to_physical(self.hidpi_factor);
+        let physical = size.to_physical(self.scale_factor);
 
         self.swap_chain = self.r.swap_chain(
             physical.width as u32,
@@ -832,10 +837,10 @@ impl Renderer {
             self.present_mode.to_wgpu(),
         );
         self.win_size = size;
-        self.handle_scaled(self.scale);
+        self.handle_session_scale_changed(self.scale);
     }
 
-    pub fn handle_scaled(&mut self, scale: f64) {
+    pub fn handle_session_scale_changed(&mut self, scale: f64) {
         let (fb_w, fb_h) = (self.win_size.width / scale, self.win_size.height / scale);
 
         self.screen_fb = self.r.framebuffer(fb_w as u32, fb_h as u32);
