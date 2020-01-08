@@ -14,7 +14,7 @@ wgpu = ["glfw", "rgx/renderer"]
 
 [dependencies]
 pico-args = "0.3.0"
-env_logger = { version = "0.6.2", default-features = false, features = ["termcolor"] }
+simple_logger = { version = "1.4.0", default-features = false }
 png = { version = "0.15.0" }
 gif = "0.10.3"
 glfw = { version = "0.34.0", optional = true }
@@ -32,7 +32,7 @@ luminance-derive = { version = "0.5.0", optional = true }
 gl = { version = "0.14", optional = true }
 
 [dependencies.rgx]
-version = "0.7.0"
+version = "0.7.1"
 
 [dev-dependencies]
 lazy_static = "1.3"

@@ -1,8 +1,9 @@
 use rx;
 use rx::execution::{DigestMode, ExecutionMode, GifMode};
 
-use env_logger;
+use log;
 use pico_args;
+use simple_logger;
 
 use std::io;
 use std::path::PathBuf;
@@ -21,10 +22,9 @@ OPTIONS
     -h, --help           Prints help
     -V, --version        Prints version
 
-    -v                   Verbose mode (verbosity=2)
+    -v                   Verbose mode
     -u <script>          Use the commands in <script> for initialization
 
-    --verbosity <level>  Set verbosity level (0-5)
     --record <dir>       Record user input to a directory
     --replay <dir>       Replay user input from a directory
     --width <width>      Set the window width
@@ -94,20 +94,12 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         return Err("'--record-digests' has no effect without '--record' or '--replay'".into());
     }
 
-    let log = match args
-        .opt_value_from_str("--verbosity")?
-        .unwrap_or(if verbose { 2 } else { 0 })
-    {
-        0 => "rx=info",
-        1 => "rx=info,error",
-        2 => "rx=debug,error",
-        3 => "rx=debug,info",
-        _ => "debug",
+    let log_lvl = if verbose {
+        log::Level::Debug
+    } else {
+        log::Level::Info
     };
-
-    let mut logger = env_logger::Builder::new();
-    logger.parse_filters(log);
-    logger.init();
+    simple_logger::init_with_level(log_lvl)?;
 
     let width = width.unwrap_or(default.width);
     let height = height.unwrap_or(default.height);
