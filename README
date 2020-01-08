@@ -30,13 +30,7 @@ OVERVIEW
 
 REQUIREMENTS
 
-  On Linux and Windows, Vulkan[0] is currently required, with a compatible
-  graphics adapter.
-
-  On macOS, Metal[1] is required.
-
-  [0]: https://www.khronos.org/vulkan/
-  [1]: https://developer.apple.com/metal/
+  At a minimum, OpenGL 3.3 support is required.
 
 BUILD DEPENDENCIES
 
