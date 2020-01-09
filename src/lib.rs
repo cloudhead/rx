@@ -67,7 +67,7 @@ use std::rc::Rc;
 use std::time;
 
 /// Program version.
-pub const VERSION: &str = "0.3.0";
+pub const VERSION: &str = "0.3.1";
 
 #[global_allocator]
 pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);

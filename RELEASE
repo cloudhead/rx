@@ -12,7 +12,3 @@
   4. Push tags:
 
       git push --tags
-
-  5. Publish crate:
-
-      cargo publish
