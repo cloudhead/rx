@@ -9,7 +9,9 @@ use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Pixels, ResourceManager};
-use crate::view::{FileStatus, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewState};
+use crate::view::{
+    FileStatus, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
+};
 
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
 use rgx::kit::{Rgba8, ZDepth};
@@ -257,7 +259,9 @@ pub enum Effect {
     /// When a view has been removed.
     ViewRemoved(ViewId),
     /// When a view has been touched (edited).
-    ViewTouched(ViewId, Option<ViewExtent>),
+    ViewTouched(ViewId),
+    /// When a view operation has taken place.
+    ViewOps(ViewId, Vec<ViewOp>),
     /// When a view requires re-drawing.
     ViewDamaged(ViewId, ViewExtent),
     /// When the active view is non-permanently painted on.
@@ -1062,10 +1066,11 @@ impl Session {
             self.quit(ExitReason::Normal);
         } else {
             for v in self.views.iter() {
+                if !v.ops.is_empty() {
+                    self.effects.push(Effect::ViewOps(v.id, v.ops.clone()));
+                }
                 match v.state {
-                    ViewState::Dirty(extent) => {
-                        self.effects.push(Effect::ViewTouched(v.id, extent));
-                    }
+                    ViewState::Dirty => {}
                     ViewState::Damaged(extent) => {
                         self.effects.push(Effect::ViewDamaged(v.id, extent));
                     }

@@ -6,7 +6,7 @@ use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
-use crate::view::{View, ViewId, ViewOp};
+use crate::view::{ViewId, ViewOp};
 use crate::{data, image};
 
 use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
@@ -397,13 +397,6 @@ impl renderer::Renderer for Renderer {
 
         self.handle_effects(effects).unwrap();
         self.update_view_animations(session);
-
-        // Handle view operations.
-        for v in session.views.iter() {
-            if !v.ops.is_empty() {
-                self.handle_view_ops(&v).unwrap();
-            }
-        }
 
         let ortho: linear::M44 = unsafe {
             mem::transmute(kit::ortho(
@@ -822,9 +815,8 @@ impl Renderer {
                 Effect::ViewRemoved(id) => {
                     self.view_data.remove(&id);
                 }
-                Effect::ViewTouched(_, None) => {}
-                Effect::ViewTouched(id, Some(extent)) => {
-                    self.resize_view(id, extent.width(), extent.height())?;
+                Effect::ViewOps(id, ops) => {
+                    self.handle_view_ops(id, &ops)?;
                 }
                 Effect::ViewDamaged(id, extent) => {
                     self.handle_view_damaged(id, extent.width(), extent.height())?;
@@ -838,32 +830,41 @@ impl Renderer {
                 Effect::ViewPaintFinal(shapes) => {
                     shapes.into_iter().for_each(|s| self.final_batch.add(s));
                 }
+                Effect::ViewTouched(_) => {}
             }
         }
         Ok(())
     }
 
-    fn handle_view_ops(&mut self, v: &View) -> Result<(), RendererError> {
+    fn handle_view_ops(&mut self, id: ViewId, ops: &[ViewOp]) -> Result<(), RendererError> {
         use RendererError as Error;
 
-        let fb = &self
-            .view_data
-            .get(&v.id)
-            .expect("views must have associated view data")
-            .fb;
-
-        for op in &v.ops {
+        for op in ops {
             match op {
+                ViewOp::Resize(w, h) => {
+                    self.resize_view(id, *w, *h)?;
+                }
                 ViewOp::Clear(color) => {
-                    fb.color_slot()
+                    &self
+                        .view_data
+                        .get(&id)
+                        .expect("views must have associated view data")
+                        .fb
+                        .color_slot()
                         .clear(GenMipmaps::No, (color.r, color.g, color.b, color.a))
                         .map_err(Error::Texture)?;
                 }
                 ViewOp::Blit(src, dst) => {
+                    let fb = &self
+                        .view_data
+                        .get(&id)
+                        .expect("views must have associated view data")
+                        .fb;
+
                     let texels = self
                         .resources
                         .lock()
-                        .get_snapshot_rect(v.id, &src.map(|n| n as i32));
+                        .get_snapshot_rect(id, &src.map(|n| n as i32));
                     let texels = self::align_u8(&texels);
 
                     fb.color_slot()
@@ -877,7 +878,7 @@ impl Renderer {
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
-                    let pixels = resources.get_snapshot_rect(v.id, src);
+                    let pixels = resources.get_snapshot_rect(id, src);
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 

@@ -114,7 +114,7 @@ pub enum ViewState {
     Okay,
     /// The view has been touched, the changes need to be stored in a snapshot.
     /// If the parameter is `Some`, the view extents were changed.
-    Dirty(Option<ViewExtent>),
+    Dirty,
     /// The view is damaged, it needs to be redrawn from a snapshot.
     /// This happens when undo/redo is used.
     Damaged(ViewExtent),
@@ -131,6 +131,8 @@ pub enum ViewOp {
     Yank(Rect<i32>),
     /// Blit the paste buffer into the given area.
     Paste(Rect<i32>),
+    /// Resize the view.
+    Resize(u32, u32),
 }
 
 /// A view on a sprite or image.
@@ -266,11 +268,11 @@ impl View {
             index as usize
         };
 
+        self.extend();
         self.ops.push(ViewOp::Blit(
             Rect::new(fw * index as f32, 0., fw * (index + 1) as f32, fh),
             Rect::new(width, 0., width + fw, fh),
         ));
-        self.extend();
     }
 
     /// Resize view frames to the given size.
@@ -376,7 +378,7 @@ impl View {
             self.file_status = FileStatus::Modified(f.clone());
         }
         if self.state == ViewState::Okay {
-            self.state = ViewState::Dirty(None);
+            self.state = ViewState::Dirty;
         }
     }
 
@@ -387,7 +389,8 @@ impl View {
     }
 
     pub fn resized(&mut self) {
-        self.state = ViewState::Dirty(Some(self.extent()));
+        self.state = ViewState::Dirty;
+        self.ops.push(ViewOp::Resize(self.width(), self.height()));
     }
 
     /// Check whether the view is damaged.
@@ -401,10 +404,7 @@ impl View {
 
     /// Check whether the view is dirty.
     pub fn is_dirty(&self) -> bool {
-        match self.state {
-            ViewState::Dirty(_) => true,
-            _ => false,
-        }
+        self.state == ViewState::Dirty
     }
 
     /// Check whether the view is okay.

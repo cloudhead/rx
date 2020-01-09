@@ -381,13 +381,6 @@ impl renderer::Renderer for Renderer {
         // TODO: Don't re-create the context every frame. Just clear it.
         ctx.clear();
 
-        // Handle view operations.
-        for v in session.views.iter() {
-            if !v.ops.is_empty() {
-                self.handle_view_ops(&v);
-            }
-        }
-
         ctx.draw(&session, avg_frametime, execution.clone());
 
         let ui_buf = ctx.ui_batch.finish(&self.r);
@@ -620,10 +613,10 @@ impl Renderer {
                 Effect::ViewRemoved(id) => {
                     self.view_data.remove(&id);
                 }
-                Effect::ViewTouched(_, None) => {}
-                Effect::ViewTouched(id, Some(extent)) => {
-                    self.resize_view(id, extent.width(), extent.height());
+                Effect::ViewOps(id, ops) => {
+                    self.handle_view_ops(id, &ops);
                 }
+                Effect::ViewTouched(_) => {}
                 Effect::ViewDamaged(id, extent) => {
                     self.handle_view_damaged(id, extent.width(), extent.height());
                 }
@@ -706,24 +699,33 @@ impl Renderer {
         self.view_data.insert(id, view_data);
     }
 
-    fn handle_view_ops(&mut self, v: &View) {
-        let fb = &self
-            .view_data
-            .get(&v.id)
-            .expect("views must have associated view data")
-            .fb;
-
-        for op in &v.ops {
+    fn handle_view_ops(&mut self, id: ViewId, ops: &[ViewOp]) {
+        for op in ops {
             match op {
+                ViewOp::Resize(w, h) => {
+                    self.resize_view(id, *w, *h);
+                }
                 ViewOp::Clear(color) => {
+                    let fb = &self
+                        .view_data
+                        .get(&id)
+                        .expect("views must have associated view data")
+                        .fb;
+
                     self.r.submit(&[Op::Clear(fb, (*color).into())]);
                 }
                 ViewOp::Blit(src, dst) => {
+                    let fb = &self
+                        .view_data
+                        .get(&id)
+                        .expect("views must have associated view data")
+                        .fb;
+
                     self.r.submit(&[Op::Blit(fb, *src, *dst)]);
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
-                    let pixels = resources.get_snapshot_rect(v.id, src);
+                    let pixels = resources.get_snapshot_rect(id, src);
                     let (w, h) = (src.width() as u32, src.height() as u32);
 
                     if self.paste.texture.w != w || self.paste.texture.h != h {
