@@ -199,7 +199,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
         }
     }
 
-    for (id, v) in session.views.iter() {
+    for v in session.views.iter() {
         let offset = v.offset + session.offset;
 
         // Frame lines
@@ -215,7 +215,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
         }
         // View border
         let r = v.rect();
-        let border_color = if session.is_active(*id) {
+        let border_color = if session.is_active(v.id) {
             match session.mode {
                 // TODO: (rgx) Use `Rgba8::alpha`.
                 Mode::Visual(_) => {
@@ -223,7 +223,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 }
                 _ => color::WHITE.into(),
             }
-        } else if session.hover_view == Some(*id) {
+        } else if session.hover_view == Some(v.id) {
             Rgba::new(0.7, 0.7, 0.7, 1.0)
         } else {
             Rgba::new(0.5, 0.5, 0.5, 1.0)
@@ -422,7 +422,7 @@ fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
 
 fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
     if session.settings["checker"].is_set() {
-        for (_, v) in session.views.iter() {
+        for v in session.views.iter() {
             let ratio = v.width() as f32 / v.height() as f32;
             let rx = v.zoom * ratio;
             let ry = v.zoom;

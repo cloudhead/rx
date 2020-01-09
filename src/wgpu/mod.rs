@@ -382,7 +382,7 @@ impl renderer::Renderer for Renderer {
         ctx.clear();
 
         // Handle view operations.
-        for v in session.views.values() {
+        for v in session.views.iter() {
             if !v.ops.is_empty() {
                 self.handle_view_ops(&v);
             }
@@ -416,7 +416,7 @@ impl renderer::Renderer for Renderer {
         let mut f = self.r.frame();
 
         self.update_view_animations(session);
-        self.update_view_transforms(session.views.values(), session.offset, &mut f);
+        self.update_view_transforms(session.views.iter(), session.offset, &mut f);
         self.cursor2d.set_framebuffer(&self.screen_fb, &self.r);
 
         let v = session.active_view();
@@ -621,7 +621,7 @@ impl Renderer {
                     self.view_data.remove(&id);
                 }
                 Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
-                    let v = views.get(&id).expect("view must exist");
+                    let v = views.get(id).expect("view must exist");
                     self.handle_view_dirty(v);
                 }
                 Effect::ViewBlendingChanged(blending) => {
@@ -786,7 +786,7 @@ impl Renderer {
 
     fn render_view_animations(&self, views: &ViewManager, p: &mut core::Pass) {
         for (id, v) in self.view_data.iter() {
-            if let (Some(vb), Some(view)) = (&v.anim_vb, views.get(id)) {
+            if let (Some(vb), Some(view)) = (&v.anim_vb, views.get(*id)) {
                 if view.animation.len() > 1 {
                     p.draw(vb, &v.anim_binding);
                 }
@@ -870,7 +870,7 @@ impl Renderer {
         if !s.settings["animation"].is_set() {
             return;
         }
-        for (id, v) in s.views.iter() {
+        for v in s.views.iter() {
             if !v.animation.is_playing() {
                 continue;
             }
@@ -878,7 +878,7 @@ impl Renderer {
             // to re-create the buffer.
             let buf = draw::draw_view_animation(s, &v).finish(&self.r);
 
-            if let Some(d) = self.view_data.get_mut(&id) {
+            if let Some(d) = self.view_data.get_mut(&v.id) {
                 d.anim_vb = Some(buf);
             }
         }

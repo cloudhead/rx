@@ -399,7 +399,7 @@ impl renderer::Renderer for Renderer {
         self.update_view_animations(session);
 
         // Handle view operations.
-        for v in session.views.values() {
+        for v in session.views.iter() {
             if !v.ops.is_empty() {
                 self.handle_view_ops(&v).unwrap();
             }
@@ -600,7 +600,7 @@ impl renderer::Renderer for Renderer {
             }
 
             for (id, v) in view_data.iter() {
-                if let Some(view) = session.views.get(id) {
+                if let Some(view) = session.views.get(*id) {
                     let bound_view = pipeline.bind_texture(v.fb.color_slot());
                     let bound_view_staging = pipeline.bind_texture(v.staging_fb.color_slot());
                     let transform = Matrix4::from_translation(
@@ -662,7 +662,7 @@ impl renderer::Renderer for Renderer {
                 // Render view animations.
                 if session.settings["animation"].is_set() {
                     for (id, v) in view_data.iter() {
-                        match (&v.anim_tess, session.views.get(id)) {
+                        match (&v.anim_tess, session.views.get(*id)) {
                             (Some(tess), Some(view)) if view.animation.len() > 1 => {
                                 let bound_view = pipeline.bind_texture(&v.fb.color_slot());
 
@@ -827,7 +827,7 @@ impl Renderer {
                     self.view_data.remove(&id);
                 }
                 Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
-                    let v = views.get(&id).expect("view must exist");
+                    let v = views.get(id).expect("view must exist");
                     self.handle_view_dirty(v)?;
                 }
                 Effect::ViewBlendingChanged(blending) => {
@@ -988,7 +988,7 @@ impl Renderer {
         if !s.settings["animation"].is_set() {
             return;
         }
-        for (id, v) in s.views.iter() {
+        for v in s.views.iter() {
             if !v.animation.is_playing() {
                 continue;
             }
@@ -996,7 +996,7 @@ impl Renderer {
             // to re-create the buffer.
             let batch = draw::draw_view_animation(s, &v);
 
-            if let Some(vd) = self.view_data.get_mut(&id) {
+            if let Some(vd) = self.view_data.get_mut(&v.id) {
                 vd.anim_tess = Some(self::tessellation::<_, Sprite2dVertex>(
                     &mut self.ctx,
                     batch.vertices().as_slice(),

@@ -922,7 +922,7 @@ impl Session {
             b.update();
         }
 
-        for (_, v) in self.views.iter_mut() {
+        for v in self.views.iter_mut() {
             if self.settings["animation"].is_set() {
                 v.update(delta);
             }
@@ -1061,11 +1061,11 @@ impl Session {
         if self.views.is_empty() {
             self.quit(ExitReason::Normal);
         } else {
-            for (id, v) in self.views.iter() {
+            for v in self.views.iter() {
                 if v.is_dirty() {
-                    self.effects.push(Effect::ViewTouched(*id));
+                    self.effects.push(Effect::ViewTouched(v.id));
                 } else if v.is_damaged() {
-                    self.effects.push(Effect::ViewDamaged(*id));
+                    self.effects.push(Effect::ViewDamaged(v.id));
                 }
             }
         }
@@ -1096,7 +1096,7 @@ impl Session {
 
     /// Cleanup to be run at the end of the frame.
     pub fn cleanup(&mut self) {
-        for (_, v) in self.views.iter_mut() {
+        for v in self.views.iter_mut() {
             v.okay();
         }
     }
@@ -1164,7 +1164,7 @@ impl Session {
             _ => {}
         }
 
-        for (_, v) in self.views.iter_mut() {
+        for v in self.views.iter_mut() {
             if v.contains(cursor - self.offset) {
                 self.hover_view = Some(v.id);
                 break;
@@ -1293,7 +1293,7 @@ impl Session {
     /// Panics if the view isn't found.
     pub fn view(&self, id: ViewId) -> &View {
         self.views
-            .get(&id)
+            .get(id)
             .expect(&format!("view #{} must exist", id))
     }
 
@@ -1451,7 +1451,7 @@ impl Session {
             }
         }
 
-        if let Some(id) = self.views.keys().cloned().next_back() {
+        if let Some(id) = self.views.last().map(|v| v.id) {
             self.organize_views();
             self.edit_view(id);
         }
@@ -1545,7 +1545,6 @@ impl Session {
         // View is already loaded.
         if let Some(View { id, .. }) = self
             .views
-            .values()
             .find(|v| v.file_name().map_or(false, |f| f == path))
         {
             // TODO: Reload from disk.
@@ -1654,17 +1653,16 @@ impl Session {
         if self.views.is_empty() {
             return;
         }
-        let (_, first) = self
+        let first = self
             .views
-            .iter_mut()
-            .next()
+            .first_mut()
             .expect("view list should never be empty");
 
         first.offset.y = 0.;
 
         let mut offset = first.height() as f32 * first.zoom + Self::VIEW_MARGIN;
 
-        for (_, v) in self.views.iter_mut().skip(1) {
+        for v in self.views.iter_mut().skip(1) {
             v.offset.y = offset;
             offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
         }
@@ -2325,7 +2323,7 @@ impl Session {
             }
             Command::QuitAll => {
                 // TODO (rust)
-                let ids: Vec<ViewId> = self.views.keys().cloned().collect();
+                let ids: Vec<ViewId> = self.views.ids().collect();
                 for id in ids {
                     self.quit_view_safe(id);
                 }
@@ -2492,10 +2490,8 @@ impl Session {
 
                 if let Some(id) = self
                     .views
-                    .range(id..)
-                    .nth(1)
-                    .map(|(id, _)| *id)
-                    .or_else(|| self.views.keys().next().cloned())
+                    .after(id)
+                    .or_else(|| self.views.first().map(|v| v.id))
                 {
                     self.activate(id);
                     self.center_active_view();
@@ -2506,10 +2502,8 @@ impl Session {
 
                 if let Some(id) = self
                     .views
-                    .range(..id)
-                    .next_back()
-                    .map(|(id, _)| *id)
-                    .or_else(|| self.views.keys().next_back().cloned())
+                    .before(id)
+                    .or_else(|| self.views.last().map(|v| v.id))
                 {
                     self.activate(id);
                     self.center_active_view();

@@ -535,14 +535,75 @@ impl ViewManager {
         self.lru.truncate(Self::MAX_LRU);
     }
 
+    /// Iterate over views.
+    pub fn iter(&self) -> btree_map::Values<'_, ViewId, View> {
+        self.views.values()
+    }
+
     /// Iterate over views, mutably.
-    pub fn iter_mut(&mut self) -> btree_map::IterMut<'_, ViewId, View> {
-        self.views.iter_mut()
+    pub fn iter_mut(&mut self) -> btree_map::ValuesMut<'_, ViewId, View> {
+        self.views.values_mut()
+    }
+
+    /// Get a view, mutably.
+    pub fn get(&self, id: ViewId) -> Option<&View> {
+        self.views.get(&id)
     }
 
     /// Get a view, mutably.
     pub fn get_mut(&mut self, id: ViewId) -> Option<&mut View> {
         self.views.get_mut(&id)
+    }
+
+    /// Find a view.
+    pub fn find<F>(&self, f: F) -> Option<&View>
+    where
+        for<'r> F: Fn(&'r &View) -> bool,
+    {
+        self.iter().find(f)
+    }
+
+    /// Iterate over view ids.
+    pub fn ids<'a>(&'a self) -> impl DoubleEndedIterator<Item = ViewId> + 'a {
+        self.views.keys().cloned()
+    }
+
+    /// Get `ViewId` *after* given id.
+    pub fn after(&self, id: ViewId) -> Option<ViewId> {
+        self.range(id..).nth(1)
+    }
+
+    /// Get `ViewId` *before* given id.
+    pub fn before(&self, id: ViewId) -> Option<ViewId> {
+        self.range(..id).next_back()
+    }
+
+    /// Get the first view.
+    pub fn first(&self) -> Option<&View> {
+        self.iter().next()
+    }
+
+    /// Get the first view, mutably.
+    pub fn first_mut(&mut self) -> Option<&mut View> {
+        self.iter_mut().next()
+    }
+
+    /// Get the last view.
+    pub fn last(&self) -> Option<&View> {
+        self.iter().next_back()
+    }
+
+    /// Get view id range.
+    pub fn range<'a, R>(&'a self, r: R) -> impl DoubleEndedIterator<Item = ViewId> + 'a
+    where
+        R: std::ops::RangeBounds<ViewId>,
+    {
+        self.views.range(r).map(|(id, _)| *id)
+    }
+
+    /// Whether there are views.
+    pub fn is_empty(&self) -> bool {
+        self.views.is_empty()
     }
 
     /// Generate a new view id.
@@ -551,13 +612,5 @@ impl ViewManager {
         self.next_id = ViewId(id + 1);
 
         ViewId(id)
-    }
-}
-
-impl Deref for ViewManager {
-    type Target = BTreeMap<ViewId, View>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.views
     }
 }
