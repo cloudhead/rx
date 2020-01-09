@@ -224,10 +224,10 @@ unsafe impl GraphicsContext for Context {
 
 #[derive(Debug)]
 enum RendererError {
-    InitializationError,
-    TextureError(luminance::texture::TextureError),
-    FramebufferError(luminance::framebuffer::FramebufferError),
-    StateError(luminance::state::StateQueryError),
+    Initialization,
+    Texture(luminance::texture::TextureError),
+    Framebuffer(luminance::framebuffer::FramebufferError),
+    State(luminance::state::StateQueryError),
 }
 
 impl From<RendererError> for io::Error {
@@ -239,10 +239,10 @@ impl From<RendererError> for io::Error {
 impl fmt::Display for RendererError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
-            Self::InitializationError => write!(f, "initialization error"),
-            Self::TextureError(e) => write!(f, "texture error: {}", e),
-            Self::FramebufferError(e) => write!(f, "framebuffer error: {}", e),
-            Self::StateError(e) => write!(f, "state error: {}", e),
+            Self::Initialization => write!(f, "initialization error"),
+            Self::Texture(e) => write!(f, "texture error: {}", e),
+            Self::Framebuffer(e) => write!(f, "framebuffer error: {}", e),
+            Self::State(e) => write!(f, "state error: {}", e),
         }
     }
 }
@@ -271,7 +271,7 @@ impl renderer::Renderer for Renderer {
 
         gl::load_with(|s| win.get_proc_address(s) as *const _);
 
-        let gs = GraphicsState::new().map_err(Error::StateError)?;
+        let gs = GraphicsState::new().map_err(Error::State)?;
         let mut ctx = Context {
             gs: Rc::new(RefCell::new(gs)),
         };
@@ -281,23 +281,23 @@ impl renderer::Renderer for Renderer {
         let (checker_w, checker_h) = (2, 2);
         let (paste_w, paste_h) = (8, 8);
 
-        let font = Texture::new(&mut ctx, [font_w, font_h], 0, self::SAMPLER)
-            .map_err(Error::TextureError)?;
+        let font =
+            Texture::new(&mut ctx, [font_w, font_h], 0, self::SAMPLER).map_err(Error::Texture)?;
         let cursors = Texture::new(&mut ctx, [cursors_w, cursors_h], 0, self::SAMPLER)
-            .map_err(Error::TextureError)?;
-        let paste = Texture::new(&mut ctx, [paste_w, paste_h], 0, self::SAMPLER)
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
+        let paste =
+            Texture::new(&mut ctx, [paste_w, paste_h], 0, self::SAMPLER).map_err(Error::Texture)?;
         let checker = Texture::new(&mut ctx, [checker_w, checker_h], 0, self::SAMPLER)
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
 
         font.upload_raw(GenMipmaps::No, &font_img)
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
         cursors
             .upload_raw(GenMipmaps::No, &cursors_img)
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
         checker
             .upload_raw(GenMipmaps::No, &draw::CHECKER)
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
 
         let sprite2d = self::program::<Sprite2dInterface>(
             include_str!("data/sprite.vert"),
@@ -325,7 +325,7 @@ impl renderer::Renderer for Renderer {
             0,
             self::SAMPLER,
         )
-        .map_err(Error::FramebufferError)?;
+        .map_err(Error::Framebuffer)?;
 
         let render_st = RenderState::default()
             .set_blending((
@@ -857,7 +857,7 @@ impl Renderer {
                 ViewOp::Clear(color) => {
                     fb.color_slot()
                         .clear(GenMipmaps::No, (color.r, color.g, color.b, color.a))
-                        .map_err(Error::TextureError)?;
+                        .map_err(Error::Texture)?;
                 }
                 ViewOp::Blit(src, dst) => {
                     let texels = self
@@ -873,7 +873,7 @@ impl Renderer {
                             [src.width() as u32, src.height() as u32],
                             &texels,
                         )
-                        .map_err(Error::TextureError)?;
+                        .map_err(Error::Texture)?;
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
@@ -884,13 +884,13 @@ impl Renderer {
                     if paste_w != w || paste_h != h {
                         self.paste =
                             Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
-                                .map_err(Error::TextureError)?;
+                                .map_err(Error::Texture)?;
                     }
                     let body = self::align_u8(&pixels);
 
                     self.paste
                         .upload_raw(GenMipmaps::No, body)
-                        .map_err(Error::TextureError)?;
+                        .map_err(Error::Texture)?;
                 }
                 ViewOp::Paste(dst) => {
                     let [paste_w, paste_h] = self.paste.size();
@@ -939,10 +939,10 @@ impl Renderer {
 
         fb.color_slot()
             .clear(GenMipmaps::No, (0, 0, 0, 0))
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
         fb.color_slot()
             .upload_raw(GenMipmaps::No, pixels.as_bytes())
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
 
         Ok(())
     }
@@ -973,17 +973,17 @@ impl Renderer {
             .fb
             .color_slot()
             .clear(GenMipmaps::No, (0, 0, 0, 0))
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
         view_data
             .staging_fb
             .color_slot()
             .clear(GenMipmaps::No, (0, 0, 0, 0))
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
         view_data
             .fb
             .color_slot()
             .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
-            .map_err(Error::TextureError)?;
+            .map_err(Error::Texture)?;
 
         self.view_data.insert(id, view_data);
 
