@@ -923,8 +923,6 @@ impl Session {
         }
 
         for (_, v) in self.views.iter_mut() {
-            v.okay();
-
             if self.settings["animation"].is_set() {
                 v.update(delta);
             }
@@ -1094,6 +1092,13 @@ impl Session {
 
         // Return and drain accumulated effects
         self.effects()
+    }
+
+    /// Cleanup to be run at the end of the frame.
+    pub fn cleanup(&mut self) {
+        for (_, v) in self.views.iter_mut() {
+            v.okay();
+        }
     }
 
     /// Quit the session.

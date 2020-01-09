@@ -251,6 +251,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                     renderer.frame(&session, execution.clone(), effects, &avg);
                 });
 
+                session.cleanup();
+
                 if session.settings_changed.contains("vsync") {
                     renderer.handle_present_mode_changed(session.settings.present_mode());
                 }
