@@ -338,8 +338,8 @@ impl renderer::Renderer for Renderer {
         })
     }
 
-    fn init(&mut self, effects: Vec<Effect>, views: &ViewManager) {
-        self.handle_effects(effects, &views);
+    fn init(&mut self, effects: Vec<Effect>) {
+        self.handle_effects(effects);
     }
 
     fn frame(
@@ -356,7 +356,7 @@ impl renderer::Renderer for Renderer {
         self.final_batch.clear();
 
         // Handle effects produced by the session.
-        self.handle_effects(effects, &session.views);
+        self.handle_effects(effects);
 
         let mut ctx = draw::Context {
             ui_batch: shape2d::Batch::new(),
@@ -599,7 +599,7 @@ impl renderer::Renderer for Renderer {
 }
 
 impl Renderer {
-    fn handle_effects(&mut self, mut effects: Vec<Effect>, views: &ViewManager) {
+    fn handle_effects(&mut self, mut effects: Vec<Effect>) {
         for eff in effects.drain(..) {
             // When switching views, or when the view is dirty (eg. it has been resized),
             // we have to resize the brush pipelines, for the brush strokes to
@@ -620,9 +620,12 @@ impl Renderer {
                 Effect::ViewRemoved(id) => {
                     self.view_data.remove(&id);
                 }
-                Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
-                    let v = views.get(id).expect("view must exist");
-                    self.handle_view_dirty(v);
+                Effect::ViewTouched(_, None) => {}
+                Effect::ViewTouched(id, Some(extent)) => {
+                    self.resize_view(id, extent.width(), extent.height());
+                }
+                Effect::ViewDamaged(id, extent) => {
+                    self.handle_view_damaged(id, extent.width(), extent.height());
                 }
                 Effect::ViewBlendingChanged(blending) => {
                     self.blending = blending.to_wgpu();
@@ -637,68 +640,70 @@ impl Renderer {
         }
     }
 
-    fn handle_view_dirty(&mut self, v: &View) {
+    fn handle_view_damaged(&mut self, id: ViewId, vw: u32, vh: u32) {
         let fb = &self
             .view_data
-            .get(&v.id)
+            .get(&id)
             .expect("views must have associated view data")
             .fb;
 
-        let (vw, vh) = (v.width(), v.height());
-
         if fb.width() != vw || fb.height() != vh {
-            // View size changed. Re-create view resources.
-            // This condition is triggered when the size of the view doesn't match the size
-            // of the view framebuffer. This can happen in two cases:
-            //
-            //   1. The view was resized (it's dirty).
-            //   2. A snapshot was restored with a different size than the view (it's damaged).
-            //
-            // Either way, we handle it equally, by re-creating the view-data and restoring
-            // the current snapshot.
-            let view_data = ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, &self.r);
-
-            // We don't want the lock to be held when `submit` is called below,
-            // because in some cases it'll trigger the read-back which claims
-            // a write lock on resources.
-            let (sw, sh) = {
-                let resources = self.resources.lock();
-                let (snapshot, _) = resources.get_snapshot(v.id);
-                (snapshot.width(), snapshot.height())
-            };
-
-            // Ensure not to transfer more data than can fit
-            // in the view buffer.
-            let tw = u32::min(sw, vw);
-            let th = u32::min(sh, vh);
-
-            let texels = self
-                .resources
-                .lock()
-                .get_snapshot_rect(v.id, &Rect::origin(tw as i32, th as i32));
-
-            self.r.submit(&[
-                Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
-                Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
-                Op::Transfer(
-                    &view_data.fb,
-                    &Pixels::Rgba(texels.into()).into_bgra8(),
-                    tw, // Source width
-                    th, // Source height
-                    Rect::origin(tw as i32, th as i32),
-                ),
-            ]);
-            self.view_data.insert(v.id, view_data);
-        } else if v.is_damaged() {
-            // View is damaged, but its size hasn't changed. This happens when a snapshot
-            // with the same size as the view was restored.
-            let pixels = {
-                let rs = self.resources.lock();
-                let (_, pixels) = rs.get_snapshot(v.id);
-                pixels.to_owned()
-            };
-            self.r.submit(&[Op::Fill(fb, &pixels.into_bgra8())]);
+            return self.resize_view(id, vw, vh);
         }
+
+        // View is damaged, but its size hasn't changed. This happens when a snapshot
+        // with the same size as the view was restored.
+        let pixels = {
+            let rs = self.resources.lock();
+            let (_, pixels) = rs.get_snapshot(id);
+            pixels.to_owned()
+        };
+        self.r.submit(&[Op::Fill(fb, &pixels.into_bgra8())]);
+    }
+
+    fn resize_view(&mut self, id: ViewId, vw: u32, vh: u32) {
+        // View size changed. Re-create view resources.
+        // This condition is triggered when the size of the view doesn't match the size
+        // of the view framebuffer. This can happen in two cases:
+        //
+        //   1. The view was resized (it's dirty).
+        //   2. A snapshot was restored with a different size than the view (it's damaged).
+        //
+        // Either way, we handle it equally, by re-creating the view-data and restoring
+        // the current snapshot.
+        let view_data = ViewData::new(vw, vh, &self.framebuffer2d, &self.sprite2d, &self.r);
+
+        // We don't want the lock to be held when `submit` is called below,
+        // because in some cases it'll trigger the read-back which claims
+        // a write lock on resources.
+        let (sw, sh) = {
+            let resources = self.resources.lock();
+            let (snapshot, _) = resources.get_snapshot(id);
+            (snapshot.width(), snapshot.height())
+        };
+
+        // Ensure not to transfer more data than can fit
+        // in the view buffer.
+        let tw = u32::min(sw, vw);
+        let th = u32::min(sh, vh);
+
+        let texels = self
+            .resources
+            .lock()
+            .get_snapshot_rect(id, &Rect::origin(tw as i32, th as i32));
+
+        self.r.submit(&[
+            Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
+            Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
+            Op::Transfer(
+                &view_data.fb,
+                &Pixels::Rgba(texels.into()).into_bgra8(),
+                tw, // Source width
+                th, // Source height
+                Rect::origin(tw as i32, th as i32),
+            ),
+        ]);
+        self.view_data.insert(id, view_data);
     }
 
     fn handle_view_ops(&mut self, v: &View) {

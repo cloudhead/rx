@@ -190,7 +190,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
     }
 
-    renderer.init(session.effects(), &session.views);
+    renderer.init(session.effects());
 
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();

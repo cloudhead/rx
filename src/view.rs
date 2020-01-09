@@ -113,10 +113,11 @@ pub enum ViewState {
     /// The view is okay. It doesn't need to be redrawn or saved.
     Okay,
     /// The view has been touched, the changes need to be stored in a snapshot.
-    Dirty,
+    /// If the parameter is `Some`, the view extents were changed.
+    Dirty(Option<ViewExtent>),
     /// The view is damaged, it needs to be redrawn from a snapshot.
     /// This happens when undo/redo is used.
-    Damaged,
+    Damaged(ViewExtent),
 }
 
 /// A view operation to be carried out by the renderer.
@@ -241,7 +242,7 @@ impl View {
 
         self.animation.push_frame(Rect::new(w, 0., w + fw, fh));
 
-        self.touch();
+        self.resized();
     }
 
     /// Shrink the view by one frame.
@@ -249,7 +250,7 @@ impl View {
         // Don't allow the view to have zero frames.
         if self.animation.len() > 1 {
             self.animation.pop_frame();
-            self.touch();
+            self.resized();
         }
     }
 
@@ -275,6 +276,7 @@ impl View {
     /// Resize view frames to the given size.
     pub fn resize_frames(&mut self, fw: u32, fh: u32) {
         self.reset(ViewExtent::new(fw, fh, self.animation.len()));
+        self.resized();
     }
 
     /// Clear the view to a color.
@@ -373,23 +375,36 @@ impl View {
         if let FileStatus::Saved(ref f) = self.file_status {
             self.file_status = FileStatus::Modified(f.clone());
         }
-        self.state = ViewState::Dirty;
+        if self.state == ViewState::Okay {
+            self.state = ViewState::Dirty(None);
+        }
     }
 
     /// View should be considered damaged and needs to be restored from snapshot.
     /// Used when undoing or redoing changes.
     pub fn damaged(&mut self) {
-        self.state = ViewState::Damaged;
+        self.state = ViewState::Damaged(self.extent());
+    }
+
+    pub fn resized(&mut self) {
+        self.state = ViewState::Dirty(Some(self.extent()));
     }
 
     /// Check whether the view is damaged.
     pub fn is_damaged(&self) -> bool {
-        self.state == ViewState::Damaged
+        if let ViewState::Damaged(_) = self.state {
+            true
+        } else {
+            false
+        }
     }
 
     /// Check whether the view is dirty.
     pub fn is_dirty(&self) -> bool {
-        self.state == ViewState::Dirty
+        match self.state {
+            ViewState::Dirty(_) => true,
+            _ => false,
+        }
     }
 
     /// Check whether the view is okay.

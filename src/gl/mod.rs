@@ -6,7 +6,7 @@ use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
-use crate::view::{View, ViewId, ViewManager, ViewOp};
+use crate::view::{View, ViewId, ViewOp};
 use crate::{data, image};
 
 use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
@@ -378,8 +378,8 @@ impl renderer::Renderer for Renderer {
         })
     }
 
-    fn init(&mut self, effects: Vec<Effect>, views: &ViewManager) {
-        self.handle_effects(effects, &views).unwrap();
+    fn init(&mut self, effects: Vec<Effect>) {
+        self.handle_effects(effects).unwrap();
     }
 
     fn frame(
@@ -395,7 +395,7 @@ impl renderer::Renderer for Renderer {
         self.staging_batch.clear();
         self.final_batch.clear();
 
-        self.handle_effects(effects, &session.views).unwrap();
+        self.handle_effects(effects).unwrap();
         self.update_view_animations(session);
 
         // Handle view operations.
@@ -799,11 +799,7 @@ impl Renderer {
         .unwrap();
     }
 
-    fn handle_effects(
-        &mut self,
-        mut effects: Vec<Effect>,
-        views: &ViewManager,
-    ) -> Result<(), RendererError> {
+    fn handle_effects(&mut self, mut effects: Vec<Effect>) -> Result<(), RendererError> {
         for eff in effects.drain(..) {
             match eff {
                 Effect::SessionResized(size) => {
@@ -826,9 +822,12 @@ impl Renderer {
                 Effect::ViewRemoved(id) => {
                     self.view_data.remove(&id);
                 }
-                Effect::ViewTouched(id) | Effect::ViewDamaged(id) => {
-                    let v = views.get(id).expect("view must exist");
-                    self.handle_view_dirty(v)?;
+                Effect::ViewTouched(_, None) => {}
+                Effect::ViewTouched(id, Some(extent)) => {
+                    self.resize_view(id, extent.width(), extent.height())?;
+                }
+                Effect::ViewDamaged(id, extent) => {
+                    self.handle_view_damaged(id, extent.width(), extent.height())?;
                 }
                 Effect::ViewBlendingChanged(blending) => {
                     self.blending = blending;
@@ -917,70 +916,77 @@ impl Renderer {
         Ok(())
     }
 
-    fn handle_view_dirty(&mut self, v: &View) -> Result<(), RendererError> {
+    fn handle_view_damaged(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
         use RendererError as Error;
 
         let fb = &self
             .view_data
-            .get(&v.id)
+            .get(&id)
             .expect("views must have associated view data")
             .fb;
 
-        let (vw, vh) = (v.width(), v.height());
-
         if fb.width() != vw || fb.height() != vh {
-            // View size changed. Re-create view resources.
-            let (sw, sh) = {
-                let resources = self.resources.lock();
-                let (snapshot, _) = resources.get_snapshot(v.id);
-                (snapshot.width(), snapshot.height())
-            };
-
-            // Ensure not to transfer more data than can fit in the view buffer.
-            let tw = u32::min(sw, vw);
-            let th = u32::min(sh, vh);
-
-            let view_data = ViewData::new(vw, vh, None, &mut self.ctx);
-
-            let texels = self
-                .resources
-                .lock()
-                .get_snapshot_rect(v.id, &Rect::origin(tw as i32, th as i32));
-            let texels = self::align_u8(&texels);
-
-            view_data
-                .fb
-                .color_slot()
-                .clear(GenMipmaps::No, (0, 0, 0, 0))
-                .map_err(Error::TextureError)?;
-            view_data
-                .staging_fb
-                .color_slot()
-                .clear(GenMipmaps::No, (0, 0, 0, 0))
-                .map_err(Error::TextureError)?;
-            view_data
-                .fb
-                .color_slot()
-                .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
-                .map_err(Error::TextureError)?;
-
-            self.view_data.insert(v.id, view_data);
-        } else if v.is_damaged() {
-            // View is damaged, but its size hasn't changed. This happens when a snapshot
-            // with the same size as the view was restored.
-            let pixels = {
-                let rs = self.resources.lock();
-                let (_, pixels) = rs.get_snapshot(v.id);
-                pixels.to_owned()
-            };
-
-            fb.color_slot()
-                .clear(GenMipmaps::No, (0, 0, 0, 0))
-                .map_err(Error::TextureError)?;
-            fb.color_slot()
-                .upload_raw(GenMipmaps::No, pixels.as_bytes())
-                .map_err(Error::TextureError)?;
+            return self.resize_view(id, vw, vh);
         }
+
+        // View is damaged, but its size hasn't changed. This happens when a snapshot
+        // with the same size as the view was restored.
+        let pixels = {
+            let rs = self.resources.lock();
+            let (_, pixels) = rs.get_snapshot(id);
+            pixels.to_owned()
+        };
+
+        fb.color_slot()
+            .clear(GenMipmaps::No, (0, 0, 0, 0))
+            .map_err(Error::TextureError)?;
+        fb.color_slot()
+            .upload_raw(GenMipmaps::No, pixels.as_bytes())
+            .map_err(Error::TextureError)?;
+
+        Ok(())
+    }
+
+    fn resize_view(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
+        use RendererError as Error;
+
+        // View size changed. Re-create view resources.
+        let (sw, sh) = {
+            let resources = self.resources.lock();
+            let (snapshot, _) = resources.get_snapshot(id);
+            (snapshot.width(), snapshot.height())
+        };
+
+        // Ensure not to transfer more data than can fit in the view buffer.
+        let tw = u32::min(sw, vw);
+        let th = u32::min(sh, vh);
+
+        let view_data = ViewData::new(vw, vh, None, &mut self.ctx);
+
+        let texels = self
+            .resources
+            .lock()
+            .get_snapshot_rect(id, &Rect::origin(tw as i32, th as i32));
+        let texels = self::align_u8(&texels);
+
+        view_data
+            .fb
+            .color_slot()
+            .clear(GenMipmaps::No, (0, 0, 0, 0))
+            .map_err(Error::TextureError)?;
+        view_data
+            .staging_fb
+            .color_slot()
+            .clear(GenMipmaps::No, (0, 0, 0, 0))
+            .map_err(Error::TextureError)?;
+        view_data
+            .fb
+            .color_slot()
+            .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
+            .map_err(Error::TextureError)?;
+
+        self.view_data.insert(id, view_data);
+
         Ok(())
     }
 

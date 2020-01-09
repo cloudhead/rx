@@ -2,7 +2,6 @@ use crate::execution::Execution;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
 use crate::session::{self, Effect, PresentMode, Session};
-use crate::view::ViewManager;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -17,7 +16,7 @@ pub trait Renderer: std::marker::Sized {
         resources: ResourceManager,
     ) -> std::io::Result<Self>;
 
-    fn init(&mut self, effects: Vec<Effect>, views: &ViewManager);
+    fn init(&mut self, effects: Vec<Effect>);
 
     fn frame(
         &mut self,
