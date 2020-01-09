@@ -885,6 +885,12 @@ impl Session {
         self.edit_view(id);
     }
 
+    pub fn with_blank(mut self, fs: FileStatus, w: u32, h: u32) -> Self {
+        self.blank(fs, w, h);
+
+        self
+    }
+
     /// Transition to a new state. Only allows valid state transitions.
     pub fn transition(&mut self, to: State) {
         match (&self.state, &to) {
