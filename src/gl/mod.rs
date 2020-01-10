@@ -585,6 +585,8 @@ impl renderer::Renderer for Renderer {
                 shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
                     let bound_checker = pipeline.bind_texture(checker);
 
+                    iface.ortho.update(ortho);
+                    iface.transform.update(identity);
                     iface.tex.update(&bound_checker);
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&checker_tess);
