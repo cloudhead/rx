@@ -102,10 +102,10 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
 
     debug!("options: {:?}", options);
 
-    let context = if cfg!(feature = "gl") {
-        platform::GraphicsContext::Gl
-    } else {
+    let context = if cfg!(feature = "wgpu") {
         platform::GraphicsContext::None
+    } else {
+        platform::GraphicsContext::Gl
     };
 
     let hints = &[
