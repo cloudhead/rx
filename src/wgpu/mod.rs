@@ -385,7 +385,11 @@ impl renderer::Renderer for Renderer {
 
         let ui_buf = ctx.ui_batch.finish(&self.r);
         let cursor_buf = ctx.cursor_sprite.finish(&self.r);
-        let tool_buf = ctx.tool_batch.finish(&self.r);
+        let tool_buf = if ctx.tool_batch.is_empty() {
+            None
+        } else {
+            Some(ctx.tool_batch.finish(&self.r))
+        };
         let checker_buf = ctx.checker_batch.finish(&self.r);
         let text_buf = ctx.text_batch.finish(&self.r);
         let overlay_buf = ctx.overlay_batch.finish(&self.r);
@@ -510,7 +514,9 @@ impl renderer::Renderer for Renderer {
             // Draw text & cursor to screen framebuffer.
             p.set_pipeline(&self.sprite2d);
             p.draw(&text_buf, &self.font.binding);
-            p.draw(&tool_buf, &self.cursors.binding);
+            if let Some(tool_buf) = tool_buf {
+                p.draw(&tool_buf, &self.cursors.binding);
+            }
 
             // Draw view animations to screen framebuffer.
             if session.settings["animation"].is_set() {
