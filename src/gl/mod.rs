@@ -806,13 +806,14 @@ impl Renderer {
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
                     let resources = self.resources.lock();
-                    let (s, pixels) = resources.get_snapshot(id);
-                    let (w, h) = (s.width(), s.height());
+                    if let Some((s, pixels)) = resources.get_snapshot_safe(id) {
+                        let (w, h) = (s.width(), s.height());
 
-                    self.view_data.insert(
-                        id,
-                        ViewData::new(w, h, Some(&pixels.clone().into_rgba8()), &mut self.ctx),
-                    );
+                        self.view_data.insert(
+                            id,
+                            ViewData::new(w, h, Some(&pixels.clone().into_rgba8()), &mut self.ctx),
+                        );
+                    }
                 }
                 Effect::ViewRemoved(id) => {
                     self.view_data.remove(&id);

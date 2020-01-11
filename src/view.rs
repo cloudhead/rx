@@ -510,15 +510,13 @@ impl ViewManager {
 
     /// Remove a view.
     pub fn remove(&mut self, id: ViewId) {
-        assert!(!self.lru.is_empty());
         self.views.remove(&id);
         self.lru.retain(|v| *v != id);
 
-        if let Some(v) = self.recent() {
-            self.activate(v);
-        } else {
-            self.active_id = ViewId::default();
-        }
+        self.active_id = self
+            .recent()
+            .or_else(|| self.last().map(|v| v.id))
+            .unwrap_or(ViewId::default());
     }
 
     /// Return the id of the last recently active view, if any.

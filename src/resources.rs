@@ -101,14 +101,15 @@ impl Resources {
         }
     }
 
+    pub fn get_snapshot_safe(&self, id: ViewId) -> Option<(&Snapshot, &Pixels)> {
+        self.data.get(&id).map(|r| r.current_snapshot())
+    }
+
     pub fn get_snapshot(&self, id: ViewId) -> (&Snapshot, &Pixels) {
-        self.data
-            .get(&id)
-            .map(|r| r.current_snapshot())
-            .expect(&format!(
-                "view #{} must exist and have an associated snapshot",
-                id
-            ))
+        self.get_snapshot_safe(id).expect(&format!(
+            "view #{} must exist and have an associated snapshot",
+            id
+        ))
     }
 
     pub fn get_snapshot_mut(&mut self, id: ViewId) -> (&mut Snapshot, &Pixels) {
