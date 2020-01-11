@@ -764,19 +764,20 @@ impl Renderer {
     fn add_views(&mut self, views: &[ViewId]) {
         for id in views {
             let resources = self.resources.lock();
-            let (s, pixels) = resources.get_snapshot(*id);
-            let (w, h) = (s.width(), s.height());
+            if let Some((s, pixels)) = resources.get_snapshot_safe(*id) {
+                let (w, h) = (s.width(), s.height());
 
-            let view_data = ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, &self.r);
+                let view_data = ViewData::new(w, h, &self.framebuffer2d, &self.sprite2d, &self.r);
 
-            debug_assert!(!pixels.is_empty());
-            self.r.submit(&[
-                Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
-                Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
-                Op::Fill(&view_data.fb, &pixels.clone().into_bgra8()),
-            ]);
+                debug_assert!(!pixels.is_empty());
+                self.r.submit(&[
+                    Op::Clear(&view_data.fb, Bgra8::TRANSPARENT),
+                    Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
+                    Op::Fill(&view_data.fb, &pixels.clone().into_bgra8()),
+                ]);
 
-            self.view_data.insert(*id, view_data);
+                self.view_data.insert(*id, view_data);
+            }
         }
     }
 
