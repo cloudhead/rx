@@ -65,3 +65,24 @@
     * Optimize large canvas sizes (4096 x 4096)
     * Have ability to disable UI elements
     * Change `map` command syntax
+
+0.3.1
+
+  New features
+
+    * OpenGL 3.3 backend
+    * New command `:cd` to change the current directory
+    * `:echo cwd` displays the current directory
+
+  Changes
+
+    * Fix GIF output to include foreground/background colors
+    * Don't display overwritten key mappings in help menu
+
+0.3.2
+
+  Changes
+
+    * Fix crash on load, when file path is passed in via CLI
+    * Fix crash with `:q` when multiple views are loaded
+    * Fix visual bug when `checker` and `debug` are both active
