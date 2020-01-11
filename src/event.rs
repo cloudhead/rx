@@ -1,4 +1,3 @@
-use crate::cmd;
 use crate::parser;
 use crate::platform;
 
@@ -112,10 +111,9 @@ impl FromStr for Event {
                 ))
             }
             "keyboard/input" => {
-                let (k, p) = p.parse::<cmd::Key>()?;
+                let (k, p) = p.parse::<platform::Key>()?;
                 let (_, p) = p.whitespace()?;
                 let (s, p) = p.parse::<platform::InputState>()?;
-                let cmd::Key::Virtual(k) = k;
                 Ok((
                     Event::KeyboardInput(platform::KeyboardInput {
                         state: s,

@@ -299,6 +299,15 @@ impl fmt::Display for Key {
     }
 }
 
+impl Key {
+    pub fn is_modifier(&self) -> bool {
+        match self {
+            Key::Alt | Key::Control | Key::Shift => true,
+            _ => false,
+        }
+    }
+}
+
 /// Represents the current state of the keyboard modifiers
 #[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct ModifiersState {

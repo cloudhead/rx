@@ -227,35 +227,12 @@ impl From<Command> for String {
     }
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum Key {
-    Virtual(platform::Key),
-}
-
-impl Key {
-    pub fn is_modifier(self) -> bool {
-        let Self::Virtual(key) = self;
-        match key {
-            platform::Key::Alt | platform::Key::Control | platform::Key::Shift => true,
-            _ => false,
-        }
-    }
-}
-
-impl fmt::Display for Key {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Key::Virtual(k) => k.fmt(f),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for Key {
+impl<'a> Parse<'a> for platform::Key {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         if let Ok((_, p)) = p.clone().sigil('<') {
             let (key, p) = p.alpha()?;
             let (_, p) = p.sigil('>')?;
-            let virt = match key {
+            let key = match key {
                 "up" => platform::Key::Up,
                 "down" => platform::Key::Down,
                 "left" => platform::Key::Left,
@@ -271,10 +248,15 @@ impl<'a> Parse<'a> for Key {
                 "esc" => platform::Key::Escape,
                 other => return Err(Error::new(format!("unknown key <{}>", other))),
             };
-            Ok((Key::Virtual(virt), p))
+            Ok((key, p))
         } else {
-            let (k, p) = p.parse::<platform::Key>()?;
-            Ok((Key::Virtual(k), p))
+            let (c, p) = p.parse::<char>()?;
+            let key: platform::Key = c.into();
+
+            if key == platform::Key::Unknown {
+                return Err(Error::new(format!("unknown key {:?}", c)));
+            }
+            Ok((key, p))
         }
     }
 }
@@ -283,7 +265,7 @@ impl<'a> Parse<'a> for Key {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct KeyMapping {
-    pub key: Key,
+    pub key: platform::Key,
     pub press: Command,
     pub release: Option<Command>,
     pub modes: Vec<Mode>,
@@ -293,7 +275,7 @@ impl KeyMapping {
     fn parse<'a>(p: Parser<'a>, modes: &[Mode]) -> Result<'a, Self> {
         let modes = modes.to_vec();
 
-        let (key, p) = p.parse::<Key>()?;
+        let (key, p) = p.parse::<platform::Key>()?;
         let (_, p) = p.whitespace()?;
         let (press, p) = p.parse::<Command>()?;
         let (_, p) = p.whitespace()?;

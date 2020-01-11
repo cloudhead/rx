@@ -1,13 +1,13 @@
 ///! Session
 use crate::brush::*;
-use crate::cmd::{self, Command, CommandLine, Key, KeyMapping, Op, Value};
+use crate::cmd::{self, Command, CommandLine, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
 use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
-use crate::platform::{self, InputState, KeyboardInput, LogicalSize, ModifiersState};
+use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Pixels, ResourceManager};
 use crate::view::{
     FileStatus, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
@@ -506,7 +506,7 @@ impl Default for KeyBindings {
                         alt: false,
                         meta: false,
                     },
-                    key: Key::Virtual(platform::Key::Slash),
+                    key: platform::Key::Slash,
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Help),
                     is_toggle: false,
@@ -524,7 +524,7 @@ impl Default for KeyBindings {
                         alt: false,
                         meta: false,
                     },
-                    key: Key::Virtual(platform::Key::Semicolon),
+                    key: platform::Key::Semicolon,
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
                     is_toggle: false,
@@ -539,7 +539,7 @@ impl Default for KeyBindings {
                         alt: false,
                         meta: false,
                     },
-                    key: Key::Virtual(platform::Key::Colon),
+                    key: platform::Key::Colon,
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
                     is_toggle: false,
@@ -2121,10 +2121,7 @@ impl Session {
                 _ => {}
             }
 
-            if let Some(kb) = self
-                .key_bindings
-                .find(Key::Virtual(key), modifiers, state, self.mode)
-            {
+            if let Some(kb) = self.key_bindings.find(key, modifiers, state, self.mode) {
                 // For toggle-like key bindings, we don't want to run the command
                 // on key repeats. For regular key bindings, we run the command
                 // depending on if it's supposed to repeat.
@@ -2885,7 +2882,7 @@ mod test {
 
         let kb1 = KeyBinding {
             modes: vec![Mode::Normal],
-            key: Key::Virtual(platform::Key::A),
+            key: platform::Key::A,
             command: Command::Noop,
             is_toggle: false,
             display: None,

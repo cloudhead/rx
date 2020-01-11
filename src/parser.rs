@@ -149,18 +149,6 @@ impl<'a> Parse<'a> for BrushMode {
     }
 }
 
-impl<'a> Parse<'a> for platform::Key {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (c, p) = p.parse::<char>()?;
-        let key: platform::Key = c.into();
-
-        if key == platform::Key::Unknown {
-            return Err(Error::new(format!("unknown key {:?}", c)));
-        }
-        Ok((key, p))
-    }
-}
-
 impl<'a> Parse<'a> for platform::InputState {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         let (w, p) = p.word()?;
