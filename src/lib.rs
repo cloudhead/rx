@@ -6,6 +6,7 @@
     clippy::useless_format,
     clippy::new_without_default,
     clippy::cognitive_complexity,
+    clippy::comparison_chain,
     clippy::type_complexity,
     clippy::or_fun_call,
     clippy::nonminimal_bool,
@@ -64,7 +65,7 @@ use std::alloc::System;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::time;
+use std::time::{Duration, Instant};
 
 /// Program version.
 pub const VERSION: &str = "0.3.2";
@@ -112,7 +113,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         WindowHint::Resizable(options.resizable),
         WindowHint::Visible(!options.headless),
     ];
-    let (mut win, events) = platform::init("rx", options.width, options.height, hints, context)?;
+    let (mut win, mut events) =
+        platform::init("rx", options.width, options.height, hints, context)?;
 
     let scale_factor = win.scale_factor();
     let win_size = win.size();
@@ -142,10 +144,6 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     if let ExecutionMode::Record(_, _, GifMode::Record) = options.exec {
         session
             .settings
-            .set("input/delay", Value::F64(0.0))
-            .expect("'input/delay' is a float");
-        session
-            .settings
             .set("vsync", Value::Bool(true))
             .expect("'vsync' is a bool");
     }
@@ -166,10 +164,6 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         {
             session
                 .settings
-                .set("input/delay", Value::F64(0.0))
-                .expect("'input/delay' is a float");
-            session
-                .settings
                 .set("vsync", Value::Bool(false))
                 .expect("'vsync' is a bool");
             session
@@ -180,6 +174,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
         _ => {}
     }
 
+    let wait_events = exec.is_normal() || exec.is_recording();
     let execution = Rc::new(RefCell::new(exec));
     let present_mode = session.settings.present_mode();
 
@@ -195,118 +190,145 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();
     let mut session_events = Vec::with_capacity(16);
-    let mut last = time::Instant::now();
+    let mut last = Instant::now();
     let mut resized = false;
 
-    let exit = platform::run(win, events, move |w, event| {
-        // Don't process events while the window is minimized.
-        if w.size().is_zero() {
-            return platform::ControlFlow::Wait;
-        }
-        if event.is_input() {
-            debug!("event: {:?}", event);
+    // Accumulated error from animation timeout.
+    let mut anim_accum = Duration::from_secs(0);
+
+    while !win.is_closing() {
+        if wait_events {
+            let start = Instant::now();
+
+            match session.animation_delay() {
+                Some(delay) if session.is_running() => {
+                    if delay > anim_accum {
+                        events.wait_timeout(delay - anim_accum);
+                    } else {
+                        events.poll();
+                    }
+                    // How much time has actually passed waiting for events.
+                    let d = start.elapsed();
+
+                    if d > delay {
+                        // If more time has passed than the desired animation delay, then
+                        // add the difference to our accumulated error.
+                        anim_accum += d - delay;
+                    } else if delay > d {
+                        // If less time has passed than our desired delay, then
+                        // reset the accumulator to zero, because we've overshot.
+                        anim_accum = Duration::from_secs(0);
+                    };
+                }
+                _ => events.wait(),
+            }
+        } else {
+            events.poll();
         }
 
-        match event {
-            WindowEvent::Resized(size) => {
-                // It's possible that the above check for zero size is delayed
-                // by a frame, in which case we need to catch things here.
-                if size.is_zero() {
+        for event in events.flush() {
+            if event.is_input() {
+                debug!("event: {:?}", event);
+            }
+
+            match event {
+                WindowEvent::Resized(size) => {
+                    if size.is_zero() {
+                        // On certain operating systems, the window size will be set to
+                        // zero when the window is minimized. Since a zero-sized framebuffer
+                        // is not valid, we pause the session until the window is restored.
+                        session.transition(State::Paused);
+                    } else {
+                        resized = true;
+                        session.transition(State::Running);
+                    }
+                }
+                WindowEvent::CursorEntered { .. } => {
+                    win.set_cursor_visible(false);
+                }
+                WindowEvent::CursorLeft { .. } => {
+                    win.set_cursor_visible(true);
+                }
+                WindowEvent::Minimized => {
                     session.transition(State::Paused);
-                    return platform::ControlFlow::Wait;
-                } else {
+                }
+                WindowEvent::Restored => {
                     session.transition(State::Running);
-                    resized = true;
                 }
-            }
-            WindowEvent::CursorEntered { .. } => {
-                // TODO: [winit] This doesn't fire if the cursor is already
-                // in the window.
-                w.set_cursor_visible(false);
-            }
-            WindowEvent::CursorLeft { .. } => {
-                w.set_cursor_visible(true);
-            }
-            WindowEvent::Ready => {
-                if resized {
-                    session.handle_resized(w.size());
-                    resized = false;
-                } else {
-                    let input_delay: f64 = session.settings["input/delay"].clone().into();
-                    std::thread::sleep(time::Duration::from_micros((input_delay * 1000.) as u64));
+                WindowEvent::Focused(true) => {
+                    session.transition(State::Running);
                 }
-
-                let delta = last.elapsed();
-                last = time::Instant::now();
-
-                // If we're paused, we want to keep the timer running to not get a
-                // "jump" when we unpause, but skip session updates and rendering.
-                if session.state == State::Paused {
-                    return platform::ControlFlow::Wait;
+                WindowEvent::Focused(false) => {
+                    session.transition(State::Paused);
                 }
-
-                let effects = update_timer
-                    .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
-                render_timer.run(|avg| {
-                    renderer.frame(&session, execution.clone(), effects, &avg);
-                });
-
-                session.cleanup();
-
-                if session.settings_changed.contains("vsync") {
-                    renderer.handle_present_mode_changed(session.settings.present_mode());
+                WindowEvent::RedrawRequested => {
+                    // TODO: On windows, this is the only thing called during
+                    // resize.
                 }
+                WindowEvent::ScaleFactorChanged(factor) => {
+                    renderer.handle_scale_factor_changed(factor);
+                }
+                WindowEvent::CloseRequested => {
+                    session.quit(ExitReason::Normal);
+                }
+                WindowEvent::CursorMoved { position } => {
+                    session_events.push(Event::CursorMoved(position));
+                }
+                WindowEvent::MouseInput { state, button, .. } => {
+                    session_events.push(Event::MouseInput(button, state));
+                }
+                WindowEvent::MouseWheel { delta, .. } => {
+                    session_events.push(Event::MouseWheel(delta));
+                }
+                WindowEvent::KeyboardInput(input) => {
+                    session_events.push(Event::KeyboardInput(input));
+                }
+                WindowEvent::ReceivedCharacter(c) => {
+                    session_events.push(Event::ReceivedCharacter(c));
+                }
+                _ => {}
+            };
+        }
+
+        if resized {
+            // Instead of responded to each resize event by creating a new framebuffer,
+            // we respond to the event *once*, here.
+            resized = false;
+            session.handle_resized(win.size());
+        }
+
+        let delta = last.elapsed();
+        last = Instant::now();
+
+        // If we're paused, we want to keep the timer running to not get a
+        // "jump" when we unpause, but skip session updates and rendering.
+        if session.state == State::Paused {
+            continue;
+        }
+
+        let effects = update_timer
+            .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
+        render_timer.run(|avg| {
+            renderer.frame(&session, execution.clone(), effects, &avg);
+        });
+
+        session.cleanup();
+        win.present();
+
+        if session.settings_changed.contains("vsync") {
+            renderer.handle_present_mode_changed(session.settings.present_mode());
+        }
+
+        match session.state {
+            State::Closing(ExitReason::Normal) => {
+                return Ok(());
             }
-            WindowEvent::Minimized => {
-                session.transition(State::Paused);
-                return platform::ControlFlow::Wait;
-            }
-            WindowEvent::Restored => {
-                session.transition(State::Running);
-            }
-            WindowEvent::Focused(true) => {
-                session.transition(State::Running);
-            }
-            WindowEvent::Focused(false) => {
-                session.transition(State::Paused);
-            }
-            WindowEvent::RedrawRequested => {
-                // We currently don't draw in here, as it negatively
-                // affects resize smoothness.  (╯°□°）╯︵ ┻━┻
-            }
-            WindowEvent::ScaleFactorChanged(factor) => {
-                renderer.handle_scale_factor_changed(factor);
-            }
-            WindowEvent::CloseRequested => {
-                session.quit(ExitReason::Normal);
-            }
-            WindowEvent::CursorMoved { position } => {
-                session_events.push(Event::CursorMoved(position));
-            }
-            WindowEvent::MouseInput { state, button, .. } => {
-                session_events.push(Event::MouseInput(button, state));
-            }
-            WindowEvent::MouseWheel { delta, .. } => {
-                session_events.push(Event::MouseWheel(delta));
-            }
-            WindowEvent::KeyboardInput(input) => {
-                session_events.push(Event::KeyboardInput(input));
-            }
-            WindowEvent::ReceivedCharacter(c) => {
-                session_events.push(Event::ReceivedCharacter(c));
+            State::Closing(ExitReason::Error(e)) => {
+                return Err(io::Error::new(io::ErrorKind::Other, e));
             }
             _ => {}
-        };
-
-        if let State::Closing(reason) = &session.state {
-            platform::ControlFlow::Exit(reason.clone())
-        } else {
-            platform::ControlFlow::Continue
         }
-    });
-
-    match exit {
-        ExitReason::Normal => Ok(()),
-        ExitReason::Error(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
     }
+
+    Ok(())
 }

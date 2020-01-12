@@ -260,8 +260,8 @@ impl Error for RendererError {
 }
 
 impl renderer::Renderer for Renderer {
-    fn new<T>(
-        win: &mut platform::backend::Window<T>,
+    fn new(
+        win: &mut platform::backend::Window,
         win_size: LogicalSize,
         scale_factor: f64,
         _present_mode: PresentMode,
