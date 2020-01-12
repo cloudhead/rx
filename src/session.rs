@@ -880,7 +880,8 @@ impl Session {
 
     /// Create a blank view.
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
-        let id = self.views.add(fs, w, h);
+        let delay = self.settings["animation/delay"].to_u64();
+        let id = self.views.add(fs, w, h, delay);
 
         self.effects.push(Effect::ViewAdded(id));
         self.resources.add_blank_view(id, w, h);
@@ -1215,7 +1216,9 @@ impl Session {
 
         match name {
             "animation/delay" => {
-                self.active_view_mut().set_animation_delay(new.to_u64());
+                self.views
+                    .iter_mut()
+                    .for_each(|v| v.set_animation_delay(new.to_u64()));
             }
             "scale" => {
                 // TODO: We need to recompute the cursor position here
@@ -1587,10 +1590,14 @@ impl Session {
             }
         }
 
+        let delay = self.settings["animation/delay"].to_u64();
         let (width, height, pixels) = ResourceManager::load_image(&path)?;
-        let id = self
-            .views
-            .add(FileStatus::Saved(path.into()), width as u32, height as u32);
+        let id = self.views.add(
+            FileStatus::Saved(path.into()),
+            width as u32,
+            height as u32,
+            delay,
+        );
 
         self.effects.push(Effect::ViewAdded(id));
         self.resources

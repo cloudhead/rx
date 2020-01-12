@@ -166,11 +166,8 @@ pub struct View {
 }
 
 impl View {
-    /// The default frame delay for animations.
-    const DEFAULT_ANIMATION_DELAY: u64 = 160;
-
     /// Create a new view. Takes a frame width and height.
-    pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32) -> Self {
+    pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32, delay: u64) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
             Some(SnapshotId::default())
         } else {
@@ -188,7 +185,7 @@ impl View {
             file_status: fs,
             animation: Animation::new(
                 &[Rect::origin(fw as f32, fh as f32)],
-                time::Duration::from_millis(Self::DEFAULT_ANIMATION_DELAY),
+                time::Duration::from_millis(delay),
             ),
             state: ViewState::Okay,
             saved_snapshot,
@@ -499,9 +496,9 @@ impl ViewManager {
     }
 
     /// Add a view.
-    pub fn add(&mut self, fs: FileStatus, w: u32, h: u32) -> ViewId {
+    pub fn add(&mut self, fs: FileStatus, w: u32, h: u32, delay: u64) -> ViewId {
         let id = self.gen_id();
-        let view = View::new(id, fs, w, h);
+        let view = View::new(id, fs, w, h, delay);
 
         self.views.insert(id, view);
 
