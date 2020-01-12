@@ -127,6 +127,10 @@ impl Window {
     pub fn is_closing(&self) -> bool {
         self.handle.should_close()
     }
+
+    pub fn is_focused(&self) -> bool {
+        self.handle.is_focused()
+    }
 }
 
 impl Into<glfw::WindowHint> for WindowHint {

@@ -253,7 +253,9 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                     session.transition(State::Paused);
                 }
                 WindowEvent::Restored => {
-                    session.transition(State::Running);
+                    if win.is_focused() {
+                        session.transition(State::Running);
+                    }
                 }
                 WindowEvent::Focused(true) => {
                     session.transition(State::Running);
@@ -262,8 +264,10 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
                     session.transition(State::Paused);
                 }
                 WindowEvent::RedrawRequested => {
-                    // TODO: On windows, this is the only thing called during
-                    // resize.
+                    render_timer.run(|avg| {
+                        renderer.frame(&session, execution.clone(), vec![], &avg);
+                    });
+                    win.present();
                 }
                 WindowEvent::ScaleFactorChanged(factor) => {
                     renderer.handle_scale_factor_changed(factor);
@@ -308,6 +312,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
 
         let effects = update_timer
             .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
+
         render_timer.run(|avg| {
             renderer.frame(&session, execution.clone(), effects, &avg);
         });
