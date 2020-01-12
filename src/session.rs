@@ -62,7 +62,6 @@ SETTINGS
 debug             on/off             Debug mode
 checker           on/off             Alpha checker toggle
 vsync             on/off             Vertical sync toggle
-input/delay       0.0..32.0          Delay between render frames (ms)
 scale             1.0..4.0           UI scale
 animation         on/off             View animation toggle
 animation/delay   1..1000            View animation delay (ms)
@@ -599,7 +598,7 @@ pub struct Settings {
 }
 
 impl Settings {
-    const DEPRECATED: &'static [&'static str] = &["frame_delay"];
+    const DEPRECATED: &'static [&'static str] = &["frame_delay", "input/delay"];
 
     /// Presentation mode.
     pub fn present_mode(&self) -> PresentMode {
@@ -643,7 +642,6 @@ impl Default for Settings {
                 "checker" => Value::Bool(false),
                 "background" => Value::Rgba8(color::BLACK),
                 "vsync" => Value::Bool(false),
-                "input/delay" => Value::F64(8.0),
                 "input/mouse" => Value::Bool(true),
                 "scale" => Value::F64(1.0),
                 "animation" => Value::Bool(true),
@@ -660,7 +658,8 @@ impl Default for Settings {
                 "grid/spacing" => Value::U32Tuple(8, 8),
 
                 // Deprecated.
-                "frame_delay" => Value::F64(0.0)
+                "frame_delay" => Value::F64(0.0),
+                "input/delay" => Value::F64(8.0)
             },
         }
     }
@@ -881,7 +880,8 @@ impl Session {
 
     /// Create a blank view.
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
-        let id = self.views.add(fs, w, h);
+        let delay = self.settings["animation/delay"].to_u64();
+        let id = self.views.add(fs, w, h, delay);
 
         self.effects.push(Effect::ViewAdded(id));
         self.resources.add_blank_view(id, w, h);
@@ -1136,6 +1136,24 @@ impl Session {
         .floor()
     }
 
+    /// Get the current animation delay. Returns `None` if animations aren't playing,
+    /// or if none of the views have more than one frame.
+    pub fn animation_delay(&self) -> Option<time::Duration> {
+        let animations = self.views.iter().any(|v| v.animation.len() > 1);
+
+        if self.settings["animation"].is_set() && animations {
+            let delay = self.settings["animation/delay"].to_u64();
+            Some(time::Duration::from_millis(delay))
+        } else {
+            None
+        }
+    }
+
+    /// Check whether the session is running.
+    pub fn is_running(&self) -> bool {
+        self.state == State::Running
+    }
+
     ////////////////////////////////////////////////////////////////////////////
 
     /// Pan the view by a relative amount.
@@ -1198,7 +1216,9 @@ impl Session {
 
         match name {
             "animation/delay" => {
-                self.active_view_mut().set_animation_delay(new.to_u64());
+                self.views
+                    .iter_mut()
+                    .for_each(|v| v.set_animation_delay(new.to_u64()));
             }
             "scale" => {
                 // TODO: We need to recompute the cursor position here
@@ -1570,10 +1590,14 @@ impl Session {
             }
         }
 
+        let delay = self.settings["animation/delay"].to_u64();
         let (width, height, pixels) = ResourceManager::load_image(&path)?;
-        let id = self
-            .views
-            .add(FileStatus::Saved(path.into()), width as u32, height as u32);
+        let id = self.views.add(
+            FileStatus::Saved(path.into()),
+            width as u32,
+            height as u32,
+            delay,
+        );
 
         self.effects.push(Effect::ViewAdded(id));
         self.resources

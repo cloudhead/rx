@@ -259,6 +259,14 @@ impl Execution {
         }
     }
 
+    pub fn is_recording(&self) -> bool {
+        if let Execution::Recording { .. } = self {
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn record(&mut self, data: &[Bgra8]) {
         match self {
             // Replaying and verifying digests.

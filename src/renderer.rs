@@ -8,8 +8,8 @@ use std::rc::Rc;
 use std::time;
 
 pub trait Renderer: std::marker::Sized {
-    fn new<T>(
-        win: &mut platform::backend::Window<T>,
+    fn new(
+        win: &mut platform::backend::Window,
         win_size: LogicalSize,
         scale_factor: f64,
         present_mode: PresentMode,

@@ -1,6 +1,6 @@
 use crate::platform::{
-    ControlFlow, GraphicsContext, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition,
-    LogicalSize, ModifiersState, MouseButton, WindowEvent, WindowHint,
+    GraphicsContext, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition, LogicalSize,
+    ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
 use glfw;
@@ -10,13 +10,13 @@ use std::{io, sync};
 
 ///////////////////////////////////////////////////////////////////////////////
 
-pub fn init<T>(
+pub fn init(
     title: &str,
     w: u32,
     h: u32,
     hints: &[WindowHint],
     context: GraphicsContext,
-) -> io::Result<(Window<T>, Events)> {
+) -> io::Result<(Window, Events)> {
     let mut glfw =
         glfw::init(glfw::FAIL_ON_ERRORS).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
@@ -48,13 +48,12 @@ pub fn init<T>(
         .create_window(w, h, title, glfw::WindowMode::Windowed)
         .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "glfw: error creating window"))?;
 
+    window.make_current();
     window.set_all_polling(true);
 
     Ok((
         Window {
             handle: window,
-            redraw_requested: false,
-            exit_reason: None,
             context,
         },
         Events {
@@ -64,50 +63,35 @@ pub fn init<T>(
     ))
 }
 
-pub fn run<F, T>(mut win: Window<T>, events: Events, mut callback: F) -> T
-where
-    F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
-    T: Default,
-{
-    let mut glfw = events.glfw;
-
-    while !win.handle.should_close() {
-        glfw.poll_events();
-
-        for (_, event) in glfw::flush_messages(&events.handle) {
-            win.send_event(event.into(), &mut callback, &mut glfw);
-        }
-        win.send_event(WindowEvent::Ready, &mut callback, &mut glfw);
-        win.swap_buffers();
-
-        if win.redraw_requested {
-            win.redraw_requested = false;
-            win.send_event(WindowEvent::RedrawRequested, &mut callback, &mut glfw);
-            win.swap_buffers();
-        }
-    }
-    callback(&mut win, WindowEvent::Destroyed);
-
-    win.exit_reason.unwrap_or(T::default())
-}
-
 pub struct Events {
     handle: sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
     glfw: glfw::Glfw,
 }
 
-pub struct Window<T> {
+impl Events {
+    pub fn wait(&mut self) {
+        self.glfw.wait_events();
+    }
+
+    pub fn wait_timeout(&mut self, timeout: std::time::Duration) {
+        self.glfw.wait_events_timeout(timeout.as_secs_f64());
+    }
+
+    pub fn poll(&mut self) {
+        self.glfw.poll_events();
+    }
+
+    pub fn flush<'a>(&'a self) -> impl Iterator<Item = WindowEvent> + 'a {
+        glfw::flush_messages(&self.handle).map(|(_, e)| e.into())
+    }
+}
+
+pub struct Window {
     pub handle: glfw::Window,
-    redraw_requested: bool,
-    exit_reason: Option<T>,
     context: GraphicsContext,
 }
 
-impl<T> Window<T> {
-    pub fn request_redraw(&mut self) {
-        self.redraw_requested = true;
-    }
-
+impl Window {
     pub fn handle(&self) -> &glfw::Window {
         &self.handle
     }
@@ -134,28 +118,18 @@ impl<T> Window<T> {
         LogicalSize::new(w as f64, h as f64)
     }
 
-    pub fn swap_buffers(&mut self) {
+    pub fn present(&mut self) {
         if self.context == GraphicsContext::Gl {
             self.handle.swap_buffers();
         }
     }
 
-    ////////////////////////////////////////////////////////////////////////////
+    pub fn is_closing(&self) -> bool {
+        self.handle.should_close()
+    }
 
-    fn send_event<F>(&mut self, event: WindowEvent, callback: &mut F, glfw: &mut glfw::Glfw)
-    where
-        F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
-    {
-        match callback(self, event) {
-            ControlFlow::Exit(r) => {
-                self.handle.set_should_close(true);
-                self.exit_reason = Some(r);
-            }
-            ControlFlow::Wait => {
-                glfw.wait_events();
-            }
-            ControlFlow::Continue => (),
-        }
+    pub fn is_focused(&self) -> bool {
+        self.handle.is_focused()
     }
 }
 

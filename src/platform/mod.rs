@@ -12,36 +12,20 @@ pub mod backend;
 pub mod backend;
 
 /// Initialize the platform.
-pub fn init<T>(
+pub fn init(
     title: &str,
     w: u32,
     h: u32,
     hints: &[WindowHint],
     context: GraphicsContext,
-) -> io::Result<(backend::Window<T>, backend::Events)> {
+) -> io::Result<(backend::Window, backend::Events)> {
     backend::init(title, w, h, hints, context)
-}
-
-/// Run the main event loop.
-pub fn run<F, T>(win: backend::Window<T>, events: backend::Events, callback: F) -> T
-where
-    F: 'static + FnMut(&mut backend::Window<T>, WindowEvent) -> ControlFlow<T>,
-    T: Default,
-{
-    backend::run(win, events, callback)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum GraphicsContext {
     None,
     Gl,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum ControlFlow<T> {
-    Continue,
-    Wait,
-    Exit(T),
 }
 
 #[derive(Debug, Copy, Clone)]
