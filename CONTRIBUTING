@@ -1,6 +1,6 @@
 
 
-                                    CONTRIBUTING
+                              CONTRIBUTING
 
 
 When contributing code, please follow these simple guidelines.
@@ -16,6 +16,10 @@ A properly formed git commit subject line should always be able to complete the
 following sentence:
 
      If applied, this commit will _____
+
+For example, the following message is well formed:
+
+     Add support for .gif files
 
 In addition, it should be capitalized and *must not* include a period.
 
