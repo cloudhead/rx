@@ -1,14 +1,7 @@
-use crate::platform::{ControlFlow, GraphicsContext, LogicalSize, WindowEvent, WindowHint};
+use crate::platform::{GraphicsContext, LogicalSize, WindowEvent, WindowHint};
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use std::io;
-
-pub fn run<F, T>(mut _win: Window<T>, _events: Events, _callback: F) -> T
-where
-    F: 'static + FnMut(&mut Window<T>, WindowEvent) -> ControlFlow<T>,
-{
-    unimplemented!()
-}
 
 pub struct DummyWindow(());
 
@@ -22,18 +15,33 @@ pub struct Events {
     handle: (),
 }
 
-pub struct Window<T> {
-    handle: DummyWindow,
-    phantom: std::marker::PhantomData<T>,
+impl Events {
+    pub fn wait(&mut self) {}
+
+    pub fn wait_timeout(&mut self, _timeout: std::time::Duration) {}
+
+    pub fn poll(&mut self) {}
+
+    pub fn flush<'a>(&'a self) -> impl Iterator<Item = WindowEvent> + 'a {
+        std::iter::empty::<WindowEvent>()
+    }
 }
 
-impl<T> Window<T> {
+pub struct Window {
+    handle: DummyWindow,
+}
+
+impl Window {
     pub fn request_redraw(&self) {
         unreachable!()
     }
 
     pub fn handle(&self) -> &DummyWindow {
         &self.handle
+    }
+
+    pub fn get_proc_address(&mut self, _s: &str) -> *const std::ffi::c_void {
+        unreachable!()
     }
 
     pub fn set_cursor_visible(&mut self, _visible: bool) {
@@ -47,14 +55,24 @@ impl<T> Window<T> {
     pub fn size(&self) -> LogicalSize {
         unreachable!()
     }
+
+    pub fn is_focused(&self) -> bool {
+        true
+    }
+
+    pub fn is_closing(&self) -> bool {
+        false
+    }
+
+    pub fn present(&self) {}
 }
 
-pub fn init<T>(
+pub fn init(
     _title: &str,
     _w: u32,
     _h: u32,
     _hints: &[WindowHint],
     _context: GraphicsContext,
-) -> io::Result<(Window<T>, Events)> {
+) -> io::Result<(Window, Events)> {
     panic!("`dummy` platform initialized");
 }
