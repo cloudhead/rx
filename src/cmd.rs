@@ -520,6 +520,7 @@ impl<'a> Parse<'a> for Command {
             "qa" => Ok((Command::QuitAll, p)),
             "q!" => Ok((Command::ForceQuit, p)),
             "qa!" => Ok((Command::ForceQuitAll, p)),
+            "wq" | "x" => Ok((Command::WriteQuit, p)),
             "w" => {
                 if p.is_empty() {
                     Ok((Command::Write(None), p))
