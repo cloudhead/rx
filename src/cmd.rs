@@ -516,8 +516,10 @@ impl History {
     }
 
     pub fn next(&mut self) -> Option<&str> {
+        if self.is_empty() {
+            return None;
+        }
         let cursor = match self.cursor {
-            _ if self.is_empty() => 0,
             None | Some(0) => self.len() - 1,
             Some(i) => i - 1,
         };
@@ -526,6 +528,9 @@ impl History {
     }
 
     pub fn prev(&mut self) -> Option<&str> {
+        if self.is_empty() {
+            return None;
+        }
         let cursor = match self.cursor {
             None => 0,
             Some(i) => (i + 1) % self.len(),
