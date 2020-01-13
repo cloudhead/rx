@@ -582,6 +582,8 @@ impl CommandLine {
     }
 
     pub fn replace(&mut self, s: &str) {
+        // We don't re-assign `input` here, because it
+        // has a fixed capacity we want to preserve.
         self.input.clear();
         self.input.push_str(s);
     }
