@@ -568,6 +568,10 @@ impl KeyBindings {
         self.elems.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.elems.is_empty()
+    }
+
     /// Find a key binding based on some input state.
     pub fn find(
         &self,
