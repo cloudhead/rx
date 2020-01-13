@@ -2832,13 +2832,13 @@ impl Session {
     }
 
     fn cmdline_history_prev(&mut self) {
-        if let Some(entry) = self.cmdline.history.prev().map(|s| s.to_string()) {
+        if let Some(entry) = self.cmdline.history.prev().map(str::to_string) {
             self.cmdline.replace(&entry);
         }
     }
 
     fn cmdline_history_next(&mut self) {
-        if let Some(entry) = self.cmdline.history.next().map(|s| s.to_string()) {
+        if let Some(entry) = self.cmdline.history.next().map(str::to_string) {
             self.cmdline.replace(&entry);
         }
     }
