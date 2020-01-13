@@ -197,33 +197,30 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     let mut anim_accum = Duration::from_secs(0);
 
     while !win.is_closing() {
-        if wait_events {
-            let start = Instant::now();
+        let start = Instant::now();
 
-            match session.animation_delay() {
-                Some(delay) if session.is_running() => {
-                    if delay > anim_accum {
-                        events.wait_timeout(delay - anim_accum);
-                    } else {
-                        events.poll();
-                    }
-                    // How much time has actually passed waiting for events.
-                    let d = start.elapsed();
-
-                    if d > delay {
-                        // If more time has passed than the desired animation delay, then
-                        // add the difference to our accumulated error.
-                        anim_accum += d - delay;
-                    } else if delay > d {
-                        // If less time has passed than our desired delay, then
-                        // reset the accumulator to zero, because we've overshot.
-                        anim_accum = Duration::from_secs(0);
-                    };
+        match session.animation_delay() {
+            Some(delay) if session.is_running() => {
+                if delay > anim_accum {
+                    events.wait_timeout(delay - anim_accum);
+                } else {
+                    events.poll();
                 }
-                _ => events.wait(),
+                // How much time has actually passed waiting for events.
+                let d = start.elapsed();
+
+                if d > delay {
+                    // If more time has passed than the desired animation delay, then
+                    // add the difference to our accumulated error.
+                    anim_accum += d - delay;
+                } else if delay > d {
+                    // If less time has passed than our desired delay, then
+                    // reset the accumulator to zero, because we've overshot.
+                    anim_accum = Duration::from_secs(0);
+                };
             }
-        } else {
-            events.poll();
+            _ if wait_events => events.wait(),
+            _ => events.poll(),
         }
 
         for event in events.flush() {
