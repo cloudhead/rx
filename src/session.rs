@@ -813,6 +813,8 @@ impl Session {
 
     /// Create a new un-initialized session.
     pub fn new(w: u32, h: u32, resources: ResourceManager, base_dirs: dirs::ProjectDirs) -> Self {
+        let history_path = base_dirs.data_dir().join("history");
+
         Self {
             state: State::Initializing,
             width: w as f32,
@@ -835,7 +837,7 @@ impl Session {
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
             ignore_received_characters: false,
-            cmdline: CommandLine::new(),
+            cmdline: CommandLine::new(history_path),
             mode: Mode::Normal,
             prev_mode: Option::default(),
             selection: Option::default(),
@@ -868,6 +870,7 @@ impl Session {
             }
         }
         self.source_dir(cwd).ok();
+        self.cmdline.history.load()?;
         self.message(format!("rx v{}", crate::VERSION), MessageType::Debug);
 
         Ok(self)
@@ -1116,6 +1119,12 @@ impl Session {
 
     /// Quit the session.
     pub fn quit(&mut self, r: ExitReason) {
+        if self.cmdline.history.save().is_err() {
+            error!(
+                "Error: couldn't save command history to {}",
+                self.cmdline.history.path.display()
+            );
+        }
         self.transition(State::Closing(r));
     }
 
@@ -2126,6 +2135,12 @@ impl Session {
                 Mode::Command => {
                     if state == InputState::Pressed {
                         match key {
+                            platform::Key::Up => {
+                                self.cmdline_history_prev();
+                            }
+                            platform::Key::Down => {
+                                self.cmdline_history_next();
+                            }
                             platform::Key::Backspace => {
                                 self.cmdline_handle_backspace();
                             }
@@ -2816,6 +2831,18 @@ impl Session {
         };
     }
 
+    fn cmdline_history_prev(&mut self) {
+        if let Some(entry) = self.cmdline.history.prev().map(|s| s.to_string()) {
+            self.cmdline.replace(&entry);
+        }
+    }
+
+    fn cmdline_history_next(&mut self) {
+        if let Some(entry) = self.cmdline.history.next().map(|s| s.to_string()) {
+            self.cmdline.replace(&entry);
+        }
+    }
+
     fn cmdline_hide(&mut self) {
         self.switch_mode(self.prev_mode.unwrap_or(Mode::Normal));
     }
@@ -2841,7 +2868,10 @@ impl Session {
 
         match Command::from_str(&input) {
             Err(e) => self.message(format!("Error: {}", e), MessageType::Error),
-            Ok(cmd) => self.command(cmd),
+            Ok(cmd) => {
+                self.command(cmd);
+                self.cmdline.history.add(input);
+            }
         }
     }
 
