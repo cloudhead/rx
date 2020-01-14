@@ -438,7 +438,8 @@ impl fmt::Display for Value {
 pub struct CommandLine {
     /// The history of commands entered.
     pub history: History,
-
+    /// Input cursor position.
+    pub cursor: usize,
     /// The current input string displayed to the user.
     input: String,
 }
@@ -449,12 +450,17 @@ impl CommandLine {
     pub fn new<P: AsRef<Path>>(history_path: P) -> Self {
         Self {
             input: String::with_capacity(Self::MAX_INPUT),
+            cursor: 0,
             history: History::new(history_path, 1024),
         }
     }
 
     pub fn input(&self) -> String {
         self.input.clone()
+    }
+
+    pub fn prefix(&mut self) -> String {
+        self.input[..self.cursor].to_string()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -465,11 +471,13 @@ impl CommandLine {
         if self.input.len() + 1 >= self.input.capacity() {
             return;
         }
-        self.input.push(c);
+        self.input.insert(self.cursor, c);
+        self.cursor += c.len_utf8();
     }
 
     pub fn puts(&mut self, s: &str) {
         self.input.push_str(s);
+        self.cursor += s.len();
     }
 
     pub fn replace(&mut self, s: &str) {
@@ -479,11 +487,20 @@ impl CommandLine {
         self.input.push_str(s);
     }
 
+    pub fn reset(&mut self) {
+        self.clear();
+        self.putc(':');
+    }
+
     pub fn delc(&mut self) {
-        self.input.pop();
+        if let Some(idx) = self.cursor.checked_sub(1) {
+            let c = self.input.remove(idx);
+            self.cursor -= c.len_utf8();
+        }
     }
 
     pub fn clear(&mut self) {
+        self.cursor = 0;
         self.input.clear();
         self.history.reset();
     }
