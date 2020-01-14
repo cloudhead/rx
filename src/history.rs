@@ -85,28 +85,42 @@ impl History {
         self.entries.is_empty()
     }
 
-    pub fn next(&mut self) -> Option<&str> {
-        if self.is_empty() {
-            return None;
+    pub fn next(&mut self, prefix: &str) -> Option<&str> {
+        let start = self.len() - self.cursor.unwrap_or(0);
+
+        match self
+            .entries
+            .iter()
+            .rev()
+            .skip(start)
+            .position(|e| e.starts_with(prefix) && e != prefix)
+        {
+            Some(index) => {
+                let cursor = self.len() - 1 - start - index;
+
+                self.cursor = Some(cursor);
+                self.get(cursor)
+            }
+            None => {
+                self.cursor = None;
+                None
+            }
         }
-        let cursor = match self.cursor {
-            None | Some(0) => self.len() - 1,
-            Some(i) => i - 1,
-        };
-        self.cursor = Some(cursor);
-        self.get(cursor)
     }
 
-    pub fn prev(&mut self) -> Option<&str> {
-        if self.is_empty() {
-            return None;
-        }
-        let cursor = match self.cursor {
-            None => 0,
-            Some(i) => (i + 1) % self.len(),
-        };
-        self.cursor = Some(cursor);
-        self.get(cursor)
+    pub fn prev(&mut self, prefix: &str) -> Option<&str> {
+        let start = self.cursor.map(|c| c + 1).unwrap_or(0);
+
+        self.entries
+            .iter()
+            .skip(start)
+            .position(|e| e.starts_with(prefix) && e != prefix)
+            .and_then(move |index| {
+                let cursor = start + index;
+
+                self.cursor = Some(cursor);
+                self.get(cursor)
+            })
     }
 
     pub fn get(&self, index: usize) -> Option<&str> {
@@ -130,20 +144,57 @@ mod test {
         h.add("third");
         h.add("third");
 
-        assert_eq!(h.prev(), Some("third"));
-        assert_eq!(h.prev(), Some("second"));
-        assert_eq!(h.prev(), Some("first"));
-        assert_eq!(h.prev(), Some("third"));
-        assert_eq!(h.next(), Some("first"));
-        assert_eq!(h.next(), Some("second"));
+        assert_eq!(h.prev(""), Some("third"));
+        assert_eq!(h.prev(""), Some("second"));
+        assert_eq!(h.prev(""), Some("first"));
+        assert_eq!(h.prev(""), None);
+        assert_eq!(h.next(""), Some("second"));
+        assert_eq!(h.next(""), Some("third"));
+        assert_eq!(h.next(""), None);
+
+        assert_eq!(h.prev(""), Some("third"));
+        assert_eq!(h.next(""), None);
+    }
+
+    #[test]
+    fn test_history_long() {
+        let mut h = History::new("/dev/null", 16);
+
+        h.add("first");
+        h.add("second");
+        h.add("third");
+        h.add("fourth");
+        h.add("fifth");
+        h.add("sixth");
+
+        assert_eq!(h.prev("fifth"), None);
+        assert_eq!(h.prev("fift"), Some("fifth"));
+        assert_eq!(h.next("second"), None);
+    }
+
+    #[test]
+    fn test_history_prefix() {
+        let mut h = History::new("/dev/null", 16);
+
+        h.add("first");
+        h.add("second");
+        h.add("third");
+        h.add("third");
+
+        assert_eq!(h.prev("fo"), None);
+        assert_eq!(h.prev("se"), Some("second"));
+        assert_eq!(h.prev(""), Some("first"));
+        assert_eq!(h.next("t"), Some("third"));
+        assert_eq!(h.prev("th"), None);
+        assert_eq!(h.next("fir"), None);
     }
 
     #[test]
     fn test_history_empty() {
         let mut h = History::new("/dev/null", 16);
 
-        assert_eq!(h.prev(), None);
-        assert_eq!(h.next(), None);
+        assert_eq!(h.prev(""), None);
+        assert_eq!(h.next(""), None);
     }
 
     #[test]

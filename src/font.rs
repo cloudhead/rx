@@ -40,6 +40,23 @@ impl TextBatch {
         }
     }
 
+    pub fn glyph(&mut self, glyph: usize, sx: f32, sy: f32, z: ZDepth, color: Rgba8) {
+        let gw = self.gw;
+        let gh = self.gh;
+        let rgba = color.into();
+
+        let x: f32 = (glyph as f32) * gw;
+
+        self.raw.add(
+            Rect::new(x, 0., x + gw, gh),
+            Rect::new(sx, sy, sx + gw, sy + gh),
+            z,
+            rgba,
+            1.0,
+            Repeat::default(),
+        );
+    }
+
     #[cfg(feature = "wgpu")]
     pub fn finish(self, r: &rgx::core::Renderer) -> rgx::core::VertexBuffer {
         self.raw.finish(r)

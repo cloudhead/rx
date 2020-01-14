@@ -310,6 +310,15 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
     if session.mode == Mode::Command {
         let s = format!("{}", &session.cmdline.input());
         text.add(&s, MARGIN, MARGIN, self::TEXT_LAYER, Rgba8::WHITE);
+        if session.settings["ui/cursor"].is_set() {
+            text.glyph(
+                96,
+                MARGIN + session.cmdline.cursor as f32 * self::GLYPH_WIDTH,
+                MARGIN,
+                self::TEXT_LAYER,
+                Rgba8::RED,
+            );
+        }
     } else if !session.message.is_replay()
         && !session.message.is_debug()
         && session.settings["ui/message"].is_set()
