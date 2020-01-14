@@ -25,6 +25,7 @@ mod data;
 mod draw;
 mod event;
 mod font;
+mod history;
 mod image;
 mod palette;
 mod parser;
