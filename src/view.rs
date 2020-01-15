@@ -309,7 +309,7 @@ impl View {
 
     /// Slice the view into the given number of frames.
     pub fn slice(&mut self, nframes: usize) -> bool {
-        if self.width() % nframes as u32 == 0 {
+        if nframes > 0 && self.width() % nframes as u32 == 0 {
             let fw = self.width() / nframes as u32;
             self.reset(ViewExtent::new(fw, self.fh, nframes));
             return true;
