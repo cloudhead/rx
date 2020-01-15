@@ -508,7 +508,7 @@ impl CommandLine {
     }
 
     pub fn putc(&mut self, c: char) {
-        if self.input.len() + 1 >= self.input.capacity() {
+        if self.input.len() + c.len_utf8() > self.input.capacity() {
             return;
         }
         self.input.insert(self.cursor, c);
