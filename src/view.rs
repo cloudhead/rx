@@ -293,28 +293,40 @@ impl View {
         self.touch();
     }
 
-    /// Reset the view by providing frame size and number of frames.
-    pub fn reset(&mut self, extent: ViewExtent) {
-        self.fw = extent.fw;
-        self.fh = extent.fh;
-
-        let mut frames = Vec::new();
-        let origin = Rect::origin(self.fw as f32, self.fh as f32);
-
-        for i in 0..extent.nframes {
-            frames.push(origin + Vector2::new(i as f32 * self.fw as f32, 0.));
-        }
-        self.animation = Animation::new(&frames, self.animation.delay);
-    }
-
     /// Slice the view into the given number of frames.
     pub fn slice(&mut self, nframes: usize) -> bool {
         if nframes > 0 && self.width() % nframes as u32 == 0 {
             let fw = self.width() / nframes as u32;
             self.reset(ViewExtent::new(fw, self.fh, nframes));
+            // FIXME: This is very inefficient. Since the actual frame contents
+            // haven't changed, we don't need to create a full snapshot. We just
+            // have to record how many frames are in this snapshot.
+            self.touch();
+
             return true;
         }
         false
+    }
+
+    /// Restore a view to a given snapshot and extent.
+    pub fn restore(&mut self, sid: SnapshotId, extent: ViewExtent) {
+        self.reset(extent);
+        self.damaged();
+
+        // If the snapshot was saved to disk, we mark the view as saved too.
+        // Otherwise, if the view was saved before restoring the snapshot,
+        // we mark it as modified.
+        match self.file_status {
+            FileStatus::Modified(ref f) if self.is_snapshot_saved(sid) => {
+                self.file_status = FileStatus::Saved(f.clone());
+            }
+            FileStatus::Saved(ref f) => {
+                self.file_status = FileStatus::Modified(f.clone());
+            }
+            _ => {
+                // TODO
+            }
+        }
     }
 
     #[allow(dead_code)]
@@ -385,11 +397,6 @@ impl View {
         self.state = ViewState::Damaged(self.extent());
     }
 
-    pub fn resized(&mut self) {
-        self.state = ViewState::Dirty;
-        self.ops.push(ViewOp::Resize(self.width(), self.height()));
-    }
-
     /// Check whether the view is damaged.
     pub fn is_damaged(&self) -> bool {
         if let ViewState::Damaged(_) = self.state {
@@ -424,16 +431,36 @@ impl View {
         Rect::origin(self.width() as i32, self.height() as i32)
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn resized(&mut self) {
+        self.touch();
+        self.ops.push(ViewOp::Resize(self.width(), self.height()));
+    }
+
     /// Check whether the given snapshot has been saved to disk.
-    pub fn is_snapshot_saved(&self, id: SnapshotId) -> bool {
+    fn is_snapshot_saved(&self, id: SnapshotId) -> bool {
         self.saved_snapshot == Some(id)
     }
 
-    ////////////////////////////////////////////////////////////////////////////
-
+    /// Mark the view as saved at a given snapshot.
     fn saved(&mut self, id: SnapshotId, path: PathBuf) {
         self.file_status = FileStatus::Saved(path);
         self.saved_snapshot = Some(id);
+    }
+
+    /// Reset the view by providing frame size and number of frames.
+    fn reset(&mut self, extent: ViewExtent) {
+        self.fw = extent.fw;
+        self.fh = extent.fh;
+
+        let mut frames = Vec::new();
+        let origin = Rect::origin(self.fw as f32, self.fh as f32);
+
+        for i in 0..extent.nframes {
+            frames.push(origin + Vector2::new(i as f32 * self.fw as f32, 0.));
+        }
+        self.animation = Animation::new(&frames, self.animation.delay);
     }
 }
 

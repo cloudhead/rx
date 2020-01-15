@@ -1770,25 +1770,7 @@ impl Session {
             .map(|s| (s.id, s.extent));
 
         if let Some((sid, extent)) = snapshot {
-            let v = self.view_mut(id);
-
-            v.reset(extent);
-            v.damaged();
-
-            // If the snapshot was saved to disk, we mark the view as saved too.
-            // Otherwise, if the view was saved before restoring the snapshot,
-            // we mark it as modified.
-            match v.file_status {
-                FileStatus::Modified(ref f) if v.is_snapshot_saved(sid) => {
-                    v.file_status = FileStatus::Saved(f.clone());
-                }
-                FileStatus::Saved(ref f) => {
-                    v.file_status = FileStatus::Modified(f.clone());
-                }
-                _ => {
-                    // TODO
-                }
-            }
+            self.view_mut(id).restore(sid, extent);
             self.cursor_dirty();
         }
     }
@@ -2588,10 +2570,6 @@ impl Session {
             Command::Slice(None) => {
                 let v = self.active_view_mut();
                 v.slice(1);
-                // FIXME: This is very inefficient. Since the actual frame contents
-                // haven't changed, we don't need to create a full snapshot. We just
-                // have to record how many frames are in this snapshot.
-                v.touch();
             }
             Command::Slice(Some(nframes)) => {
                 let v = self.active_view_mut();
@@ -2600,11 +2578,6 @@ impl Session {
                         format!("Error: slice: view width is not divisible by {}", nframes),
                         MessageType::Error,
                     );
-                } else {
-                    // FIXME: This is very inefficient. Since the actual frame contents
-                    // haven't changed, we don't need to create a full snapshot. We just
-                    // have to record how many frames are in this snapshot.
-                    v.touch();
                 }
             }
             Command::Set(ref k, ref v) => {
