@@ -467,6 +467,46 @@ impl CommandLine {
         self.input.is_empty()
     }
 
+    pub fn history_prev(&mut self) {
+        let prefix = self.prefix();
+
+        if let Some(entry) = self.history.prev(&prefix).map(str::to_string) {
+            self.replace(&entry);
+        }
+    }
+
+    pub fn history_next(&mut self) {
+        let prefix = self.prefix();
+
+        if let Some(entry) = self.history.next(&prefix).map(str::to_string) {
+            self.replace(&entry);
+        } else {
+            self.reset();
+        }
+    }
+
+    pub fn cursor_backward(&mut self) -> Option<char> {
+        if let Some(c) = self.input[..self.cursor].chars().rev().next() {
+            let cursor = self.cursor - c.len_utf8();
+
+            // Don't allow deleting the `:` prefix of the command.
+            if c != ':' || cursor > 0 {
+                self.cursor = cursor;
+                return Some(c);
+            }
+        }
+        None
+    }
+
+    pub fn cursor_forward(&mut self) -> Option<char> {
+        if let Some(c) = self.input[self.cursor..].chars().next() {
+            self.cursor += c.len_utf8();
+            Some(c)
+        } else {
+            None
+        }
+    }
+
     pub fn putc(&mut self, c: char) {
         if self.input.len() + 1 >= self.input.capacity() {
             return;
@@ -493,9 +533,8 @@ impl CommandLine {
     }
 
     pub fn delc(&mut self) {
-        if let Some(idx) = self.cursor.checked_sub(1) {
-            let c = self.input.remove(idx);
-            self.cursor -= c.len_utf8();
+        if self.cursor_backward().is_some() {
+            self.input.remove(self.cursor);
         }
     }
 

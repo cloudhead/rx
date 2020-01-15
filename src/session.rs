@@ -2136,10 +2136,16 @@ impl Session {
                     if state == InputState::Pressed {
                         match key {
                             platform::Key::Up => {
-                                self.cmdline_history_prev();
+                                self.cmdline.history_prev();
                             }
                             platform::Key::Down => {
-                                self.cmdline_history_next();
+                                self.cmdline.history_next();
+                            }
+                            platform::Key::Left => {
+                                self.cmdline.cursor_backward();
+                            }
+                            platform::Key::Right => {
+                                self.cmdline.cursor_forward();
                             }
                             platform::Key::Backspace => {
                                 self.cmdline_handle_backspace();
@@ -2829,24 +2835,6 @@ impl Session {
                 }
             }
         };
-    }
-
-    fn cmdline_history_prev(&mut self) {
-        let prefix = self.cmdline.prefix();
-
-        if let Some(entry) = self.cmdline.history.prev(&prefix).map(str::to_string) {
-            self.cmdline.replace(&entry);
-        }
-    }
-
-    fn cmdline_history_next(&mut self) {
-        let prefix = self.cmdline.prefix();
-
-        if let Some(entry) = self.cmdline.history.next(&prefix).map(str::to_string) {
-            self.cmdline.replace(&entry);
-        } else {
-            self.cmdline.reset();
-        }
     }
 
     fn cmdline_hide(&mut self) {
