@@ -28,11 +28,12 @@ impl History {
         use std::fs::File;
         use std::io::{BufRead, BufReader};
 
-        let f = File::open(&self.path)?;
-        let r = BufReader::new(f);
+        if let Ok(f) = File::open(&self.path) {
+            let r = BufReader::new(f);
 
-        for line in r.lines() {
-            self.add(line?);
+            for line in r.lines() {
+                self.add(line?);
+            }
         }
         Ok(())
     }
