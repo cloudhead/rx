@@ -273,7 +273,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 .map_or(String::new(), |c| Rgb8::from(c).to_string());
             text.add(
                 &format!("{:>4},{:<4} {}", cursor.x, cursor.y, hover_color),
-                session.width * 0.5,
+                (session.width * 0.5).floor(),
                 MARGIN + self::LINE_HEIGHT,
                 self::TEXT_LAYER,
                 Rgba8::WHITE,
@@ -285,8 +285,10 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
         if session.width >= 400. {
             // Fg color
             canvas.add(Shape::Rectangle(
-                Rect::origin(11., 11.)
-                    .with_origin(session.width * 0.4, self::LINE_HEIGHT + self::MARGIN + 2.),
+                Rect::origin(11., 11.).with_origin(
+                    (session.width * 0.4).floor(),
+                    self::LINE_HEIGHT + self::MARGIN + 2.,
+                ),
                 self::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1.0, Rgba::WHITE),
@@ -295,7 +297,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             // Bg color
             canvas.add(Shape::Rectangle(
                 Rect::origin(11., 11.).with_origin(
-                    session.width * 0.4 + 25.,
+                    (session.width * 0.4).floor() + 25.,
                     self::LINE_HEIGHT + self::MARGIN + 2.,
                 ),
                 self::UI_LAYER,
