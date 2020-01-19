@@ -696,6 +696,8 @@ pub struct Session {
     pub width: f32,
     /// The height of the session workspace.
     pub height: f32,
+    /// The current working directory.
+    pub cwd: PathBuf,
 
     /// The cursor coordinates.
     pub cursor: SessionCoords,
@@ -718,8 +720,10 @@ pub struct Session {
     /// The current frame number.
     frame_number: u64,
 
-    /// Directories in which user configuration is stored.
-    base_dirs: dirs::ProjectDirs,
+    /// Directories in which application-specific user configuration is stored.
+    proj_dirs: dirs::ProjectDirs,
+    /// User directories.
+    base_dirs: dirs::BaseDirs,
 
     /// Resources shared with the `Renderer`.
     resources: ResourceManager,
@@ -777,7 +781,9 @@ impl Session {
     pub const DEFAULT_VIEW_H: u32 = 128;
 
     /// Supported image formats for writing.
-    const SUPPORTED_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
+    const SUPPORTED_WRITE_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
+    /// Supported image formats for reading.
+    const SUPPORTED_READ_FORMATS: &'static [&'static str] = &["png"];
     /// Minimum margin between views, in pixels.
     const VIEW_MARGIN: f32 = 24.;
     /// Size of palette cells, in pixels.
@@ -812,15 +818,25 @@ impl Session {
     const INIT: &'static str = "init.rx";
 
     /// Create a new un-initialized session.
-    pub fn new(w: u32, h: u32, resources: ResourceManager, base_dirs: dirs::ProjectDirs) -> Self {
-        let history_path = base_dirs.data_dir().join("history");
+    pub fn new<P: AsRef<Path>>(
+        w: u32,
+        h: u32,
+        cwd: P,
+        resources: ResourceManager,
+        proj_dirs: dirs::ProjectDirs,
+        base_dirs: dirs::BaseDirs,
+    ) -> Self {
+        let history_path = proj_dirs.data_dir().join("history");
+        let cwd = cwd.as_ref().to_path_buf();
 
         Self {
             state: State::Initializing,
             width: w as f32,
             height: h as f32,
+            cwd: cwd.clone(),
             cursor: SessionCoords::new(0., 0.),
             base_dirs,
+            proj_dirs,
             offset: Vector2::zero(),
             tool: Tool::default(),
             prev_tool: Option::default(),
@@ -837,7 +853,7 @@ impl Session {
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
             ignore_received_characters: false,
-            cmdline: CommandLine::new(history_path),
+            cmdline: CommandLine::new(cwd, history_path, Self::SUPPORTED_READ_FORMATS),
             mode: Mode::Normal,
             prev_mode: Option::default(),
             selection: Option::default(),
@@ -854,22 +870,21 @@ impl Session {
         self.transition(State::Running);
         self.reset()?;
 
-        let cwd = std::env::current_dir()?;
-
         if let Some(init) = source {
             // The special source '-' is used to skip initialization.
             if init.as_os_str() != "-" {
                 self.source_path(&init)?;
             }
         } else {
-            let dir = self.base_dirs.config_dir().to_owned();
+            let dir = self.proj_dirs.config_dir().to_owned();
             let cfg = dir.join(Self::INIT);
 
             if cfg.exists() {
                 self.source_path(cfg)?;
             }
         }
-        self.source_dir(cwd).ok();
+
+        self.source_dir(self.cwd.clone()).ok();
         self.cmdline.history.load()?;
         self.message(format!("rx v{}", crate::VERSION), MessageType::Debug);
 
@@ -1524,7 +1539,7 @@ impl Session {
             io::Error::new(io::ErrorKind::Other, "file extension is not valid unicode")
         })?;
 
-        if !Self::SUPPORTED_FORMATS.contains(&ext) {
+        if !Self::SUPPORTED_WRITE_FORMATS.contains(&ext) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("`{}` is not a supported output format", ext),
@@ -2129,6 +2144,9 @@ impl Session {
                             platform::Key::Right => {
                                 self.cmdline.cursor_forward();
                             }
+                            platform::Key::Tab => {
+                                self.cmdline.completion_next();
+                            }
                             platform::Key::Backspace => {
                                 self.cmdline_handle_backspace();
                             }
@@ -2183,7 +2201,7 @@ impl Session {
         debug!("source: {}", path.display());
 
         File::open(&path)
-            .or_else(|_| File::open(self.base_dirs.config_dir().join(path)))
+            .or_else(|_| File::open(self.proj_dirs.config_dir().join(path)))
             .and_then(|f| self.source_reader(io::BufReader::new(f), path))
             .map_err(|e| {
                 io::Error::new(
@@ -2440,7 +2458,7 @@ impl Session {
                     Value::Ident(s) => match s.as_str() {
                         "config/dir" => Ok(Value::Str(format!(
                             "{}",
-                            self.base_dirs.config_dir().display()
+                            self.proj_dirs.config_dir().display()
                         ))),
                         "s/cwd" | "cwd" => {
                             if let Ok(cwd) = std::env::current_dir() {
@@ -2615,17 +2633,28 @@ impl Session {
             Command::Noop => {
                 // Nothing happening!
             }
-            Command::ChangeDir(ref path) => match std::env::set_current_dir(path) {
-                Ok(()) => {}
-                Err(e) => self.message(format!("Error: {}: {}", e, path), MessageType::Error),
-            },
-            Command::Source(ref path) => {
+            Command::ChangeDir(dir) => {
+                let home = self.base_dirs.home_dir().to_path_buf();
+                let path = dir.map(|s| s.into()).unwrap_or(home);
+
+                match std::env::set_current_dir(&path) {
+                    Ok(()) => {}
+                    Err(e) => self.message(format!("Error: {}: {:?}", e, path), MessageType::Error),
+                }
+            }
+            Command::Source(Some(ref path)) => {
                 if let Err(ref e) = self.source_path(path) {
                     self.message(
                         format!("Error sourcing `{}`: {}", path, e),
                         MessageType::Error,
                     );
                 }
+            }
+            Command::Source(None) => {
+                self.message(
+                    format!("Error: source command requires a path"),
+                    MessageType::Error,
+                );
             }
             Command::Edit(ref paths) => {
                 if paths.is_empty() {

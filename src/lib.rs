@@ -18,6 +18,7 @@ pub mod execution;
 pub mod session;
 
 mod alloc;
+mod autocomplete;
 mod brush;
 mod cmd;
 mod color;
@@ -125,9 +126,12 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     info!("scale factor: {}", scale_factor);
 
     let resources = ResourceManager::new();
-    let base_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
+    let proj_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "config directory not found"))?;
+    let base_dirs = dirs::BaseDirs::new()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
-    let mut session = Session::new(win_w, win_h, resources.clone(), base_dirs)
+    let cwd = std::env::current_dir()?;
+    let mut session = Session::new(win_w, win_h, cwd, resources.clone(), proj_dirs, base_dirs)
         .with_blank(
             FileStatus::NoFile,
             Session::DEFAULT_VIEW_W,

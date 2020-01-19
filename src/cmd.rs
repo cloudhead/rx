@@ -1,3 +1,4 @@
+use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
 use crate::brush::{Brush, BrushMode};
 use crate::history::History;
 use crate::parser::{Error, Parse, Parser, Result};
@@ -33,7 +34,7 @@ pub enum Command {
     BrushUnset(BrushMode),
     #[allow(dead_code)]
     Crop(Rect<u32>),
-    ChangeDir(String),
+    ChangeDir(Option<String>),
     Echo(Value),
     Edit(Vec<String>),
     Fill(Rgba8),
@@ -67,7 +68,7 @@ pub enum Command {
     SelectionJump(Direction),
     Set(String, Value),
     Slice(Option<usize>),
-    Source(String),
+    Source(Option<String>),
     SwapColors,
     Toggle(String),
     Tool(Tool),
@@ -211,7 +212,7 @@ impl From<Command> for String {
             Command::Set(s, v) => format!("set {} = {}", s, v),
             Command::Slice(Some(n)) => format!("slice {}", n),
             Command::Slice(None) => format!("slice"),
-            Command::Source(path) => format!("source {}", path),
+            Command::Source(Some(path)) => format!("source {}", path),
             Command::SwapColors => format!("swap"),
             Command::Toggle(s) => format!("toggle {}", s),
             Command::Undo => format!("undo"),
@@ -435,9 +436,12 @@ impl fmt::Display for Value {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#[derive(Debug)]
 pub struct CommandLine {
     /// The history of commands entered.
     pub history: History,
+    /// Command auto-complete.
+    pub autocomplete: Autocomplete<CommandCompleter>,
     /// Input cursor position.
     pub cursor: usize,
     /// The current input string displayed to the user.
@@ -447,20 +451,17 @@ pub struct CommandLine {
 impl CommandLine {
     const MAX_INPUT: usize = 256;
 
-    pub fn new<P: AsRef<Path>>(history_path: P) -> Self {
+    pub fn new<P: AsRef<Path>>(cwd: P, history_path: P, extensions: &[&str]) -> Self {
         Self {
             input: String::with_capacity(Self::MAX_INPUT),
             cursor: 0,
             history: History::new(history_path, 1024),
+            autocomplete: Autocomplete::new(CommandCompleter::new(cwd, extensions)),
         }
     }
 
     pub fn input(&self) -> String {
         self.input.clone()
-    }
-
-    pub fn prefix(&mut self) -> String {
-        self.input[..self.cursor].to_string()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -470,7 +471,7 @@ impl CommandLine {
     pub fn history_prev(&mut self) {
         let prefix = self.prefix();
 
-        if let Some(entry) = self.history.prev(&prefix).map(str::to_string) {
+        if let Some(entry) = self.history.prev(&prefix).map(str::to_owned) {
             self.replace(&entry);
         }
     }
@@ -478,20 +479,31 @@ impl CommandLine {
     pub fn history_next(&mut self) {
         let prefix = self.prefix();
 
-        if let Some(entry) = self.history.next(&prefix).map(str::to_string) {
+        if let Some(entry) = self.history.next(&prefix).map(str::to_owned) {
             self.replace(&entry);
         } else {
             self.reset();
         }
     }
 
+    pub fn completion_next(&mut self) {
+        let prefix = self.prefix();
+
+        if let Some((completion, range)) = self.autocomplete.next(&prefix, self.cursor) {
+            // Replace old completion with new one.
+            self.cursor = range.start + completion.len();
+            self.input.replace_range(range, &completion);
+        }
+    }
+
     pub fn cursor_backward(&mut self) -> Option<char> {
-        if let Some(c) = self.input[..self.cursor].chars().rev().next() {
+        if let Some(c) = self.input[..self.cursor].chars().next_back() {
             let cursor = self.cursor - c.len_utf8();
 
             // Don't allow deleting the `:` prefix of the command.
             if c != ':' || cursor > 0 {
                 self.cursor = cursor;
+                self.autocomplete.reload();
                 return Some(c);
             }
         }
@@ -501,6 +513,7 @@ impl CommandLine {
     pub fn cursor_forward(&mut self) -> Option<char> {
         if let Some(c) = self.input[self.cursor..].chars().next() {
             self.cursor += c.len_utf8();
+            self.autocomplete.reload();
             Some(c)
         } else {
             None
@@ -513,28 +526,20 @@ impl CommandLine {
         }
         self.input.insert(self.cursor, c);
         self.cursor += c.len_utf8();
+        self.autocomplete.reload();
     }
 
     pub fn puts(&mut self, s: &str) {
+        // TODO: Check capacity.
         self.input.push_str(s);
         self.cursor += s.len();
-    }
-
-    pub fn replace(&mut self, s: &str) {
-        // We don't re-assign `input` here, because it
-        // has a fixed capacity we want to preserve.
-        self.input.clear();
-        self.input.push_str(s);
-    }
-
-    pub fn reset(&mut self) {
-        self.clear();
-        self.putc(':');
+        self.autocomplete.reload();
     }
 
     pub fn delc(&mut self) {
         if self.cursor_backward().is_some() {
             self.input.remove(self.cursor);
+            self.autocomplete.reload();
         }
     }
 
@@ -542,6 +547,26 @@ impl CommandLine {
         self.cursor = 0;
         self.input.clear();
         self.history.reset();
+        self.autocomplete.reload();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+
+    fn replace(&mut self, s: &str) {
+        // We don't re-assign `input` here, because it
+        // has a fixed capacity we want to preserve.
+        self.input.clear();
+        self.input.push_str(s);
+        self.autocomplete.reload();
+    }
+
+    fn reset(&mut self) {
+        self.clear();
+        self.putc(':');
+    }
+
+    fn prefix(&self) -> String {
+        self.input[..self.cursor].to_owned()
     }
 }
 
@@ -645,12 +670,20 @@ impl<'a> Parse<'a> for Command {
                 }
             }
             "source" => {
-                let (path, p) = p.path()?;
-                Ok((Command::Source(path), p))
+                if p.is_empty() {
+                    Ok((Command::Source(None), p))
+                } else {
+                    let (path, p) = p.path()?;
+                    Ok((Command::Source(Some(path)), p))
+                }
             }
             "cd" => {
-                let (path, p) = p.path()?;
-                Ok((Command::ChangeDir(path), p))
+                if p.is_empty() {
+                    Ok((Command::ChangeDir(None), p))
+                } else {
+                    let (path, p) = p.path()?;
+                    Ok((Command::ChangeDir(Some(path)), p))
+                }
             }
             "zoom" => {
                 if let Ok((_, p)) = p.clone().sigil('+') {
@@ -797,5 +830,192 @@ impl<'a> Parse<'a> for Command {
                 unrecognized
             ))),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct CommandCompleter {
+    file_completer: FileCompleter,
+}
+
+impl CommandCompleter {
+    fn new<P: AsRef<Path>>(cwd: P, exts: &[&str]) -> Self {
+        Self {
+            file_completer: FileCompleter::new(cwd, exts),
+        }
+    }
+}
+
+impl autocomplete::Completer for CommandCompleter {
+    type Options = ();
+
+    fn complete(&self, input: &str, cursor: usize, _opts: ()) -> (usize, Vec<String>) {
+        let p = Parser::new(&input[..cursor]);
+
+        match p.parse::<Command>() {
+            Ok((cmd, _)) => match cmd {
+                Command::ChangeDir(path) => self.complete_path(
+                    path.as_ref(),
+                    input,
+                    cursor,
+                    FileCompleterOpts { directories: true },
+                ),
+                Command::Source(path) | Command::Write(path) => {
+                    self.complete_path(path.as_ref(), input, cursor, Default::default())
+                }
+                Command::Edit(paths) => {
+                    self.complete_path(paths.last(), input, cursor, Default::default())
+                }
+                _ => (cursor, vec![]),
+            },
+            Err(_) => (cursor, vec![]),
+        }
+    }
+}
+
+impl CommandCompleter {
+    fn complete_path(
+        &self,
+        path: Option<&String>,
+        input: &str,
+        cursor: usize,
+        opts: FileCompleterOpts,
+    ) -> (usize, Vec<String>) {
+        use crate::autocomplete::Completer;
+
+        let empty = "".to_owned();
+        let path = path.unwrap_or(&empty);
+
+        // If there's whitespace between the path and the cursor, don't complete the path.
+        // Instead, complete as if the input was empty.
+        match input[..cursor].chars().next_back() {
+            Some(c) if c.is_whitespace() => self.file_completer.complete("", cursor, opts),
+            _ => self.file_completer.complete(path, cursor, opts),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::{fs, fs::File};
+
+    #[test]
+    fn test_command_completer() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        fs::create_dir(tmp.path().join("assets")).unwrap();
+        for file_name in &["one.png", "two.png", "three.png"] {
+            let path = tmp.path().join(file_name);
+            File::create(path).unwrap();
+        }
+        for file_name in &["four.png", "five.png", "six.png"] {
+            let path = tmp.path().join("assets").join(file_name);
+            File::create(path).unwrap();
+        }
+
+        let cc = CommandCompleter::new(tmp.path(), &["png"]);
+        let mut auto = Autocomplete::new(cc);
+
+        assert_eq!(auto.next(":e |", 3), Some(("three.png".to_owned(), 3..3)));
+        auto.reload();
+        assert_eq!(
+            auto.next(":e |one.png", 3),
+            Some(("three.png".to_owned(), 3..3))
+        );
+
+        auto.reload();
+        assert_eq!(
+            auto.next(":e one.png | two.png", 11),
+            Some(("three.png".to_owned(), 11..11))
+        );
+        assert_eq!(
+            auto.next(":e one.png three.png| two.png", 20),
+            Some(("two.png".to_owned(), 11..20))
+        );
+        assert_eq!(
+            auto.next(":e one.png two.png| two.png", 18),
+            Some(("one.png".to_owned(), 11..18))
+        );
+
+        auto.reload();
+        assert_eq!(
+            auto.next(":e assets/|", 10),
+            Some(("six.png".to_owned(), 10..10))
+        );
+    }
+
+    #[test]
+    fn test_command_line() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        fs::create_dir(tmp.path().join("assets")).unwrap();
+        for file_name in &["one.png", "two.png", "three.png"] {
+            let path = tmp.path().join(file_name);
+            File::create(path).unwrap();
+        }
+        for file_name in &["four.png", "five.png"] {
+            let path = tmp.path().join("assets").join(file_name);
+            File::create(path).unwrap();
+        }
+
+        let mut cli = CommandLine::new(tmp.path(), &tmp.path().join(".history"), &["png"]);
+
+        cli.puts(":e one");
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e one.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e one.png");
+
+        cli.clear();
+        cli.puts(":e ");
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e three.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e two.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e one.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets");
+
+        cli.putc('/');
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/five.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/four.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/five.png");
+
+        cli.putc(' ');
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/five.png three.png");
+
+        cli.putc(' ');
+        cli.putc('t');
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/five.png three.png three.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/five.png three.png two.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/five.png three.png three.png");
+
+        for _ in 0..10 {
+            cli.cursor_backward();
+        }
+        cli.putc(' ');
+        cli.putc('o');
+        cli.completion_next();
+        assert_eq!(
+            cli.input(),
+            ":e assets/five.png three.png one.png three.png"
+        );
     }
 }

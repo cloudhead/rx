@@ -8,5 +8,6 @@ jobs:
 cache: cargo
 script:
   - cargo check
+  - cargo test --lib
 before_install:
   - sudo apt-get -y install xorg-dev
