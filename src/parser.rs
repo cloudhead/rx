@@ -235,6 +235,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn paths(self) -> Result<'a, Vec<String>> {
+        if self.is_empty() {
+            Ok((Vec::with_capacity(0), self))
+        } else {
+            let mut q = self;
+            let mut paths = Vec::new();
+
+            while let Ok((path, p)) = q.clone().path() {
+                paths.push(path);
+                let (_, p) = p.whitespace()?;
+                q = p;
+            }
+            Ok((paths, q))
+        }
+    }
+
     pub fn peek(&self) -> Option<char> {
         self.input.chars().nth(0)
     }

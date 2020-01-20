@@ -37,6 +37,7 @@ pub enum Command {
     ChangeDir(Option<String>),
     Echo(Value),
     Edit(Vec<String>),
+    EditFrames(Vec<String>),
     Fill(Rgba8),
     ForceQuit,
     ForceQuitAll,
@@ -115,6 +116,7 @@ impl fmt::Display for Command {
             Self::ChangeDir(_) => write!(f, "Change the current working directory"),
             Self::Echo(_) => write!(f, "Echo a value"),
             Self::Edit(_) => write!(f, "Edit path(s)"),
+            Self::EditFrames(_) => write!(f, "Edit path(s) as animation frames"),
             Self::Fill(c) => write!(f, "Fill view with {color}", color = c),
             Self::ForceQuit => write!(f, "Quit view without saving"),
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
@@ -621,19 +623,12 @@ impl<'a> Parse<'a> for Command {
                 }
             }
             "e" => {
-                if p.is_empty() {
-                    Ok((Command::Edit(Vec::with_capacity(0)), p))
-                } else {
-                    let mut q = p;
-                    let mut edits = Vec::new();
-
-                    while let Ok((path, p)) = q.clone().path() {
-                        edits.push(path);
-                        let (_, p) = p.whitespace()?;
-                        q = p;
-                    }
-                    Ok((Command::Edit(edits), q))
-                }
+                let (paths, p) = p.paths()?;
+                Ok((Command::Edit(paths), p))
+            }
+            "e/frames" => {
+                let (paths, p) = p.paths()?;
+                Ok((Command::EditFrames(paths), p))
             }
             "help" => Ok((Command::Mode(Mode::Help), p)),
             "set" => {
@@ -863,7 +858,7 @@ impl autocomplete::Completer for CommandCompleter {
                 Command::Source(path) | Command::Write(path) => {
                     self.complete_path(path.as_ref(), input, cursor, Default::default())
                 }
-                Command::Edit(paths) => {
+                Command::Edit(paths) | Command::EditFrames(paths) => {
                     self.complete_path(paths.last(), input, cursor, Default::default())
                 }
                 _ => (cursor, vec![]),

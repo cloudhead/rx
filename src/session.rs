@@ -2663,6 +2663,9 @@ impl Session {
                     self.message(format!("Error loading path(s): {}", e), MessageType::Error);
                 }
             }
+            Command::EditFrames(ref _paths) => {
+                self.unimplemented();
+            }
             Command::Write(None) => {
                 if let Err(e) = self.save_view(self.views.active_id) {
                     self.message(format!("Error: {}", e), MessageType::Error);
