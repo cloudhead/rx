@@ -10,7 +10,6 @@ use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Pixels, ResourceManager};
-use crate::util;
 use crate::view::{
     FileStatus, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
 };
@@ -1550,13 +1549,15 @@ impl Session {
         // locations without worrying about the full path name.
         paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
-        let lcp: PathBuf = util::longest_common_prefix(
-            paths
-                .iter()
-                .map(|p| p.as_path().to_str())
-                .flatten()
-                .collect(),
-        )
+        let name: PathBuf = match (paths.first(), paths.last()) {
+            (Some(first), Some(last)) if first != last => format!(
+                "{} .. {}",
+                first.file_stem().unwrap().to_str().unwrap(),
+                last.display()
+            ),
+            (Some(first), Some(last)) if first == last => format!("{}", first.display()),
+            _ => format!(""),
+        }
         .into();
 
         // Load images and collect errors.
@@ -1569,27 +1570,32 @@ impl Session {
         // Use the first frame as a reference for what size the rest of
         // the frames should be.
         if let Some((fw, fh, pixels)) = frames.next() {
-            let id = self.add_view(FileStatus::Saved(lcp), fw, fh, pixels.as_slice());
+            let id = self.add_view(FileStatus::Saved(name), fw, fh, pixels.as_slice());
             let v = self.views.get_mut(id).unwrap();
 
-            for (w, h, pixels) in frames {
-                if w == fw || h == fh {
-                    v.extend_with(pixels);
-                } else {
-                    return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "frame dimensions do not match: expected {}x{}, got {}x{}",
-                            fw, fh, w, h
-                        ),
-                    ));
-                }
+            if frames.clone().all(|(w, h, _)| w == fw && h == fh) {
+                v.extend_with(frames.map(|(_, _, pixels)| pixels).collect());
+            } else {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("frame dimensions must all match {}x{}", fw, fh),
+                ));
             }
         }
 
         for dir in dirs.iter() {
             self.source_dir(dir)?;
         }
+
+        if let Some(id) = self.views.last().map(|v| v.id) {
+            self.organize_views();
+            self.edit_view(id);
+        }
+
+        // TODO: FileStatus should actually take a vector of files, and take
+        //       care of displaying something pretty.
+        // TODO: View is marked as [modified] when loaded.
+        // TODO: Saving should for now write to all frames.
 
         Ok(())
     }

@@ -844,7 +844,24 @@ impl Renderer {
 
         for op in ops {
             match op {
-                ViewOp::Paint(_pixels, _rect) => {}
+                ViewOp::Paint(pixels, rect) => {
+                    let fb = &self
+                        .view_data
+                        .get(&id)
+                        .expect("views must have associated view data")
+                        .fb;
+
+                    let texels = self::align_u8(&pixels);
+
+                    fb.color_slot()
+                        .upload_part_raw(
+                            GenMipmaps::No,
+                            [rect.x1 as u32, rect.y1 as u32],
+                            [rect.width() as u32, rect.height() as u32],
+                            &texels,
+                        )
+                        .map_err(Error::Texture)?;
+                }
                 ViewOp::Resize(w, h) => {
                     self.resize_view(id, *w, *h)?;
                 }

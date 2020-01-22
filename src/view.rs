@@ -274,16 +274,21 @@ impl View {
         ));
     }
 
-    /// Extend the view with the given pixels.
-    pub fn extend_with(&mut self, pixels: Vec<Rgba8>) {
+    /// Extend the view with the given frames.
+    pub fn extend_with(&mut self, frames: Vec<Vec<Rgba8>>) {
         let width = self.width() as f32;
         let (fw, fh) = (self.fw as f32, self.fh as f32);
 
-        assert_eq!(pixels.len(), (fw * fh) as usize);
+        self.reset(ViewExtent::new(self.fw, self.fh, 1 + frames.len()));
+        self.resized();
 
-        self.extend();
-        self.ops
-            .push(ViewOp::Paint(pixels, Rect::new(width, 0., width + fw, fh)));
+        for (i, pixels) in frames.into_iter().enumerate() {
+            assert_eq!(pixels.len(), (fw * fh) as usize);
+
+            let x = width * (i + 1) as f32;
+            self.ops
+                .push(ViewOp::Paint(pixels, Rect::new(x, 0., x + fw, fh)));
+        }
     }
 
     /// Resize view frames to the given size.
