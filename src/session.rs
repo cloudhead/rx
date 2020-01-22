@@ -2472,13 +2472,7 @@ impl Session {
                             "{}",
                             self.proj_dirs.config_dir().display()
                         ))),
-                        "s/cwd" | "cwd" => {
-                            if let Ok(cwd) = std::env::current_dir() {
-                                Ok(Value::Str(format!("{}", cwd.display())))
-                            } else {
-                                Err(format!("Error: couldn't retrieve current directory"))
-                            }
-                        }
+                        "s/cwd" | "cwd" => Ok(Value::Str(self.cwd.display().to_string())),
                         "s/offset" => Ok(Value::F64Tuple(self.offset.x, self.offset.y)),
                         "v/offset" => {
                             let v = self.active_view();
@@ -2650,7 +2644,9 @@ impl Session {
                 let path = dir.map(|s| s.into()).unwrap_or(home);
 
                 match std::env::set_current_dir(&path) {
-                    Ok(()) => {}
+                    Ok(()) => {
+                        self.cwd = path;
+                    }
                     Err(e) => self.message(format!("Error: {}: {:?}", e, path), MessageType::Error),
                 }
             }
