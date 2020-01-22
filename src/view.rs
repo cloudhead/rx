@@ -125,6 +125,8 @@ pub enum ViewState {
 pub enum ViewOp {
     /// Copy an area of the view to another area.
     Blit(Rect<f32>, Rect<f32>),
+    /// Paint pixels into the view.
+    Paint(Vec<Rgba8>, Rect<f32>),
     /// Clear to a color.
     Clear(Rgba8),
     /// Yank the given area into the paste buffer.
@@ -270,6 +272,18 @@ impl View {
             Rect::new(fw * index as f32, 0., fw * (index + 1) as f32, fh),
             Rect::new(width, 0., width + fw, fh),
         ));
+    }
+
+    /// Extend the view with the given pixels.
+    pub fn extend_with(&mut self, pixels: Vec<Rgba8>) {
+        let width = self.width() as f32;
+        let (fw, fh) = (self.fw as f32, self.fh as f32);
+
+        assert_eq!(pixels.len(), (fw * fh) as usize);
+
+        self.extend();
+        self.ops
+            .push(ViewOp::Paint(pixels, Rect::new(width, 0., width + fw, fh)));
     }
 
     /// Resize view frames to the given size.

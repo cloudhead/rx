@@ -116,7 +116,7 @@ impl Completer for FileCompleter {
 }
 
 impl FileCompleter {
-    fn paths<P: AsRef<Path>>(&self, dir: P) -> std::io::Result<impl Iterator<Item = PathBuf>> {
+    pub fn paths<P: AsRef<Path>>(&self, dir: P) -> std::io::Result<impl Iterator<Item = PathBuf>> {
         let path = dir.as_ref();
         let mut paths = Vec::new();
 

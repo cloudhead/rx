@@ -46,7 +46,7 @@ mod gfx;
 mod gfx;
 
 #[macro_use]
-mod util;
+pub mod util;
 
 use cmd::Value;
 use event::Event;

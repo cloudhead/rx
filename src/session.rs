@@ -1,4 +1,5 @@
 ///! Session
+use crate::autocomplete::FileCompleter;
 use crate::brush::*;
 use crate::cmd::{self, Command, CommandLine, KeyMapping, Op, Value};
 use crate::color;
@@ -9,6 +10,7 @@ use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Pixels, ResourceManager};
+use crate::util;
 use crate::view::{
     FileStatus, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
 };
@@ -905,6 +907,7 @@ impl Session {
         let delay = self.settings["animation/delay"].to_u64();
         let id = self.views.add(fs, w, h, delay);
 
+        // TODO: Use `Session::add_view`
         self.effects.push(Effect::ViewAdded(id));
         self.resources.add_blank_view(id, w, h);
         self.organize_views();
@@ -1516,6 +1519,81 @@ impl Session {
         Ok(())
     }
 
+    /// Load the given paths into the session as frames in a new view.
+    pub fn edit_frames<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
+        let completer = FileCompleter::new(&self.cwd, Self::SUPPORTED_READ_FORMATS);
+        let mut dirs = Vec::new();
+
+        let mut paths = paths
+            .iter()
+            .map(|path| {
+                let path = path.as_ref();
+
+                if path.is_dir() {
+                    dirs.push(path);
+                    completer.paths(path).map(|paths| paths.collect())
+                } else if path.exists() {
+                    Ok(vec![path.to_path_buf()])
+                } else if !path.exists() && path.with_extension("png").exists() {
+                    Ok(vec![path.with_extension("png")])
+                } else {
+                    Ok(vec![])
+                }
+            })
+            // Collect paths and errors.
+            .collect::<io::Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+
+        // Sort by filenames. This allows us to combine frames from multiple
+        // locations without worrying about the full path name.
+        paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
+        let lcp: PathBuf = util::longest_common_prefix(
+            paths
+                .iter()
+                .map(|p| p.as_path().to_str())
+                .flatten()
+                .collect(),
+        )
+        .into();
+
+        // Load images and collect errors.
+        let mut frames = paths
+            .into_iter()
+            .map(ResourceManager::load_image)
+            .collect::<io::Result<Vec<_>>>()?
+            .into_iter();
+
+        // Use the first frame as a reference for what size the rest of
+        // the frames should be.
+        if let Some((fw, fh, pixels)) = frames.next() {
+            let id = self.add_view(FileStatus::Saved(lcp), fw, fh, pixels.as_slice());
+            let v = self.views.get_mut(id).unwrap();
+
+            for (w, h, pixels) in frames {
+                if w == fw || h == fh {
+                    v.extend_with(pixels);
+                } else {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!(
+                            "frame dimensions do not match: expected {}x{}, got {}x{}",
+                            fw, fh, w, h
+                        ),
+                    ));
+                }
+            }
+        }
+
+        for dir in dirs.iter() {
+            self.source_dir(dir)?;
+        }
+
+        Ok(())
+    }
+
     /// Save the given view to disk with the current file name. Returns
     /// an error if the view has no file name.
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
@@ -1610,6 +1688,7 @@ impl Session {
             return Ok(());
         }
 
+        // Replace the active view if it's a scratch pad.
         if let Some(v) = self.views.active() {
             let id = v.id;
 
@@ -2671,8 +2750,15 @@ impl Session {
                     self.message(format!("Error loading path(s): {}", e), MessageType::Error);
                 }
             }
-            Command::EditFrames(ref _paths) => {
-                self.unimplemented();
+            Command::EditFrames(ref paths) => {
+                if !paths.is_empty() {
+                    if let Err(e) = self.edit_frames(paths) {
+                        self.message(
+                            format!("Error loading frames(s): {}", e),
+                            MessageType::Error,
+                        );
+                    }
+                }
             }
             Command::Write(None) => {
                 if let Err(e) = self.save_view(self.views.active_id) {

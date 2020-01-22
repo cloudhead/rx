@@ -844,6 +844,7 @@ impl Renderer {
 
         for op in ops {
             match op {
+                ViewOp::Paint(_pixels, _rect) => {}
                 ViewOp::Resize(w, h) => {
                     self.resize_view(id, *w, *h)?;
                 }
