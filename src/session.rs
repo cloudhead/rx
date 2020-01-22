@@ -1618,24 +1618,36 @@ impl Session {
             }
         }
 
-        let delay = self.settings["animation/delay"].to_u64();
         let (width, height, pixels) = ResourceManager::load_image(&path)?;
-        let id = self.views.add(
-            FileStatus::Saved(path.into()),
-            width as u32,
-            height as u32,
-            delay,
-        );
 
-        self.effects.push(Effect::ViewAdded(id));
-        self.resources
-            .add_view(id, width, height, Pixels::Rgba(pixels.into()));
+        self.add_view(
+            FileStatus::Saved(path.into()),
+            width,
+            height,
+            pixels.as_slice(),
+        );
         self.message(
             format!("\"{}\" {} pixels read", path.display(), width * height),
             MessageType::Info,
         );
 
         Ok(())
+    }
+
+    fn add_view(
+        &mut self,
+        file_status: FileStatus,
+        width: u32,
+        height: u32,
+        pixels: &[Rgba8],
+    ) -> ViewId {
+        let delay = self.settings["animation/delay"].to_u64();
+        let id = self.views.add(file_status, width, height, delay);
+
+        self.effects.push(Effect::ViewAdded(id));
+        self.resources
+            .add_view(id, width, height, Pixels::Rgba(pixels.into()));
+        id
     }
 
     /// Destroys the resources associated with a view.
