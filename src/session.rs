@@ -1089,9 +1089,10 @@ impl Session {
         if self.views.is_empty() {
             self.quit(ExitReason::Normal);
         } else {
-            for v in self.views.iter() {
+            for v in self.views.iter_mut() {
                 if !v.ops.is_empty() {
-                    self.effects.push(Effect::ViewOps(v.id, v.ops.clone()));
+                    self.effects
+                        .push(Effect::ViewOps(v.id, v.ops.drain(..).collect()));
                 }
                 match v.state {
                     ViewState::Dirty => {}

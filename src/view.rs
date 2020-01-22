@@ -371,7 +371,6 @@ impl View {
     /// Set the view state to `Okay`.
     pub fn okay(&mut self) {
         self.state = ViewState::Okay;
-        self.ops.clear();
     }
 
     /// Update the view by one "tick".
