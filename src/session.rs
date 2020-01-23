@@ -1621,15 +1621,29 @@ impl Session {
     pub fn save_view_as(&mut self, id: ViewId, storage: &FileStorage) -> io::Result<()> {
         let ext = self.view(id).extent();
 
-        match storage {
-            FileStorage::Single(path) => self.save_view_rect_as(id, ext.rect(), path),
+        let message = match storage {
+            FileStorage::Single(path) => {
+                self.save_view_rect_as(id, ext.rect(), path)?;
+                format!(
+                    "\"{}\" {} pixels written",
+                    storage,
+                    ext.width() * ext.height()
+                )
+            }
             FileStorage::Range(paths) => {
                 for (i, path) in paths.iter().enumerate() {
                     self.save_view_rect_as(id, ext.frame(i), path)?;
                 }
-                Ok(())
+                format!(
+                    "{} {} pixels written",
+                    storage,
+                    paths.len() * (ext.fw * ext.fh) as usize,
+                )
             }
-        }
+        };
+        self.message(message, MessageType::Info);
+
+        Ok(())
     }
 
     /// Private ///////////////////////////////////////////////////////////////////
@@ -1671,13 +1685,9 @@ impl Session {
             ));
         }
 
-        let (s_id, npixels) = self.resources.save_view(id, rect, &path)?;
+        let (s_id, _) = self.resources.save_view(id, rect, &path)?;
         self.view_mut(id).save_as(s_id, path.into());
 
-        self.message(
-            format!("\"{}\" {} pixels written", path.display(), npixels),
-            MessageType::Info,
-        );
         Ok(())
     }
 
