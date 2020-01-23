@@ -16,6 +16,25 @@ pub fn clamp(p: &mut Point2<i32>, rect: Rect<i32>) {
     }
 }
 
+pub fn stitch_frames<T: Clone>(frames: &[Vec<T>], fw: usize, fh: usize, val: T) -> Vec<T> {
+    let nframes = frames.len();
+    let width = fw * nframes;
+
+    let mut buffer: Vec<T> = Vec::with_capacity(fw * fh * nframes);
+    buffer.resize(buffer.capacity(), val);
+
+    for (i, frame) in frames.iter().enumerate() {
+        for y in 0..fh {
+            let offset = i * fw + y * width;
+            buffer.splice(
+                offset..offset + fw,
+                frame[fw * y..fw * y + fw].iter().cloned(),
+            );
+        }
+    }
+    buffer
+}
+
 #[macro_export]
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{

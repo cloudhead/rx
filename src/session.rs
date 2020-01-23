@@ -10,6 +10,7 @@ use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Pixels, ResourceManager};
+use crate::util;
 use crate::view::{
     FileStatus, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
 };
@@ -904,7 +905,7 @@ impl Session {
     /// Create a blank view.
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
         let delay = self.settings["animation/delay"].to_u64();
-        let id = self.views.add(fs, w, h, delay);
+        let id = self.views.add(fs, w, h, 1, delay);
 
         // TODO: Use `Session::add_view`
         self.effects.push(Effect::ViewAdded(id));
@@ -1566,16 +1567,17 @@ impl Session {
             .into_iter()
             .map(ResourceManager::load_image)
             .collect::<io::Result<Vec<_>>>()?
-            .into_iter();
+            .into_iter()
+            .peekable();
 
         // Use the first frame as a reference for what size the rest of
         // the frames should be.
-        if let Some((fw, fh, pixels)) = frames.next() {
-            let id = self.add_view(FileStatus::Saved(name), fw, fh, pixels.as_slice());
-            let v = self.views.get_mut(id).unwrap();
+        if let Some((fw, fh, _)) = frames.peek() {
+            let (fw, fh) = (*fw, *fh);
 
             if frames.clone().all(|(w, h, _)| w == fw && h == fh) {
-                v.extend_with(frames.map(|(_, _, pixels)| pixels).collect());
+                let frames: Vec<_> = frames.map(|(_, _, pixels)| pixels).collect();
+                self.add_view(FileStatus::Saved(name), fw, fh, frames.as_slice());
             } else {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
@@ -1595,7 +1597,6 @@ impl Session {
 
         // TODO: FileStatus should actually take a vector of files, and take
         //       care of displaying something pretty.
-        // TODO: View is marked as [modified] when loaded.
         // TODO: Saving should for now write to all frames.
 
         Ok(())
@@ -1706,12 +1707,7 @@ impl Session {
 
         let (width, height, pixels) = ResourceManager::load_image(&path)?;
 
-        self.add_view(
-            FileStatus::Saved(path.into()),
-            width,
-            height,
-            pixels.as_slice(),
-        );
+        self.add_view(FileStatus::Saved(path.into()), width, height, &[pixels]);
         self.message(
             format!("\"{}\" {} pixels read", path.display(), width * height),
             MessageType::Info,
@@ -1723,16 +1719,18 @@ impl Session {
     fn add_view(
         &mut self,
         file_status: FileStatus,
-        width: u32,
-        height: u32,
-        pixels: &[Rgba8],
+        fw: u32,
+        fh: u32,
+        frames: &[Vec<Rgba8>],
     ) -> ViewId {
+        let pixels = util::stitch_frames(frames, fw as usize, fh as usize, Rgba8::TRANSPARENT);
+        let nframes = frames.len();
         let delay = self.settings["animation/delay"].to_u64();
-        let id = self.views.add(file_status, width, height, delay);
+        let id = self.views.add(file_status, fw, fh, nframes, delay);
 
         self.effects.push(Effect::ViewAdded(id));
         self.resources
-            .add_view(id, width, height, Pixels::Rgba(pixels.into()));
+            .add_view(id, fw, fh, nframes, Pixels::Rgba(pixels.into()));
         id
     }
 

@@ -179,7 +179,7 @@ impl ResourceManager {
         let len = w as usize * h as usize;
         let pixels = vec![Rgba8::TRANSPARENT; len];
 
-        self.add_view(id, w, h, Pixels::Rgba(pixels.into()));
+        self.add_view(id, w, h, 1, Pixels::Rgba(pixels.into()));
     }
 
     pub fn load_image<P: AsRef<Path>>(path: P) -> io::Result<(u32, u32, Vec<Rgba8>)> {
@@ -323,11 +323,11 @@ impl ResourceManager {
         Ok(fw * fh * nframes)
     }
 
-    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, pixels: Pixels) {
+    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, nframes: usize, pixels: Pixels) {
         self.resources
             .borrow_mut()
             .data
-            .insert(id, ViewResources::new(pixels, fw, fh));
+            .insert(id, ViewResources::new(pixels, fw, fh, nframes));
     }
 }
 
@@ -343,12 +343,12 @@ pub struct ViewResources {
 }
 
 impl ViewResources {
-    fn new(pixels: Pixels, fw: u32, fh: u32) -> Self {
+    fn new(pixels: Pixels, fw: u32, fh: u32, nframes: usize) -> Self {
         Self {
             snapshots: NonEmpty::new(Snapshot::new(
                 SnapshotId(0),
                 pixels.clone(),
-                ViewExtent::new(fw, fh, 1),
+                ViewExtent::new(fw, fh, nframes),
             )),
             snapshot: 0,
             pixels,

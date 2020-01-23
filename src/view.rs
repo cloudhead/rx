@@ -125,8 +125,6 @@ pub enum ViewState {
 pub enum ViewOp {
     /// Copy an area of the view to another area.
     Blit(Rect<f32>, Rect<f32>),
-    /// Paint pixels into the view.
-    Paint(Vec<Rgba8>, Rect<f32>),
     /// Clear to a color.
     Clear(Rgba8),
     /// Yank the given area into the paste buffer.
@@ -169,12 +167,18 @@ pub struct View {
 
 impl View {
     /// Create a new view. Takes a frame width and height.
-    pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32, delay: u64) -> Self {
+    pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32, nframes: usize, delay: u64) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
             Some(SnapshotId::default())
         } else {
             None
         };
+
+        let origin = Rect::origin(fw as f32, fh as f32);
+        let frames: Vec<_> = (0..nframes)
+            .map(|i| origin + Vector2::new(i as f32 * fw as f32, 0.))
+            .collect();
+
         Self {
             id,
             fw,
@@ -185,10 +189,7 @@ impl View {
             flip_x: false,
             flip_y: false,
             file_status: fs,
-            animation: Animation::new(
-                &[Rect::origin(fw as f32, fh as f32)],
-                time::Duration::from_millis(delay),
-            ),
+            animation: Animation::new(&frames, time::Duration::from_millis(delay)),
             state: ViewState::Okay,
             saved_snapshot,
         }
@@ -272,23 +273,6 @@ impl View {
             Rect::new(fw * index as f32, 0., fw * (index + 1) as f32, fh),
             Rect::new(width, 0., width + fw, fh),
         ));
-    }
-
-    /// Extend the view with the given frames.
-    pub fn extend_with(&mut self, frames: Vec<Vec<Rgba8>>) {
-        let width = self.width() as f32;
-        let (fw, fh) = (self.fw as f32, self.fh as f32);
-
-        self.reset(ViewExtent::new(self.fw, self.fh, 1 + frames.len()));
-        self.resized();
-
-        for (i, pixels) in frames.into_iter().enumerate() {
-            assert_eq!(pixels.len(), (fw * fh) as usize);
-
-            let x = width * (i + 1) as f32;
-            self.ops
-                .push(ViewOp::Paint(pixels, Rect::new(x, 0., x + fw, fh)));
-        }
     }
 
     /// Resize view frames to the given size.
@@ -541,9 +525,9 @@ impl ViewManager {
     }
 
     /// Add a view.
-    pub fn add(&mut self, fs: FileStatus, w: u32, h: u32, delay: u64) -> ViewId {
+    pub fn add(&mut self, fs: FileStatus, w: u32, h: u32, nframes: usize, delay: u64) -> ViewId {
         let id = self.gen_id();
-        let view = View::new(id, fs, w, h, delay);
+        let view = View::new(id, fs, w, h, nframes, delay);
 
         self.views.insert(id, view);
 
