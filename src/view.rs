@@ -105,6 +105,17 @@ impl ViewExtent {
     pub fn height(&self) -> u32 {
         self.fh
     }
+
+    /// Rect containing the whole extent.
+    pub fn rect(&self) -> Rect<u32> {
+        Rect::origin(self.width(), self.height())
+    }
+
+    /// Rect containing a single frame.
+    pub fn frame(&self, n: usize) -> Rect<u32> {
+        let n = n as u32;
+        Rect::new(self.fw * n, 0, self.fw * n + self.fw, self.fh)
+    }
 }
 
 /// Current state of the view.
