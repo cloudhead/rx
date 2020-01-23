@@ -9,7 +9,7 @@ use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::{Pixels, ResourceManager};
+use crate::resources::{Pixels, ResourceManager, SnapshotId};
 use crate::util;
 use crate::view::{
     FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
@@ -1601,15 +1601,13 @@ impl Session {
             self.edit_view(id);
         }
 
-        // TODO: After saving, [modified] should go away.
-
         Ok(())
     }
 
     /// Save the given view to disk with the current file name. Returns
     /// an error if the view has no file name.
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
-        if let Some(ref f) = self.view(id).file_storage().cloned() {
+        if let Some(f) = self.view(id).file_storage().cloned() {
             self.save_view_as(id, f)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
@@ -1618,12 +1616,14 @@ impl Session {
 
     /// Save a view with the given file name. Returns an error if
     /// the format is not supported.
-    pub fn save_view_as(&mut self, id: ViewId, storage: &FileStorage) -> io::Result<()> {
+    pub fn save_view_as(&mut self, id: ViewId, storage: FileStorage) -> io::Result<()> {
         let ext = self.view(id).extent();
 
-        let message = match storage {
+        let message = match &storage {
             FileStorage::Single(path) => {
-                self.save_view_rect_as(id, ext.rect(), path)?;
+                if let Some(s_id) = self.save_view_rect_as(id, ext.rect(), &path)? {
+                    self.view_mut(id).save_as(s_id, storage.clone());
+                }
                 format!(
                     "\"{}\" {} pixels written",
                     storage,
@@ -1634,6 +1634,14 @@ impl Session {
                 for (i, path) in paths.iter().enumerate() {
                     self.save_view_rect_as(id, ext.frame(i), path)?;
                 }
+
+                let s_id = self
+                    .resources
+                    .lock()
+                    .get_snapshot_id(id)
+                    .expect("view must have a snapshot");
+                self.view_mut(id).save_as(s_id, storage.clone());
+
                 format!(
                     "{} {} pixels written",
                     storage,
@@ -1648,7 +1656,12 @@ impl Session {
 
     /// Private ///////////////////////////////////////////////////////////////////
 
-    fn save_view_rect_as(&mut self, id: ViewId, rect: Rect<u32>, path: &Path) -> io::Result<()> {
+    fn save_view_rect_as(
+        &mut self,
+        id: ViewId,
+        rect: Rect<u32>,
+        path: &Path,
+    ) -> io::Result<Option<SnapshotId>> {
         let ext = path.extension().ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
@@ -1667,9 +1680,11 @@ impl Session {
         }
 
         if ext == "gif" {
-            return self.save_view_gif(id, path);
+            self.save_view_gif(id, path)?;
+            return Ok(None);
         } else if ext == "svg" {
-            return self.save_view_svg(id, path);
+            self.save_view_svg(id, path)?;
+            return Ok(None);
         }
 
         // Only allow overwriting of files if it's the file of the view being saved.
@@ -1686,9 +1701,8 @@ impl Session {
         }
 
         let (s_id, _) = self.resources.save_view(id, rect, &path)?;
-        self.view_mut(id).save_as(s_id, path.into());
 
-        Ok(())
+        Ok(Some(s_id))
     }
 
     /// Load a view into the session.
@@ -2804,7 +2818,7 @@ impl Session {
                 }
             }
             Command::Write(Some(ref path)) => {
-                if let Err(e) = self.save_view_as(self.views.active_id, &Path::new(path).into()) {
+                if let Err(e) = self.save_view_as(self.views.active_id, Path::new(path).into()) {
                     self.message(format!("Error: {}", e), MessageType::Error);
                 }
             }

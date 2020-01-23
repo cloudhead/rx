@@ -112,6 +112,10 @@ impl Resources {
         ))
     }
 
+    pub fn get_snapshot_id(&self, id: ViewId) -> Option<SnapshotId> {
+        self.data.get(&id).map(|r| SnapshotId(r.snapshot))
+    }
+
     pub fn get_snapshot_mut(&mut self, id: ViewId) -> (&mut Snapshot, &Pixels) {
         self.data
             .get_mut(&id)
