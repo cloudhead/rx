@@ -199,13 +199,13 @@ impl ResourceManager {
     pub fn save_view<P: AsRef<Path>>(
         &self,
         id: ViewId,
+        rect: Rect<u32>,
         path: P,
     ) -> io::Result<(SnapshotId, usize)> {
-        let mut resources = self.lock_mut();
-        let (snapshot, pixels) = resources.get_snapshot_mut(id);
-        let (w, h) = (snapshot.width(), snapshot.height());
+        let resources = self.lock();
+        let (snapshot, pixels) = resources.get_snapshot_rect(id, &rect.map(|n| n as i32));
+        let (w, h) = (rect.width(), rect.height());
 
-        let pixels = pixels.clone().into_rgba8();
         image::save(path, w, h, &pixels)?;
 
         Ok((snapshot.id, (w * h) as usize))

@@ -20,8 +20,7 @@ pub fn stitch_frames<T: Clone>(frames: &[Vec<T>], fw: usize, fh: usize, val: T) 
     let nframes = frames.len();
     let width = fw * nframes;
 
-    let mut buffer: Vec<T> = Vec::with_capacity(fw * fh * nframes);
-    buffer.resize(buffer.capacity(), val);
+    let mut buffer: Vec<T> = vec![val; fw * fh * nframes];
 
     for (i, frame) in frames.iter().enumerate() {
         for y in 0..fh {
@@ -46,7 +45,7 @@ macro_rules! hashmap {
 
 // Copyright 2016 Bruce Mitchener, Jr. <bruce.mitchener@gmail.com>
 // Portions copyright (C) 2012 Ingo Albrecht <prom@berlin.ccc.de>
-// Licensed udner the MIT license.
+// Licensed under the MIT license.
 
 /// Longest Common Prefix
 ///

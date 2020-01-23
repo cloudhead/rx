@@ -12,7 +12,7 @@ use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, Modifie
 use crate::resources::{Pixels, ResourceManager};
 use crate::util;
 use crate::view::{
-    FileStatus, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
+    FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
 };
 
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
@@ -21,6 +21,7 @@ use rgx::math::*;
 use rgx::rect::Rect;
 
 use directories as dirs;
+use nonempty::NonEmpty;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -1508,7 +1509,11 @@ impl Session {
                 } else {
                     (Self::DEFAULT_VIEW_W, Self::DEFAULT_VIEW_H)
                 };
-                self.blank(FileStatus::New(path.with_extension("png")), w, h);
+                self.blank(
+                    FileStatus::New(FileStorage::Single(path.with_extension("png"))),
+                    w,
+                    h,
+                );
             }
         }
 
@@ -1551,20 +1556,16 @@ impl Session {
         // locations without worrying about the full path name.
         paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
-        let name: PathBuf = match (paths.first(), paths.last()) {
-            (Some(first), Some(last)) if first != last => format!(
-                "{} .. {}",
-                first.file_stem().unwrap().to_str().unwrap(),
-                last.display()
-            ),
-            (Some(first), Some(last)) if first == last => format!("{}", first.display()),
-            _ => format!(""),
-        }
-        .into();
+        // If our paths list is empty, return early.
+        let paths = if let Some(paths) = NonEmpty::from_slice(paths.as_slice()) {
+            paths
+        } else {
+            return Ok(());
+        };
 
         // Load images and collect errors.
         let mut frames = paths
-            .into_iter()
+            .iter()
             .map(ResourceManager::load_image)
             .collect::<io::Result<Vec<_>>>()?
             .into_iter()
@@ -1577,7 +1578,12 @@ impl Session {
 
             if frames.clone().all(|(w, h, _)| w == fw && h == fh) {
                 let frames: Vec<_> = frames.map(|(_, _, pixels)| pixels).collect();
-                self.add_view(FileStatus::Saved(name), fw, fh, frames.as_slice());
+                self.add_view(
+                    FileStatus::Saved(FileStorage::Range(paths)),
+                    fw,
+                    fh,
+                    frames.as_slice(),
+                );
             } else {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
@@ -1595,9 +1601,7 @@ impl Session {
             self.edit_view(id);
         }
 
-        // TODO: FileStatus should actually take a vector of files, and take
-        //       care of displaying something pretty.
-        // TODO: Saving should for now write to all frames.
+        // TODO: After saving, [modified] should go away.
 
         Ok(())
     }
@@ -1605,7 +1609,7 @@ impl Session {
     /// Save the given view to disk with the current file name. Returns
     /// an error if the view has no file name.
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
-        if let Some(ref f) = self.view(id).file_name().cloned() {
+        if let Some(ref f) = self.view(id).file_storage().cloned() {
             self.save_view_as(id, f)
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
@@ -1614,8 +1618,24 @@ impl Session {
 
     /// Save a view with the given file name. Returns an error if
     /// the format is not supported.
-    pub fn save_view_as<P: AsRef<Path>>(&mut self, id: ViewId, path: P) -> io::Result<()> {
-        let ext = path.as_ref().extension().ok_or_else(|| {
+    pub fn save_view_as(&mut self, id: ViewId, storage: &FileStorage) -> io::Result<()> {
+        let ext = self.view(id).extent();
+
+        match storage {
+            FileStorage::Single(path) => self.save_view_rect_as(id, ext.rect(), path),
+            FileStorage::Range(paths) => {
+                for (i, path) in paths.iter().enumerate() {
+                    self.save_view_rect_as(id, ext.frame(i), path)?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Private ///////////////////////////////////////////////////////////////////
+
+    fn save_view_rect_as(&mut self, id: ViewId, rect: Rect<u32>, path: &Path) -> io::Result<()> {
+        let ext = path.extension().ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
                 "file path requires an extension (.gif or .png)",
@@ -1638,30 +1658,28 @@ impl Session {
             return self.save_view_svg(id, path);
         }
 
-        // Make sure we don't overwrite other files!
-        if self
-            .view(id)
-            .file_name()
-            .map_or(true, |f| path.as_ref() != f)
-            && path.as_ref().exists()
+        // Only allow overwriting of files if it's the file of the view being saved.
+        if path.exists()
+            && self
+                .view(id)
+                .file_storage()
+                .map_or(true, |f| !f.contains(path))
         {
             return Err(io::Error::new(
                 io::ErrorKind::AlreadyExists,
-                format!("\"{}\" already exists", path.as_ref().display()),
+                format!("\"{}\" already exists", path.display()),
             ));
         }
 
-        let (s_id, npixels) = self.resources.save_view(id, &path)?;
-        self.view_mut(id).save_as(s_id, path.as_ref().into());
+        let (s_id, npixels) = self.resources.save_view(id, rect, &path)?;
+        self.view_mut(id).save_as(s_id, path.into());
 
         self.message(
-            format!("\"{}\" {} pixels written", path.as_ref().display(), npixels,),
+            format!("\"{}\" {} pixels written", path.display(), npixels),
             MessageType::Info,
         );
         Ok(())
     }
-
-    /// Private ///////////////////////////////////////////////////////////////////
 
     /// Load a view into the session.
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
@@ -1688,7 +1706,7 @@ impl Session {
         // View is already loaded.
         if let Some(View { id, .. }) = self
             .views
-            .find(|v| v.file_name().map_or(false, |f| f == path))
+            .find(|v| v.file_storage().map_or(false, |f| f.contains(path)))
         {
             // TODO: Reload from disk.
             let id = *id;
@@ -1707,7 +1725,12 @@ impl Session {
 
         let (width, height, pixels) = ResourceManager::load_image(&path)?;
 
-        self.add_view(FileStatus::Saved(path.into()), width, height, &[pixels]);
+        self.add_view(
+            FileStatus::Saved(FileStorage::Single(path.into())),
+            width,
+            height,
+            &[pixels],
+        );
         self.message(
             format!("\"{}\" {} pixels read", path.display(), width * height),
             MessageType::Info,
@@ -2771,7 +2794,7 @@ impl Session {
                 }
             }
             Command::Write(Some(ref path)) => {
-                if let Err(e) = self.save_view_as(self.views.active_id, path) {
+                if let Err(e) = self.save_view_as(self.views.active_id, &Path::new(path).into()) {
                     self.message(format!("Error: {}", e), MessageType::Error);
                 }
             }

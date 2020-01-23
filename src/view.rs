@@ -7,11 +7,13 @@ use rgx::kit::Rgba8;
 use rgx::math::*;
 use rgx::rect::Rect;
 
+use nonempty::NonEmpty;
+
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time;
 
 /// View identifier.
@@ -222,7 +224,7 @@ impl View {
     }
 
     /// View file name, if any.
-    pub fn file_name(&self) -> Option<&PathBuf> {
+    pub fn file_storage(&self) -> Option<&FileStorage> {
         match self.file_status {
             FileStatus::New(ref f) => Some(f),
             FileStatus::Modified(ref f) => Some(f),
@@ -233,15 +235,15 @@ impl View {
 
     /// Mark the view as saved at a specific snapshot and with
     /// the given path.
-    pub fn save_as(&mut self, id: SnapshotId, path: PathBuf) {
+    pub fn save_as(&mut self, id: SnapshotId, storage: FileStorage) {
         match self.file_status {
-            FileStatus::Modified(ref curr_path) | FileStatus::New(ref curr_path) => {
-                if curr_path == &path {
-                    self.saved(id, path);
+            FileStatus::Modified(ref curr_fs) | FileStatus::New(ref curr_fs) => {
+                if curr_fs == &storage {
+                    self.saved(id, storage);
                 }
             }
             FileStatus::NoFile => {
-                self.saved(id, path);
+                self.saved(id, storage);
             }
             FileStatus::Saved(_) => {}
         }
@@ -457,8 +459,8 @@ impl View {
     }
 
     /// Mark the view as saved at a given snapshot.
-    fn saved(&mut self, id: SnapshotId, path: PathBuf) {
-        self.file_status = FileStatus::Saved(path);
+    fn saved(&mut self, id: SnapshotId, storage: FileStorage) {
+        self.file_status = FileStatus::Saved(storage);
         self.saved_snapshot = Some(id);
     }
 
@@ -485,20 +487,64 @@ pub enum FileStatus {
     /// There is no file being displayed.
     NoFile,
     /// The file is new and unsaved.
-    New(PathBuf),
+    New(FileStorage),
     /// The file is saved and unmodified.
-    Saved(PathBuf),
+    Saved(FileStorage),
     /// The file has been modified since the last save.
-    Modified(PathBuf),
+    Modified(FileStorage),
 }
 
 impl ToString for FileStatus {
     fn to_string(&self) -> String {
         match self {
             FileStatus::NoFile => String::new(),
-            FileStatus::Saved(ref path) => format!("{}", path.display()),
-            FileStatus::New(ref path) => format!("{} [new]", path.display()),
-            FileStatus::Modified(ref path) => format!("{} [modified]", path.display()),
+            FileStatus::Saved(ref storage) => format!("{}", storage),
+            FileStatus::New(ref storage) => format!("{} [new]", storage),
+            FileStatus::Modified(ref storage) => format!("{} [modified]", storage),
+        }
+    }
+}
+
+/// Representation of the view data on disk.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum FileStorage {
+    /// Stored as a range of files.
+    Range(NonEmpty<PathBuf>),
+    /// Stored as a single file.
+    Single(PathBuf),
+}
+
+impl fmt::Display for FileStorage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Range(paths) => write!(
+                f,
+                "{} .. {}",
+                paths.first().file_stem().unwrap().to_str().unwrap(),
+                paths.last().display()
+            ),
+            Self::Single(path) => write!(f, "{}", path.display()),
+        }
+    }
+}
+
+impl From<&Path> for FileStorage {
+    fn from(p: &Path) -> Self {
+        FileStorage::Single(p.into())
+    }
+}
+
+impl From<PathBuf> for FileStorage {
+    fn from(p: PathBuf) -> Self {
+        FileStorage::Single(p)
+    }
+}
+
+impl FileStorage {
+    pub fn contains<P: AsRef<Path>>(&self, p: P) -> bool {
+        match self {
+            Self::Single(buf) => buf.as_path() == p.as_ref(),
+            Self::Range(bufs) => bufs.iter().any(|buf| buf.as_path() == p.as_ref()),
         }
     }
 }
