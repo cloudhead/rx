@@ -864,7 +864,7 @@ impl Renderer {
                         .expect("views must have associated view data")
                         .fb;
 
-                    let texels = self
+                    let (_, texels) = self
                         .resources
                         .lock()
                         .get_snapshot_rect(id, &src.map(|n| n as i32));
@@ -881,7 +881,7 @@ impl Renderer {
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
-                    let pixels = resources.get_snapshot_rect(id, src);
+                    let (_, pixels) = resources.get_snapshot_rect(id, src);
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
@@ -967,7 +967,7 @@ impl Renderer {
 
         let view_data = ViewData::new(vw, vh, None, &mut self.ctx);
 
-        let texels = self
+        let (_, texels) = self
             .resources
             .lock()
             .get_snapshot_rect(id, &Rect::origin(tw as i32, th as i32));

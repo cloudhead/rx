@@ -122,8 +122,13 @@ impl Resources {
             ))
     }
 
-    pub fn get_snapshot_rect(&self, id: ViewId, rect: &Rect<i32>) -> Vec<Rgba8> {
+    pub fn get_snapshot_rect(&self, id: ViewId, rect: &Rect<i32>) -> (&Snapshot, Vec<Rgba8>) {
         let (snapshot, pixels) = self.get_snapshot(id);
+
+        // Fast path.
+        if snapshot.extent.rect().map(|n| n as i32) == *rect {
+            return (snapshot, pixels.clone().into_rgba8());
+        }
 
         let w = rect.width() as usize;
         let h = rect.height() as usize;
@@ -142,7 +147,7 @@ impl Resources {
         }
         assert!(buffer.len() == w * h);
 
-        buffer
+        (snapshot, buffer)
     }
 
     pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResources> {
