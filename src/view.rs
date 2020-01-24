@@ -517,12 +517,30 @@ pub enum FileStorage {
 impl fmt::Display for FileStorage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Range(paths) => write!(
-                f,
-                "{} .. {}",
-                paths.first().file_stem().unwrap().to_str().unwrap(),
-                paths.last().display()
-            ),
+            Self::Range(paths) => {
+                let parent = paths.first().parent();
+
+                if paths.iter().all(|p| p.parent() == parent) {
+                    let first = paths
+                        .first()
+                        .file_stem()
+                        .expect("the path has a file stem")
+                        .to_string_lossy();
+                    let last = paths
+                        .last()
+                        .file_name()
+                        .expect("the path has a file name")
+                        .to_string_lossy();
+
+                    if let Some(parent) = parent {
+                        write!(f, "{}/{} .. {}", parent.display(), first, last)
+                    } else {
+                        write!(f, "{} .. {}", first, last)
+                    }
+                } else {
+                    write!(f, "*")
+                }
+            }
             Self::Single(path) => write!(f, "{}", path.display()),
         }
     }

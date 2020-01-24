@@ -1537,7 +1537,9 @@ impl Session {
 
                 if path.is_dir() {
                     dirs.push(path);
-                    completer.paths(path).map(|paths| paths.collect())
+                    completer
+                        .paths(path)
+                        .map(|paths| paths.map(|p| path.join(p)).collect())
                 } else if path.exists() {
                     Ok(vec![path.to_path_buf()])
                 } else if !path.exists() && path.with_extension("png").exists() {
@@ -1550,6 +1552,7 @@ impl Session {
             .collect::<io::Result<Vec<_>>>()?
             .into_iter()
             .flatten()
+            .filter(|p| p.file_name().is_some() && p.file_stem().is_some())
             .collect::<Vec<_>>();
 
         // Sort by filenames. This allows us to combine frames from multiple
@@ -1593,7 +1596,7 @@ impl Session {
         }
 
         for dir in dirs.iter() {
-            self.source_dir(dir)?;
+            self.source_dir(dir).ok();
         }
 
         if let Some(id) = self.views.last().map(|v| v.id) {
