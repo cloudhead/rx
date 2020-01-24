@@ -2825,7 +2825,10 @@ impl Session {
                     self.message(format!("Error: {}", e), MessageType::Error);
                 }
             }
-            Command::WriteFrames(ref dir) => {
+            Command::WriteFrames(None) => {
+                self.command(Command::WriteFrames(Some(".".to_owned())));
+            }
+            Command::WriteFrames(Some(ref dir)) => {
                 let path = Path::new(dir);
 
                 std::fs::create_dir_all(path).ok();

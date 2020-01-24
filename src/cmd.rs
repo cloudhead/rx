@@ -78,7 +78,7 @@ pub enum Command {
     ViewCenter,
     ViewNext,
     ViewPrev,
-    WriteFrames(String),
+    WriteFrames(Option<String>),
     Write(Option<String>),
     WriteQuit,
     Zoom(Op),
@@ -624,8 +624,12 @@ impl<'a> Parse<'a> for Command {
                 }
             }
             "w/frames" => {
-                let (dir, p) = p.path()?;
-                Ok((Command::WriteFrames(dir), p))
+                if p.is_empty() {
+                    Ok((Command::WriteFrames(None), p))
+                } else {
+                    let (dir, p) = p.path()?;
+                    Ok((Command::WriteFrames(Some(dir)), p))
+                }
             }
             "e" => {
                 let (paths, p) = p.paths()?;
@@ -854,7 +858,7 @@ impl autocomplete::Completer for CommandCompleter {
 
         match p.parse::<Command>() {
             Ok((cmd, _)) => match cmd {
-                Command::ChangeDir(path) => self.complete_path(
+                Command::ChangeDir(path) | Command::WriteFrames(path) => self.complete_path(
                     path.as_ref(),
                     input,
                     cursor,
