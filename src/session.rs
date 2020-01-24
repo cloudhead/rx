@@ -2822,6 +2822,21 @@ impl Session {
                     self.message(format!("Error: {}", e), MessageType::Error);
                 }
             }
+            Command::WriteFrames(ref dir) => {
+                let path = Path::new(dir);
+
+                std::fs::create_dir_all(path).ok();
+
+                let paths: Vec<_> = (0..self.active_view().animation.len())
+                    .map(|i| path.join(format!("{:03}.png", i)))
+                    .collect();
+                let paths = NonEmpty::from_slice(paths.as_slice())
+                    .expect("views always have at least one frame");
+
+                if let Err(e) = self.save_view_as(self.views.active_id, FileStorage::Range(paths)) {
+                    self.message(format!("Error: {}", e), MessageType::Error);
+                }
+            }
             Command::WriteQuit => {
                 if self.save_view(self.views.active_id).is_ok() {
                     self.quit_view(self.views.active_id);

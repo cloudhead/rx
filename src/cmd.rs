@@ -78,6 +78,7 @@ pub enum Command {
     ViewCenter,
     ViewNext,
     ViewPrev,
+    WriteFrames(String),
     Write(Option<String>),
     WriteQuit,
     Zoom(Op),
@@ -621,6 +622,10 @@ impl<'a> Parse<'a> for Command {
                     let (path, p) = p.path()?;
                     Ok((Command::Write(Some(path)), p))
                 }
+            }
+            "w/frames" => {
+                let (dir, p) = p.path()?;
+                Ok((Command::WriteFrames(dir), p))
             }
             "e" => {
                 let (paths, p) = p.paths()?;
