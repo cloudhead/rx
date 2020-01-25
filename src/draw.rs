@@ -455,8 +455,8 @@ fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
         let color = session.settings["grid/color"].to_rgba8();
         let (gx, gy) = session.settings["grid/spacing"].clone().into();
 
-        let t = session.offset;
         let v = session.active_view();
+        let t = session.offset + v.offset;
         let w = v.width();
         let h = v.height();
         let m = Matrix4::from_translation(t.extend(0.)) * Matrix4::from_scale(v.zoom);
