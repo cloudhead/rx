@@ -241,7 +241,7 @@ impl renderer::Renderer for Renderer {
         let view_transforms = Vec::with_capacity(Session::MAX_VIEWS);
 
         let (font, font_img) = {
-            let (img, width, height) = image::decode(data::GLYPHS).unwrap();
+            let (img, width, height) = image::decode(resources.glyphs).unwrap();
             let texture = r.texture(width, height);
             let binding = sprite2d.binding(&r, &texture, &sampler);
 

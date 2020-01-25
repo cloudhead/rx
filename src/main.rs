@@ -112,6 +112,8 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         ExecutionMode::Normal
     };
 
+    let glyphs = rx::data::GLYPHS;
+
     let options = rx::Options {
         width,
         height,
@@ -119,6 +121,7 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
         resizable,
         source,
         exec,
+        glyphs,
         debug,
     };
 

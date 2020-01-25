@@ -276,7 +276,7 @@ impl renderer::Renderer for Renderer {
             gs: Rc::new(RefCell::new(gs)),
         };
 
-        let (font_img, font_w, font_h) = image::decode(data::GLYPHS)?;
+        let (font_img, font_w, font_h) = image::decode(resources.glyphs)?;
         let (cursors_img, cursors_w, cursors_h) = image::decode(data::CURSORS)?;
         let (checker_w, checker_h) = (2, 2);
         let (paste_w, paste_h) = (8, 8);

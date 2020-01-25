@@ -14,6 +14,7 @@
     clippy::large_enum_variant
 )]
 
+pub mod data;
 pub mod execution;
 pub mod session;
 
@@ -22,7 +23,6 @@ mod autocomplete;
 mod brush;
 mod cmd;
 mod color;
-mod data;
 mod draw;
 mod event;
 mod font;
@@ -83,6 +83,7 @@ pub struct Options {
     pub headless: bool,
     pub source: Option<PathBuf>,
     pub exec: ExecutionMode,
+    pub glyphs: &'static [u8],
     pub debug: bool,
 }
 
@@ -95,6 +96,7 @@ impl Default for Options {
             resizable: true,
             source: None,
             exec: ExecutionMode::Normal,
+            glyphs: data::GLYPHS,
             debug: false,
         }
     }
@@ -125,7 +127,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     info!("framebuffer size: {}x{}", win_size.width, win_size.height);
     info!("scale factor: {}", scale_factor);
 
-    let resources = ResourceManager::new();
+    let resources = ResourceManager::new(options.glyphs);
     let proj_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "config directory not found"))?;
     let base_dirs = dirs::BaseDirs::new()

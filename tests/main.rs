@@ -138,6 +138,10 @@ fn run(name: &str) -> io::Result<()> {
         width: cfg.window.width,
         height: cfg.window.height,
         exec: ExecutionMode::Replay(path.clone(), DigestMode::Verify),
+        glyphs: include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/assets/glyphs.png"
+        )),
         debug: false,
     };
 
