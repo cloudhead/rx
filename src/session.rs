@@ -1581,12 +1581,7 @@ impl Session {
 
             if frames.clone().all(|(w, h, _)| w == fw && h == fh) {
                 let frames: Vec<_> = frames.map(|(_, _, pixels)| pixels).collect();
-                self.add_view(
-                    FileStatus::Saved(FileStorage::Range(paths)),
-                    fw,
-                    fh,
-                    frames.as_slice(),
-                );
+                self.add_view(FileStatus::Saved(FileStorage::Range(paths)), fw, fh, frames);
             } else {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,
@@ -1747,7 +1742,7 @@ impl Session {
             FileStatus::Saved(FileStorage::Single(path.into())),
             width,
             height,
-            &[pixels],
+            vec![pixels],
         );
         self.message(
             format!("\"{}\" {} pixels read", path.display(), width * height),
@@ -1762,8 +1757,11 @@ impl Session {
         file_status: FileStatus,
         fw: u32,
         fh: u32,
-        frames: &[Vec<Rgba8>],
+        frames: Vec<Vec<Rgba8>>,
     ) -> ViewId {
+        let nframes = frames.len();
+        assert!(nframes >= 1);
+
         // Replace the active view if it's a scratch pad.
         if let Some(v) = self.views.active() {
             let id = v.id;
@@ -1774,7 +1772,6 @@ impl Session {
         }
 
         let pixels = util::stitch_frames(frames, fw as usize, fh as usize, Rgba8::TRANSPARENT);
-        let nframes = frames.len();
         let delay = self.settings["animation/delay"].to_u64();
         let id = self.views.add(file_status, fw, fh, nframes, delay);
 

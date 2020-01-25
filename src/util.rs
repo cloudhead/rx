@@ -16,9 +16,15 @@ pub fn clamp(p: &mut Point2<i32>, rect: Rect<i32>) {
     }
 }
 
-pub fn stitch_frames<T: Clone>(frames: &[Vec<T>], fw: usize, fh: usize, val: T) -> Vec<T> {
+pub fn stitch_frames<T: Clone>(mut frames: Vec<Vec<T>>, fw: usize, fh: usize, val: T) -> Vec<T> {
     let nframes = frames.len();
     let width = fw * nframes;
+
+    if nframes == 0 {
+        return Vec::with_capacity(0);
+    } else if nframes == 1 {
+        return frames.remove(0);
+    }
 
     let mut buffer: Vec<T> = vec![val; fw * fh * nframes];
 
