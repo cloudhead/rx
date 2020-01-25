@@ -525,18 +525,21 @@ impl fmt::Display for FileStorage {
                         .first()
                         .file_stem()
                         .expect("the path has a file stem")
-                        .to_string_lossy();
+                        .to_string_lossy()
+                        .into_owned();
                     let last = paths
                         .last()
                         .file_name()
                         .expect("the path has a file name")
                         .to_string_lossy();
 
-                    if let Some(parent) = parent {
-                        write!(f, "{}/{} .. {}", parent.display(), first, last)
+                    let first = if let Some(parent) = parent {
+                        parent.join(first)
                     } else {
-                        write!(f, "{} .. {}", first, last)
-                    }
+                        first.into()
+                    };
+
+                    write!(f, "{} .. {}", first.display(), last)
                 } else {
                     write!(f, "*")
                 }
