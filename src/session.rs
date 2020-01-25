@@ -905,12 +905,8 @@ impl Session {
 
     /// Create a blank view.
     pub fn blank(&mut self, fs: FileStatus, w: u32, h: u32) {
-        let delay = self.settings["animation/delay"].to_u64();
-        let id = self.views.add(fs, w, h, 1, delay);
-
-        // TODO: Use `Session::add_view`
-        self.effects.push(Effect::ViewAdded(id));
-        self.resources.add_blank_view(id, w, h);
+        let frames = vec![vec![Rgba8::TRANSPARENT; w as usize * h as usize]];
+        let id = self.add_view(fs, w, h, frames);
         self.organize_views();
         self.edit_view(id);
     }

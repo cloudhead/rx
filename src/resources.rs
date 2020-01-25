@@ -184,13 +184,6 @@ impl ResourceManager {
         self.resources.borrow_mut().data.remove(&id);
     }
 
-    pub fn add_blank_view(&mut self, id: ViewId, w: u32, h: u32) {
-        let len = w as usize * h as usize;
-        let pixels = vec![Rgba8::TRANSPARENT; len];
-
-        self.add_view(id, w, h, 1, Pixels::Rgba(pixels.into()));
-    }
-
     pub fn load_image<P: AsRef<Path>>(path: P) -> io::Result<(u32, u32, Vec<Rgba8>)> {
         let (buffer, width, height) = image::load(path)?;
         let pixels = Rgba8::align(&buffer);
