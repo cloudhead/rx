@@ -1741,15 +1741,6 @@ impl Session {
             return Ok(());
         }
 
-        // Replace the active view if it's a scratch pad.
-        if let Some(v) = self.views.active() {
-            let id = v.id;
-
-            if v.file_status == FileStatus::NoFile {
-                self.destroy_view(id);
-            }
-        }
-
         let (width, height, pixels) = ResourceManager::load_image(&path)?;
 
         self.add_view(
@@ -1773,6 +1764,15 @@ impl Session {
         fh: u32,
         frames: &[Vec<Rgba8>],
     ) -> ViewId {
+        // Replace the active view if it's a scratch pad.
+        if let Some(v) = self.views.active() {
+            let id = v.id;
+
+            if v.file_status == FileStatus::NoFile {
+                self.destroy_view(id);
+            }
+        }
+
         let pixels = util::stitch_frames(frames, fw as usize, fh as usize, Rgba8::TRANSPARENT);
         let nframes = frames.len();
         let delay = self.settings["animation/delay"].to_u64();
