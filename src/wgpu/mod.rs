@@ -686,7 +686,7 @@ impl Renderer {
         let tw = u32::min(sw, vw);
         let th = u32::min(sh, vh);
 
-        let texels = self
+        let (_, texels) = self
             .resources
             .lock()
             .get_snapshot_rect(id, &Rect::origin(tw as i32, th as i32));
@@ -731,7 +731,7 @@ impl Renderer {
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
-                    let pixels = resources.get_snapshot_rect(id, src);
+                    let (_, pixels) = resources.get_snapshot_rect(id, src);
                     let (w, h) = (src.width() as u32, src.height() as u32);
 
                     if self.paste.texture.w != w || self.paste.texture.h != h {
