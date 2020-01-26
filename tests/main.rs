@@ -2,7 +2,7 @@ use rx::execution::{DigestMode, ExecutionMode};
 use std::env;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde_derive::Deserialize;
@@ -14,12 +14,18 @@ extern crate lazy_static;
 #[derive(Deserialize)]
 struct Config {
     window: WindowConfig,
+    assets: AssetConfig,
 }
 
 #[derive(Deserialize)]
 struct WindowConfig {
     width: u32,
     height: u32,
+}
+
+#[derive(Deserialize)]
+struct AssetConfig {
+    glyphs: PathBuf,
 }
 
 lazy_static! {
@@ -131,6 +137,11 @@ fn run(name: &str) -> io::Result<()> {
             .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", path.display(), e)))?;
         toml::from_str(&cfg)?
     };
+    let glyphs = fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(&cfg.assets.glyphs))
+        .map_err(|e| io::Error::new(e.kind(), format!("{}: {}", path.display(), e)))?;
+
+    let glyphs = glyphs.as_slice();
+
     let options = rx::Options {
         resizable: false,
         headless: true,
@@ -138,10 +149,7 @@ fn run(name: &str) -> io::Result<()> {
         width: cfg.window.width,
         height: cfg.window.height,
         exec: ExecutionMode::Replay(path.clone(), DigestMode::Verify),
-        glyphs: include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/tests/assets/glyphs.png"
-        )),
+        glyphs,
         debug: false,
     };
 

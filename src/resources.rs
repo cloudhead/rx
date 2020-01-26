@@ -87,8 +87,6 @@ impl Pixels {
 }
 
 pub struct ResourceManager {
-    pub glyphs: &'static [u8],
-
     resources: Rc<RefCell<Resources>>,
 }
 
@@ -162,17 +160,15 @@ impl Resources {
 }
 
 impl ResourceManager {
-    pub fn new(glyphs: &'static [u8]) -> Self {
+    pub fn new() -> Self {
         Self {
             resources: Rc::new(RefCell::new(Resources::new())),
-            glyphs,
         }
     }
 
     pub fn clone(&self) -> Self {
         Self {
             resources: self.resources.clone(),
-            glyphs: self.glyphs,
         }
     }
 

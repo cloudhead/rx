@@ -1,3 +1,6 @@
 [window]
 width = 1278
 height = 718
+
+[assets]
+glyphs = "assets/glyphs.png"

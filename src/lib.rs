@@ -76,18 +76,18 @@ pub const VERSION: &str = "0.3.2";
 pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
 
 #[derive(Debug)]
-pub struct Options {
+pub struct Options<'a> {
     pub width: u32,
     pub height: u32,
     pub resizable: bool,
     pub headless: bool,
     pub source: Option<PathBuf>,
     pub exec: ExecutionMode,
-    pub glyphs: &'static [u8],
+    pub glyphs: &'a [u8],
     pub debug: bool,
 }
 
-impl Default for Options {
+impl<'a> Default for Options<'a> {
     fn default() -> Self {
         Self {
             width: 1280,
@@ -102,7 +102,7 @@ impl Default for Options {
     }
 }
 
-pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()> {
+pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::Result<()> {
     use std::io;
 
     debug!("options: {:?}", options);
@@ -127,7 +127,8 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     info!("framebuffer size: {}x{}", win_size.width, win_size.height);
     info!("scale factor: {}", scale_factor);
 
-    let resources = ResourceManager::new(options.glyphs);
+    let resources = ResourceManager::new();
+    let assets = data::Assets::new(options.glyphs);
     let proj_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "config directory not found"))?;
     let base_dirs = dirs::BaseDirs::new()
@@ -185,8 +186,14 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options) -> std::io::Result<()
     let execution = Rc::new(RefCell::new(exec));
     let present_mode = session.settings.present_mode();
 
-    let mut renderer: gfx::Renderer =
-        Renderer::new(&mut win, win_size, scale_factor, present_mode, resources)?;
+    let mut renderer: gfx::Renderer = Renderer::new(
+        &mut win,
+        win_size,
+        scale_factor,
+        present_mode,
+        resources,
+        assets,
+    )?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);

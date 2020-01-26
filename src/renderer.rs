@@ -1,3 +1,4 @@
+use crate::data::Assets;
 use crate::execution::Execution;
 use crate::platform::{self, LogicalSize};
 use crate::resources::ResourceManager;
@@ -7,13 +8,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time;
 
-pub trait Renderer: std::marker::Sized {
+pub trait Renderer<'a>: std::marker::Sized {
     fn new(
         win: &mut platform::backend::Window,
         win_size: LogicalSize,
         scale_factor: f64,
         present_mode: PresentMode,
         resources: ResourceManager,
+        assets: Assets<'a>,
     ) -> std::io::Result<Self>;
 
     fn init(&mut self, effects: Vec<Effect>);

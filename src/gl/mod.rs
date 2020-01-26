@@ -7,7 +7,7 @@ use crate::resources::{Pixels, ResourceManager};
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
 use crate::view::{ViewId, ViewOp};
-use crate::{data, image};
+use crate::{data, data::Assets, image};
 
 use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
 use rgx::math::Matrix4;
@@ -259,13 +259,14 @@ impl Error for RendererError {
     }
 }
 
-impl renderer::Renderer for Renderer {
+impl<'a> renderer::Renderer<'a> for Renderer {
     fn new(
         win: &mut platform::backend::Window,
         win_size: LogicalSize,
         scale_factor: f64,
         _present_mode: PresentMode,
         resources: ResourceManager,
+        assets: Assets<'a>,
     ) -> io::Result<Self> {
         use RendererError as Error;
 
@@ -276,7 +277,7 @@ impl renderer::Renderer for Renderer {
             gs: Rc::new(RefCell::new(gs)),
         };
 
-        let (font_img, font_w, font_h) = image::decode(resources.glyphs)?;
+        let (font_img, font_w, font_h) = image::decode(assets.glyphs)?;
         let (cursors_img, cursors_w, cursors_h) = image::decode(data::CURSORS)?;
         let (checker_w, checker_h) = (2, 2);
         let (paste_w, paste_h) = (8, 8);

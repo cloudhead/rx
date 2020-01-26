@@ -215,13 +215,14 @@ impl PresentMode {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-impl renderer::Renderer for Renderer {
+impl<'a> renderer::Renderer<'a> for Renderer {
     fn new(
         win: &mut platform::backend::Window,
         win_size: LogicalSize,
         scale_factor: f64,
         present_mode: PresentMode,
         resources: ResourceManager,
+        assets: data::Assets<'a>,
     ) -> std::io::Result<Self> {
         let (win_w, win_h) = (win_size.width as u32, win_size.height as u32);
         let mut r = core::Renderer::new(win.handle())?;
@@ -241,7 +242,7 @@ impl renderer::Renderer for Renderer {
         let view_transforms = Vec::with_capacity(Session::MAX_VIEWS);
 
         let (font, font_img) = {
-            let (img, width, height) = image::decode(resources.glyphs).unwrap();
+            let (img, width, height) = image::decode(assets.glyphs).unwrap();
             let texture = r.texture(width, height);
             let binding = sprite2d.binding(&r, &texture, &sampler);
 
