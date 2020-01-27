@@ -696,7 +696,10 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         });
 
         // Render to back buffer.
-        builder.pipeline(present_fb, &pipeline_st, |pipeline, mut shd_gate| {
+        let bg = Rgba::from(session.settings["background"].to_rgba8());
+        let present_st = &pipeline_st.clone().set_clear_color([bg.r, bg.g, bg.b, 1.0]);
+
+        builder.pipeline(present_fb, present_st, |pipeline, mut shd_gate| {
             // Render screen framebuffer.
             let bound_screen = pipeline.bind_texture(screen_fb.color_slot());
             shd_gate.shade(&screen2d, |iface, mut rdr_gate| {
