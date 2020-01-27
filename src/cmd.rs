@@ -506,7 +506,7 @@ impl CommandLine {
             // Don't allow deleting the `:` prefix of the command.
             if c != ':' || cursor > 0 {
                 self.cursor = cursor;
-                self.autocomplete.reload();
+                self.autocomplete.invalidate();
                 return Some(c);
             }
         }
@@ -516,7 +516,7 @@ impl CommandLine {
     pub fn cursor_forward(&mut self) -> Option<char> {
         if let Some(c) = self.input[self.cursor..].chars().next() {
             self.cursor += c.len_utf8();
-            self.autocomplete.reload();
+            self.autocomplete.invalidate();
             Some(c)
         } else {
             None
@@ -529,20 +529,20 @@ impl CommandLine {
         }
         self.input.insert(self.cursor, c);
         self.cursor += c.len_utf8();
-        self.autocomplete.reload();
+        self.autocomplete.invalidate();
     }
 
     pub fn puts(&mut self, s: &str) {
         // TODO: Check capacity.
         self.input.push_str(s);
         self.cursor += s.len();
-        self.autocomplete.reload();
+        self.autocomplete.invalidate();
     }
 
     pub fn delc(&mut self) {
         if self.cursor_backward().is_some() {
             self.input.remove(self.cursor);
-            self.autocomplete.reload();
+            self.autocomplete.invalidate();
         }
     }
 
@@ -550,7 +550,7 @@ impl CommandLine {
         self.cursor = 0;
         self.input.clear();
         self.history.reset();
-        self.autocomplete.reload();
+        self.autocomplete.invalidate();
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -560,7 +560,7 @@ impl CommandLine {
         // has a fixed capacity we want to preserve.
         self.input.clear();
         self.input.push_str(s);
-        self.autocomplete.reload();
+        self.autocomplete.invalidate();
     }
 
     fn reset(&mut self) {
@@ -920,13 +920,13 @@ mod test {
         let mut auto = Autocomplete::new(cc);
 
         assert_eq!(auto.next(":e |", 3), Some(("three.png".to_owned(), 3..3)));
-        auto.reload();
+        auto.invalidate();
         assert_eq!(
             auto.next(":e |one.png", 3),
             Some(("three.png".to_owned(), 3..3))
         );
 
-        auto.reload();
+        auto.invalidate();
         assert_eq!(
             auto.next(":e one.png | two.png", 11),
             Some(("three.png".to_owned(), 11..11))
@@ -940,7 +940,7 @@ mod test {
             Some(("one.png".to_owned(), 11..18))
         );
 
-        auto.reload();
+        auto.invalidate();
         assert_eq!(
             auto.next(":e assets/|", 10),
             Some(("six.png".to_owned(), 10..10))

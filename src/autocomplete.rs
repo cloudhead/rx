@@ -11,7 +11,7 @@ pub trait Completer: std::fmt::Debug {
 #[derive(Debug)]
 pub struct Autocomplete<T> {
     /// Available command completions.
-    completions: Option<iter::Cycle<vec::IntoIter<String>>>,
+    completions: Option<iter::Peekable<iter::Cycle<vec::IntoIter<String>>>>,
     /// Range within the input that is being completed.
     range: Range<usize>,
     /// The completer we are using to find candidates.
@@ -27,7 +27,7 @@ impl<T: Completer> Autocomplete<T> {
         }
     }
 
-    pub fn reload(&mut self) {
+    pub fn invalidate(&mut self) {
         self.completions = None;
         self.range = 0..0;
     }
@@ -48,15 +48,14 @@ impl<T: Completer> Autocomplete<T> {
                 let candidates = self
                     .completer
                     .complete(&input[..cursor], Default::default());
-                let len = candidates.len();
-                let mut iter = candidates.into_iter().cycle();
+                let mut iter = candidates.into_iter().cycle().peekable();
 
                 iter.next().map(|completion| {
-                    if len == 1 {
+                    if iter.peek() == Some(&completion) {
                         // If there's only one match, we can go ahead and invalidate the rest
                         // of the completions so that next time this function is called, it
                         // loads new matches based on this one match.
-                        self.reload();
+                        self.invalidate();
                     } else {
                         // Otherwise, base the range on the position returned from the
                         // completer.
@@ -232,8 +231,8 @@ mod test {
         assert_eq!(Some(("backup".to_owned(), 0..7)), auto.next("one.png", 7),);
         assert_eq!(Some(("three.png".to_owned(), 0..6)), auto.next("backup", 6),);
 
-        // Reload completions, as we're insert a '/' into the input.
-        auto.reload();
+        // Invalidate completions, as we're insert a '/' into the input.
+        auto.invalidate();
 
         assert_eq!(Some(("six.png".to_owned(), 7..7)), auto.next("backup/", 7),);
         assert_eq!(
