@@ -34,27 +34,37 @@ impl<T: Completer> Autocomplete<T> {
 
     pub fn next(&mut self, input: &str, cursor: usize) -> Option<(String, Range<usize>)> {
         match &mut self.completions {
-            Some(iter) => iter.next(),
+            Some(iter) => {
+                iter.next().map(|completion| {
+                    let range = self.range.clone();
+                    // New completion range starts where current one did, but ends
+                    // based on new completion length.
+                    self.range = self.range.start..self.range.start + completion.len();
+
+                    (completion, range)
+                })
+            }
             None => {
                 let (pos, candidates) = self.completer.complete(input, cursor, Default::default());
-
+                let len = candidates.len();
                 let mut iter = candidates.into_iter().cycle();
-                let next = iter.next();
 
-                self.completions = Some(iter);
-                self.range = pos..pos;
-
-                next
+                iter.next().map(|completion| {
+                    if len == 1 {
+                        // If there's only one match, we can go ahead and invalidate the rest
+                        // of the completions so that next time this function is called, it
+                        // loads new matches based on this one match.
+                        self.reload();
+                    } else {
+                        // Otherwise, base the range on the position returned from the
+                        // completer.
+                        self.range = pos..pos + completion.len();
+                        self.completions = Some(iter);
+                    }
+                    (completion, pos..pos)
+                })
             }
         }
-        .and_then(|completion| {
-            let old_range = self.range.clone();
-            // New completion range starts where old one did, but ends
-            // based on new completion length.
-            self.range = old_range.start..old_range.start + completion.len();
-
-            Some((completion, old_range))
-        })
     }
 }
 
@@ -82,11 +92,12 @@ impl Completer for FileCompleter {
     type Options = FileCompleterOpts;
 
     fn complete(&self, input: &str, cursor: usize, opts: Self::Options) -> (usize, Vec<String>) {
-        // The four possible cases:
+        // The five possible cases:
         // 1. "|"            -> ["rx.png"]
         // 2. "rx.|"         -> ["png"]
         // 3. "assets/|"     -> ["cursors.png"]
         // 4. "assets/curs|" -> ["ors.png"]
+        // 5. "assets|"      -> ["assets/"]
         let (search_dir, prefix) = if let Some(pos) = input.chars().rev().position(|s| s == '/') {
             let idx = input.len() - pos;
             let (dir, file) = input.split_at(idx);
@@ -96,22 +107,31 @@ impl Completer for FileCompleter {
             (self.cwd.clone(), input)
         };
 
-        let mut candidates: Vec<String> = match self.paths(search_dir) {
+        let mut candidates: Vec<(String, bool)> = match self.paths(search_dir) {
             Ok(paths) => paths
-                .filter(|p| if opts.directories { p.is_dir() } else { true })
-                .map(|p| p.to_string_lossy().into_owned())
+                .map(|p| (p.to_string_lossy().into_owned(), p.is_dir()))
+                .filter(|(_, is_dir)| if opts.directories { *is_dir } else { true })
                 .collect(),
             Err(_) => vec![],
         };
 
         if !prefix.is_empty() {
-            candidates.retain(|c| c.starts_with(prefix));
+            candidates.retain(|(c, _)| c.starts_with(prefix));
 
-            for c in candidates.iter_mut() {
+            for (c, _) in candidates.iter_mut() {
                 c.replace_range(..prefix.len(), "");
             }
         }
-        (cursor, candidates)
+
+        let len = candidates.len();
+        if let Some((ref mut c, is_dir)) = candidates.first_mut() {
+            if *is_dir && len == 1 {
+                c.push_str("/");
+                return (cursor, vec![c.to_owned()]);
+            }
+        }
+
+        (cursor, candidates.into_iter().map(|(c, _)| c).collect())
     }
 }
 

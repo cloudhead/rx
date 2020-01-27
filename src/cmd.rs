@@ -1021,5 +1021,19 @@ mod test {
             cli.input(),
             ":e assets/five.png three.png one.png three.png"
         );
+
+        cli.clear();
+        cli.puts(":e assets");
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/");
+
+        cli.clear();
+        cli.puts(":e asset");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e assets/five.png");
     }
 }
