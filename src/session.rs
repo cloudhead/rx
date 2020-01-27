@@ -647,7 +647,7 @@ impl Default for Settings {
             map: hashmap! {
                 "debug" => Value::Bool(false),
                 "checker" => Value::Bool(false),
-                "background" => Value::Rgba8(color::BLACK),
+                "background" => Value::Rgba8(color::TRANSPARENT),
                 "vsync" => Value::Bool(false),
                 "input/mouse" => Value::Bool(true),
                 "scale" => Value::F64(1.0),

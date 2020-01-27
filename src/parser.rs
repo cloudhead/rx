@@ -55,7 +55,14 @@ impl<'a> Parse<'a> for Rgba8 {
         let (s, rest) = p.count(7)?; // Expect 7 characters including the '#'
 
         match Rgba8::from_str(s) {
-            Ok(u) => Ok((u, rest)),
+            Ok(color) => {
+                if let Ok((_, p)) = rest.clone().sigil('/') {
+                    let (a, p) = p.parse::<f64>()?;
+                    Ok((color.alpha((a * std::u8::MAX as f64) as u8), p))
+                } else {
+                    Ok((color, rest))
+                }
+            }
             Err(_) => Err(Error::new(format!("malformed color value `{}`", s))),
         }
     }
