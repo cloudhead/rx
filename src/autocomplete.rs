@@ -5,7 +5,7 @@ use std::{iter, ops::Range, path, path::Path, vec};
 pub trait Completer: std::fmt::Debug {
     type Options: Default;
 
-    fn complete(&self, input: &str, cursor: usize, opts: Self::Options) -> (usize, Vec<String>);
+    fn complete(&self, input: &str, opts: Self::Options) -> Vec<String>;
 }
 
 #[derive(Debug)]
@@ -45,7 +45,9 @@ impl<T: Completer> Autocomplete<T> {
                 })
             }
             None => {
-                let (pos, candidates) = self.completer.complete(input, cursor, Default::default());
+                let candidates = self
+                    .completer
+                    .complete(&input[..cursor], Default::default());
                 let len = candidates.len();
                 let mut iter = candidates.into_iter().cycle();
 
@@ -58,10 +60,10 @@ impl<T: Completer> Autocomplete<T> {
                     } else {
                         // Otherwise, base the range on the position returned from the
                         // completer.
-                        self.range = pos..pos + completion.len();
+                        self.range = cursor..cursor + completion.len();
                         self.completions = Some(iter);
                     }
-                    (completion, pos..pos)
+                    (completion, cursor..cursor)
                 })
             }
         }
@@ -91,7 +93,7 @@ impl FileCompleter {
 impl Completer for FileCompleter {
     type Options = FileCompleterOpts;
 
-    fn complete(&self, input: &str, cursor: usize, opts: Self::Options) -> (usize, Vec<String>) {
+    fn complete(&self, input: &str, opts: Self::Options) -> Vec<String> {
         // The five possible cases:
         // 1. "|"            -> ["rx.png"]
         // 2. "rx.|"         -> ["png"]
@@ -127,11 +129,11 @@ impl Completer for FileCompleter {
         if let Some((ref mut c, is_dir)) = candidates.first_mut() {
             if *is_dir && len == 1 {
                 c.push_str("/");
-                return (cursor, vec![c.to_owned()]);
+                return vec![c.to_owned()];
             }
         }
 
-        (cursor, candidates.into_iter().map(|(c, _)| c).collect())
+        candidates.into_iter().map(|(c, _)| c).collect()
     }
 }
 
@@ -175,7 +177,7 @@ mod test {
     impl StaticCompleter {
         pub fn new(candidates: &[&str]) -> Self {
             Self {
-                candidates: candidates.iter().map(|s| s.to_string()).collect(),
+                candidates: candidates.into_iter().map(|s| s.to_string()).collect(),
             }
         }
     }
@@ -183,8 +185,8 @@ mod test {
     impl Completer for StaticCompleter {
         type Options = ();
 
-        fn complete(&self, _input: &str, _cursor: usize, _opts: ()) -> (usize, Vec<String>) {
-            (0, self.candidates.clone())
+        fn complete(&self, _input: &str, _opts: ()) -> Vec<String> {
+            self.candidates.clone()
         }
     }
 

@@ -853,26 +853,25 @@ impl CommandCompleter {
 impl autocomplete::Completer for CommandCompleter {
     type Options = ();
 
-    fn complete(&self, input: &str, cursor: usize, _opts: ()) -> (usize, Vec<String>) {
-        let p = Parser::new(&input[..cursor]);
+    fn complete(&self, input: &str, _opts: ()) -> Vec<String> {
+        let p = Parser::new(input);
 
         match p.parse::<Command>() {
             Ok((cmd, _)) => match cmd {
                 Command::ChangeDir(path) | Command::WriteFrames(path) => self.complete_path(
                     path.as_ref(),
                     input,
-                    cursor,
                     FileCompleterOpts { directories: true },
                 ),
                 Command::Source(path) | Command::Write(path) => {
-                    self.complete_path(path.as_ref(), input, cursor, Default::default())
+                    self.complete_path(path.as_ref(), input, Default::default())
                 }
                 Command::Edit(paths) | Command::EditFrames(paths) => {
-                    self.complete_path(paths.last(), input, cursor, Default::default())
+                    self.complete_path(paths.last(), input, Default::default())
                 }
-                _ => (cursor, vec![]),
+                _ => vec![],
             },
-            Err(_) => (cursor, vec![]),
+            Err(_) => vec![],
         }
     }
 }
@@ -882,9 +881,8 @@ impl CommandCompleter {
         &self,
         path: Option<&String>,
         input: &str,
-        cursor: usize,
         opts: FileCompleterOpts,
-    ) -> (usize, Vec<String>) {
+    ) -> Vec<String> {
         use crate::autocomplete::Completer;
 
         let empty = "".to_owned();
@@ -892,9 +890,9 @@ impl CommandCompleter {
 
         // If there's whitespace between the path and the cursor, don't complete the path.
         // Instead, complete as if the input was empty.
-        match input[..cursor].chars().next_back() {
-            Some(c) if c.is_whitespace() => self.file_completer.complete("", cursor, opts),
-            _ => self.file_completer.complete(path, cursor, opts),
+        match input.chars().next_back() {
+            Some(c) if c.is_whitespace() => self.file_completer.complete("", opts),
+            _ => self.file_completer.complete(path, opts),
         }
     }
 }
