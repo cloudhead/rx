@@ -108,9 +108,14 @@ impl Completer for FileCompleter {
             (self.cwd.clone(), input)
         };
 
-        let mut candidates: Vec<(String, bool)> = match self.paths(search_dir) {
+        let mut candidates: Vec<(String, bool)> = match self.paths(&search_dir) {
             Ok(paths) => paths
-                .map(|p| (p.to_string_lossy().into_owned(), p.is_dir()))
+                .map(|p| {
+                    (
+                        p.to_string_lossy().into_owned(),
+                        search_dir.join(p).is_dir(),
+                    )
+                })
                 .filter(|(_, is_dir)| if opts.directories { *is_dir } else { true })
                 .collect(),
             Err(_) => vec![],

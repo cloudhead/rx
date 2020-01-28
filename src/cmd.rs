@@ -1058,7 +1058,7 @@ mod test {
     }
 
     #[test]
-    fn test_command_line_cd() {
+    fn test_command_line_change_dir() {
         let tmp = tempfile::tempdir().unwrap();
 
         fs::create_dir(tmp.path().join("assets")).unwrap();
@@ -1077,6 +1077,30 @@ mod test {
 
         cli.completion_next();
         assert_eq!(cli.input(), ":e four.png");
+    }
+
+    #[test]
+    fn test_command_line_cd() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        fs::create_dir(tmp.path().join("assets")).unwrap();
+        fs::create_dir(tmp.path().join("assets").join("1")).unwrap();
+        fs::create_dir(tmp.path().join("assets").join("2")).unwrap();
+        File::create(tmp.path().join("assets").join("rx.png")).unwrap();
+
+        let mut cli = CommandLine::new(tmp.path(), Path::new("/dev/null"), &["png"]);
+
+        cli.clear();
+        cli.puts(":cd assets/");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":cd assets/2");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":cd assets/1");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":cd assets/2");
     }
 
     #[test]
