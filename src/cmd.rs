@@ -449,6 +449,8 @@ pub struct CommandLine {
     pub cursor: usize,
     /// The current input string displayed to the user.
     input: String,
+    /// File extensions supported.
+    extensions: Vec<String>,
 }
 
 impl CommandLine {
@@ -460,7 +462,13 @@ impl CommandLine {
             cursor: 0,
             history: History::new(history_path, 1024),
             autocomplete: Autocomplete::new(CommandCompleter::new(cwd, extensions)),
+            extensions: extensions.iter().map(|e| (*e).into()).collect(),
         }
+    }
+
+    pub fn set_cwd(&mut self, path: &Path) {
+        let exts: Vec<_> = self.extensions.iter().map(|s| s.as_str()).collect();
+        self.autocomplete = Autocomplete::new(CommandCompleter::new(path, exts.as_slice()));
     }
 
     pub fn input(&self) -> String {
@@ -1047,6 +1055,28 @@ mod test {
 
         cli.completion_next();
         assert_eq!(cli.input(), ":e assets/five.png");
+    }
+
+    #[test]
+    fn test_command_line_cd() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        fs::create_dir(tmp.path().join("assets")).unwrap();
+        for file_name in &["four.png", "five.png"] {
+            let path = tmp.path().join("assets").join(file_name);
+            File::create(path).unwrap();
+        }
+
+        let mut cli = CommandLine::new(tmp.path(), Path::new("/dev/null"), &["png"]);
+
+        cli.set_cwd(tmp.path().join("assets/").as_path());
+        cli.puts(":e ");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e five.png");
+
+        cli.completion_next();
+        assert_eq!(cli.input(), ":e four.png");
     }
 
     #[test]

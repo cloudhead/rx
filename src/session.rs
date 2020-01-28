@@ -2772,7 +2772,8 @@ impl Session {
 
                 match std::env::set_current_dir(&path) {
                     Ok(()) => {
-                        self.cwd = path;
+                        self.cwd = path.clone();
+                        self.cmdline.set_cwd(path.as_path());
                     }
                     Err(e) => self.message(format!("Error: {}: {:?}", e, path), MessageType::Error),
                 }
