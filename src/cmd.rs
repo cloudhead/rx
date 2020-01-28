@@ -500,7 +500,7 @@ impl CommandLine {
     }
 
     pub fn cursor_backward(&mut self) -> Option<char> {
-        if let Some(c) = self.input[..self.cursor].chars().next_back() {
+        if let Some(c) = self.peek_back() {
             let cursor = self.cursor - c.len_utf8();
 
             // Don't allow deleting the `:` prefix of the command.
@@ -540,9 +540,14 @@ impl CommandLine {
     }
 
     pub fn delc(&mut self) {
-        if self.cursor_backward().is_some() {
-            self.input.remove(self.cursor);
-            self.autocomplete.invalidate();
+        match self.peek_back() {
+            // Don't allow deleting the ':' unless it's the last remaining character.
+            Some(c) if self.cursor > 1 || self.input.len() == 1 => {
+                self.cursor -= c.len_utf8();
+                self.input.remove(self.cursor);
+                self.autocomplete.invalidate();
+            }
+            _ => {}
         }
     }
 
@@ -570,6 +575,15 @@ impl CommandLine {
 
     fn prefix(&self) -> String {
         self.input[..self.cursor].to_owned()
+    }
+
+    #[cfg(test)]
+    fn peek(&self) -> Option<char> {
+        self.input[self.cursor..].chars().next()
+    }
+
+    fn peek_back(&self) -> Option<char> {
+        self.input[..self.cursor].chars().next_back()
     }
 }
 
@@ -1033,5 +1047,37 @@ mod test {
 
         cli.completion_next();
         assert_eq!(cli.input(), ":e assets/five.png");
+    }
+
+    #[test]
+    fn test_command_line_cursor() {
+        let mut cli = CommandLine::new("/dev/null", "/dev/null", &[]);
+
+        cli.puts(":echo");
+        cli.delc();
+        assert_eq!(cli.input(), ":ech");
+        cli.delc();
+        assert_eq!(cli.input(), ":ec");
+        cli.delc();
+        assert_eq!(cli.input(), ":e");
+        cli.delc();
+        assert_eq!(cli.input(), ":");
+        cli.delc();
+        assert_eq!(cli.input(), "");
+
+        cli.clear();
+        cli.puts(":e");
+
+        assert_eq!(cli.peek(), None);
+        cli.cursor_backward();
+
+        assert_eq!(cli.peek(), Some('e'));
+        cli.cursor_backward();
+
+        assert_eq!(cli.peek(), Some('e'));
+        assert_eq!(cli.peek_back(), Some(':'));
+
+        cli.delc();
+        assert_eq!(cli.input(), ":e");
     }
 }
