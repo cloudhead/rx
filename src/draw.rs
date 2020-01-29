@@ -1,7 +1,7 @@
 use crate::brush::{Align, BrushMode};
 use crate::color;
 use crate::execution::Execution;
-use crate::font::TextBatch;
+use crate::font::{TextAlign, TextBatch};
 use crate::platform;
 use crate::session;
 use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
@@ -164,17 +164,24 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             let s = selection;
             let z = view.zoom;
             let t = format!("{}x{}", r.width(), r.height());
-            let x = if s.x2 > s.x1 {
-                (s.x2 + 1) as f32 * z - t.len() as f32 * self::GLYPH_WIDTH
+            let (x, align) = if s.x2 > s.x1 {
+                ((s.x2 + 1) as f32 * z, TextAlign::Right)
             } else {
-                (s.x2 as f32) * z
+                ((s.x2 as f32) * z, TextAlign::Left)
             };
             let y = if s.y2 >= s.y1 {
                 (s.y2 + 1) as f32 * z + 1.
             } else {
                 (s.y2) as f32 * z - self::LINE_HEIGHT + 1.
             };
-            text.add(&t, x + offset.x, y + offset.y, self::TEXT_LAYER, stroke);
+            text.add(
+                &t,
+                x + offset.x,
+                y + offset.y,
+                self::TEXT_LAYER,
+                stroke,
+                align,
+            );
         }
 
         let t = Matrix4::from_translation(offset.extend(0.)) * Matrix4::from_scale(view.zoom);
@@ -244,6 +251,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 offset.y - self::LINE_HEIGHT,
                 self::TEXT_LAYER,
                 color::GREY,
+                TextAlign::Left,
             );
         }
     }
@@ -255,15 +263,17 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             MARGIN + self::LINE_HEIGHT,
             self::TEXT_LAYER,
             Rgba8::WHITE,
+            TextAlign::Left,
         );
 
         // Session status
         text.add(
             &format!("{:>5}%", (view.zoom * 100.) as u32),
-            session.width - MARGIN - 6. * 8.,
+            session.width - MARGIN,
             MARGIN + self::LINE_HEIGHT,
             self::TEXT_LAYER,
             Rgba8::WHITE,
+            TextAlign::Right,
         );
 
         if session.width >= 600. {
@@ -277,6 +287,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 MARGIN + self::LINE_HEIGHT,
                 self::TEXT_LAYER,
                 Rgba8::WHITE,
+                TextAlign::Left,
             );
         }
     }
@@ -311,7 +322,14 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
     // Command-line & message
     if session.mode == Mode::Command {
         let s = format!("{}", &session.cmdline.input());
-        text.add(&s, MARGIN, MARGIN, self::TEXT_LAYER, Rgba8::WHITE);
+        text.add(
+            &s,
+            MARGIN,
+            MARGIN,
+            self::TEXT_LAYER,
+            Rgba8::WHITE,
+            TextAlign::Left,
+        );
         if session.settings["ui/cursor"].is_set() {
             text.glyph(
                 96,
@@ -332,6 +350,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             MARGIN,
             self::TEXT_LAYER,
             session.message.color(),
+            TextAlign::Left,
         );
     }
 }
@@ -352,6 +371,7 @@ fn draw_overlay(
                 session.height - self::LINE_HEIGHT - MARGIN,
                 ZDepth::ZERO,
                 color::RED,
+                TextAlign::Left,
             );
         }
         Execution::Replaying { events, path, .. } => {
@@ -366,6 +386,7 @@ fn draw_overlay(
                     session.height - self::LINE_HEIGHT - MARGIN,
                     ZDepth::ZERO,
                     color::LIGHT_GREEN,
+                    TextAlign::Left,
                 );
             }
         }
@@ -390,6 +411,7 @@ fn draw_overlay(
             session.height - MARGIN - self::LINE_HEIGHT,
             ZDepth::ZERO,
             Rgba8::WHITE,
+            TextAlign::Left,
         );
     }
 
@@ -400,6 +422,7 @@ fn draw_overlay(
             MARGIN,
             ZDepth::ZERO,
             session.message.color(),
+            TextAlign::Left,
         );
     }
 }
@@ -686,6 +709,7 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
         session.height as f32 - self::MARGIN - self::LINE_HEIGHT,
         self::HELP_LAYER,
         color::LIGHT_GREY,
+        TextAlign::Left,
     );
 
     let (normal_kbs, visual_kbs): (
@@ -703,13 +727,21 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
 
     for (display, kb) in normal_kbs.iter() {
         if let Some(y) = line.next() {
-            text.add(display, left_margin, y as f32, self::HELP_LAYER, color::RED);
+            text.add(
+                display,
+                left_margin,
+                y as f32,
+                self::HELP_LAYER,
+                color::RED,
+                TextAlign::Left,
+            );
             text.add(
                 &format!("{}", kb.command),
                 left_margin + column_offset,
                 y as f32,
                 self::HELP_LAYER,
                 color::LIGHT_GREY,
+                TextAlign::Left,
             );
         }
     }
@@ -721,19 +753,28 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
             y as f32,
             self::HELP_LAYER,
             color::RED,
+            TextAlign::Left,
         );
     }
     line.next();
 
     for (display, kb) in visual_kbs.iter() {
         if let Some(y) = line.next() {
-            text.add(display, left_margin, y as f32, self::HELP_LAYER, color::RED);
+            text.add(
+                display,
+                left_margin,
+                y as f32,
+                self::HELP_LAYER,
+                color::RED,
+                TextAlign::Left,
+            );
             text.add(
                 &format!("{}", kb.command),
                 left_margin + column_offset,
                 y as f32,
                 self::HELP_LAYER,
                 color::LIGHT_GREY,
+                TextAlign::Left,
             );
         }
     }
@@ -746,6 +787,7 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
             y,
             self::HELP_LAYER,
             color::LIGHT_GREEN,
+            TextAlign::Left,
         );
     }
 }

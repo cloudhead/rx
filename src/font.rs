@@ -5,6 +5,11 @@ use rgx::rect::Rect;
 #[cfg(feature = "wgpu")]
 use rgx::core::Renderable;
 
+pub enum TextAlign {
+    Left,
+    Right,
+}
+
 pub struct TextBatch {
     raw: sprite2d::Batch,
     gw: f32,
@@ -18,12 +23,27 @@ impl TextBatch {
         Self { raw, gw, gh }
     }
 
-    pub fn add(&mut self, text: &str, mut sx: f32, sy: f32, z: ZDepth, color: Rgba8) {
+    pub fn add(
+        &mut self,
+        text: &str,
+        mut sx: f32,
+        sy: f32,
+        z: ZDepth,
+        color: Rgba8,
+        align: TextAlign,
+    ) {
         let offset: usize = 32;
 
         let gw = self.gw;
         let gh = self.gh;
         let rgba = color.into();
+
+        match align {
+            TextAlign::Left => {}
+            TextAlign::Right => {
+                sx -= gw * text.chars().collect::<Vec<_>>().len() as f32;
+            }
+        }
 
         for c in text.bytes().into_iter() {
             let i: usize = c as usize - offset;
