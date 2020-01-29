@@ -321,7 +321,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 Rgba8::RED,
             );
         }
-    } else if !session.message.is_replay()
+    } else if !session.message.is_execution()
         && !session.message.is_debug()
         && session.settings["ui/message"].is_set()
     {
@@ -393,7 +393,7 @@ fn draw_overlay(
         );
     }
 
-    if session.message.is_replay() || (session.message.is_debug() && debug) {
+    if session.message.is_execution() || (session.message.is_debug() && debug) {
         text.add(
             &format!("{}", session.message),
             MARGIN,

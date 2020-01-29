@@ -381,8 +381,8 @@ impl Message {
         self.message_type.color()
     }
 
-    pub fn is_replay(&self) -> bool {
-        self.message_type == MessageType::Replay
+    pub fn is_execution(&self) -> bool {
+        self.message_type == MessageType::Execution
     }
 
     pub fn is_debug(&self) -> bool {
@@ -397,7 +397,7 @@ impl Message {
             MessageType::Echo => info!("{}", self),
             MessageType::Error => error!("{}", self),
             MessageType::Warning => warn!("{}", self),
-            MessageType::Replay => {}
+            MessageType::Execution => {}
             MessageType::Okay => info!("{}", self),
             MessageType::Debug => debug!("{}", self),
         }
@@ -429,8 +429,8 @@ pub enum MessageType {
     Error,
     /// Non-critical warning.
     Warning,
-    /// Replay-related message.
-    Replay,
+    /// Execution-related message.
+    Execution,
     /// Debug message.
     Debug,
     /// Success message.
@@ -446,7 +446,7 @@ impl MessageType {
             MessageType::Echo => color::LIGHT_GREEN,
             MessageType::Error => color::RED,
             MessageType::Warning => color::YELLOW,
-            MessageType::Replay => color::GREY,
+            MessageType::Execution => color::GREY,
             MessageType::Debug => color::LIGHT_GREEN,
             MessageType::Okay => color::GREEN,
         }
@@ -984,7 +984,7 @@ impl Session {
                 // Replay is over.
                 if verify_ended || replay_ended || verify_failed {
                     self.release_inputs();
-                    self.message("Replay ended", MessageType::Replay);
+                    self.message("Replay ended", MessageType::Execution);
 
                     match mode {
                         DigestMode::Verify => {
@@ -1019,7 +1019,7 @@ impl Session {
                         ..
                     }) => {
                         self.release_inputs();
-                        self.message("Replay ended", MessageType::Replay);
+                        self.message("Replay ended", MessageType::Execution);
 
                         *exec = Execution::Normal;
                     }
@@ -1939,7 +1939,7 @@ impl Session {
                 Ok(path) => {
                     self.message(
                         format!("Recording saved to `{}`", path.display()),
-                        MessageType::Replay,
+                        MessageType::Execution,
                     );
                     info!("recording: events saved to `{}`", path.display());
                     self.quit(ExitReason::Normal);
@@ -2322,7 +2322,7 @@ impl Session {
             if let Execution::Recording { events, .. } = exec {
                 if key == platform::Key::End {
                     events.pop(); // Discard this key event.
-                    self.message("Saving recording...", MessageType::Info);
+                    self.message("Saving recording...", MessageType::Execution);
                     self.queue.push(InternalCommand::StopRecording);
                 }
             }
