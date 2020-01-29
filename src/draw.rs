@@ -407,11 +407,11 @@ fn draw_overlay(
         );
         text.add(
             txt,
-            MARGIN,
+            session.width - MARGIN,
             session.height - MARGIN - self::LINE_HEIGHT,
             ZDepth::ZERO,
             Rgba8::WHITE,
-            TextAlign::Left,
+            TextAlign::Right,
         );
     }
 
