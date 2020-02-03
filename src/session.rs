@@ -41,8 +41,11 @@ pub const HELP: &str = r#"
 :w [<path>]              Write view / Write view as <path>
 :q                       Quit view
 :q!                      Force quit view
-:echo <val>              Echo a value
+:qa!                     Force quit all views
+:echo <setting>          Echo the current value of <setting>
 :echo "pixel!"           Echo the string "pixel!"
+:echo cwd                Echo current working directory
+:cd <dir>                Change current directory to <dir>
 :set <setting> = <val>   Set <setting> to <val>
 :set <setting>           Set <setting> to `on`
 :unset <setting>         Set <setting> to `off`
@@ -55,6 +58,7 @@ pub const HELP: &str = r#"
 :f/remove                Remove the last frame of the view
 :f/clone <index>         Clone frame <index> and add it to the view
 :f/clone                 Clone the last frame and add it to the view
+:v/clear <color>         Clear the view with <color>
 :p/clear                 Clear the palette
 :p/add <color>           Add <color> to the palette, eg. #ff0011
 :brush/set <mode>        Set brush mode, eg. `xsym` and `ysym` for symmetry
