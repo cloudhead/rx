@@ -4,8 +4,8 @@ use crate::brush::BrushMode;
 use crate::platform;
 use crate::session::{Direction, Mode, VisualState};
 
+use std::ffi::OsString;
 use std::fmt;
-use std::path::PathBuf;
 use std::result;
 use std::str::FromStr;
 
@@ -219,19 +219,22 @@ impl<'a> Parser<'a> {
     }
 
     pub fn path(self) -> Result<'a, String> {
-        let (path, parser) = self.word()?;
-
-        if path == "" {
-            return Ok((String::from(""), parser));
+        let (input, parser) = self.word()?;
+        if input == "" {
+            return Ok((input.to_owned(), parser));
         }
 
-        let mut path = PathBuf::from(path);
+        let mut path: OsString = input.into();
 
-        // Linux and BSD and MacOS use ~ to infer the home directory of a given user
+        // Linux and BSD and MacOS use `~` to infer the home directory of a given user.
         if cfg!(unix) {
-            if let Ok(suffix) = path.strip_prefix("~") {
+            // We have to do this dance because `Path::join` doesn't do what we want
+            // if the input is for eg. "~/". We also can't use `Path::strip_prefix`
+            // because it drops our trailing slash.
+            if let Some('~') = input.chars().next() {
                 if let Some(base_dirs) = dirs::BaseDirs::new() {
-                    path = base_dirs.home_dir().join(suffix);
+                    path = base_dirs.home_dir().into();
+                    path.push(&input['~'.len_utf8()..]);
                 }
             }
         }
