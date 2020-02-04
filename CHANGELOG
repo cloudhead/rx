@@ -86,3 +86,16 @@
     * Fix crash on load, when file path is passed in via CLI
     * Fix crash with `:q` when multiple views are loaded
     * Fix visual bug when `checker` and `debug` are both active
+
+0.4.0
+
+  New features
+
+    * Command history with <up>/<down> arrows
+    * Command-line <tab> completion on files and directories
+    * New command `:wq` to write and quit
+
+  Changes
+
+    * Much lower CPU usage when no user input
+    * `input/delay` setting removed

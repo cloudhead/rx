@@ -70,7 +70,7 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 /// Program version.
-pub const VERSION: &str = "0.3.2";
+pub const VERSION: &str = "0.4.0";
 
 #[global_allocator]
 pub static ALLOCATOR: alloc::Allocator = alloc::Allocator::new(System);
