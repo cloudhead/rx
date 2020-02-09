@@ -30,6 +30,7 @@ mod history;
 mod image;
 mod palette;
 mod parser;
+mod pixels;
 mod platform;
 mod renderer;
 mod resources;

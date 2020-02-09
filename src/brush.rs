@@ -1,3 +1,4 @@
+use crate::pixels::PixelsMut;
 use crate::view::{ViewCoords, ViewExtent};
 
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
@@ -307,6 +308,39 @@ impl Brush {
         }
     }
 
+    /// Paint a circle into a pixel buffer.
+    #[allow(dead_code)]
+    fn paint(
+        pixels: &mut [Rgba8],
+        w: usize,
+        h: usize,
+        position: Point2<f32>,
+        diameter: f32,
+        color: Rgba8,
+    ) {
+        let mut grid = PixelsMut::new(pixels, w, h);
+        let bias = if diameter <= 2. {
+            0.0
+        } else if diameter <= 3. {
+            0.5
+        } else {
+            0.0
+        };
+        let radius = diameter / 2. - bias;
+
+        for (x, y, c) in grid.iter_mut() {
+            let (x, y) = (x as f32, y as f32);
+
+            let dx = (x - position.x).abs();
+            let dy = (y - position.y).abs();
+            let d = (dx.powi(2) + dy.powi(2)).sqrt();
+
+            if d <= radius {
+                *c = color;
+            }
+        }
+    }
+
     /// Filter a brush stroke to remove 'L' shapes. This is often called
     /// *pixel perfect* mode.
     fn filter(stroke: &[Point2<i32>]) -> Vec<Point2<i32>> {
@@ -328,5 +362,119 @@ impl Brush {
         filtered.extend(stroke.last().cloned());
 
         filtered
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_paint() {
+        let z = Rgba8::TRANSPARENT;
+        let w = Rgba8::WHITE;
+
+        #[rustfmt::skip]
+        let brush1 = vec![
+            z, z, z,
+            z, w, z,
+            z, z, z,
+        ];
+
+        #[rustfmt::skip]
+        let brush2 = vec![
+            z, z, z, z,
+            z, w, w, z,
+            z, w, w, z,
+            z, z, z, z,
+        ];
+
+        #[rustfmt::skip]
+        let brush3 = vec![
+            z, z, z, z, z,
+            z, z, w, z, z,
+            z, w, w, w, z,
+            z, z, w, z, z,
+            z, z, z, z, z,
+        ];
+
+        #[rustfmt::skip]
+        let brush5 = vec![
+            z, z, z, z, z, z, z,
+            z, z, w, w, w, z, z,
+            z, w, w, w, w, w, z,
+            z, w, w, w, w, w, z,
+            z, w, w, w, w, w, z,
+            z, z, w, w, w, z, z,
+            z, z, z, z, z, z, z,
+        ];
+
+        #[rustfmt::skip]
+        let brush7 = vec![
+            z, z, z, z, z, z, z, z, z,
+            z, z, z, w, w, w, z, z, z,
+            z, z, w, w, w, w, w, z, z,
+            z, w, w, w, w, w, w, w, z,
+            z, w, w, w, w, w, w, w, z,
+            z, w, w, w, w, w, w, w, z,
+            z, z, w, w, w, w, w, z, z,
+            z, z, z, w, w, w, z, z, z,
+            z, z, z, z, z, z, z, z, z
+        ];
+
+        #[rustfmt::skip]
+        let brush15 = vec![
+            z, z, z, z, z, w, w, w, w, w, z, z, z, z, z,
+            z, z, z, w, w, w, w, w, w, w, w, w, z, z, z,
+            z, z, w, w, w, w, w, w, w, w, w, w, w, z, z,
+            z, w, w, w, w, w, w, w, w, w, w, w, w, w, z,
+            z, w, w, w, w, w, w, w, w, w, w, w, w, w, z,
+            w, w, w, w, w, w, w, w, w, w, w, w, w, w, w,
+            w, w, w, w, w, w, w, w, w, w, w, w, w, w, w,
+            w, w, w, w, w, w, w, w, w, w, w, w, w, w, w,
+            w, w, w, w, w, w, w, w, w, w, w, w, w, w, w,
+            w, w, w, w, w, w, w, w, w, w, w, w, w, w, w,
+            z, w, w, w, w, w, w, w, w, w, w, w, w, w, z,
+            z, w, w, w, w, w, w, w, w, w, w, w, w, w, z,
+            z, z, w, w, w, w, w, w, w, w, w, w, w, z, z,
+            z, z, z, w, w, w, w, w, w, w, w, w, z, z, z,
+            z, z, z, z, z, w, w, w, w, w, z, z, z, z, z,
+        ];
+
+        {
+            let mut canvas = vec![Rgba8::TRANSPARENT; 3 * 3];
+            Brush::paint(&mut canvas, 3, 3, Point2::new(1., 1.), 1., Rgba8::WHITE);
+            assert_eq!(canvas, brush1);
+        }
+
+        {
+            let mut canvas = vec![Rgba8::TRANSPARENT; 4 * 4];
+            Brush::paint(&mut canvas, 4, 4, Point2::new(1.5, 1.5), 2., Rgba8::WHITE);
+            assert_eq!(canvas, brush2);
+        }
+
+        {
+            let mut canvas = vec![Rgba8::TRANSPARENT; 5 * 5];
+            Brush::paint(&mut canvas, 5, 5, Point2::new(2., 2.), 3., Rgba8::WHITE);
+            assert_eq!(canvas, brush3);
+        }
+
+        {
+            let mut canvas = vec![Rgba8::TRANSPARENT; 7 * 7];
+            Brush::paint(&mut canvas, 7, 7, Point2::new(3., 3.), 5., Rgba8::WHITE);
+            assert_eq!(canvas, brush5);
+        }
+
+        {
+            let mut canvas = vec![Rgba8::TRANSPARENT; 9 * 9];
+            Brush::paint(&mut canvas, 9, 9, Point2::new(4., 4.), 7., Rgba8::WHITE);
+            assert_eq!(canvas, brush7);
+        }
+
+        {
+            let mut canvas = vec![Rgba8::TRANSPARENT; 15 * 15];
+            Brush::paint(&mut canvas, 15, 15, Point2::new(7., 7.), 15., Rgba8::WHITE);
+            assert_eq!(canvas, brush15);
+        }
     }
 }
