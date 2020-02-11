@@ -487,7 +487,7 @@ impl KeyBinding {
         self.key == key
             && self.state == state
             && self.modes.contains(&mode)
-            && (self.modifiers == modifiers || state == InputState::Released)
+            && (self.modifiers == modifiers || state == InputState::Released || key.is_modifier())
     }
 }
 
@@ -3094,10 +3094,10 @@ impl Session {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+
     #[test]
     fn test_key_bindings() {
-        use super::*;
-
         let mut kbs = KeyBindings::new();
         let state = InputState::Pressed;
         let modifiers = Default::default();
@@ -3136,6 +3136,47 @@ mod test {
             kbs.find(kb2.key, kb2.modifiers, kb2.state, kb2.modes[0]),
             Some(kb3),
             "bindings can be overwritten"
+        );
+    }
+
+    #[test]
+    fn test_key_bindings_modifier() {
+        let kb = KeyBinding {
+            modes: vec![Mode::Normal],
+            key: platform::Key::Control,
+            command: Command::Noop,
+            is_toggle: false,
+            display: None,
+            modifiers: Default::default(),
+            state: InputState::Pressed,
+        };
+
+        let mut kbs = KeyBindings::new();
+        kbs.add(kb.clone());
+
+        assert_eq!(
+            kbs.find(
+                platform::Key::Control,
+                ModifiersState {
+                    ctrl: true,
+                    alt: false,
+                    shift: false,
+                    meta: false
+                },
+                InputState::Pressed,
+                Mode::Normal
+            ),
+            Some(kb.clone())
+        );
+
+        assert_eq!(
+            kbs.find(
+                platform::Key::Control,
+                ModifiersState::default(),
+                InputState::Pressed,
+                Mode::Normal
+            ),
+            Some(kb)
         );
     }
 }
