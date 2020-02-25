@@ -18,7 +18,7 @@ pub fn init(
     context: GraphicsContext,
 ) -> io::Result<(Window, Events)> {
     let mut glfw =
-        glfw::init(glfw::FAIL_ON_ERRORS).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        glfw::init(glfw::LOG_ERRORS).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
     glfw.window_hint(glfw::WindowHint::Resizable(true));
     glfw.window_hint(glfw::WindowHint::Visible(true));
