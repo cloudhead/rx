@@ -7,16 +7,18 @@ pub struct Palette {
     pub colors: Vec<Rgba8>,
     pub hover: Option<Rgba8>,
     pub cellsize: f32,
+    pub height: usize,
     pub x: f32,
     pub y: f32,
 }
 
 impl Palette {
-    pub fn new(cellsize: f32) -> Self {
+    pub fn new(cellsize: f32, height: usize) -> Self {
         Self {
             colors: Vec::with_capacity(256),
             hover: None,
             cellsize,
+            height,
             x: 0.,
             y: 0.,
         }
@@ -42,9 +44,14 @@ impl Palette {
         let mut y = y as i32 - self.y as i32;
         let cellsize = self.cellsize as i32;
         let size = self.size() as i32;
+        let height = self.height as i32;
 
-        let width = if size > 16 { cellsize * 2 } else { cellsize };
-        let height = i32::min(size, 16) * cellsize;
+        let width = if size > height {
+            cellsize * 2
+        } else {
+            cellsize
+        };
+        let height = i32::min(size, height) * cellsize;
 
         if x >= width || y >= height || x < 0 || y < 0 {
             self.hover = None;
@@ -54,10 +61,14 @@ impl Palette {
         x /= cellsize;
         y /= cellsize;
 
-        let index = y + x * 16;
+        let index = y + x * height;
 
         self.hover = if index < size {
-            Some(self.colors[index as usize])
+            // We index from the back because the palette is reversed
+            // before it is displayed, due to the Y axis pointing up,
+            // where as the palette is created starting at the top
+            // and going down.
+            Some(self.colors[self.size() - index as usize - 1])
         } else {
             None
         };

@@ -433,9 +433,14 @@ fn draw_palette(session: &Session, batch: &mut shape2d::Batch) {
     }
 
     let p = &session.palette;
-    for (i, color) in p.colors.iter().cloned().enumerate() {
-        let x = if i >= 16 { p.cellsize } else { 0. };
-        let y = (i % 16) as f32 * p.cellsize;
+    let height = p.height;
+    for (i, color) in p.colors.iter().rev().cloned().enumerate() {
+        let x = if i >= height {
+            (i / height) as f32 * p.cellsize
+        } else {
+            0.
+        };
+        let y = (i % height) as f32 * p.cellsize;
 
         let mut stroke = shape2d::Stroke::NONE;
         if let (Tool::Sampler, Some(c)) = (&session.tool, p.hover) {

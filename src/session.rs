@@ -668,6 +668,8 @@ impl Default for Settings {
                 "grid/color" => Value::Rgba8(color::BLUE),
                 "grid/spacing" => Value::U32Tuple(8, 8),
 
+                "p/height" => Value::U32(Session::PALETTE_HEIGHT),
+
                 // Deprecated.
                 "frame_delay" => Value::F64(0.0),
                 "input/delay" => Value::F64(8.0)
@@ -795,6 +797,8 @@ impl Session {
     const VIEW_MARGIN: f32 = 24.;
     /// Size of palette cells, in pixels.
     const PALETTE_CELL_SIZE: f32 = 24.;
+    /// Default palette height in cells.
+    const PALETTE_HEIGHT: u32 = 16;
     /// Distance to pan when using keyboard.
     const PAN_PIXELS: i32 = 32;
     /// Minimum brush size.
@@ -856,7 +860,7 @@ impl Session {
             settings_changed: HashSet::new(),
             views: ViewManager::new(),
             effects: Vec::new(),
-            palette: Palette::new(Self::PALETTE_CELL_SIZE),
+            palette: Palette::new(Self::PALETTE_CELL_SIZE, Self::PALETTE_HEIGHT as usize),
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
             ignore_received_characters: false,
@@ -1252,6 +1256,10 @@ impl Session {
                 self.views
                     .iter_mut()
                     .for_each(|v| v.set_animation_delay(new.to_u64()));
+            }
+            "p/height" => {
+                self.palette.height = new.to_u64() as usize;
+                self.center_palette();
             }
             "scale" => {
                 // TODO: We need to recompute the cursor position here
@@ -2387,7 +2395,8 @@ impl Session {
 
     /// Center the palette in the workspace.
     fn center_palette(&mut self) {
-        let n = usize::min(self.palette.size(), 16) as f32;
+        let h = self.settings["p/height"].to_u64() as usize;
+        let n = usize::min(self.palette.size(), h) as f32;
         let p = &mut self.palette;
 
         p.x = 0.;
