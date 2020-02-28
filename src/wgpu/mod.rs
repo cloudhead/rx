@@ -568,7 +568,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
             self.r.read(&view_data.fb, move |data| {
                 if let Some(s) = resources.lock_mut().get_view_mut(id) {
-                    s.push_snapshot(Pixels::Bgra(data.into()), extent);
+                    s.push_snapshot(Pixels::from_bgra8(data.into()), extent);
                 }
             });
         }
@@ -697,7 +697,7 @@ impl Renderer {
             Op::Clear(&view_data.staging_fb, Bgra8::TRANSPARENT),
             Op::Transfer(
                 &view_data.fb,
-                &Pixels::Rgba(texels.into()).into_bgra8(),
+                &Pixels::from_rgba8(texels.into()).into_bgra8(),
                 tw, // Source width
                 th, // Source height
                 Rect::origin(tw as i32, th as i32),

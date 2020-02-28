@@ -1787,7 +1787,7 @@ impl Session {
 
         self.effects.push(Effect::ViewAdded(id));
         self.resources
-            .add_view(id, fw, fh, nframes, Pixels::Rgba(pixels.into()));
+            .add_view(id, fw, fh, nframes, Pixels::from_rgba8(pixels.into()));
         id
     }
 

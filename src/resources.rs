@@ -17,12 +17,16 @@ use std::path::Path;
 use std::rc::Rc;
 use std::time;
 
-// TODO: It's probably better to represent this as a `Vec<u8>` with a "format" tag.
-// It would avoid a bunch of pattern matching at least..
+#[derive(Debug, Copy, Clone)]
+enum PixelFormat {
+    Rgba8,
+    Bgra8,
+}
+
 #[derive(Debug, Clone)]
-pub enum Pixels {
-    Bgra(Box<[Bgra8]>),
-    Rgba(Box<[Rgba8]>),
+pub struct Pixels {
+    format: PixelFormat,
+    buf: Box<[u32]>,
 }
 
 impl Pixels {
@@ -31,58 +35,96 @@ impl Pixels {
     }
 
     pub fn len(&self) -> usize {
-        match self {
-            Self::Bgra(buf) => buf.len(),
-            Self::Rgba(buf) => buf.len(),
+        self.buf.len()
+    }
+
+    pub fn from_rgba8(buf: Box<[Rgba8]>) -> Self {
+        let buf = unsafe { std::mem::transmute(buf) };
+        Self {
+            format: PixelFormat::Rgba8,
+            buf,
+        }
+    }
+
+    pub fn from_bgra8(buf: Box<[Bgra8]>) -> Self {
+        let buf = unsafe { std::mem::transmute(buf) };
+        Self {
+            format: PixelFormat::Bgra8,
+            buf,
         }
     }
 
     pub fn slice(&self, r: core::ops::Range<usize>) -> Vec<Rgba8> {
-        match self {
-            Self::Bgra(buf) => {
-                let slice = &buf[r];
-                slice.iter().map(|bgra| (*bgra).into()).collect()
+        match self.format {
+            PixelFormat::Bgra8 => {
+                let slice = &self.buf[r];
+                slice
+                    .iter()
+                    .map(|u| unsafe { std::mem::transmute::<u32, Bgra8>(*u).into() })
+                    .collect()
             }
-            Self::Rgba(buf) => buf[r].to_owned(),
+            PixelFormat::Rgba8 => {
+                let (head, body, tail) = unsafe { self.buf[r].align_to::<Rgba8>() };
+                assert!(head.is_empty() && tail.is_empty());
+                body.to_vec()
+            }
         }
     }
 
     pub fn get(&self, idx: usize) -> Option<Rgba8> {
-        match self {
-            Self::Bgra(buf) => buf
+        match self.format {
+            PixelFormat::Rgba8 => self.buf.get(idx).cloned().map(Rgba8::from),
+            PixelFormat::Bgra8 => self
+                .buf
                 .get(idx)
-                .map(|bgra| Rgba8::new(bgra.r, bgra.g, bgra.b, bgra.a)),
-            Self::Rgba(buf) => buf.get(idx).cloned(),
+                .cloned()
+                .map(|u| unsafe { std::mem::transmute::<u32, Bgra8>(u) }.into()),
         }
     }
 
     pub fn into_rgba8(self) -> Vec<Rgba8> {
-        match self {
-            Self::Bgra(buf) => buf.iter().cloned().map(Bgra8::into).collect::<Vec<_>>(),
-            Self::Rgba(buf) => buf.into(),
+        match self.format {
+            PixelFormat::Rgba8 => {
+                let (head, body, tail) = unsafe { self.buf.align_to::<Rgba8>() };
+                assert!(head.is_empty() && tail.is_empty());
+                body.to_vec()
+            }
+            PixelFormat::Bgra8 => self
+                .buf
+                .iter()
+                .cloned()
+                .map(|u| unsafe { std::mem::transmute::<u32, Bgra8>(u) }.into())
+                .collect(),
         }
     }
 
     pub fn into_bgra8(self) -> Vec<Bgra8> {
-        match self {
-            Self::Rgba(buf) => buf.iter().cloned().map(Bgra8::from).collect::<Vec<_>>(),
-            Self::Bgra(buf) => buf.into(),
+        match self.format {
+            PixelFormat::Rgba8 => self
+                .buf
+                .iter()
+                .cloned()
+                .map(|u| Rgba8::from(u).into())
+                .collect(),
+            PixelFormat::Bgra8 => {
+                let (head, body, tail) = unsafe { self.buf.align_to::<Bgra8>() };
+                assert!(head.is_empty() && tail.is_empty());
+                body.to_vec()
+            }
         }
     }
 
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Rgba8> + 'a {
+        self.buf.iter().cloned().map(move |u| match self.format {
+            PixelFormat::Rgba8 => unsafe { std::mem::transmute::<u32, Rgba8>(u) },
+            PixelFormat::Bgra8 => unsafe { std::mem::transmute::<u32, Bgra8>(u).into() },
+        })
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            Self::Bgra(buf) => {
-                let (head, body, tail) = unsafe { buf.align_to::<u8>() };
-                assert!(head.is_empty() && tail.is_empty());
-                body
-            }
-            Self::Rgba(buf) => {
-                let (head, body, tail) = unsafe { buf.align_to::<u8>() };
-                assert!(head.is_empty() && tail.is_empty());
-                body
-            }
-        }
+        let (head, body, tail) = unsafe { self.buf.align_to::<u8>() };
+        assert!(head.is_empty() && tail.is_empty());
+        body
     }
 }
 
@@ -432,12 +474,6 @@ impl Default for SnapshotId {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-enum SnapshotFormat {
-    Rgba8,
-    Bgra8,
-}
-
 #[derive(Debug)]
 pub struct Snapshot {
     pub id: SnapshotId,
@@ -446,17 +482,13 @@ pub struct Snapshot {
     size: usize,
     pixels: Compressed<Box<[u8]>>,
 
-    format: SnapshotFormat,
+    format: PixelFormat,
 }
 
 impl Snapshot {
     pub fn new(id: SnapshotId, pixels: Pixels, extent: ViewExtent) -> Self {
-        let format = match pixels {
-            Pixels::Rgba(_) => SnapshotFormat::Rgba8,
-            Pixels::Bgra(_) => SnapshotFormat::Bgra8,
-        };
-
         let size = pixels.len();
+        let format = pixels.format;
         let pixels =
             Compressed::from(pixels).expect("compressing snapshot shouldn't result in an error");
 
@@ -490,8 +522,8 @@ impl Snapshot {
             .decompress()
             .expect("decompressing snapshot shouldn't result in an error");
         match self.format {
-            SnapshotFormat::Rgba8 => Pixels::Rgba(Rgba8::align(&bytes).into()),
-            SnapshotFormat::Bgra8 => Pixels::Bgra(Bgra8::align(&bytes).into()),
+            PixelFormat::Rgba8 => Pixels::from_rgba8(Rgba8::align(&bytes).into()),
+            PixelFormat::Bgra8 => Pixels::from_bgra8(Bgra8::align(&bytes).into()),
         }
     }
 }

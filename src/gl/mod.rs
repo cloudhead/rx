@@ -751,7 +751,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         if v.is_dirty() {
             if let Some(s) = self.resources.lock_mut().get_view_mut(v.id) {
                 let texels = v_data.fb.color_slot().get_raw_texels();
-                s.push_snapshot(Pixels::Rgba(Rgba8::align(&texels).into()), v.extent());
+                s.push_snapshot(Pixels::from_rgba8(Rgba8::align(&texels).into()), v.extent());
             }
         }
 
