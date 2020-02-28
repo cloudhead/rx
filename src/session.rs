@@ -28,6 +28,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::File;
 use std::io;
+use std::io::Write;
 use std::ops::{Add, Deref, Sub};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -60,6 +61,7 @@ pub const HELP: &str = r#"
 :f/clone                 Clone the last frame and add it to the view
 :v/clear <color>         Clear the view with <color>
 :p/clear                 Clear the palette
+:p/write <path>          Write the palette to a file
 :p/add <color>           Add <color> to the palette, eg. #ff0011
 :brush/set <mode>        Set brush mode, eg. `xsym` and `ysym` for symmetry
 :brush/unset <mode>      Unset brush mode
@@ -2641,6 +2643,24 @@ impl Session {
             Command::PaletteSample => {
                 self.unimplemented();
             }
+            Command::PaletteWrite(path) => match File::create(&path) {
+                Ok(mut f) => {
+                    for color in self.palette.colors.iter() {
+                        writeln!(&mut f, "{}", color.to_string()).ok();
+                    }
+                    self.message(
+                        format!(
+                            "Palette written to {} ({} colors)",
+                            path,
+                            self.palette.size()
+                        ),
+                        MessageType::Info,
+                    );
+                }
+                Err(err) => {
+                    self.message(format!("Error: `{}`: {}", path, err), MessageType::Error);
+                }
+            },
             Command::Zoom(op) => {
                 let center = if let Some(s) = self.selection {
                     self.session_coords(

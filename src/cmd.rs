@@ -51,6 +51,7 @@ pub enum Command {
     PaletteAdd(Rgba8),
     PaletteClear,
     PaletteSample,
+    PaletteWrite(String),
     Pan(i32, i32),
     Quit,
     QuitAll,
@@ -207,6 +208,7 @@ impl From<Command> for String {
             Command::Noop => format!(""),
             Command::PaletteAdd(c) => format!("p/add {}", c),
             Command::PaletteClear => format!("p/clear"),
+            Command::PaletteWrite(_) => format!("p/write"),
             Command::PaletteSample => unimplemented!(),
             Command::Pan(x, y) => format!("pan {} {}", x, y),
             Command::Quit => format!("q"),
@@ -796,6 +798,10 @@ impl<'a> Parse<'a> for Command {
             }
             "p/clear" => Ok((Command::PaletteClear, p)),
             "p/sample" => Ok((Command::PaletteSample, p)),
+            "p/write" => {
+                let (path, p) = p.path()?;
+                Ok((Command::PaletteWrite(path), p))
+            }
             "undo" => Ok((Command::Undo, p)),
             "redo" => Ok((Command::Redo, p)),
             "f/new" => Err(Error::new(
