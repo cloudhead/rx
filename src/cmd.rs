@@ -209,7 +209,7 @@ impl From<Command> for String {
             Command::PaletteAdd(c) => format!("p/add {}", c),
             Command::PaletteClear => format!("p/clear"),
             Command::PaletteWrite(_) => format!("p/write"),
-            Command::PaletteSample => unimplemented!(),
+            Command::PaletteSample => format!("p/sample"),
             Command::Pan(x, y) => format!("pan {} {}", x, y),
             Command::Quit => format!("q"),
             Command::Redo => format!("redo"),

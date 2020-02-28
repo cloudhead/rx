@@ -61,6 +61,7 @@ pub const HELP: &str = r#"
 :f/clone                 Clone the last frame and add it to the view
 :v/clear <color>         Clear the view with <color>
 :p/clear                 Clear the palette
+:p/sample                Sample palette colors from the view
 :p/write <path>          Write the palette to a file
 :p/add <color>           Add <color> to the palette, eg. #ff0011
 :brush/set <mode>        Set brush mode, eg. `xsym` and `ysym` for symmetry
@@ -2641,7 +2642,18 @@ impl Session {
                 self.palette.clear();
             }
             Command::PaletteSample => {
-                self.unimplemented();
+                {
+                    let v = self.views.active_id;
+                    let resources = self.resources.lock();
+                    let (_, pixels) = resources.get_snapshot(v);
+
+                    for pixel in pixels.iter() {
+                        if pixel != Rgba8::TRANSPARENT {
+                            self.palette.add(pixel);
+                        }
+                    }
+                }
+                self.center_palette();
             }
             Command::PaletteWrite(path) => match File::create(&path) {
                 Ok(mut f) => {
