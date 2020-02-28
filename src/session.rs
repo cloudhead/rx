@@ -62,6 +62,7 @@ pub const HELP: &str = r#"
 :v/clear <color>         Clear the view with <color>
 :p/clear                 Clear the palette
 :p/sample                Sample palette colors from the view
+:p/sort                  Sort palette colors
 :p/write <path>          Write the palette to a file
 :p/add <color>           Add <color> to the palette, eg. #ff0011
 :brush/set <mode>        Set brush mode, eg. `xsym` and `ysym` for symmetry
@@ -2641,6 +2642,14 @@ impl Session {
             Command::PaletteClear => {
                 self.palette.clear();
             }
+            Command::PaletteSort => {
+                // Sort by total luminosity. This is pretty lame, but it's
+                // something to work with.
+                self.palette.colors.sort_by(|a, b| {
+                    (a.r as u32 + a.g as u32 + a.b as u32)
+                        .cmp(&(b.r as u32 + b.g as u32 + b.b as u32))
+                });
+            }
             Command::PaletteSample => {
                 {
                     let v = self.views.active_id;
@@ -2653,6 +2662,7 @@ impl Session {
                         }
                     }
                 }
+                self.command(Command::PaletteSort);
                 self.center_palette();
             }
             Command::PaletteWrite(path) => match File::create(&path) {

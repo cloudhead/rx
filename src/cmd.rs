@@ -51,6 +51,7 @@ pub enum Command {
     PaletteAdd(Rgba8),
     PaletteClear,
     PaletteSample,
+    PaletteSort,
     PaletteWrite(String),
     Pan(i32, i32),
     Quit,
@@ -132,6 +133,7 @@ impl fmt::Display for Command {
             Self::PaletteAdd(c) => write!(f, "Add {color} to palette", color = c),
             Self::PaletteClear => write!(f, "Clear palette"),
             Self::PaletteSample => write!(f, "Sample palette from view"),
+            Self::PaletteSort => write!(f, "Sort palette colors"),
             Self::Pan(x, 0) if *x > 0 => write!(f, "Pan workspace right"),
             Self::Pan(x, 0) if *x < 0 => write!(f, "Pan workspace left"),
             Self::Pan(0, y) if *y > 0 => write!(f, "Pan workspace up"),
@@ -798,6 +800,7 @@ impl<'a> Parse<'a> for Command {
             }
             "p/clear" => Ok((Command::PaletteClear, p)),
             "p/sample" => Ok((Command::PaletteSample, p)),
+            "p/sort" => Ok((Command::PaletteSort, p)),
             "p/write" => {
                 let (path, p) = p.path()?;
                 Ok((Command::PaletteWrite(path), p))
