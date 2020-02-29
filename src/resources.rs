@@ -58,42 +58,27 @@ impl Pixels {
         match self.format {
             PixelFormat::Bgra8 => {
                 let slice = &self.buf[r];
-                slice
-                    .iter()
-                    .map(|u| unsafe { std::mem::transmute::<u32, Bgra8>(*u).into() })
-                    .collect()
+                slice.iter().map(|u| Bgra8::from(*u).into()).collect()
             }
-            PixelFormat::Rgba8 => {
-                let (head, body, tail) = unsafe { self.buf[r].align_to::<Rgba8>() };
-                assert!(head.is_empty() && tail.is_empty());
-                body.to_vec()
-            }
+            PixelFormat::Rgba8 => Rgba8::align(&self.buf[r]).to_vec(),
         }
     }
 
     pub fn get(&self, idx: usize) -> Option<Rgba8> {
         match self.format {
             PixelFormat::Rgba8 => self.buf.get(idx).cloned().map(Rgba8::from),
-            PixelFormat::Bgra8 => self
-                .buf
-                .get(idx)
-                .cloned()
-                .map(|u| unsafe { std::mem::transmute::<u32, Bgra8>(u) }.into()),
+            PixelFormat::Bgra8 => self.buf.get(idx).cloned().map(|u| Bgra8::from(u).into()),
         }
     }
 
     pub fn into_rgba8(self) -> Vec<Rgba8> {
         match self.format {
-            PixelFormat::Rgba8 => {
-                let (head, body, tail) = unsafe { self.buf.align_to::<Rgba8>() };
-                assert!(head.is_empty() && tail.is_empty());
-                body.to_vec()
-            }
+            PixelFormat::Rgba8 => Rgba8::align(&self.buf).to_vec(),
             PixelFormat::Bgra8 => self
                 .buf
                 .iter()
                 .cloned()
-                .map(|u| unsafe { std::mem::transmute::<u32, Bgra8>(u) }.into())
+                .map(|u| Bgra8::from(u).into())
                 .collect(),
         }
     }
@@ -106,18 +91,14 @@ impl Pixels {
                 .cloned()
                 .map(|u| Rgba8::from(u).into())
                 .collect(),
-            PixelFormat::Bgra8 => {
-                let (head, body, tail) = unsafe { self.buf.align_to::<Bgra8>() };
-                assert!(head.is_empty() && tail.is_empty());
-                body.to_vec()
-            }
+            PixelFormat::Bgra8 => Bgra8::align(&self.buf).to_vec(),
         }
     }
 
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = Rgba8> + 'a {
         self.buf.iter().cloned().map(move |u| match self.format {
-            PixelFormat::Rgba8 => unsafe { std::mem::transmute::<u32, Rgba8>(u) },
-            PixelFormat::Bgra8 => unsafe { std::mem::transmute::<u32, Bgra8>(u).into() },
+            PixelFormat::Rgba8 => Rgba8::from(u),
+            PixelFormat::Bgra8 => Bgra8::from(u).into(),
         })
     }
 
