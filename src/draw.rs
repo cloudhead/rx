@@ -192,7 +192,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             self::UI_LAYER,
             Rotation::ZERO,
             Stroke::new(1., stroke.into()),
-            Fill::Empty(),
+            Fill::Empty,
         ));
         // Selection fill.
         if r.intersects(view.bounds()) {
@@ -214,7 +214,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             let n = n as f32;
             let x = n * v.zoom * v.fw as f32 + offset.x;
             canvas.add(Shape::Line(
-                Line::new(x, offset.y, x, v.zoom * v.fh as f32 + offset.y),
+                Line::new([x, offset.y], [x, v.zoom * v.fh as f32 + offset.y]),
                 self::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
@@ -240,7 +240,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             self::UI_LAYER,
             Rotation::ZERO,
             Stroke::new(1.0, border_color),
-            Fill::Empty(),
+            Fill::Empty,
         ));
 
         if session.settings["ui/view-info"].is_set() {
@@ -495,7 +495,7 @@ fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
             let x = x as f32;
 
             batch.add(Shape::Line(
-                Line::new(x, 0., x, h).transform(m),
+                Line::new([x, 0.], [x, h]).transform(m),
                 self::GRID_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1., color.into()),
@@ -507,7 +507,7 @@ fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
             let y = y as f32;
 
             batch.add(Shape::Line(
-                Line::new(0., y, w, y).transform(m),
+                Line::new([0., y], [w, y]).transform(m),
                 self::GRID_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1., color.into()),
@@ -520,13 +520,13 @@ fn draw_grid(session: &Session, batch: &mut shape2d::Batch) {
             let stroke = Stroke::new(1., color.alpha(0xee).into());
 
             batch.add(Shape::Line(
-                Line::new(0., h / 2., w, h / 2.).transform(m),
+                Line::new([0., h / 2.], [w, h / 2.]).transform(m),
                 self::GRID_LAYER,
                 Rotation::ZERO,
                 stroke,
             ));
             batch.add(Shape::Line(
-                Line::new(w / 2., 0., w / 2., h).transform(m),
+                Line::new([w / 2., 0.], [w / 2., h]).transform(m),
                 self::GRID_LAYER,
                 Rotation::ZERO,
                 stroke,
@@ -594,7 +594,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                     self::UI_LAYER,
                     Rotation::ZERO,
                     Stroke::new(1.0, color::RED.into()),
-                    Fill::Empty(),
+                    Fill::Empty,
                 ));
             }
         }
@@ -619,10 +619,10 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                                     1.0,
                                     Rgba::new(1. - color.r, 1. - color.g, 1. - color.b, 1.0),
                                 ),
-                                Fill::Empty(),
+                                Fill::Empty,
                             )
                         } else {
-                            (Stroke::new(1.0, Rgba::WHITE), Fill::Empty())
+                            (Stroke::new(1.0, Rgba::WHITE), Fill::Empty)
                         }
                     } else {
                         (Stroke::NONE, Fill::Solid(session.fg.into()))
@@ -652,14 +652,11 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                                     .session_coords(v.id, ViewCoords::new(p.x as f32, p.y as f32))
                                     + Vector2::new(z / 2., z / 2.);
 
-                                shapes.add(Shape::Circle(
-                                    center,
-                                    self::BRUSH_LAYER,
-                                    self::XRAY_RADIUS,
-                                    16,
-                                    Stroke::NONE,
-                                    Fill::Solid(xray.alpha(0xff).into()),
-                                ));
+                                shapes.add(
+                                    Shape::circle(center, self::XRAY_RADIUS, 16)
+                                        .zdepth(self::BRUSH_LAYER)
+                                        .fill(Fill::Solid(xray.alpha(0xff).into())),
+                                );
                             }
                         }
                     }
@@ -674,7 +671,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                         *c,
                         self::UI_LAYER,
                         Stroke::new(1.0, color.into()),
-                        Fill::Empty(),
+                        Fill::Empty,
                         v.zoom,
                         Align::Center,
                     ));
