@@ -22,7 +22,7 @@ raw-window-handle = { version = "0.3.3", optional = true }
 snap = "0.2.5"
 log = "0.4.6"
 directories = "2.0.2"
-meowhash = "0.1.2"
+seahash = "4.0.0"
 digest = "0.8.1"
 nonempty = "0.1.4"
 

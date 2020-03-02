@@ -9,10 +9,8 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time;
 
-use digest::generic_array::{sequence::*, typenum::consts::*, GenericArray};
-use digest::Digest;
-use meowhash::MeowHasher;
 use rgx::color::{Bgra8, Rgba8};
+use seahash::SeaHasher;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum GifMode {
@@ -530,11 +528,13 @@ impl FrameRecorder {
     }
 
     fn hash(data: &[Bgra8]) -> Hash {
-        let (_, data, _) = unsafe { data.align_to::<u8>() };
-        let bytes: GenericArray<u8, U64> = MeowHasher::digest(data);
-        let (prefix, _): (GenericArray<u8, U4>, _) = bytes.split();
+        use std::hash::Hasher;
 
-        Hash(prefix.into())
+        let mut hasher = SeaHasher::new();
+        let (_, data, _) = unsafe { data.align_to::<u8>() };
+
+        hasher.write(data);
+        Hash(hasher.finish())
     }
 }
 
@@ -617,43 +617,18 @@ pub enum VerifyResult {
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct Hash([u8; 4]);
+pub struct Hash(u64);
 
 impl fmt::Display for Hash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for byte in self.0.iter() {
-            write!(f, "{:02x}", byte)?;
-        }
-        Ok(())
+        write!(f, "{:016x}", self.0)
     }
 }
 
 impl FromStr for Hash {
-    type Err = String;
+    type Err = std::num::ParseIntError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let val = |c: u8| match c {
-            b'a'..=b'f' => Ok(c - b'a' + 10),
-            b'0'..=b'9' => Ok(c - b'0'),
-            _ => Err(format!("invalid hex character {:?}", c)),
-        };
-
-        let mut hash: Vec<u8> = Vec::new();
-        for pair in input.bytes().collect::<Vec<u8>>().chunks(2) {
-            match pair {
-                [l, r] => {
-                    let left = val(*l)? << 4;
-                    let right = val(*r)?;
-
-                    hash.push(left | right);
-                }
-                _ => return Err(format!("invalid hex string: {:?}", input)),
-            }
-        }
-
-        let mut array = [0; 4];
-        array.copy_from_slice(hash.as_slice());
-
-        Ok(Hash(array))
+        u64::from_str_radix(input, 16).map(Hash)
     }
 }

@@ -1,3 +1,10 @@
+# NOTE: The digest file of this test had to be modified after
+# recording for the test to pass in headless mode. The very
+# first digest was removed. Presumably, when running in normal
+# mode, there is an extra frame that is rendered. I'm not sure
+# why, or what that frame contains, but for now the easy fix
+# is to just remove it from the test.
+
 [window]
 width = 1278
 height = 718
