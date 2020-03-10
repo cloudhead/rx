@@ -65,6 +65,10 @@ impl Window {
     }
 
     pub fn present(&self) {}
+
+    pub fn clipboard(&self) -> Option<String> {
+        None
+    }
 }
 
 pub fn init(

@@ -322,8 +322,15 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
             continue;
         }
 
-        let effects = update_timer
-            .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
+        let effects = update_timer.run(|avg| {
+            session.update(
+                &mut session_events,
+                execution.clone(),
+                delta,
+                avg,
+                win.clipboard(),
+            )
+        });
 
         render_timer.run(|avg| {
             renderer.frame(&session, execution.clone(), effects, &avg);

@@ -131,6 +131,10 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.handle.is_focused()
     }
+
+    pub fn clipboard(&self) -> Option<String> {
+        self.handle.get_clipboard_string()
+    }
 }
 
 impl Into<glfw::WindowHint> for WindowHint {
