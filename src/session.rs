@@ -2626,10 +2626,10 @@ impl Session {
                             self.proj_dirs.config_dir().display()
                         ))),
                         "s/cwd" | "cwd" => Ok(Value::Str(self.cwd.display().to_string())),
-                        "s/offset" => Ok(Value::F64Tuple(self.offset.x, self.offset.y)),
+                        "s/offset" => Ok(Value::F32Tuple(self.offset.x, self.offset.y)),
                         "v/offset" => {
                             let v = self.active_view();
-                            Ok(Value::F64Tuple(v.offset.x, v.offset.y))
+                            Ok(Value::F32Tuple(v.offset.x, v.offset.y))
                         }
                         "v/zoom" => Ok(Value::F64(self.active_view().zoom as f64)),
                         _ => match self.settings.get(s) {
