@@ -741,9 +741,6 @@ pub struct Session {
     /// Resources shared with the `Renderer`.
     resources: ResourceManager,
 
-    /// Current contents of the clipboard.
-    clipboard: Option<String>,
-
     /// Whether we should ignore characters received.
     ignore_received_characters: bool,
     /// The set of keys currently pressed.
@@ -861,7 +858,6 @@ impl Session {
             mouse_state: InputState::Released,
             hover_color: Option::default(),
             hover_view: Option::default(),
-            clipboard: Option::default(),
             fg: color::WHITE,
             bg: color::BLACK,
             settings: Settings::default(),
@@ -956,11 +952,9 @@ impl Session {
         exec: Rc<RefCell<Execution>>,
         delta: time::Duration,
         avg_time: time::Duration,
-        clipboard: Option<String>,
     ) -> Vec<Effect> {
         self.settings_changed.clear();
         self.avg_time = avg_time;
-        self.clipboard = clipboard;
 
         if let Tool::Brush(ref mut b) = self.tool {
             b.update();
@@ -2010,6 +2004,7 @@ impl Session {
             }
             Event::KeyboardInput(input) => self.handle_keyboard_input(input, exec),
             Event::ReceivedCharacter(c) => self.handle_received_character(c),
+            Event::Paste(p) => self.handle_paste(p),
         }
     }
 
@@ -2239,6 +2234,12 @@ impl Session {
         self.cursor_dirty();
     }
 
+    fn handle_paste(&mut self, paste: Option<String>) {
+        if let Some(s) = paste {
+            self.cmdline.puts(s.as_str())
+        }
+    }
+
     fn handle_received_character(&mut self, c: char) {
         if self.mode == Mode::Command {
             if c.is_control() {
@@ -2316,9 +2317,6 @@ impl Session {
                             }
                             platform::Key::Escape => {
                                 self.cmdline_hide();
-                            }
-                            platform::Key::Insert => {
-                                self.cmdline_paste();
                             }
                             _ => {}
                         }
@@ -3069,12 +3067,6 @@ impl Session {
 
     fn cmdline_hide(&mut self) {
         self.switch_mode(self.prev_mode.unwrap_or(Mode::Normal));
-    }
-
-    fn cmdline_paste(&mut self) {
-        if let Some(s) = &self.clipboard {
-            self.cmdline.puts(s.as_str());
-        }
     }
 
     fn cmdline_handle_backspace(&mut self) {

@@ -296,9 +296,24 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                 WindowEvent::MouseWheel { delta, .. } => {
                     session_events.push(Event::MouseWheel(delta));
                 }
-                WindowEvent::KeyboardInput(input) => {
-                    session_events.push(Event::KeyboardInput(input));
-                }
+                WindowEvent::KeyboardInput(input) => match input {
+                    // Intercept `<insert>` key for pasting.
+                    //
+                    // Reading from the clipboard causes the loop to wake up for some strange
+                    // reason I cannot comprehend. So we only read from clipboard when we
+                    // need to paste.
+                    platform::KeyboardInput {
+                        key: Some(platform::Key::Insert),
+                        state: platform::InputState::Pressed,
+                        modifiers: platform::ModifiersState {
+                            shift: true,
+                            ..
+                        }
+                    } => {
+                        session_events.push(Event::Paste(win.clipboard()));
+                    }
+                    _ => session_events.push(Event::KeyboardInput(input)),
+                },
                 WindowEvent::ReceivedCharacter(c) => {
                     session_events.push(Event::ReceivedCharacter(c));
                 }
@@ -322,15 +337,8 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
             continue;
         }
 
-        let effects = update_timer.run(|avg| {
-            session.update(
-                &mut session_events,
-                execution.clone(),
-                delta,
-                avg,
-                win.clipboard(),
-            )
-        });
+        let effects = update_timer
+            .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
 
         render_timer.run(|avg| {
             renderer.frame(&session, execution.clone(), effects, &avg);

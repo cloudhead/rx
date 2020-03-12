@@ -61,6 +61,7 @@ pub enum Event {
     CursorMoved(platform::LogicalPosition),
     KeyboardInput(platform::KeyboardInput),
     ReceivedCharacter(char),
+    Paste(Option<String>),
 }
 
 impl From<Event> for String {
@@ -82,6 +83,8 @@ impl From<Event> for String {
                 format!("keyboard/input {} {}", key.unwrap(), state)
             }
             Event::ReceivedCharacter(c) => format!("char/received '{}'", c),
+            Event::Paste(Some(s)) => format!("paste '{}'", s),
+            Event::Paste(None) => format!("paste ''"),
         }
     }
 }
