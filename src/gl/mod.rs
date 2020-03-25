@@ -920,6 +920,22 @@ impl Renderer {
                             batch.vertices().as_slice(),
                         ));
                 }
+                ViewOp::SetPixel(rgba, x, y) => {
+                    let fb = &self
+                        .view_data
+                        .get(&id)
+                        .expect("views must have associated view data")
+                        .fb;
+                    let mut txls: Vec<Rgba8> = Vec::with_capacity(1);
+                    txls.push(*rgba);
+                    let texels = self::align_u8(&txls);
+                    fb.color_slot().upload_part_raw(
+                        GenMipmaps::No,
+                        [*x as u32, *y as u32],
+                        [1, 1],
+                        texels,
+                    );
+                }
             }
         }
         Ok(())

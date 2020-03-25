@@ -146,6 +146,8 @@ pub enum ViewOp {
     Paste(Rect<i32>),
     /// Resize the view.
     Resize(u32, u32),
+    /// SetPixel paints a single pixel.
+    SetPixel(Rgba8, i32, i32),
 }
 
 /// A view on a sprite or image.
@@ -298,6 +300,11 @@ impl View {
     pub fn clear(&mut self, color: Rgba8) {
         self.ops.push(ViewOp::Clear(color));
         self.touch();
+    }
+
+    /// Clear the view to a color.
+    pub fn paint_color(&mut self, color: Rgba8, x: i32, y: i32) {
+        self.ops.push(ViewOp::SetPixel(color, x, y));
     }
 
     pub fn yank(&mut self, area: Rect<i32>) {
