@@ -276,6 +276,25 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             TextAlign::Right,
         );
 
+        {
+            let (color, mode) = match session.mode {
+                Mode::Normal => (color::GREY, "<Normal>"),
+                Mode::Visual(_) => (color::RED.alpha(0xdd), "<Visual>"),
+                Mode::Command => (color::WHITE, "<Command>"),
+                Mode::Help => (color::RED, "<Help>"),
+                Mode::Present => (color::TRANSPARENT, "")
+            };
+
+            text.add(
+                mode,
+                session.width - MARGIN - 50.0,
+                MARGIN + self::LINE_HEIGHT,
+                self::TEXT_LAYER,
+                color,
+                TextAlign::Right,
+            );
+        }
+
         if session.width >= 600. {
             let cursor = session.view_coords(view.id, session.cursor);
             let hover_color = session
@@ -362,6 +381,32 @@ fn draw_overlay(
     exec: Rc<RefCell<Execution>>,
 ) {
     let debug = session.settings["debug"].is_set();
+    let brush_info = session.settings["ui/brush-info"].is_set();
+
+    if brush_info {
+        let txt = match &session.tool {
+            Tool::Brush(brush) => {
+                let brush_mode: Vec<&BrushMode> = brush.modes.iter().collect();
+
+                if brush_mode.is_empty() {
+                    format!("Brush ({})", brush.size)
+                } else {
+                    format!("Brush ({}): {:?}", brush.size, brush_mode)
+                }
+            }
+            Tool::Sampler => format!("Sampler"),
+            Tool::Pan(_) => format!("Panning"),
+        };
+
+        text.add(
+            &txt,
+            session.width - MARGIN,
+            session.height - MARGIN - self::LINE_HEIGHT * 2.0,
+            ZDepth::ZERO,
+            Rgba8::WHITE,
+            TextAlign::Right,
+        );
+    }
 
     match &*exec.borrow() {
         Execution::Recording { path, .. } => {

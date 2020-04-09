@@ -539,7 +539,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             p.set_binding(&self.screen_binding, &[]);
             p.draw_buffer(&self.screen_vb);
 
-            if session.settings["debug"].is_set() || !execution.borrow().is_normal() {
+            if session.settings["debug"].is_set() || session.settings["ui/brush-info"].is_set() || !execution.borrow().is_normal() {
                 p.set_pipeline(&self.sprite2d);
                 p.draw(&overlay_buf, &self.font.binding);
             }

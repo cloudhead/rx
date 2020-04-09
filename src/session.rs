@@ -661,6 +661,7 @@ impl Default for Settings {
                 "scale" => Value::F64(1.0),
                 "animation" => Value::Bool(true),
                 "animation/delay" => Value::U32(160),
+                "ui/brush-info" => Value::Bool(true),
                 "ui/palette" => Value::Bool(true),
                 "ui/status" => Value::Bool(true),
                 "ui/cursor" => Value::Bool(true),
@@ -3061,7 +3062,7 @@ impl Session {
                     ]);
                     self.active_view_mut().touch();
                 }
-            }
+            },
         };
     }
 

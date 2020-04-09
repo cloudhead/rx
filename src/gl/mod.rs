@@ -711,7 +711,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 });
             });
 
-            if session.settings["debug"].is_set() || !execution.borrow().is_normal() {
+            if session.settings["debug"].is_set() || session.settings["ui/brush-info"].is_set() || !execution.borrow().is_normal() {
                 let bound_font = pipeline.bind_texture(font);
 
                 shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {

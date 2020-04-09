@@ -71,7 +71,7 @@ pub struct Brush {
     pub color: Rgba8,
 
     /// Currently active brush modes.
-    modes: BTreeSet<BrushMode>,
+    pub modes: BTreeSet<BrushMode>,
     /// Current brush position.
     curr: Point2<i32>,
     /// Previous brush position.
