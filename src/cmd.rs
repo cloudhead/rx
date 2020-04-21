@@ -711,9 +711,9 @@ impl Default for Commands {
                     peek(rational::<f32>())
                         .try_map(|z| {
                             if z >= 1.0 {
-                                dbg!(Ok(Command::Zoom(Op::Set(z))))
+                                Ok(Command::Zoom(Op::Set(z)))
                             } else {
-                                dbg!(Err("zoom level must be >= 1.0"))
+                                Err("zoom level must be >= 1.0")
                             }
                         })
                         .or(symbol('+')
