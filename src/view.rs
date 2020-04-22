@@ -146,7 +146,7 @@ pub enum ViewOp {
     Paste(Rect<i32>),
     /// Resize the view.
     Resize(u32, u32),
-    /// SetPixel paints a single pixel.
+    /// Paint a single pixel.
     SetPixel(Rgba8, i32, i32),
 }
 
