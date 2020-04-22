@@ -302,7 +302,6 @@ impl View {
         self.touch();
     }
 
-    /// Clear the view to a color.
     pub fn paint_color(&mut self, color: Rgba8, x: i32, y: i32) {
         self.ops.push(ViewOp::SetPixel(color, x, y));
     }
