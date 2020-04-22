@@ -3078,8 +3078,11 @@ impl Session {
                 self.active_view_mut().paint_color(bg, x, y);
             }
             Command::PaintPalette(i, x, y) => {
-                let c = self.palette.colors[i as usize];
-                self.active_view_mut().paint_color(c, x, y);
+                let c = self.palette.colors.to_vec();
+                let v = self.active_view_mut();
+                if let Some(color) = c.get(i as usize) {
+                    v.paint_color(*color, x, y);
+                }
             }
         };
     }
