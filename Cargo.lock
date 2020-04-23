@@ -544,6 +544,11 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "memoir"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "metal"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -818,6 +823,7 @@ dependencies = [
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "luminance 0.38.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "luminance-derive 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "memoir 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nonempty 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "pico-args 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "png 0.15.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1217,6 +1223,7 @@ dependencies = [
 "checksum lzw 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7d947cbb889ed21c2a84be6ffbaebf5b4e0f4340638cba0444907e38b56be084"
 "checksum malloc_buf 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 "checksum maybe-uninit 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
+"checksum memoir 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "950d6cf59fcff218f56da446229ef56fc19364b21959761d83890cbfedea0852"
 "checksum metal 0.17.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f83c7dcc2038e12f68493fa3de44235df27b2497178e257185b4b5b5d028a1e4"
 "checksum nonempty 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "4f962080273ac958f790079cfc886b5b9d722969dbd7b03f473902bdfe5c69b1"
 "checksum num-traits 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "c62be47e61d1842b9170f0fdeec8eba98e60e90e5446449a0545e5152acd7096"

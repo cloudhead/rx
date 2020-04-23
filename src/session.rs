@@ -642,8 +642,9 @@ impl Settings {
                 return Ok(self.map.insert(k.to_string(), v).unwrap());
             }
             Err(format!(
-                "invalid value `{}`, expected {}",
+                "invalid value `{}` for `{}`, expected {}",
                 v,
+                k,
                 current.description()
             ))
         } else {
@@ -3080,7 +3081,8 @@ impl Session {
             Command::PaintPalette(i, x, y) => {
                 let c = self.palette.colors.to_vec();
                 let v = self.active_view_mut();
-                if let Some(color) = c.get(i as usize) {
+
+                if let Some(color) = c.get(i) {
                     v.paint_color(*color, x, y);
                 }
             }

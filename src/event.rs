@@ -1,6 +1,8 @@
 use crate::parser;
 use crate::platform;
 
+use memoir::parsers::*;
+
 use std::str::FromStr;
 use std::time;
 
@@ -36,21 +38,26 @@ impl FromStr for TimedEvent {
     type Err = parser::Error;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let p = parser::Parser::new(input);
-        let (f, p) = p.parse::<u32>()?;
-        let (_, p) = p.whitespace()?;
-        let (d, p) = p.parse::<u32>()?;
-        let (_, p) = p.whitespace()?;
-        let (l, p) = p.leftover()?;
-        let (_, _) = p.finish()?;
+        let result = natural::<u32>()
+            .skip(whitespace())
+            .then(natural::<u32>())
+            .skip(whitespace())
+            .then(until(end()))
+            .try_map(|((f, d), l)| {
+                Event::from_str(&l)
+                    .map(|e| TimedEvent {
+                        frame: f as u64,
+                        delta: time::Duration::from_millis(d as u64),
+                        event: e,
+                    })
+                    .map_err(|e| e.to_string())
+            })
+            .parse(input);
 
-        let e = Event::from_str(l)?;
-
-        Ok(TimedEvent {
-            frame: f as u64,
-            delta: time::Duration::from_millis(d as u64),
-            event: e,
-        })
+        match result {
+            Ok((out, _)) => Ok(out),
+            Err((err, _)) => Err(err),
+        }
     }
 }
 
@@ -93,30 +100,43 @@ impl FromStr for Event {
     type Err = parser::Error;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let p = parser::Parser::new(input);
-        let (event, p) = p.word()?;
-        let (_, p) = p.whitespace()?;
+        let (event, p) = parser::identifier()
+            .skip(whitespace())
+            .parse(input)
+            .map_err(|(e, _)| e)?;
 
-        let result: Result<(Self, parser::Parser), Self::Err> = match event {
+        let result: Result<(Self, &str), Self::Err> = match event.as_str() {
             "mouse/input" => {
-                let (s, p) = p.parse::<platform::InputState>()?;
+                let (s, p) = parser::param::<platform::InputState>()
+                    .followed_by(end())
+                    .parse(p)
+                    .map_err(|(e, _)| e)?;
                 Ok((Event::MouseInput(platform::MouseButton::Left, s), p))
             }
             "mouse/wheel" => {
-                let ((x, y), p) = p.parse::<(f64, f64)>()?;
+                let ((x, y), p) = parser::tuple::<f64>(rational(), rational())
+                    .followed_by(end())
+                    .parse(p)
+                    .map_err(|(e, _)| e)?;
                 Ok((Event::MouseWheel(platform::LogicalDelta { x, y }), p))
             }
             "cursor/moved" => {
-                let ((x, y), p) = p.parse::<(f64, f64)>()?;
+                let ((x, y), p) = parser::tuple::<f64>(rational(), rational())
+                    .followed_by(end())
+                    .parse(p)
+                    .map_err(|(e, _)| e)?;
                 Ok((
                     Event::CursorMoved(platform::LogicalPosition::new(x as f64, y as f64)),
                     p,
                 ))
             }
             "keyboard/input" => {
-                let (k, p) = p.parse::<platform::Key>()?;
-                let (_, p) = p.whitespace()?;
-                let (s, p) = p.parse::<platform::InputState>()?;
+                let ((k, s), p) = parser::param::<platform::Key>()
+                    .skip(whitespace())
+                    .then(parser::param::<platform::InputState>())
+                    .followed_by(end())
+                    .parse(p)
+                    .map_err(|(e, _)| e)?;
                 Ok((
                     Event::KeyboardInput(platform::KeyboardInput {
                         state: s,
@@ -127,7 +147,10 @@ impl FromStr for Event {
                 ))
             }
             "char/received" => {
-                let (c, p) = p.character()?;
+                let (c, p) = between('\'', '\'', character())
+                    .followed_by(end())
+                    .parse(p)
+                    .map_err(|(e, _)| e)?;
                 Ok((Event::ReceivedCharacter(c), p))
             }
             event => Err(parser::Error::new(format!(
@@ -136,8 +159,8 @@ impl FromStr for Event {
             ))),
         };
 
-        let (event, p) = result?;
-        p.finish()?;
+        let (event, rest) = result?;
+        assert!(rest.is_empty());
 
         Ok(event)
     }
