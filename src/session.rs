@@ -32,7 +32,6 @@ use std::io::Write;
 use std::ops::{Add, Deref, Sub};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::str::FromStr;
 use std::time;
 
 /// Help string.
@@ -2392,7 +2391,7 @@ impl Session {
             if line.starts_with(cmd::COMMENT) {
                 continue;
             }
-            match Command::from_str(&format!(":{}", line)) {
+            match self.cmdline.parse(&format!(":{}", line)) {
                 Err(e) => {
                     return Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -3112,7 +3111,7 @@ impl Session {
             return;
         }
 
-        match Command::from_str(&input) {
+        match self.cmdline.parse(&input) {
             Err(e) => self.message(format!("Error: {}", e), MessageType::Error),
             Ok(cmd) => {
                 self.command(cmd);

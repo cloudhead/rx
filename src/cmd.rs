@@ -1,7 +1,6 @@
 use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
 use crate::brush::{Brush, BrushMode};
 use crate::history::History;
-use crate::parser;
 use crate::parser::*;
 use crate::platform;
 use crate::session::{Direction, Mode, PanState, Tool, VisualState};
@@ -14,8 +13,6 @@ use rgx::rect::Rect;
 
 use std::fmt;
 use std::path::Path;
-use std::result;
-use std::str::FromStr;
 
 pub const COMMENT: char = '-';
 
@@ -440,13 +437,12 @@ pub struct CommandLine {
     pub autocomplete: Autocomplete<CommandCompleter>,
     /// Input cursor position.
     pub cursor: usize,
+    /// Parser.
+    pub parser: Parser<Command>,
     /// The current input string displayed to the user.
     input: String,
     /// File extensions supported.
     extensions: Vec<String>,
-    /// Parser.
-    #[allow(dead_code)]
-    parser: Parser<Command>,
 }
 
 impl CommandLine {
@@ -458,16 +454,23 @@ impl CommandLine {
         Self {
             input: String::with_capacity(Self::MAX_INPUT),
             cursor: 0,
+            parser: cmds.line_parser(),
             history: History::new(history_path, 1024),
             autocomplete: Autocomplete::new(CommandCompleter::new(cwd, extensions)),
             extensions: extensions.iter().map(|e| (*e).into()).collect(),
-            parser: cmds.line_parser(),
         }
     }
 
     pub fn set_cwd(&mut self, path: &Path) {
         let exts: Vec<_> = self.extensions.iter().map(|s| s.as_str()).collect();
         self.autocomplete = Autocomplete::new(CommandCompleter::new(path, exts.as_slice()));
+    }
+
+    pub fn parse(&self, input: &str) -> Result<Command, Error> {
+        match self.parser.parse(input) {
+            Ok((cmd, _)) => Ok(cmd),
+            Err((err, _)) => Err(err),
+        }
     }
 
     pub fn input(&self) -> String {
@@ -874,24 +877,6 @@ impl Default for Commands {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-impl FromStr for Command {
-    type Err = parser::Error;
-
-    fn from_str(input: &str) -> result::Result<Self, Self::Err> {
-        // TODO: This should be taken from `CommandLine`.
-        let p = Commands::default().line_parser();
-
-        match p.parse(input) {
-            Ok((cmd, rest)) => {
-                assert_eq!(rest, "");
-                Ok(cmd)
-            }
-            // TODO: Use `enum` for error.
-            Err((e, _rest)) => Err(e),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct CommandCompleter {
