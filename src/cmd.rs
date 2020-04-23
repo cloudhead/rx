@@ -188,7 +188,7 @@ impl fmt::Display for Command {
                 write!(f, "Move selection backward by one frame")
             }
             Self::SelectionErase => write!(f, "Erase selection contents"),
-            Self::PaintColor(Rgba8::GREEN, x, y) => write!(f, "Paint {:2},{:2}", x, y),
+            Self::PaintColor(_, x, y) => write!(f, "Paint {:2},{:2}", x, y),
             _ => write!(f, "..."),
         }
     }
@@ -270,7 +270,7 @@ impl KeyMapping {
                     match Commands::default().parser().parse(&input[..i]) {
                         Ok((cmd, rest)) if rest.is_empty() => Ok((cmd, &input[i..])),
                         Ok((_, rest)) => {
-                            Err((format!("Expected {:?}, got {:?}", '}', rest).into(), rest))
+                            Err((format!("expected {:?}, got {:?}", '}', rest).into(), rest))
                         }
                         Err(err) => Err(err),
                     }
