@@ -121,6 +121,30 @@ impl<'a> Parse<'a> for (i32, i32) {
     }
 }
 
+impl<'a> Parse<'a> for (Rgba8, i32, i32) {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        let (c, p) = p.parse::<Rgba8>()?;
+        let (_, p) = p.whitespace()?;
+        let (w, p) = p.parse::<i32>()?;
+        let (_, p) = p.whitespace()?;
+        let (h, p) = p.parse::<i32>()?;
+
+        Ok(((c, w, h), p))
+    }
+}
+
+impl<'a> Parse<'a> for (i32, i32, i32) {
+    fn parse(p: Parser<'a>) -> Result<'a, Self> {
+        let (i, p) = p.parse::<i32>()?;
+        let (_, p) = p.whitespace()?;
+        let (w, p) = p.parse::<i32>()?;
+        let (_, p) = p.whitespace()?;
+        let (h, p) = p.parse::<i32>()?;
+
+        Ok(((i, w, h), p))
+    }
+}
+
 impl<'a> Parse<'a> for (f64, f64) {
     fn parse(p: Parser<'a>) -> Result<'a, Self> {
         let (x, p) = p.parse::<f64>()?;
@@ -339,10 +363,10 @@ impl<'a> Parser<'a> {
 
     pub fn identifier(self) -> Result<'a, &'a str> {
         self.expect(|c| {
-            (c.is_ascii_lowercase()
+            c.is_ascii_lowercase()
                 || c.is_ascii_uppercase()
                 || c.is_ascii_digit()
-                || [':', '/', '_', '+', '-', '!', '?'].contains(&c))
+                || [':', '/', '_', '+', '-', '!', '?'].contains(&c)
         })
     }
 

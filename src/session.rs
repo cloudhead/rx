@@ -67,6 +67,10 @@ pub const HELP: &str = r#"
 :p/add <color>           Add <color> to the palette, eg. #ff0011
 :brush/set <mode>        Set brush mode, eg. `xsym` and `ysym` for symmetry
 :brush/unset <mode>      Unset brush mode
+:paint/color <c> <x> <y> Paint <x>, <y> with color <c>
+:paint/fg <x> <y>        Paint <x>, <y> with the foreground color
+:paint/bg <x> <y>        Paint <x>, <y> with the background color
+:paint/p <index> <x> <y> Paint <x>, <y> with the color at <index> (palette)
 
 SETTINGS
 
@@ -3060,6 +3064,24 @@ impl Session {
                         )]),
                     ]);
                     self.active_view_mut().touch();
+                }
+            }
+            Command::PaintColor(rgba, x, y) => {
+                self.active_view_mut().paint_color(rgba, x, y);
+            }
+            Command::PaintForeground(x, y) => {
+                let fg = self.fg;
+                self.active_view_mut().paint_color(fg, x, y);
+            }
+            Command::PaintBackground(x, y) => {
+                let bg = self.bg;
+                self.active_view_mut().paint_color(bg, x, y);
+            }
+            Command::PaintPalette(i, x, y) => {
+                let c = self.palette.colors.to_vec();
+                let v = self.active_view_mut();
+                if let Some(color) = c.get(i as usize) {
+                    v.paint_color(*color, x, y);
                 }
             }
         };

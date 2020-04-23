@@ -54,6 +54,10 @@ pub enum Command {
     PaletteSort,
     PaletteWrite(String),
     Pan(i32, i32),
+    PaintColor(Rgba8, i32, i32),
+    PaintForeground(i32, i32),
+    PaintBackground(i32, i32),
+    PaintPalette(i32, i32, i32),
     Quit,
     QuitAll,
     Reset,
@@ -183,6 +187,7 @@ impl fmt::Display for Command {
                 write!(f, "Move selection backward by one frame")
             }
             Self::SelectionErase => write!(f, "Erase selection contents"),
+            Self::PaintColor(Rgba8::GREEN, x, y) => write!(f, "Paint {:2},{:2}", x, y),
             _ => write!(f, "..."),
         }
     }
@@ -859,6 +864,22 @@ impl<'a> Parse<'a> for Command {
                 } else {
                     Ok((Command::SelectionFill(None), p))
                 }
+            }
+            "paint/color" => {
+                let ((rgba, x, y), p) = p.parse::<(Rgba8, i32, i32)>()?;
+                Ok((Command::PaintColor(rgba, x, y), p))
+            }
+            "paint/fg" => {
+                let ((x, y), p) = p.parse::<(i32, i32)>()?;
+                Ok((Command::PaintForeground(x, y), p))
+            }
+            "paint/bg" => {
+                let ((x, y), p) = p.parse::<(i32, i32)>()?;
+                Ok((Command::PaintBackground(x, y), p))
+            }
+            "paint/p" => {
+                let ((i, x, y), p) = p.parse::<(i32, i32, i32)>()?;
+                Ok((Command::PaintPalette(i, x, y), p))
             }
             unrecognized => Err(Error::new(format!(
                 "unrecognized command ':{}'",
