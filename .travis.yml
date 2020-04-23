@@ -3,6 +3,8 @@ rust:
   - stable
   - beta
   - nightly
+env:
+  - RUSTFLAGS="-D warnings"
 jobs:
   fast_finish: true
 cache: cargo
