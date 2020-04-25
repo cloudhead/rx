@@ -35,7 +35,7 @@ impl fmt::Display for ViewId {
 /// View coordinates.
 ///
 /// These coordinates are relative to the bottom left corner of the view.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ViewCoords<T>(Point2<T>);
 
 impl<T> ViewCoords<T> {
@@ -117,6 +117,12 @@ impl ViewExtent {
     pub fn frame(&self, n: usize) -> Rect<u32> {
         let n = n as u32;
         Rect::new(self.fw * n, 0, self.fw * n + self.fw, self.fh)
+    }
+
+    /// Compute the frame index, given a point.
+    /// Warning: can underflow.
+    pub fn to_frame(&self, p: ViewCoords<u32>) -> usize {
+        (p.x / (self.fw as u32)) as usize
     }
 }
 

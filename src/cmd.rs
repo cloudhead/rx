@@ -48,6 +48,8 @@ pub enum Command {
     AddFrame,
     CloneFrame(i32),
     RemoveFrame,
+    FramePrev,
+    FrameNext,
     Noop,
     PaletteAdd(Rgba8),
     PaletteClear,
@@ -856,6 +858,12 @@ impl Default for Commands {
                 "Remove the last frame from the active view",
                 |p| p.value(Command::RemoveFrame),
             )
+            .command("f/prev", "Navigate to previous frame", |p| {
+                p.value(Command::FramePrev)
+            })
+            .command("f/next", "Navigate to next frame", |p| {
+                p.value(Command::FrameNext)
+            })
             .command("f/resize", "Resize the active view frame(s)", |p| {
                 p.then(tuple::<u32>(
                     natural().label("<width>"),

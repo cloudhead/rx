@@ -2432,8 +2432,19 @@ impl Session {
         self.center_active_view_h();
     }
 
+    /// Center the given frame of the active view in the workspace.
+    fn center_active_view_frame(&mut self, frame: usize) {
+        self.center_active_view_v();
+
+        if let Some(v) = self.views.active() {
+            let offset = (frame as u32 * v.fw) as f32 * v.zoom - v.offset.x;
+
+            self.offset.x = (self.width / 2. - offset).floor() - (v.fw as f32 / 2.) * v.zoom;
+            self.cursor_dirty();
+        }
+    }
+
     /// The session center.
-    #[allow(dead_code)]
     fn center(&self) -> SessionCoords {
         SessionCoords::new(self.width / 2., self.height / 2.)
     }
@@ -2607,6 +2618,26 @@ impl Session {
 
                 self.check_selection();
                 self.organize_views();
+            }
+            Command::FramePrev => {
+                let v = self.active_view().extent();
+                let center = self.active_view_coords(self.center());
+
+                if center.x >= 0. {
+                    let frame = v.to_frame(center.into()).min(v.nframes);
+                    self.center_active_view_frame(frame.saturating_sub(1));
+                }
+            }
+            Command::FrameNext => {
+                let v = self.active_view().extent();
+                let center = self.active_view_coords(self.center());
+                let frame = v.to_frame(center.into());
+
+                if center.x < 0. {
+                    self.center_active_view_frame(0);
+                } else if frame <= v.nframes - 1 {
+                    self.center_active_view_frame((frame + 1).min(v.nframes - 1));
+                }
             }
             Command::ForceQuit => self.quit_view(self.views.active_id),
             Command::ForceQuitAll => self.quit(ExitReason::Normal),
