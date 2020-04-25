@@ -32,46 +32,10 @@ use std::io::Write;
 use std::ops::{Add, Deref, Sub};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::str::FromStr;
 use std::time;
 
-/// Help string.
-pub const HELP: &str = r#"
-:help                    Toggle this help
-:e <path..>              Edit path(s)
-:w [<path>]              Write view / Write view as <path>
-:q                       Quit view
-:q!                      Force quit view
-:qa!                     Force quit all views
-:echo <setting>          Echo the current value of <setting>
-:echo "pixel!"           Echo the string "pixel!"
-:echo cwd                Echo current working directory
-:cd <dir>                Change current directory to <dir>
-:set <setting> = <val>   Set <setting> to <val>
-:set <setting>           Set <setting> to `on`
-:unset <setting>         Set <setting> to `off`
-:toggle <setting>        Toggle <setting> `on` / `off`
-:slice <n>               Slice view into <n> frames
-:source <path>           Source an rx script (eg. a palette or config)
-:map <key> <command>     Map a key combination to a command
-:f/resize <w> <h>        Resize frames
-:f/add                   Add a blank frame to the view
-:f/remove                Remove the last frame of the view
-:f/clone <index>         Clone frame <index> and add it to the view
-:f/clone                 Clone the last frame and add it to the view
-:v/clear <color>         Clear the view with <color>
-:p/clear                 Clear the palette
-:p/sample                Sample palette colors from the view
-:p/sort                  Sort palette colors
-:p/write <path>          Write the palette to a file
-:p/add <color>           Add <color> to the palette, eg. #ff0011
-:brush/set <mode>        Set brush mode, eg. `xsym` and `ysym` for symmetry
-:brush/unset <mode>      Unset brush mode
-:paint/color <c> <x> <y> Paint <x>, <y> with color <c>
-:paint/fg <x> <y>        Paint <x>, <y> with the foreground color
-:paint/bg <x> <y>        Paint <x>, <y> with the background color
-:paint/p <index> <x> <y> Paint <x>, <y> with the color at <index> (palette)
-
+/// Settings help string.
+pub const SETTINGS: &str = r#"
 SETTINGS
 
 debug             on/off             Debug mode
@@ -80,7 +44,7 @@ vsync             on/off             Vertical sync toggle
 scale             1.0..4.0           UI scale
 animation         on/off             View animation toggle
 animation/delay   1..1000            View animation delay (ms)
-background        #000000..#ffffff   Set background appearance to <color>, eg. #ff0011
+background        #000000..#ffffff   Set background appearance to <color>
 grid              on/off             Grid display
 grid/color        #000000..#ffffff   Grid color
 grid/spacing      <x> <y>            Grid spacing
@@ -642,8 +606,9 @@ impl Settings {
                 return Ok(self.map.insert(k.to_string(), v).unwrap());
             }
             Err(format!(
-                "invalid value `{}`, expected {}",
+                "invalid value `{}` for `{}`, expected {}",
                 v,
+                k,
                 current.description()
             ))
         } else {
@@ -1197,6 +1162,15 @@ impl Session {
     /// Check whether the session is running.
     pub fn is_running(&self) -> bool {
         self.state == State::Running
+    }
+
+    /// Return help string.
+    pub fn help(&self) -> Vec<String> {
+        self.cmdline
+            .commands
+            .iter()
+            .map(|(_, help, parser)| format!(":{:<36} {}", parser.to_string(), help))
+            .collect()
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -2391,7 +2365,7 @@ impl Session {
             if line.starts_with(cmd::COMMENT) {
                 continue;
             }
-            match Command::from_str(&format!(":{}", line)) {
+            match self.cmdline.parse(&format!(":{}", line)) {
                 Err(e) => {
                     return Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -3080,7 +3054,8 @@ impl Session {
             Command::PaintPalette(i, x, y) => {
                 let c = self.palette.colors.to_vec();
                 let v = self.active_view_mut();
-                if let Some(color) = c.get(i as usize) {
+
+                if let Some(color) = c.get(i) {
                     v.paint_color(*color, x, y);
                 }
             }
@@ -3110,7 +3085,7 @@ impl Session {
             return;
         }
 
-        match Command::from_str(&input) {
+        match self.cmdline.parse(&input) {
             Err(e) => self.message(format!("Error: {}", e), MessageType::Error),
             Ok(cmd) => {
                 self.command(cmd);

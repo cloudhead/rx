@@ -1,17 +1,18 @@
 use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
 use crate::brush::{Brush, BrushMode};
 use crate::history::History;
-use crate::parser::{Error, Parse, Parser, Result};
+use crate::parser::*;
 use crate::platform;
 use crate::session::{Direction, Mode, PanState, Tool, VisualState};
+
+use memoir::traits::Parse;
+use memoir::*;
 
 use rgx::kit::Rgba8;
 use rgx::rect::Rect;
 
 use std::fmt;
 use std::path::Path;
-use std::result;
-use std::str::FromStr;
 
 pub const COMMENT: char = '-';
 
@@ -57,7 +58,7 @@ pub enum Command {
     PaintColor(Rgba8, i32, i32),
     PaintForeground(i32, i32),
     PaintBackground(i32, i32),
-    PaintPalette(i32, i32, i32),
+    PaintPalette(usize, i32, i32),
     Quit,
     QuitAll,
     Reset,
@@ -187,7 +188,7 @@ impl fmt::Display for Command {
                 write!(f, "Move selection backward by one frame")
             }
             Self::SelectionErase => write!(f, "Erase selection contents"),
-            Self::PaintColor(Rgba8::GREEN, x, y) => write!(f, "Paint {:2},{:2}", x, y),
+            Self::PaintColor(_, x, y) => write!(f, "Paint {:2},{:2}", x, y),
             _ => write!(f, "..."),
         }
     }
@@ -242,40 +243,6 @@ impl From<Command> for String {
     }
 }
 
-impl<'a> Parse<'a> for platform::Key {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        if let Ok((_, p)) = p.clone().sigil('<') {
-            let (key, p) = p.alpha()?;
-            let (_, p) = p.sigil('>')?;
-            let key = match key {
-                "up" => platform::Key::Up,
-                "down" => platform::Key::Down,
-                "left" => platform::Key::Left,
-                "right" => platform::Key::Right,
-                "ctrl" => platform::Key::Control,
-                "alt" => platform::Key::Alt,
-                "shift" => platform::Key::Shift,
-                "space" => platform::Key::Space,
-                "return" => platform::Key::Return,
-                "backspace" => platform::Key::Backspace,
-                "tab" => platform::Key::Tab,
-                "end" => platform::Key::End,
-                "esc" => platform::Key::Escape,
-                other => return Err(Error::new(format!("unknown key <{}>", other))),
-            };
-            Ok((key, p))
-        } else {
-            let (c, p) = p.parse::<char>()?;
-            let key: platform::Key = c.into();
-
-            if key == platform::Key::Unknown {
-                return Err(Error::new(format!("unknown key {:?}", c)));
-            }
-            Ok((key, p))
-        }
-    }
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(PartialEq, Debug, Clone)]
@@ -287,30 +254,44 @@ pub struct KeyMapping {
 }
 
 impl KeyMapping {
-    fn parse<'a>(p: Parser<'a>, modes: &[Mode]) -> Result<'a, Self> {
+    pub fn parser(modes: &[Mode]) -> Parser<KeyMapping> {
         let modes = modes.to_vec();
 
-        let (key, p) = p.parse::<platform::Key>()?;
-        let (_, p) = p.whitespace()?;
-        let (press, p) = p.parse::<Command>()?;
-        let (_, p) = p.whitespace()?;
+        // Prevent stack overflow.
+        let press = Parser::new(
+            move |input| Commands::default().parser().parse(input),
+            "<cmd>",
+        );
 
-        let (release, p) = if let Ok((_, p)) = p.clone().sigil('{') {
-            let (cmd, p) = p.parse::<Command>()?;
-            let (_, p) = p.sigil('}')?;
-            (Some(cmd), p)
-        } else {
-            (None, p)
-        };
-        Ok((
-            KeyMapping {
+        // Prevent stack overflow.
+        let release = Parser::new(
+            move |input| {
+                if let Some(i) = input.bytes().position(|c| c == '}' as u8) {
+                    match Commands::default().parser().parse(&input[..i]) {
+                        Ok((cmd, rest)) if rest.is_empty() => Ok((cmd, &input[i..])),
+                        Ok((_, rest)) => {
+                            Err((format!("expected {:?}, got {:?}", '}', rest).into(), rest))
+                        }
+                        Err(err) => Err(err),
+                    }
+                } else {
+                    Err(("unclosed '{' delimiter".into(), input))
+                }
+            },
+            "<cmd>",
+        );
+
+        param::<platform::Key>()
+            .skip(whitespace())
+            .then(press)
+            .skip(optional(whitespace()))
+            .then(optional(between('{', '}', release).label("{<cmd>}")))
+            .map(move |((key, press), release)| KeyMapping {
                 key,
                 press,
                 release,
-                modes,
-            },
-            p,
-        ))
+                modes: modes.clone(),
+            })
     }
 }
 
@@ -398,38 +379,6 @@ impl Into<f64> for Value {
     }
 }
 
-impl<'a> Parse<'a> for Value {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let c = p.peek();
-
-        if c == Some('"') {
-            let (v, p) = p.string()?;
-            Ok((Value::Str(v.to_string()), p))
-        } else if c == Some('#') {
-            let (v, p) = p.parse::<Rgba8>()?;
-            Ok((Value::Rgba8(v), p))
-        } else if c.map_or(false, |c| c.is_digit(10)) {
-            if let Ok(((x, y), p)) = p.clone().parse::<(u32, u32)>() {
-                Ok((Value::U32Tuple(x, y), p))
-            } else if let Ok((v, p)) = p.clone().parse::<u32>() {
-                Ok((Value::U32(v), p))
-            } else if let Ok((v, p)) = p.clone().parse::<f64>() {
-                Ok((Value::F64(v), p))
-            } else {
-                let (input, _) = p.until(|c| c.is_whitespace())?;
-                Err(Error::new(format!("malformed number: `{}`", input)))
-            }
-        } else {
-            let (i, p) = p.identifier()?;
-            match i {
-                "on" => Ok((Value::Bool(true), p)),
-                "off" => Ok((Value::Bool(false), p)),
-                _ => Ok((Value::Ident(i.to_string()), p)),
-            }
-        }
-    }
-}
-
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -446,9 +395,37 @@ impl fmt::Display for Value {
     }
 }
 
+impl Parse for Value {
+    fn parser() -> Parser<Self> {
+        let str_val = quoted().map(Value::Str).label("<string>");
+        let rgba8_val = color().map(Value::Rgba8);
+        let u32_tuple_val = tuple::<u32>(natural(), natural()).map(|(x, y)| Value::U32Tuple(x, y));
+        let u32_val = natural::<u32>().map(Value::U32);
+        let f64_tuple_val =
+            tuple::<f32>(rational(), rational()).map(|(x, y)| Value::F32Tuple(x, y));
+        let f64_val = rational::<f64>().map(Value::F64).label("0.0 .. 4096.0");
+        let bool_val = string("on")
+            .value(Value::Bool(true))
+            .or(string("off").value(Value::Bool(false)))
+            .label("on/off");
+        let ident_val = identifier().map(Value::Ident);
+
+        greediest(vec![
+            rgba8_val,
+            u32_tuple_val,
+            f64_tuple_val,
+            u32_val,
+            f64_val,
+            bool_val,
+            ident_val,
+            str_val,
+        ])
+        .label("<value>")
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Debug)]
 pub struct CommandLine {
     /// The history of commands entered.
     pub history: History,
@@ -456,6 +433,10 @@ pub struct CommandLine {
     pub autocomplete: Autocomplete<CommandCompleter>,
     /// Input cursor position.
     pub cursor: usize,
+    /// Parser.
+    pub parser: Parser<Command>,
+    /// Commands.
+    pub commands: Commands,
     /// The current input string displayed to the user.
     input: String,
     /// File extensions supported.
@@ -466,9 +447,13 @@ impl CommandLine {
     const MAX_INPUT: usize = 256;
 
     pub fn new<P: AsRef<Path>>(cwd: P, history_path: P, extensions: &[&str]) -> Self {
+        let cmds = Commands::default();
+
         Self {
             input: String::with_capacity(Self::MAX_INPUT),
             cursor: 0,
+            parser: cmds.line_parser(),
+            commands: cmds,
             history: History::new(history_path, 1024),
             autocomplete: Autocomplete::new(CommandCompleter::new(cwd, extensions)),
             extensions: extensions.iter().map(|e| (*e).into()).collect(),
@@ -478,6 +463,13 @@ impl CommandLine {
     pub fn set_cwd(&mut self, path: &Path) {
         let exts: Vec<_> = self.extensions.iter().map(|s| s.as_str()).collect();
         self.autocomplete = Autocomplete::new(CommandCompleter::new(path, exts.as_slice()));
+    }
+
+    pub fn parse(&self, input: &str) -> Result<Command, Error> {
+        match self.parser.parse(input) {
+            Ok((cmd, _)) => Ok(cmd),
+            Err((err, _)) => Err(err),
+        }
     }
 
     pub fn input(&self) -> String {
@@ -604,290 +596,346 @@ impl CommandLine {
     }
 }
 
+pub struct Commands {
+    commands: Vec<(&'static str, &'static str, Parser<Command>)>,
+}
+
+impl Commands {
+    pub fn new() -> Self {
+        Self {
+            commands: vec![(
+                "#",
+                "Add color to palette",
+                color().map(Command::PaletteAdd),
+            )],
+        }
+    }
+
+    pub fn parser(&self) -> Parser<Command> {
+        use std::iter;
+
+        let noop = expect(|s| s.is_empty(), "<empty>").value(Command::Noop);
+        let commands = self.commands.iter().map(|(_, _, v)| v.clone());
+        let choices = commands.chain(iter::once(noop)).collect();
+
+        symbol(':')
+            .then(
+                choice(choices).or(peek(
+                    until(hush(whitespace()).or(end()))
+                        .try_map(|cmd| Err(format!("unknown command: {}", cmd))),
+                )),
+            )
+            .map(|(_, cmd)| cmd)
+    }
+
+    pub fn line_parser(&self) -> Parser<Command> {
+        self.parser()
+            .skip(optional(whitespace()))
+            .skip(optional(comment()))
+            .end()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(&'static str, &'static str, Parser<Command>)> {
+        self.commands.iter()
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+
+    fn command<F>(mut self, name: &'static str, help: &'static str, f: F) -> Self
+    where
+        F: Fn(Parser<String>) -> Parser<Command>,
+    {
+        let cmd = peek(
+            string(name)
+                .followed_by(hush(whitespace()) / end())
+                .skip(optional(whitespace())),
+        )
+        .label(name);
+
+        self.commands.push((name, help, f(cmd)));
+        self
+    }
+}
+
+impl Default for Commands {
+    fn default() -> Self {
+        Self::new()
+            .command("q", "Quit view", |p| p.value(Command::Quit))
+            .command("qa", "Quit all views", |p| p.value(Command::QuitAll))
+            .command("q!", "Force quit view", |p| p.value(Command::ForceQuit))
+            .command("qa!", "Force quit all views", |p| {
+                p.value(Command::ForceQuitAll)
+            })
+            .command("wq", "Write & quit view", |p| p.value(Command::WriteQuit))
+            .command("x", "Write & quit view", |p| p.value(Command::WriteQuit))
+            .command("w", "Write view", |p| {
+                p.then(optional(path()))
+                    .map(|(_, path)| Command::Write(path))
+            })
+            .command("w/frames", "Write view as individual frames", |p| {
+                p.then(optional(path()))
+                    .map(|(_, dir)| Command::WriteFrames(dir))
+            })
+            .command("e", "Edit path(s)", |p| {
+                p.then(paths()).map(|(_, paths)| Command::Edit(paths))
+            })
+            .command("e/frames", "Edit frames as view", |p| {
+                p.then(paths()).map(|(_, paths)| Command::EditFrames(paths))
+            })
+            .command("help", "Display help", |p| {
+                p.value(Command::Mode(Mode::Help))
+            })
+            .command("set", "Set setting to value", |p| {
+                p.then(setting())
+                    .skip(optional(whitespace()))
+                    .then(optional(
+                        symbol('=')
+                            .skip(optional(whitespace()))
+                            .then(Value::parser())
+                            .map(|(_, v)| v),
+                    ))
+                    .map(|((_, k), v)| Command::Set(k, v.unwrap_or(Value::Bool(true))))
+            })
+            .command("unset", "Set setting to `off`", |p| {
+                p.then(setting())
+                    .map(|(_, k)| Command::Set(k, Value::Bool(false)))
+            })
+            .command("toggle", "Toggle setting", |p| {
+                p.then(setting()).map(|(_, k)| Command::Toggle(k))
+            })
+            .command("echo", "Echo setting or value", |p| {
+                p.then(Value::parser()).map(|(_, v)| Command::Echo(v))
+            })
+            .command("slice", "Slice view into <n> frames", |p| {
+                p.then(optional(natural::<usize>().label("<n>")))
+                    .map(|(_, n)| Command::Slice(n))
+            })
+            .command(
+                "source",
+                "Source an rx script (eg. palette or config)",
+                |p| p.then(optional(path())).map(|(_, p)| Command::Source(p)),
+            )
+            .command("cd", "Change current directory", |p| {
+                p.then(optional(path())).map(|(_, p)| Command::ChangeDir(p))
+            })
+            .command("zoom", "Zoom view", |p| {
+                p.then(
+                    peek(rational::<f32>().label("<level>"))
+                        .try_map(|z| {
+                            if z >= 1.0 {
+                                Ok(Command::Zoom(Op::Set(z)))
+                            } else {
+                                Err("zoom level must be >= 1.0")
+                            }
+                        })
+                        .or(symbol('+')
+                            .value(Command::Zoom(Op::Incr))
+                            .or(symbol('-').value(Command::Zoom(Op::Decr)))
+                            .or(fail("couldn't parse zoom parameter")))
+                        .label("+/-"),
+                )
+                .map(|(_, cmd)| cmd)
+            })
+            .command("brush/size", "Set brush size", |p| {
+                p.then(
+                    natural::<usize>()
+                        .label("<size>")
+                        .map(|z| Command::BrushSize(Op::Set(z as f32)))
+                        .or(symbol('+')
+                            .value(Command::BrushSize(Op::Incr))
+                            .or(symbol('-').value(Command::BrushSize(Op::Decr)))
+                            .or(fail("couldn't parse brush size parameter")))
+                        .label("+/-"),
+                )
+                .map(|(_, cmd)| cmd)
+            })
+            .command(
+                "brush/set",
+                "Set brush mode, eg. `xsym` for x-symmetry",
+                |p| {
+                    p.then(param::<BrushMode>())
+                        .map(|(_, m)| Command::BrushSet(m))
+                },
+            )
+            .command("brush/unset", "Unset brush mode", |p| {
+                p.then(param::<BrushMode>())
+                    .map(|(_, m)| Command::BrushUnset(m))
+            })
+            .command("brush/toggle", "Toggle brush mode", |p| {
+                p.then(param::<BrushMode>())
+                    .map(|(_, m)| Command::BrushToggle(m))
+            })
+            .command("brush", "Switch to default brush", |p| {
+                p.value(Command::Tool(Tool::Brush(Brush::default())))
+            })
+            .command("mode", "Set session mode, eg. `visual` or `normal`", |p| {
+                p.then(param::<Mode>()).map(|(_, m)| Command::Mode(m))
+            })
+            .command("visual", "Set session mode to visual", |p| {
+                p.map(|_| Command::Mode(Mode::Visual(VisualState::default())))
+            })
+            .command("sampler/off", "Switch the sampler tool off", |p| {
+                p.value(Command::ToolPrev)
+            })
+            .command("sampler", "Switch to the sampler tool", |p| {
+                p.value(Command::Tool(Tool::Sampler))
+            })
+            .command("v/next", "Activate the next view", |p| {
+                p.value(Command::ViewNext)
+            })
+            .command("v/prev", "Activate the previous view", |p| {
+                p.value(Command::ViewPrev)
+            })
+            .command("v/center", "Center the active view", |p| {
+                p.value(Command::ViewCenter)
+            })
+            .command("v/clear", "Clear the active view", |p| {
+                choice(vec![
+                    peek(p.clone().then(color()).map(|(_, rgba)| Command::Fill(rgba))),
+                    p.value(Command::Fill(Rgba8::TRANSPARENT)),
+                ])
+            })
+            .command("pan", "Switch to the pan tool", |p| {
+                p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|(_, (x, y))| Command::Pan(x, y))
+            })
+            .command("map", "Map keys to a command in all modes", |p| {
+                p.then(KeyMapping::parser(&[
+                    Mode::Normal,
+                    Mode::Visual(VisualState::selecting()),
+                    Mode::Visual(VisualState::Pasting),
+                ]))
+                .map(|(_, km)| Command::Map(Box::new(km)))
+            })
+            .command("map/visual", "Map keys to a command in visual mode", |p| {
+                p.then(KeyMapping::parser(&[
+                    Mode::Visual(VisualState::selecting()),
+                    Mode::Visual(VisualState::Pasting),
+                ]))
+                .map(|(_, km)| Command::Map(Box::new(km)))
+            })
+            .command("map/normal", "Map keys to a command in normal mode", |p| {
+                p.then(KeyMapping::parser(&[Mode::Normal]))
+                    .map(|(_, km)| Command::Map(Box::new(km)))
+            })
+            .command("map/clear!", "Clear all key mappings", |p| {
+                p.value(Command::MapClear)
+            })
+            .command("p/add", "Add a color to the palette", |p| {
+                p.then(color()).map(|(_, rgba)| Command::PaletteAdd(rgba))
+            })
+            .command("p/clear", "Clear the color palette", |p| {
+                p.value(Command::PaletteClear)
+            })
+            .command(
+                "p/sample",
+                "Sample palette colors from the active view",
+                |p| p.value(Command::PaletteSample),
+            )
+            .command("p/sort", "Sort the palette colors", |p| {
+                p.value(Command::PaletteSort)
+            })
+            .command("p/write", "Write the color palette to a file", |p| {
+                p.then(path()).map(|(_, path)| Command::PaletteWrite(path))
+            })
+            .command("undo", "Undo the last edit", |p| p.value(Command::Undo))
+            .command("redo", "Redo the last edit", |p| p.value(Command::Redo))
+            .command("f/add", "Add a blank frame to the active view", |p| {
+                p.value(Command::AddFrame)
+            })
+            .command("f/clone", "Clone a frame and add it to the view", |p| {
+                p.then(optional(integer::<i32>().label("<index>")))
+                    .map(|(_, index)| Command::CloneFrame(index.unwrap_or(-1)))
+            })
+            .command(
+                "f/remove",
+                "Remove the last frame from the active view",
+                |p| p.value(Command::RemoveFrame),
+            )
+            .command("f/resize", "Resize the active view frame(s)", |p| {
+                p.then(tuple::<u32>(
+                    natural().label("<width>"),
+                    natural().label("<height>"),
+                ))
+                .map(|(_, (w, h))| Command::ResizeFrame(w, h))
+            })
+            .command("tool", "Switch tool", |p| {
+                p.then(word().label("pan/brush/sampler/.."))
+                    .try_map(|(_, t)| match t.as_str() {
+                        "pan" => Ok(Command::Tool(Tool::Pan(PanState::default()))),
+                        "brush" => Ok(Command::Tool(Tool::Brush(Brush::default()))),
+                        "sampler" => Ok(Command::Tool(Tool::Sampler)),
+                        _ => Err(format!("unknown tool {:?}", t)),
+                    })
+            })
+            .command("tool/prev", "Switch to previous tool", |p| {
+                p.value(Command::ToolPrev)
+            })
+            .command("swap", "Swap foreground and background colors", |p| {
+                p.value(Command::SwapColors)
+            })
+            .command("reset!", "Reset all settings to defaults", |p| {
+                p.value(Command::Reset)
+            })
+            .command("selection/move", "Move selection", |p| {
+                p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|(_, (x, y))| Command::SelectionMove(x, y))
+            })
+            .command("selection/resize", "Resize selection", |p| {
+                p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|(_, (x, y))| Command::SelectionResize(x, y))
+            })
+            .command("selection/yank", "Yank/copy selection content", |p| {
+                p.value(Command::SelectionYank)
+            })
+            .command("selection/cut", "Cut selection content", |p| {
+                p.value(Command::SelectionCut)
+            })
+            .command("selection/paste", "Paste into selection", |p| {
+                p.value(Command::SelectionPaste)
+            })
+            .command("selection/expand", "Expand selection", |p| {
+                p.value(Command::SelectionExpand)
+            })
+            .command("selection/erase", "Erase selection contents", |p| {
+                p.value(Command::SelectionErase)
+            })
+            .command("selection/offset", "Offset selection bounds", |p| {
+                p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|(_, (x, y))| Command::SelectionOffset(x, y))
+            })
+            .command("selection/jump", "Translate selection by one frame", |p| {
+                p.then(param::<Direction>())
+                    .map(|(_, dir)| Command::SelectionJump(dir))
+            })
+            .command("selection/fill", "Fill selection with color", |p| {
+                p.then(optional(color()))
+                    .map(|(_, rgba)| Command::SelectionFill(rgba))
+            })
+            .command("paint/color", "Paint color", |p| {
+                p.then(color())
+                    .skip(whitespace())
+                    .then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|((_, rgba), (x, y))| Command::PaintColor(rgba, x, y))
+            })
+            .command("paint/fg", "Paint foreground color", |p| {
+                p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|(_, (x, y))| Command::PaintForeground(x, y))
+            })
+            .command("paint/bg", "Paint background color", |p| {
+                p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|(_, (x, y))| Command::PaintBackground(x, y))
+            })
+            .command("paint/p", "Paint palette color", |p| {
+                p.then(natural::<usize>())
+                    .skip(whitespace())
+                    .then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
+                    .map(|((_, i), (x, y))| Command::PaintPalette(i, x, y))
+            })
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
-
-impl FromStr for Command {
-    type Err = Error;
-
-    fn from_str(input: &str) -> result::Result<Self, Self::Err> {
-        let p = Parser::new(input);
-        match p.parse::<Command>() {
-            Ok((cmd, p)) => {
-                let (_, p) = p.clone().comment().unwrap_or(("", p));
-                p.finish()?; // Make sure we've consumed all the input
-                Ok(cmd)
-            }
-            // TODO: Use `enum` for error.
-            Err(e) => Err(e),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for Command {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (_, p) = p.sigil(':')?;
-        let (_, p) = p.whitespace()?;
-
-        if p.is_empty() {
-            return Ok((Command::Noop, p));
-        }
-
-        if Some('#') == p.peek() {
-            let (rgba, p) = p.parse::<Rgba8>()?;
-            return Ok((Command::PaletteAdd(rgba), p));
-        }
-
-        let (cmd, p) = p.identifier()?;
-        let (_, p) = p.whitespace()?;
-
-        match cmd {
-            "q" => Ok((Command::Quit, p)),
-            "qa" => Ok((Command::QuitAll, p)),
-            "q!" => Ok((Command::ForceQuit, p)),
-            "qa!" => Ok((Command::ForceQuitAll, p)),
-            "wq" | "x" => Ok((Command::WriteQuit, p)),
-            "w" => {
-                if p.is_empty() {
-                    Ok((Command::Write(None), p))
-                } else {
-                    let (path, p) = p.path()?;
-                    Ok((Command::Write(Some(path)), p))
-                }
-            }
-            "w/frames" => {
-                if p.is_empty() {
-                    Ok((Command::WriteFrames(None), p))
-                } else {
-                    let (dir, p) = p.path()?;
-                    Ok((Command::WriteFrames(Some(dir)), p))
-                }
-            }
-            "e" => {
-                let (paths, p) = p.paths()?;
-                Ok((Command::Edit(paths), p))
-            }
-            "e/frames" => {
-                let (paths, p) = p.paths()?;
-                Ok((Command::EditFrames(paths), p))
-            }
-            "help" => Ok((Command::Mode(Mode::Help), p)),
-            "set" => {
-                let (k, p) = p.identifier()?;
-                let (_, p) = p.whitespace()?;
-
-                if p.is_empty() {
-                    Ok((Command::Set(k.to_string(), Value::Bool(true)), p))
-                } else {
-                    let (_, p) = p.sigil('=')?;
-                    let (_, p) = p.whitespace()?;
-                    let (v, p) = p.parse::<Value>()?;
-                    Ok((Command::Set(k.to_string(), v), p))
-                }
-            }
-            "unset" => {
-                let (k, p) = p.identifier()?;
-                Ok((Command::Set(k.to_string(), Value::Bool(false)), p))
-            }
-            "toggle" => {
-                let (k, p) = p.identifier()?;
-                Ok((Command::Toggle(k.to_string()), p))
-            }
-            "echo" => {
-                let (v, p) = p.parse::<Value>()?;
-                Ok((Command::Echo(v), p))
-            }
-            "slice" => {
-                if p.is_empty() {
-                    Ok((Command::Slice(None), p))
-                } else {
-                    let (n, p) = p.parse::<u32>()?;
-                    Ok((Command::Slice(Some(n as usize)), p))
-                }
-            }
-            "source" => {
-                if p.is_empty() {
-                    Ok((Command::Source(None), p))
-                } else {
-                    let (path, p) = p.path()?;
-                    Ok((Command::Source(Some(path)), p))
-                }
-            }
-            "cd" => {
-                if p.is_empty() {
-                    Ok((Command::ChangeDir(None), p))
-                } else {
-                    let (path, p) = p.path()?;
-                    Ok((Command::ChangeDir(Some(path)), p))
-                }
-            }
-            "zoom" => {
-                if let Ok((_, p)) = p.clone().sigil('+') {
-                    Ok((Command::Zoom(Op::Incr), p))
-                } else if let Ok((_, p)) = p.clone().sigil('-') {
-                    Ok((Command::Zoom(Op::Decr), p))
-                } else if let Ok((z, p)) = p.parse::<f64>() {
-                    Ok((Command::Zoom(Op::Set(z as f32)), p))
-                } else {
-                    Err(Error::new("couldn't parse zoom parameter"))
-                }
-            }
-            "brush" => Ok((Command::Tool(Tool::Brush(Brush::default())), p)),
-            "brush/size" => {
-                let (c, p) = p.parse::<char>()?;
-                match c {
-                    '+' => Ok((Command::BrushSize(Op::Incr), p)),
-                    '-' => Ok((Command::BrushSize(Op::Decr), p)),
-                    _ => Err(Error::new("invalid parameter")),
-                }
-            }
-            "brush/set" => {
-                let (mode, p) = p.parse::<BrushMode>()?;
-                Ok((Command::BrushSet(mode), p))
-            }
-            "brush/unset" => {
-                let (mode, p) = p.parse::<BrushMode>()?;
-                Ok((Command::BrushUnset(mode), p))
-            }
-            "brush/toggle" => {
-                let (mode, p) = p.parse::<BrushMode>()?;
-                Ok((Command::BrushToggle(mode), p))
-            }
-            "mode" => {
-                let (mode, p) = p.parse::<Mode>()?;
-                Ok((Command::Mode(mode), p))
-            }
-            "visual" => Ok((Command::Mode(Mode::Visual(VisualState::default())), p)),
-            "sampler" => Ok((Command::Tool(Tool::Sampler), p)),
-            "sampler/off" => Ok((Command::ToolPrev, p)),
-            "v/next" => Ok((Command::ViewNext, p)),
-            "v/prev" => Ok((Command::ViewPrev, p)),
-            "v/center" => Ok((Command::ViewCenter, p)),
-            "v/clear" => {
-                if let Ok((rgba, p)) = p.clone().parse::<Rgba8>() {
-                    Ok((Command::Fill(rgba), p))
-                } else {
-                    Ok((Command::Fill(Rgba8::TRANSPARENT), p))
-                }
-            }
-            "pan" => {
-                let ((x, y), p) = p.parse::<(i32, i32)>()?;
-                Ok((Command::Pan(x, y), p))
-            }
-            "map/visual" => {
-                let (km, p) = KeyMapping::parse(
-                    p,
-                    &[
-                        Mode::Visual(VisualState::selecting()),
-                        Mode::Visual(VisualState::Pasting),
-                    ],
-                )?;
-                Ok((Command::Map(Box::new(km)), p))
-            }
-            "map/normal" => {
-                let (km, p) = KeyMapping::parse(p, &[Mode::Normal])?;
-                Ok((Command::Map(Box::new(km)), p))
-            }
-            "map" => {
-                let (km, p) = KeyMapping::parse(
-                    p,
-                    &[
-                        Mode::Normal,
-                        Mode::Visual(VisualState::selecting()),
-                        Mode::Visual(VisualState::Pasting),
-                    ],
-                )?;
-                Ok((Command::Map(Box::new(km)), p))
-            }
-            "map/clear!" => Ok((Command::MapClear, p)),
-            "p/add" => {
-                let (rgba, p) = p.parse::<Rgba8>()?;
-                Ok((Command::PaletteAdd(rgba), p))
-            }
-            "p/clear" => Ok((Command::PaletteClear, p)),
-            "p/sample" => Ok((Command::PaletteSample, p)),
-            "p/sort" => Ok((Command::PaletteSort, p)),
-            "p/write" => {
-                let (path, p) = p.path()?;
-                Ok((Command::PaletteWrite(path), p))
-            }
-            "undo" => Ok((Command::Undo, p)),
-            "redo" => Ok((Command::Redo, p)),
-            "f/new" => Err(Error::new(
-                "parsing failed: `f/new` has been renamed to `f/add`",
-            )),
-            "f/add" => Ok((Command::AddFrame, p)),
-            "f/clone" => match p.clone().parse::<i32>().or_else(|_| Ok((-1, p))) {
-                Ok((index, p)) => Ok((Command::CloneFrame(index), p)),
-                Err(e) => Err(e),
-            },
-            "f/remove" => Ok((Command::RemoveFrame, p)),
-            "f/resize" => {
-                let ((w, h), p) = p.parse::<(u32, u32)>()?;
-                Ok((Command::ResizeFrame(w, h), p))
-            }
-            "tool" => {
-                let (t, p) = p.word()?;
-                match t {
-                    "pan" => Ok((Command::Tool(Tool::Pan(PanState::default())), p)),
-                    "brush" => Ok((Command::Tool(Tool::Brush(Brush::default())), p)),
-                    "sampler" => Ok((Command::Tool(Tool::Sampler), p)),
-                    _ => Err(Error::new(format!("unknown tool {:?}", t))),
-                }
-            }
-            "tool/prev" => Ok((Command::ToolPrev, p)),
-            "swap" => Ok((Command::SwapColors, p)),
-            "reset!" => Ok((Command::Reset, p)),
-            "selection/move" => {
-                let ((x, y), p) = p.parse::<(i32, i32)>()?;
-                Ok((Command::SelectionMove(x, y), p))
-            }
-            "selection/resize" => {
-                let ((x, y), p) = p.parse::<(i32, i32)>()?;
-                Ok((Command::SelectionResize(x, y), p))
-            }
-            "selection/yank" => Ok((Command::SelectionYank, p)),
-            "selection/cut" => Ok((Command::SelectionCut, p)),
-            "selection/paste" => Ok((Command::SelectionPaste, p)),
-            "selection/expand" => Ok((Command::SelectionExpand, p)),
-            "selection/erase" => Ok((Command::SelectionErase, p)),
-            "selection/offset" => {
-                let ((x, y), p) = p.parse::<(i32, i32)>()?;
-                Ok((Command::SelectionOffset(x, y), p))
-            }
-            "selection/jump" => {
-                let (dir, p) = p.parse::<Direction>()?;
-                Ok((Command::SelectionJump(dir), p))
-            }
-            "selection/fill" => {
-                if let Ok((rgba, p)) = p.clone().parse::<Rgba8>() {
-                    Ok((Command::SelectionFill(Some(rgba)), p))
-                } else {
-                    Ok((Command::SelectionFill(None), p))
-                }
-            }
-            "paint/color" => {
-                let ((rgba, x, y), p) = p.parse::<(Rgba8, i32, i32)>()?;
-                Ok((Command::PaintColor(rgba, x, y), p))
-            }
-            "paint/fg" => {
-                let ((x, y), p) = p.parse::<(i32, i32)>()?;
-                Ok((Command::PaintForeground(x, y), p))
-            }
-            "paint/bg" => {
-                let ((x, y), p) = p.parse::<(i32, i32)>()?;
-                Ok((Command::PaintBackground(x, y), p))
-            }
-            "paint/p" => {
-                let ((i, x, y), p) = p.parse::<(i32, i32, i32)>()?;
-                Ok((Command::PaintPalette(i, x, y), p))
-            }
-            unrecognized => Err(Error::new(format!(
-                "unrecognized command ':{}'",
-                unrecognized
-            ))),
-        }
-    }
-}
 
 #[derive(Debug)]
 pub struct CommandCompleter {
@@ -906,9 +954,9 @@ impl autocomplete::Completer for CommandCompleter {
     type Options = ();
 
     fn complete(&self, input: &str, _opts: ()) -> Vec<String> {
-        let p = Parser::new(input);
+        let p = Commands::default().parser();
 
-        match p.parse::<Command>() {
+        match p.parse(input) {
             Ok((cmd, _)) => match cmd {
                 Command::ChangeDir(path) | Command::WriteFrames(path) => self.complete_path(
                     path.as_ref(),
@@ -1163,5 +1211,133 @@ mod test {
 
         cli.delc();
         assert_eq!(cli.input(), ":e");
+    }
+
+    #[test]
+    fn test_parser() {
+        let p = Commands::default().line_parser();
+
+        assert_eq!(
+            p.parse(":set foo = value"),
+            Ok((
+                Command::Set("foo".to_owned(), Value::Ident(String::from("value"))),
+                ""
+            ))
+        );
+        assert_eq!(
+            p.parse(":set scale = 1.0"),
+            Ok((Command::Set("scale".to_owned(), Value::F64(1.0)), ""))
+        );
+        assert_eq!(
+            p.parse(":set foo=value"),
+            Ok((
+                Command::Set("foo".to_owned(), Value::Ident(String::from("value"))),
+                ""
+            ))
+        );
+        assert_eq!(
+            p.parse(":set foo"),
+            Ok((Command::Set("foo".to_owned(), Value::Bool(true)), ""))
+        );
+
+        assert_eq!(
+            param::<platform::Key>()
+                .parse("<hello>")
+                .unwrap_err()
+                .0
+                .to_string(),
+            "unknown key <hello>"
+        );
+
+        assert_eq!(p.parse(":").unwrap(), (Command::Noop, ""));
+    }
+
+    #[test]
+    fn test_echo_command() {
+        let p = Commands::default().line_parser();
+
+        p.parse(":echo 42").unwrap();
+        p.parse(":echo \"hello.\"").unwrap();
+        p.parse(":echo \"\"").unwrap();
+    }
+
+    #[test]
+    fn test_zoom_command() {
+        let p = Commands::default().line_parser();
+
+        assert!(p.parse(":zoom -").is_ok());
+        assert!(p.parse(":zoom 3.0").is_ok());
+        assert!(p.parse(":zoom -1.0").is_err());
+    }
+
+    #[test]
+    fn test_vclear_commands() {
+        let p = Commands::default().line_parser();
+
+        p.parse(":v/clear").unwrap();
+        p.parse(":v/clear #ff00ff").unwrap();
+    }
+
+    #[test]
+    fn test_unknown_command() {
+        let p = Commands::default().line_parser();
+
+        let (err, rest) = p.parse(":fnord").unwrap_err();
+        assert_eq!(rest, "fnord");
+        assert_eq!(err.to_string(), "unknown command: fnord");
+
+        let (err, rest) = p.parse(":mode fnord").unwrap_err();
+        assert_eq!(rest, "fnord");
+        assert_eq!(err.to_string(), "unknown mode: fnord");
+    }
+
+    #[test]
+    fn test_keymapping_parser() {
+        let p = string("map")
+            .skip(whitespace())
+            .then(KeyMapping::parser(&[]));
+
+        let (_, rest) = p.parse("map <tab> :q! {:q}").unwrap();
+        assert_eq!(rest, "");
+
+        let (_, rest) = p
+            .parse("map <tab> :brush/set erase {:brush/unset erase}")
+            .unwrap();
+        assert_eq!(rest, "");
+
+        let (_, rest) = p.parse("map <ctrl> :tool sampler {:tool/prev}").unwrap();
+        assert_eq!(rest, "");
+    }
+
+    #[test]
+    fn tes_value_parser() {
+        let p = Value::parser();
+
+        assert_eq!(p.parse("1.0 2.0").unwrap(), (Value::F32Tuple(1.0, 2.0), ""));
+        assert_eq!(p.parse("1.0").unwrap(), (Value::F64(1.0), ""));
+        assert_eq!(p.parse("1").unwrap(), (Value::U32(1), ""));
+        assert_eq!(p.parse("1 2").unwrap(), (Value::U32Tuple(1, 2), ""));
+        assert_eq!(p.parse("on").unwrap(), (Value::Bool(true), ""));
+        assert_eq!(p.parse("off").unwrap(), (Value::Bool(false), ""));
+        assert_eq!(
+            p.parse("#ff00ff").unwrap(),
+            (Value::Rgba8(Rgba8::new(0xff, 0x0, 0xff, 0xff)), "")
+        );
+    }
+
+    #[test]
+    fn test_parser_errors() {
+        let p = Commands::default().line_parser();
+
+        let (err, _) = p
+            .parse(":map <ctrl> :tool sampler {:tool/prev")
+            .unwrap_err();
+        assert_eq!(err.to_string(), "unclosed '{' delimiter".to_string());
+
+        let (err, _) = p.parse(":map <ctrl> :tool sampler :tool/prev").unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "extraneous input found: :tool/prev".to_string()
+        );
     }
 }

@@ -305,10 +305,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                     platform::KeyboardInput {
                         key: Some(platform::Key::Insert),
                         state: platform::InputState::Pressed,
-                        modifiers: platform::ModifiersState {
-                            shift: true,
-                            ..
-                        }
+                        modifiers: platform::ModifiersState { shift: true, .. },
                     } => {
                         session_events.push(Event::Paste(win.clipboard()));
                     }

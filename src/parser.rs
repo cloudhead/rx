@@ -1,424 +1,238 @@
-//! String parser.
+use memoir::traits::Parse;
+use memoir::*;
+
+use directories as dirs;
+
+use rgx::kit::Rgba8;
 
 use crate::brush::BrushMode;
 use crate::platform;
 use crate::session::{Direction, Mode, VisualState};
 
 use std::ffi::OsString;
-use std::fmt;
-use std::result;
 use std::str::FromStr;
 
-use directories as dirs;
-use rgx::color::Rgba8;
+pub type Error = memoir::result::Error;
 
-pub type Result<'a, T> = result::Result<(T, Parser<'a>), Error>;
-
-#[derive(Debug, Clone)]
-pub struct Error {
-    msg: String,
+pub fn identifier<'a>() -> Parser<String> {
+    many::<_, String>(satisfy(
+        |c: char| c.is_ascii_alphabetic() || c == '/' || c == '-',
+        "<identifier>",
+    ))
+    .label("<identifier>")
 }
 
-impl Error {
-    pub fn new<S: Into<String>>(msg: S) -> Self {
-        Self { msg: msg.into() }
-    }
-
-    #[allow(dead_code)]
-    fn from<S: Into<String>, E: std::error::Error>(msg: S, err: E) -> Self {
-        Self {
-            msg: format!("{}: {}", msg.into(), err),
-        }
-    }
+pub fn word() -> Parser<String> {
+    many(letter())
 }
 
-impl std::error::Error for Error {}
-
-impl From<&str> for Error {
-    fn from(input: &str) -> Self {
-        Error::new(input)
-    }
+pub fn comment() -> Parser<String> {
+    string("--")
+        .skip(optional(whitespace()))
+        .then(until(end()))
+        .map(|(_, comment)| comment)
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.msg.fmt(f)
-    }
-}
+pub fn path() -> Parser<String> {
+    many::<_, String>(satisfy(|c| !c.is_whitespace(), "!<whitespace>"))
+        .map(|input: String| {
+            let mut path: OsString = input.clone().into();
 
-pub trait Parse<'a>: Sized {
-    fn parse(input: Parser<'a>) -> Result<'a, Self>;
-}
-
-impl<'a> Parse<'a> for Rgba8 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.count(7)?; // Expect 7 characters including the '#'
-
-        match Rgba8::from_str(s) {
-            Ok(color) => {
-                if let Ok((_, p)) = rest.clone().sigil('/') {
-                    let (a, p) = p.parse::<f64>()?;
-                    Ok((color.alpha((a * std::u8::MAX as f64) as u8), p))
-                } else {
-                    Ok((color, rest))
+            // Linux and BSD and MacOS use `~` to infer the home directory of a given user.
+            if cfg!(unix) {
+                // We have to do this dance because `Path::join` doesn't do what we want
+                // if the input is for eg. "~/". We also can't use `Path::strip_prefix`
+                // because it drops our trailing slash.
+                if let Some('~') = input.chars().next() {
+                    if let Some(base_dirs) = dirs::BaseDirs::new() {
+                        path = base_dirs.home_dir().into();
+                        path.push(&input['~'.len_utf8()..]);
+                    }
                 }
             }
-            Err(_) => Err(Error::new(format!("malformed color value `{}`", s))),
-        }
-    }
-}
 
-impl<'a> Parse<'a> for u32 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.word()?;
-
-        match u32::from_str(s) {
-            Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing u32")),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for i32 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.word()?;
-
-        match i32::from_str(s) {
-            Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing i32")),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for f64 {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (s, rest) = p.word()?;
-
-        match f64::from_str(s) {
-            Ok(u) => Ok((u, rest)),
-            Err(_) => Err(Error::new("error parsing f64")),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for (u32, u32) {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (w, p) = p.parse::<u32>()?;
-        let (_, p) = p.whitespace()?;
-        let (h, p) = p.parse::<u32>()?;
-
-        Ok(((w, h), p))
-    }
-}
-
-impl<'a> Parse<'a> for (i32, i32) {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (w, p) = p.parse::<i32>()?;
-        let (_, p) = p.whitespace()?;
-        let (h, p) = p.parse::<i32>()?;
-
-        Ok(((w, h), p))
-    }
-}
-
-impl<'a> Parse<'a> for (Rgba8, i32, i32) {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (c, p) = p.parse::<Rgba8>()?;
-        let (_, p) = p.whitespace()?;
-        let (w, p) = p.parse::<i32>()?;
-        let (_, p) = p.whitespace()?;
-        let (h, p) = p.parse::<i32>()?;
-
-        Ok(((c, w, h), p))
-    }
-}
-
-impl<'a> Parse<'a> for (i32, i32, i32) {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (i, p) = p.parse::<i32>()?;
-        let (_, p) = p.whitespace()?;
-        let (w, p) = p.parse::<i32>()?;
-        let (_, p) = p.whitespace()?;
-        let (h, p) = p.parse::<i32>()?;
-
-        Ok(((i, w, h), p))
-    }
-}
-
-impl<'a> Parse<'a> for (f64, f64) {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (x, p) = p.parse::<f64>()?;
-        let (_, p) = p.whitespace()?;
-        let (y, p) = p.parse::<f64>()?;
-
-        Ok(((x, y), p))
-    }
-}
-
-impl<'a> Parse<'a> for char {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        if let Some(c) = p.input.chars().next() {
-            Ok((c, Parser::new(&p.input[1..])))
-        } else {
-            Err(Error::new("error parsing char"))
-        }
-    }
-}
-
-impl<'a> Parse<'a> for BrushMode {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (id, p) = p.identifier()?;
-        match id {
-            "erase" => Ok((BrushMode::Erase, p)),
-            "multi" => Ok((BrushMode::Multi, p)),
-            "perfect" => Ok((BrushMode::Perfect, p)),
-            "xsym" => Ok((BrushMode::XSym, p)),
-            "ysym" => Ok((BrushMode::YSym, p)),
-            "xray" => Ok((BrushMode::XRay, p)),
-            mode => Err(Error::new(format!("unknown brush mode '{}'", mode))),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for platform::InputState {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (w, p) = p.word()?;
-        match w {
-            "pressed" => Ok((platform::InputState::Pressed, p)),
-            "released" => Ok((platform::InputState::Released, p)),
-            "repeated" => Ok((platform::InputState::Repeated, p)),
-            other => Err(Error::new(format!("unkown input state {:?}", other))),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for Mode {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (id, p) = p.identifier()?;
-        match id {
-            "command" => Ok((Mode::Command, p)),
-            "normal" => Ok((Mode::Normal, p)),
-            "visual" => Ok((Mode::Visual(VisualState::default()), p)),
-            "present" => Ok((Mode::Present, p)),
-            mode => Err(Error::new(format!("unknown mode '{}'", mode))),
-        }
-    }
-}
-
-impl<'a> Parse<'a> for Direction {
-    fn parse(p: Parser<'a>) -> Result<'a, Self> {
-        let (c, p) = p.parse::<char>()?;
-        match c {
-            '+' => Ok((Direction::Forward, p)),
-            '-' => Ok((Direction::Backward, p)),
-            _ => Err(Error::new("direction must be either `+` or `-`")),
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-#[derive(Debug, Clone)]
-pub struct Parser<'a> {
-    input: &'a str,
-}
-
-impl<'a> Parser<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Self { input }
-    }
-
-    pub fn empty() -> Self {
-        Self { input: "" }
-    }
-
-    pub fn finish(self) -> Result<'a, ()> {
-        let (_, p) = self.whitespace()?;
-
-        if p.is_empty() {
-            Ok(((), Parser::empty()))
-        } else {
-            Err(Error::new(format!("extraneaous input: `{}`", p.input)))
-        }
-    }
-
-    pub fn path(self) -> Result<'a, String> {
-        let (input, parser) = self.word()?;
-        if input == "" {
-            return Ok((input.to_owned(), parser));
-        }
-
-        let mut path: OsString = input.into();
-
-        // Linux and BSD and MacOS use `~` to infer the home directory of a given user.
-        if cfg!(unix) {
-            // We have to do this dance because `Path::join` doesn't do what we want
-            // if the input is for eg. "~/". We also can't use `Path::strip_prefix`
-            // because it drops our trailing slash.
-            if let Some('~') = input.chars().next() {
-                if let Some(base_dirs) = dirs::BaseDirs::new() {
-                    path = base_dirs.home_dir().into();
-                    path.push(&input['~'.len_utf8()..]);
-                }
+            match path.to_str() {
+                Some(p) => p.to_string(),
+                None => panic!("invalid path: {:?}", path),
             }
-        }
+        })
+        .label("<path>")
+}
 
-        match path.to_str() {
-            Some(p) => Ok((p.to_string(), parser)),
-            None => Err(Error::new(format!("invalid path: {:?}", path))),
-        }
-    }
+impl Parse for platform::Key {
+    fn parser() -> Parser<Self> {
+        let alphanum = character().try_map(|c| {
+            let key: platform::Key = c.into();
 
-    pub fn paths(self) -> Result<'a, Vec<String>> {
-        if self.is_empty() {
-            Ok((Vec::with_capacity(0), self))
-        } else {
-            let mut q = self;
-            let mut paths = Vec::new();
-
-            while let Ok((path, p)) = q.clone().path() {
-                paths.push(path);
-                let (_, p) = p.whitespace()?;
-                q = p;
+            if key == platform::Key::Unknown {
+                return Err(format!("unknown key {:?}", c));
             }
-            Ok((paths, q))
-        }
+            Ok(key)
+        });
+
+        let control = between('<', '>', any::<_, String>(letter())).try_map(|key| {
+            let key = match key.as_str() {
+                "up" => platform::Key::Up,
+                "down" => platform::Key::Down,
+                "left" => platform::Key::Left,
+                "right" => platform::Key::Right,
+                "ctrl" => platform::Key::Control,
+                "alt" => platform::Key::Alt,
+                "shift" => platform::Key::Shift,
+                "space" => platform::Key::Space,
+                "return" => platform::Key::Return,
+                "backspace" => platform::Key::Backspace,
+                "tab" => platform::Key::Tab,
+                "end" => platform::Key::End,
+                "esc" => platform::Key::Escape,
+                other => return Err(format!("unknown key <{}>", other)),
+            };
+            Ok(key)
+        });
+
+        control.or(alphanum).label("<key>")
     }
+}
 
-    pub fn peek(&self) -> Option<char> {
-        self.input.chars().nth(0)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.input.is_empty()
-    }
-
-    pub fn sigil(self, c: char) -> Result<'a, char> {
-        if self.input.starts_with(c) {
-            Ok((c, Parser::new(&self.input[1..])))
-        } else {
-            Err(Error::new(format!("expected '{}'", c)))
-        }
-    }
-
-    pub fn string(self) -> Result<'a, &'a str> {
-        let p = self;
-
-        let (_, p) = p.sigil('"')?;
-        let (s, p) = p.until(|c| c == '"')?;
-        let (_, p) = p.sigil('"')?;
-
-        Ok((s, p))
-    }
-
-    pub fn character(self) -> Result<'a, char> {
-        let p = self;
-
-        let (_, p) = p.sigil('\'')?;
-        let (c, p) = p.parse::<char>()?;
-        let (_, p) = p.sigil('\'')?;
-
-        Ok((c, p))
-    }
-
-    pub fn alpha(self) -> Result<'a, &'a str> {
-        self.expect(|c| c.is_alphanumeric())
-    }
-
-    pub fn comment(self) -> Result<'a, &'a str> {
-        let p = self;
-
-        let (_, p) = p.whitespace()?;
-        let (_, p) = p.sigil('-')?;
-        let (_, p) = p.sigil('-')?;
-        let (_, p) = p.whitespace()?;
-        let (s, p) = p.leftover()?;
-
-        Ok((s, p))
-    }
-
-    pub fn leftover(self) -> Result<'a, &'a str> {
-        Ok((self.input, Parser::empty()))
-    }
-
-    pub fn whitespace(self) -> Result<'a, ()> {
-        self.consume(|c| c.is_whitespace())
-    }
-
-    pub fn parse<T: Parse<'a>>(self) -> Result<'a, T> {
-        T::parse(self)
-    }
-
-    pub fn word(self) -> Result<'a, &'a str> {
-        self.expect(|c| !c.is_whitespace() && c != '{' && c != '}')
-    }
-
-    pub fn count(self, n: usize) -> Result<'a, &'a str> {
-        if self.input.len() >= n {
-            Ok((&self.input[..n], Parser::new(&self.input[n..])))
-        } else {
-            Err(Error::new("reached end of input"))
-        }
-    }
-
-    pub fn identifier(self) -> Result<'a, &'a str> {
-        self.expect(|c| {
-            c.is_ascii_lowercase()
-                || c.is_ascii_uppercase()
-                || c.is_ascii_digit()
-                || [':', '/', '_', '+', '-', '!', '?'].contains(&c)
+impl Parse for platform::InputState {
+    fn parser() -> Parser<Self> {
+        word().try_map(|w| match w.as_str() {
+            "pressed" => Ok(platform::InputState::Pressed),
+            "released" => Ok(platform::InputState::Released),
+            "repeated" => Ok(platform::InputState::Repeated),
+            other => Err(format!("unknown input state: {}", other)),
         })
     }
+}
 
-    pub fn consume<P>(self, predicate: P) -> Result<'a, ()>
-    where
-        P: Fn(char) -> bool,
-    {
-        match self.input.find(|c| !predicate(c)) {
-            Some(i) => {
-                let (_, r) = self.input.split_at(i);
-                Ok(((), Parser::new(r)))
-            }
-            None => Ok(((), Parser::empty())),
-        }
+impl Parse for Direction {
+    fn parser() -> Parser<Self> {
+        character()
+            .try_map(|c| match c {
+                '+' => Ok(Direction::Forward),
+                '-' => Ok(Direction::Backward),
+                _ => Err("direction must be either `+` or `-`"),
+            })
+            .label("+/-")
     }
+}
 
-    pub fn until<P>(self, predicate: P) -> Result<'a, &'a str>
-    where
-        P: Fn(char) -> bool,
-    {
-        if self.input.is_empty() {
-            return Err(Error::new("expected input"));
-        }
-        match self.input.find(predicate) {
-            Some(i) => {
-                let (l, r) = self.input.split_at(i);
-                Ok((l, Parser::new(r)))
+pub fn param<T: Parse>() -> Parser<T> {
+    T::parser()
+}
+
+pub fn color() -> Parser<Rgba8> {
+    let label = "<color>";
+
+    Parser::new(
+        move |input| {
+            if input.is_empty() {
+                return Err((
+                    memoir::result::Error::new(format!("expected {:?}", label)),
+                    input,
+                ));
             }
-            None => Ok((self.input, Parser::empty())),
-        }
+            if input.len() < 7 {
+                return Err((
+                    memoir::result::Error::new(format!("{:?} is not a valid color value", input)),
+                    input,
+                ));
+            }
+            let (s, alpha) = input.split_at(7);
+
+            match Rgba8::from_str(s) {
+                Ok(color) => {
+                    if alpha.is_empty() {
+                        Ok((color, alpha))
+                    } else {
+                        let (a, rest) = symbol('/')
+                            .then(rational::<f64>())
+                            .map(|(_, a)| a)
+                            .parse(alpha)?;
+                        Ok((color.alpha((a * std::u8::MAX as f64) as u8), rest))
+                    }
+                }
+                Err(_) => Err((
+                    memoir::result::Error::new(format!("malformed color value `{}`", s)),
+                    input,
+                )),
+            }
+        },
+        label,
+    )
+}
+
+impl Parse for BrushMode {
+    fn parser() -> Parser<Self> {
+        Parser::new(
+            |input| {
+                let (id, p) = identifier().parse(input)?;
+                match id.as_str() {
+                    "erase" => Ok((BrushMode::Erase, p)),
+                    "multi" => Ok((BrushMode::Multi, p)),
+                    "perfect" => Ok((BrushMode::Perfect, p)),
+                    "xsym" => Ok((BrushMode::XSym, p)),
+                    "ysym" => Ok((BrushMode::YSym, p)),
+                    "xray" => Ok((BrushMode::XRay, p)),
+                    mode => Err((
+                        memoir::result::Error::new(format!("unknown brush mode '{}'", mode)),
+                        input,
+                    )),
+                }
+            },
+            "<mode>",
+        )
     }
+}
 
-    pub fn expect<P>(self, predicate: P) -> Result<'a, &'a str>
-    where
-        P: Fn(char) -> bool,
-    {
-        if self.is_empty() {
-            return Err(Error::new("expected input"));
-        }
-        if !self.input.is_ascii() {
-            return Err(Error::new("error parsing non-ASCII characters"));
-        }
+impl Parse for Mode {
+    fn parser() -> Parser<Self> {
+        Parser::new(
+            |input| {
+                let (id, p) = identifier().parse(input)?;
+                match id.as_str() {
+                    "command" => Ok((Mode::Command, p)),
+                    "normal" => Ok((Mode::Normal, p)),
+                    "visual" => Ok((Mode::Visual(VisualState::default()), p)),
+                    "present" => Ok((Mode::Present, p)),
+                    mode => Err((
+                        memoir::result::Error::new(format!("unknown mode: {}", mode)),
+                        input,
+                    )),
+                }
+            },
+            "<mode>",
+        )
+    }
+}
 
-        let mut index = 0;
-        for (i, c) in self.input.chars().enumerate() {
-            if predicate(c) {
-                index = i;
-            } else {
-                break;
-            }
-        }
-        let (l, r) = self.input.split_at(index + 1);
-        Ok((l, Parser::new(r)))
+pub fn quoted() -> Parser<String> {
+    between('"', '"', until(symbol('"')))
+}
+
+pub fn paths() -> Parser<Vec<String>> {
+    any::<_, Vec<String>>(path().skip(optional(whitespace()))).label("<path>..")
+}
+
+pub fn setting() -> Parser<String> {
+    identifier().label("<setting>")
+}
+
+pub fn tuple<O>(x: Parser<O>, y: Parser<O>) -> Parser<(O, O)> {
+    x.skip(whitespace()).then(y)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_paths() {
+        let p = paths();
+
+        let (out, rest) = p.parse("path/one.png path/two.png path/three.png").unwrap();
+
+        assert_eq!(rest, "");
+        assert_eq!(out, vec!["path/one.png", "path/two.png", "path/three.png"]);
     }
 }
