@@ -284,7 +284,7 @@ impl fmt::Display for Key {
 }
 
 impl Key {
-    pub fn is_modifier(&self) -> bool {
+    pub fn is_modifier(self) -> bool {
         match self {
             Key::Alt | Key::Control | Key::Shift => true,
             _ => false,

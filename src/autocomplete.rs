@@ -154,10 +154,10 @@ impl FileCompleter {
                 if file_name.to_str().map_or(false, |s| s.starts_with('.')) {
                     continue;
                 }
-                if path.extension().map_or(false, |e| {
+                let known = path.extension().map_or(false, |e| {
                     e == "rx" || self.extensions.iter().any(|ext| ext == e)
-                }) || path.is_dir()
-                {
+                });
+                if known || path.is_dir() {
                     paths.push(file_name.into());
                 }
             }

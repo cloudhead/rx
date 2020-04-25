@@ -253,9 +253,7 @@ impl Error for RendererError {
     }
 
     fn cause(&self) -> Option<&dyn Error> {
-        match self {
-            _ => None,
-        }
+        None
     }
 }
 
@@ -853,8 +851,7 @@ impl Renderer {
                     self.resize_view(id, *w, *h)?;
                 }
                 ViewOp::Clear(color) => {
-                    &self
-                        .view_data
+                    self.view_data
                         .get(&id)
                         .expect("views must have associated view data")
                         .fb

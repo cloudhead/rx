@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 pub type Error = memoir::result::Error;
 
-pub fn identifier<'a>() -> Parser<String> {
+pub fn identifier() -> Parser<String> {
     many::<_, String>(satisfy(
         |c: char| c.is_ascii_alphabetic() || c == '/' || c == '-',
         "<identifier>",

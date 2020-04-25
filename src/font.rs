@@ -41,7 +41,7 @@ impl TextBatch {
         match align {
             TextAlign::Left => {}
             TextAlign::Right => {
-                sx -= gw * text.chars().collect::<Vec<_>>().len() as f32;
+                sx -= gw * text.chars().count() as f32;
             }
         }
 

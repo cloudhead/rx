@@ -1,9 +1,4 @@
-use rx;
 use rx::execution::{DigestMode, ExecutionMode, GifMode};
-
-use log;
-use pico_args;
-use simple_logger;
 
 use std::io;
 use std::path::PathBuf;

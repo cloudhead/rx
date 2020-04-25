@@ -1,4 +1,3 @@
-use png;
 use rgx::color::Rgba8;
 
 use std::convert::TryFrom;

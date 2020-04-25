@@ -268,7 +268,7 @@ impl KeyMapping {
         // Prevent stack overflow.
         let release = Parser::new(
             move |input| {
-                if let Some(i) = input.bytes().position(|c| c == '}' as u8) {
+                if let Some(i) = input.bytes().position(|c| c == b'}') {
                     match Commands::default().parser().parse(&input[..i]) {
                         Ok((cmd, rest)) if rest.is_empty() => Ok((cmd, &input[i..])),
                         Ok((_, rest)) => {

@@ -3,7 +3,6 @@ use crate::platform::{
     ModifiersState, MouseButton, WindowEvent, WindowHint,
 };
 
-use glfw;
 use glfw::Context;
 
 use std::{io, sync};
