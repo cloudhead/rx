@@ -2439,9 +2439,11 @@ impl Session {
         self.center_active_view_v();
 
         if let Some(v) = self.views.active() {
-            let offset = (frame as u32 * v.fw) as f32 * v.zoom - v.offset.x;
+            let offset = (frame as u32 * v.fw) as f32 * v.zoom;
 
-            self.offset.x = (self.width / 2. - offset).floor() - (v.fw as f32 / 2.) * v.zoom;
+            self.offset.x = self.width / 2. - offset - v.offset.x - v.fw as f32 / 2. * v.zoom;
+            self.offset.x = self.offset.x.floor();
+
             self.cursor_dirty();
         }
     }
@@ -2637,7 +2639,7 @@ impl Session {
 
                 if center.x < 0. {
                     self.center_active_view_frame(0);
-                } else if frame <= v.nframes - 1 {
+                } else if frame < v.nframes {
                     self.center_active_view_frame((frame + 1).min(v.nframes - 1));
                 }
             }
