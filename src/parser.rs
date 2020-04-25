@@ -122,7 +122,7 @@ pub fn param<T: Parse>() -> Parser<T> {
 }
 
 pub fn color() -> Parser<Rgba8> {
-    let label = "#000000 .. #ffffff";
+    let label = "<color>";
 
     Parser::new(
         move |input| {

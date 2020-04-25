@@ -717,7 +717,7 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
         Fill::Solid(Rgba::BLACK),
     ));
 
-    let column_offset = self::GLYPH_WIDTH * 16.;
+    let column_offset = self::GLYPH_WIDTH * 24.;
     let left_margin = self::MARGIN * 2.;
 
     text.add(
@@ -799,7 +799,20 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
             );
         }
     }
-    for (i, l) in session::HELP.lines().enumerate() {
+    for l in session::SETTINGS.lines() {
+        if let Some(y) = line.next() {
+            text.add(
+                l,
+                left_margin,
+                y as f32,
+                self::HELP_LAYER,
+                color::RED,
+                TextAlign::Left,
+            );
+        }
+    }
+
+    for (i, l) in session.help().iter().enumerate() {
         let y = session.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
 
         text.add(
