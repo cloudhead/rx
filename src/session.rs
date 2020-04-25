@@ -643,6 +643,8 @@ impl Default for Settings {
 
                 "p/height" => Value::U32(Session::PALETTE_HEIGHT),
 
+                "debug/crosshair" => Value::Bool(false),
+
                 // Deprecated.
                 "frame_delay" => Value::F64(0.0),
                 "input/delay" => Value::F64(8.0)
