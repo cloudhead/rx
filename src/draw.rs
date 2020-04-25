@@ -71,8 +71,11 @@ pub mod cursors {
     const ERASE: Cursor = Cursor::new(Rect::new(64., 0., 80., 16.), -8., -8., true);
 
     pub fn info(t: &Tool, m: Mode, in_view: bool, in_selection: bool) -> Option<Cursor> {
-        match m {
-            Mode::Help | Mode::Present => return None,
+        match (m, t) {
+            (Mode::Help, Tool::Pan(_)) => {}
+            (Mode::Help, Tool::Brush(_)) => {}
+            (Mode::Help, _) => return None,
+            (Mode::Present, _) => return None,
             _ => {}
         }
         let cursor = match t {
@@ -711,9 +714,16 @@ pub fn draw_view_animation(session: &Session, v: &View) -> sprite2d::Batch {
 pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::Batch) {
     shape.add(Shape::Rectangle(
         Rect::origin(session.width as f32, session.height as f32),
-        self::HELP_LAYER,
+        ZDepth(0.0),
         Rotation::ZERO,
         Stroke::new(1., color::RED.into()),
+        Fill::Empty,
+    ));
+    shape.add(Shape::Rectangle(
+        Rect::origin(session.width as f32, session.height as f32),
+        self::HELP_LAYER,
+        Rotation::ZERO,
+        Stroke::NONE,
         Fill::Solid(Rgba::BLACK),
     ));
 
@@ -824,4 +834,6 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
             TextAlign::Left,
         );
     }
+
+    text.offset(session.help_offset.x, session.help_offset.y);
 }

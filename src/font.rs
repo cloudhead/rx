@@ -62,6 +62,10 @@ impl TextBatch {
         }
     }
 
+    pub fn offset(&mut self, x: f32, y: f32) {
+        self.raw.offset(x, y);
+    }
+
     pub fn glyph(&mut self, glyph: usize, sx: f32, sy: f32, z: ZDepth, color: Rgba8) {
         let gw = self.gw;
         let gh = self.gh;

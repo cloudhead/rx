@@ -26,6 +26,7 @@ map/normal  =             :brush/toggle perfect                     --  Pixel-pe
 map/normal  ]             :brush/size +                             --  Increase brush size
 map/normal  [             :brush/size -                             --  Decrease brush size
 map/normal  <ctrl>        :tool sampler {:tool/prev}                --  Sample color (hold)
+map/help    <space>       :tool pan {:tool/prev}                    --  Pan help (hold)
 map         <space>       :tool pan {:tool/prev}                    --  Pan workspace (hold)
 map         <up>          :pan  0  1                                --  Pan view up
 map         <down>        :pan  0 -1                                --  Pan view down

@@ -818,6 +818,10 @@ impl Default for Commands {
                 p.then(KeyMapping::parser(&[Mode::Normal]))
                     .map(|(_, km)| Command::Map(Box::new(km)))
             })
+            .command("map/help", "Map keys to a command in help mode", |p| {
+                p.then(KeyMapping::parser(&[Mode::Help]))
+                    .map(|(_, km)| Command::Map(Box::new(km)))
+            })
             .command("map/clear!", "Clear all key mappings", |p| {
                 p.value(Command::MapClear)
             })

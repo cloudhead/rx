@@ -691,6 +691,8 @@ pub struct Session {
 
     /// The workspace offset. Views are offset by this vector.
     pub offset: Vector2<f32>,
+    /// The help view offset.
+    pub help_offset: Vector2<f32>,
     /// The current message displayed to the user.
     pub message: Message,
 
@@ -822,6 +824,7 @@ impl Session {
             base_dirs,
             proj_dirs,
             offset: Vector2::zero(),
+            help_offset: Vector2::zero(),
             tool: Tool::default(),
             prev_tool: Option::default(),
             mouse_state: InputState::Released,
@@ -1177,9 +1180,23 @@ impl Session {
 
     /// Pan the view by a relative amount.
     fn pan(&mut self, x: f32, y: f32) {
-        self.offset.x += x;
-        self.offset.y += y;
+        match self.mode {
+            Mode::Help => {
+                self.help_offset.x += x;
+                self.help_offset.y += y;
 
+                if self.help_offset.x > 0. {
+                    self.help_offset.x = 0.;
+                }
+                if self.help_offset.y < 0. {
+                    self.help_offset.y = 0.;
+                }
+            }
+            _ => {
+                self.offset.x += x;
+                self.offset.y += y;
+            }
+        }
         self.cursor_dirty();
     }
 
