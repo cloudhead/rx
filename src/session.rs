@@ -2597,7 +2597,7 @@ impl Session {
                     }
                 }
             }
-            Command::ResizeFrame(fw, fh) => {
+            Command::FrameResize(fw, fh) => {
                 if fw == 0 || fh == 0 {
                     self.message(
                         "Error: cannot set frame dimension to `0`",
@@ -2791,10 +2791,10 @@ impl Session {
             Command::ViewCenter => {
                 self.center_active_view();
             }
-            Command::AddFrame => {
+            Command::FrameAdd => {
                 self.active_view_mut().extend();
             }
-            Command::CloneFrame(n) => {
+            Command::FrameClone(n) => {
                 let v = self.active_view_mut();
                 let l = v.animation.len() as i32;
                 if n >= -1 && n < l {
@@ -2806,7 +2806,7 @@ impl Session {
                     );
                 }
             }
-            Command::RemoveFrame => {
+            Command::FrameRemove => {
                 self.active_view_mut().shrink();
                 self.check_selection();
             }

@@ -28,44 +28,55 @@ pub enum Op {
 /// by the session.
 #[derive(PartialEq, Debug, Clone)]
 pub enum Command {
+    // Brush
     Brush,
     BrushSet(BrushMode),
     BrushToggle(BrushMode),
     BrushSize(Op),
     BrushUnset(BrushMode),
+
     #[allow(dead_code)]
     Crop(Rect<u32>),
     ChangeDir(Option<String>),
     Echo(Value),
+
+    // Files
     Edit(Vec<String>),
     EditFrames(Vec<String>),
-    Fill(Rgba8),
+    Write(Option<String>),
+    WriteFrames(Option<String>),
+    WriteQuit,
+    Quit,
+    QuitAll,
     ForceQuit,
     ForceQuitAll,
-    Map(Box<KeyMapping>),
-    MapClear,
-    Mode(Mode),
-    AddFrame,
-    CloneFrame(i32),
-    RemoveFrame,
+    Source(Option<String>),
+
+    // Frames
+    FrameAdd,
+    FrameClone(i32),
+    FrameRemove,
     FramePrev,
     FrameNext,
-    Noop,
+    FrameResize(u32, u32),
+
+    // Palette
     PaletteAdd(Rgba8),
     PaletteClear,
     PaletteSample,
     PaletteSort,
     PaletteWrite(String),
+
+    // Navigation
     Pan(i32, i32),
+    Zoom(Op),
+
     PaintColor(Rgba8, i32, i32),
     PaintForeground(i32, i32),
     PaintBackground(i32, i32),
     PaintPalette(usize, i32, i32),
-    Quit,
-    QuitAll,
-    Reset,
-    Redo,
-    ResizeFrame(u32, u32),
+
+    // Selection
     SelectionMove(i32, i32),
     SelectionResize(i32, i32),
     SelectionOffset(i32, i32),
@@ -76,21 +87,32 @@ pub enum Command {
     SelectionFill(Option<Rgba8>),
     SelectionErase,
     SelectionJump(Direction),
+
+    // Settings
     Set(String, Value),
-    Slice(Option<usize>),
-    Source(Option<String>),
-    SwapColors,
     Toggle(String),
+    Reset,
+    Map(Box<KeyMapping>),
+    MapClear,
+
+    Slice(Option<usize>),
+    Fill(Rgba8),
+
+    SwapColors,
+
+    Mode(Mode),
     Tool(Tool),
     ToolPrev,
+
     Undo,
+    Redo,
+
+    // View
     ViewCenter,
     ViewNext,
     ViewPrev,
-    WriteFrames(Option<String>),
-    Write(Option<String>),
-    WriteQuit,
-    Zoom(Op),
+
+    Noop,
 }
 
 impl Command {
@@ -133,9 +155,9 @@ impl fmt::Display for Command {
             Self::Map(_) => write!(f, "Map a key combination to a command"),
             Self::MapClear => write!(f, "Clear all key mappings"),
             Self::Mode(m) => write!(f, "Switch session mode to {}", m),
-            Self::AddFrame => write!(f, "Add a blank frame to the view"),
-            Self::CloneFrame(i) => write!(f, "Clone frame {} and add it to the view", i),
-            Self::RemoveFrame => write!(f, "Remove the last frame of the view"),
+            Self::FrameAdd => write!(f, "Add a blank frame to the view"),
+            Self::FrameClone(i) => write!(f, "Clone frame {} and add it to the view", i),
+            Self::FrameRemove => write!(f, "Remove the last frame of the view"),
             Self::Noop => write!(f, "No-op"),
             Self::PaletteAdd(c) => write!(f, "Add {color} to palette", color = c),
             Self::PaletteClear => write!(f, "Clear palette"),
@@ -149,7 +171,7 @@ impl fmt::Display for Command {
             Self::Quit => write!(f, "Quit active view"),
             Self::QuitAll => write!(f, "Quit all views"),
             Self::Redo => write!(f, "Redo view edit"),
-            Self::ResizeFrame(_, _) => write!(f, "Resize active view frame"),
+            Self::FrameResize(_, _) => write!(f, "Resize active view frame"),
             Self::Tool(Tool::Pan(_)) => write!(f, "Pan tool"),
             Self::Tool(Tool::Brush(_)) => write!(f, "Brush tool"),
             Self::Tool(Tool::Sampler) => write!(f, "Color sampler tool"),
@@ -212,9 +234,9 @@ impl From<Command> for String {
             Command::ForceQuitAll => format!("qa!"),
             Command::Map(_) => format!("map <key> <command> {{<command>}}"),
             Command::Mode(m) => format!("mode {}", m),
-            Command::AddFrame => format!("f/add"),
-            Command::CloneFrame(i) => format!("f/clone {}", i),
-            Command::RemoveFrame => format!("f/remove"),
+            Command::FrameAdd => format!("f/add"),
+            Command::FrameClone(i) => format!("f/clone {}", i),
+            Command::FrameRemove => format!("f/remove"),
             Command::Noop => format!(""),
             Command::PaletteAdd(c) => format!("p/add {}", c),
             Command::PaletteClear => format!("p/clear"),
@@ -223,7 +245,7 @@ impl From<Command> for String {
             Command::Pan(x, y) => format!("pan {} {}", x, y),
             Command::Quit => format!("q"),
             Command::Redo => format!("redo"),
-            Command::ResizeFrame(w, h) => format!("f/resize {} {}", w, h),
+            Command::FrameResize(w, h) => format!("f/resize {} {}", w, h),
             Command::Set(s, v) => format!("set {} = {}", s, v),
             Command::Slice(Some(n)) => format!("slice {}", n),
             Command::Slice(None) => format!("slice"),
@@ -847,16 +869,16 @@ impl Default for Commands {
             .command("undo", "Undo the last edit", |p| p.value(Command::Undo))
             .command("redo", "Redo the last edit", |p| p.value(Command::Redo))
             .command("f/add", "Add a blank frame to the active view", |p| {
-                p.value(Command::AddFrame)
+                p.value(Command::FrameAdd)
             })
             .command("f/clone", "Clone a frame and add it to the view", |p| {
                 p.then(optional(integer::<i32>().label("<index>")))
-                    .map(|(_, index)| Command::CloneFrame(index.unwrap_or(-1)))
+                    .map(|(_, index)| Command::FrameClone(index.unwrap_or(-1)))
             })
             .command(
                 "f/remove",
                 "Remove the last frame from the active view",
-                |p| p.value(Command::RemoveFrame),
+                |p| p.value(Command::FrameRemove),
             )
             .command("f/prev", "Navigate to previous frame", |p| {
                 p.value(Command::FramePrev)
@@ -869,7 +891,7 @@ impl Default for Commands {
                     natural().label("<width>"),
                     natural().label("<height>"),
                 ))
-                .map(|(_, (w, h))| Command::ResizeFrame(w, h))
+                .map(|(_, (w, h))| Command::FrameResize(w, h))
             })
             .command("tool", "Switch tool", |p| {
                 p.then(word().label("pan/brush/sampler/.."))
