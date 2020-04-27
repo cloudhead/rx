@@ -4,6 +4,7 @@ use crate::history::History;
 use crate::parser::*;
 use crate::platform;
 use crate::session::{Direction, Mode, PanState, Tool, VisualState};
+use crate::view::layer::LayerId;
 
 use memoir::traits::Parse;
 use memoir::*;
@@ -111,6 +112,11 @@ pub enum Command {
     ViewCenter,
     ViewNext,
     ViewPrev,
+
+    // Layers
+    LayerAdd,
+    LayerRemove(Option<LayerId>),
+    LayerExtend(Option<LayerId>),
 
     Noop,
 }

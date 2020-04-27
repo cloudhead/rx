@@ -1,6 +1,9 @@
+pub mod layer;
+
 use crate::resources::SnapshotId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
+use crate::view::layer::{Layer, LayerId};
 
 use rgx::kit::Animation;
 use rgx::kit::Rgba8;
@@ -181,6 +184,8 @@ pub struct View {
     pub state: ViewState,
     /// Animation state of the sprite displayed by this view.
     pub animation: Animation<Rect<f32>>,
+    /// View layers.
+    pub layers: NonEmpty<Layer>,
 
     /// Which view snapshot has been saved to disk, if any.
     saved_snapshot: Option<SnapshotId>,
@@ -212,6 +217,7 @@ impl View {
             file_status: fs,
             animation: Animation::new(&frames, time::Duration::from_millis(delay)),
             state: ViewState::Okay,
+            layers: NonEmpty::new(Layer::new(LayerId::new(0), 0..nframes)),
             saved_snapshot,
         }
     }

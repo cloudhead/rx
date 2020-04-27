@@ -44,7 +44,7 @@ pub fn stitch_frames<T: Clone>(mut frames: Vec<Vec<T>>, fw: usize, fh: usize, va
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
          let mut map = ::std::collections::HashMap::new();
-         $( map.insert($key.to_string(), $val); )*
+         $( map.insert($key.to_owned(), $val); )*
          map
     }}
 }
