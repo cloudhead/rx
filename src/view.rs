@@ -3,7 +3,7 @@ pub mod layer;
 use crate::resources::SnapshotId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
-use crate::view::layer::{Layer, LayerId};
+use crate::view::layer::{FrameRange, Layer, LayerId};
 
 use rgx::kit::Animation;
 use rgx::kit::Rgba8;
@@ -157,6 +157,8 @@ pub enum ViewOp {
     Resize(u32, u32),
     /// Paint a single pixel.
     SetPixel(Rgba8, i32, i32),
+    /// Add a layer.
+    AddLayer(FrameRange),
 }
 
 /// A view on a sprite or image.
@@ -217,7 +219,7 @@ impl View {
             file_status: fs,
             animation: Animation::new(&frames, time::Duration::from_millis(delay)),
             state: ViewState::Okay,
-            layers: NonEmpty::new(Layer::new(LayerId::new(0), 0..nframes)),
+            layers: NonEmpty::new(Layer::default()),
             saved_snapshot,
         }
     }
@@ -229,7 +231,7 @@ impl View {
 
     /// View height.
     pub fn height(&self) -> u32 {
-        self.fh
+        self.fh * self.layers.len() as u32
     }
 
     /// View width and height.
@@ -306,6 +308,18 @@ impl View {
     pub fn resize_frames(&mut self, fw: u32, fh: u32) {
         self.reset(ViewExtent::new(fw, fh, self.animation.len()));
         self.resized();
+    }
+
+    /// Add a layer.
+    pub fn add_layer(&mut self) -> LayerId {
+        self.layers.push(Layer::default());
+
+        LayerId::new(self.layers.len() - 1)
+    }
+
+    /// Remove a layer.
+    pub fn remove_layer(&mut self, _id: LayerId) {
+        unimplemented!()
     }
 
     /// Clear the view to a color.

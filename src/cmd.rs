@@ -899,6 +899,9 @@ impl Default for Commands {
                 ))
                 .map(|(_, (w, h))| Command::FrameResize(w, h))
             })
+            .command("l/add", "Add a new layer to the active view", |p| {
+                p.value(Command::LayerAdd)
+            })
             .command("tool", "Switch tool", |p| {
                 p.then(word().label("pan/brush/sampler/.."))
                     .try_map(|(_, t)| match t.as_str() {

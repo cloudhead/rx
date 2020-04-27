@@ -223,6 +223,17 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
             ));
         }
+        // Layer lines
+        for n in 1..v.layers.len() {
+            let n = n as f32;
+            let y = n * v.zoom * v.fh as f32 + offset.y;
+            canvas.add(Shape::Line(
+                Line::new([offset.x, y], [v.zoom * v.fw as f32 + offset.x, y]),
+                self::UI_LAYER,
+                Rotation::ZERO,
+                Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
+            ));
+        }
         // View border
         let r = v.rect();
         let border_color = if session.is_active(v.id) {

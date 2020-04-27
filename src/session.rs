@@ -2799,8 +2799,16 @@ impl Session {
                 self.active_view_mut().shrink();
                 self.check_selection();
             }
-            Command::LayerAdd => unimplemented!(),
-            Command::LayerRemove(_id) => unimplemented!(),
+            Command::LayerAdd => {
+                self.active_view_mut().add_layer();
+            }
+            Command::LayerRemove(id) => {
+                if let Some(id) = id {
+                    self.active_view_mut().remove_layer(id);
+                } else {
+                    unimplemented!()
+                }
+            }
             Command::LayerExtend(_id) => unimplemented!(),
             Command::Slice(None) => {
                 let v = self.active_view_mut();
