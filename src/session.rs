@@ -11,6 +11,7 @@ use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Pixels, ResourceManager, SnapshotId};
 use crate::util;
+use crate::view::layer::LayerId;
 use crate::view::{
     FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
 };
@@ -683,7 +684,7 @@ pub struct Session {
     /// The color under the cursor, if any.
     pub hover_color: Option<Rgba8>,
     /// The view under the cursor, if any.
-    pub hover_view: Option<ViewId>,
+    pub hover_view: Option<(ViewId, LayerId)>,
 
     /// The workspace offset. Views are offset by this vector.
     pub offset: Vector2<f32>,
@@ -1219,17 +1220,18 @@ impl Session {
         }
 
         for v in self.views.iter_mut() {
-            if v.contains(cursor - self.offset) {
-                self.hover_view = Some(v.id);
+            let p = cursor - self.offset;
+            if let Some(l) = v.contains(p) {
+                self.hover_view = Some((v.id, l));
                 break;
             }
         }
 
         self.hover_color = if self.palette.hover.is_some() {
             self.palette.hover
-        } else if let Some(v) = self.hover_view {
+        } else if let Some((v, _)) = self.hover_view {
             let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
-            self.color_at(v, p)
+            self.color_at(v, p) // XXX
         } else {
             None
         };
@@ -2052,7 +2054,7 @@ impl Session {
                 }
 
                 // Click on a view.
-                if let Some(id) = self.hover_view {
+                if let Some((id, _)) = self.hover_view {
                     // Clicking on a view is one way to get out of command mode.
                     if self.mode == Mode::Command {
                         self.cmdline_hide();
@@ -2138,7 +2140,7 @@ impl Session {
 
     fn handle_mouse_wheel(&mut self, delta: platform::LogicalDelta) {
         if delta.y > 0. {
-            if let Some(v) = self.hover_view {
+            if let Some((v, _)) = self.hover_view {
                 self.activate(v);
             }
             self.zoom_in(self.cursor);
@@ -3029,9 +3031,11 @@ impl Session {
                         y = 0;
                     }
                     *s = Selection::from(s.bounds().expand(x, y, x, y));
-                } else if self.hover_view == Some(self.views.active_id) {
-                    let p = self.active_view_coords(self.cursor).map(|n| n as i32);
-                    self.selection = Some(Selection::new(p.x, p.y, p.x + 1, p.y + 1));
+                } else if let Some((id, _)) = self.hover_view {
+                    if id == self.views.active_id {
+                        let p = self.active_view_coords(self.cursor).map(|n| n as i32);
+                        self.selection = Some(Selection::new(p.x, p.y, p.x + 1, p.y + 1));
+                    }
                 }
             }
             Command::SelectionJump(dir) => {

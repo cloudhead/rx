@@ -417,9 +417,30 @@ impl View {
         )
     }
 
+    /// Return the area of the given layer, including the view offset.
+    pub fn layer_rect(&self, l: LayerId) -> Rect<f32> {
+        let i: usize = l.into();
+
+        Rect::new(
+            self.offset.x,
+            self.offset.y + (self.fh * i as u32) as f32 * self.zoom,
+            self.offset.x + self.width() as f32 * self.zoom,
+            self.offset.y + (self.fh * (i + 1) as u32) as f32 * self.zoom,
+        )
+    }
+
     /// Check whether the session coordinates are contained within the view.
-    pub fn contains(&self, p: SessionCoords) -> bool {
-        self.rect().contains(*p)
+    pub fn contains(&self, p: SessionCoords) -> Option<LayerId> {
+        if self.rect().contains(*p) {
+            for (i, _) in self.layers.iter().enumerate() {
+                let id = LayerId::new(i);
+
+                if self.layer_rect(id).contains(*p) {
+                    return Some(id);
+                }
+            }
+        }
+        None
     }
 
     /// Get the center of the view.

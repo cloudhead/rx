@@ -244,7 +244,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 }
                 _ => color::WHITE.into(),
             }
-        } else if session.hover_view == Some(v.id) {
+        } else if session.hover_view.map(|(id, _)| id) == Some(v.id) {
             Rgba::new(0.7, 0.7, 0.7, 1.0)
         } else {
             Rgba::new(0.5, 0.5, 0.5, 1.0)
@@ -584,7 +584,7 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
     }) = cursors::info(
         &session.tool,
         session.mode,
-        v.contains(c - session.offset),
+        v.contains(c - session.offset).is_some(),
         session.is_selected(session.view_coords(v.id, c).into()),
     ) {
         let dst = rect.with_origin(c.x, c.y) + offset;
@@ -622,7 +622,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                 return;
             }
 
-            if v.contains(c - session.offset) {
+            if v.contains(c - session.offset).is_some() {
                 let c = session.snap(c, v.offset.x, v.offset.y, z);
                 shapes.add(Shape::Rectangle(
                     Rect::new(c.x, c.y, c.x + z, c.y + z),
@@ -638,7 +638,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                 let view_coords = session.active_view_coords(c);
 
                 // Draw enabled brush
-                if v.contains(c - session.offset) {
+                if v.contains(c - session.offset).is_some() {
                     let (stroke, fill) = if brush.is_set(BrushMode::Erase) {
                         // When erasing, we draw a stroke that is the inverse of the underlying
                         // color at the cursor. Note that this isn't perfect, since it uses

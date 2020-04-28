@@ -6,6 +6,7 @@ use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
+use crate::view::layer::FrameRange;
 use crate::view::{ViewId, ViewOp};
 use crate::{data, data::Assets, image};
 
@@ -159,6 +160,8 @@ struct ViewData {
     staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     tess: Tess,
     anim_tess: Option<Tess>,
+    w: u32,
+    h: u32,
 }
 
 impl ViewData {
@@ -206,6 +209,8 @@ impl ViewData {
             staging_fb,
             tess,
             anim_tess: None,
+            w,
+            h,
         }
     }
 
@@ -214,6 +219,13 @@ impl ViewData {
         index: usize,
     ) -> &Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> {
         self.layers.get(index).expect("the layer must exist")
+    }
+
+    fn add_layer(&mut self, _range: &FrameRange, ctx: &mut Context) {
+        let fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
+            Framebuffer::new(ctx, [self.w, self.h], 0, self::SAMPLER).unwrap();
+
+        self.layers.push(fb);
     }
 }
 
@@ -860,7 +872,12 @@ impl Renderer {
                 ViewOp::Resize(w, h) => {
                     self.resize_view(id, *w, *h)?;
                 }
-                ViewOp::AddLayer(_range) => unimplemented!(),
+                ViewOp::AddLayer(range) => {
+                    self.view_data
+                        .get_mut(&id)
+                        .expect("views must have associated view data")
+                        .add_layer(range, &mut self.ctx);
+                }
                 ViewOp::Clear(color) => {
                     self.view_data
                         .get(&id)
