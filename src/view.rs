@@ -312,7 +312,18 @@ impl View {
 
     /// Add a layer.
     pub fn add_layer(&mut self) -> LayerId {
-        self.layers.push(Layer::default());
+        let top = self
+            .layers
+            .iter()
+            .max_by_key(|l| l.index)
+            .expect("there is always at least one layer")
+            .index;
+        let range = FrameRange::Full;
+
+        self.layers.push(Layer::new(range.clone(), top + 1));
+        self.ops.push(ViewOp::AddLayer(range));
+
+        dbg!(&self.layers);
 
         LayerId::new(self.layers.len() - 1)
     }
@@ -418,14 +429,12 @@ impl View {
     }
 
     /// Return the area of the given layer, including the view offset.
-    pub fn layer_rect(&self, l: LayerId) -> Rect<f32> {
-        let i: usize = l.into();
-
+    pub fn layer_rect(&self, index: usize) -> Rect<f32> {
         Rect::new(
             self.offset.x,
-            self.offset.y + (self.fh * i as u32) as f32 * self.zoom,
+            self.offset.y + (self.fh * index as u32) as f32 * self.zoom,
             self.offset.x + self.width() as f32 * self.zoom,
-            self.offset.y + (self.fh * (i + 1) as u32) as f32 * self.zoom,
+            self.offset.y + (self.fh * (index + 1) as u32) as f32 * self.zoom,
         )
     }
 
@@ -433,10 +442,8 @@ impl View {
     pub fn contains(&self, p: SessionCoords) -> Option<LayerId> {
         if self.rect().contains(*p) {
             for (i, _) in self.layers.iter().enumerate() {
-                let id = LayerId::new(i);
-
-                if self.layer_rect(id).contains(*p) {
-                    return Some(id);
+                if self.layer_rect(i).contains(*p) {
+                    return Some(LayerId::new(i));
                 }
             }
         }

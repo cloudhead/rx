@@ -155,16 +155,12 @@ pub struct Renderer {
     view_data: BTreeMap<ViewId, ViewData>,
 }
 
-struct ViewData {
-    layers: NonEmpty<Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>>,
-    staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+struct LayerData {
+    fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     tess: Tess,
-    anim_tess: Option<Tess>,
-    w: u32,
-    h: u32,
 }
 
-impl ViewData {
+impl LayerData {
     fn new(w: u32, h: u32, pixels: Option<&[Rgba8]>, ctx: &mut Context) -> Self {
         let batch = sprite2d::Batch::singleton(
             w,
@@ -190,42 +186,52 @@ impl ViewData {
 
         let fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
             Framebuffer::new(ctx, [w, h], 0, self::SAMPLER).unwrap();
-        let staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
-            Framebuffer::new(ctx, [w, h], 0, self::SAMPLER).unwrap();
 
         fb.color_slot().clear(GenMipmaps::No, (0, 0, 0, 0)).unwrap();
-        staging_fb
-            .color_slot()
-            .clear(GenMipmaps::No, (0, 0, 0, 0))
-            .unwrap();
 
         if let Some(pixels) = pixels {
             let aligned = self::align_u8(pixels);
             fb.color_slot().upload_raw(GenMipmaps::No, aligned).unwrap();
         }
 
-        ViewData {
-            layers: NonEmpty::new(fb),
+        Self { fb, tess }
+    }
+}
+
+struct ViewData {
+    layers: NonEmpty<LayerData>,
+    staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+    anim_tess: Option<Tess>,
+    w: u32,
+    h: u32,
+}
+
+impl ViewData {
+    fn new(w: u32, h: u32, pixels: Option<&[Rgba8]>, ctx: &mut Context) -> Self {
+        let staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
+            Framebuffer::new(ctx, [w, h], 0, self::SAMPLER).unwrap();
+
+        staging_fb
+            .color_slot()
+            .clear(GenMipmaps::No, (0, 0, 0, 0))
+            .unwrap();
+
+        Self {
+            layers: NonEmpty::new(LayerData::new(w, h, pixels, ctx)),
             staging_fb,
-            tess,
             anim_tess: None,
             w,
             h,
         }
     }
 
-    fn get_layer(
-        &self,
-        index: usize,
-    ) -> &Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> {
+    fn get_layer(&self, index: usize) -> &LayerData {
         self.layers.get(index).expect("the layer must exist")
     }
 
     fn add_layer(&mut self, _range: &FrameRange, ctx: &mut Context) {
-        let fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
-            Framebuffer::new(ctx, [self.w, self.h], 0, self::SAMPLER).unwrap();
-
-        self.layers.push(fb);
+        let layer = LayerData::new(self.w, self.h, None, ctx);
+        self.layers.push(layer);
     }
 }
 
@@ -556,7 +562,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         // Render to view final buffer.
         builder.pipeline(
-            &v_data.get_layer(0), // XXX
+            &v_data.get_layer(0).fb, // XXX
             &pipeline_st.clone().enable_clear_color(false),
             |pipeline, mut shd_gate| {
                 let bound_paste = pipeline.bind_texture(paste);
@@ -620,27 +626,33 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
             for (id, v) in view_data.iter() {
                 if let Some(view) = session.views.get(*id) {
-                    let bound_view = pipeline.bind_texture(v.get_layer(0).color_slot()); // XXX
-                    let bound_view_staging = pipeline.bind_texture(v.staging_fb.color_slot());
-                    let transform = Matrix4::from_translation(
-                        (session.offset + view.offset).extend(*draw::VIEW_LAYER),
-                    ) * Matrix4::from_nonuniform_scale(view.zoom, view.zoom, 1.0);
+                    for (layer_id, layer) in view.layers.iter().enumerate() {
+                        let l = v.get_layer(layer_id);
+                        let layer_offset = view.layer_rect(layer.index).min().into();
+                        let bound_view = pipeline.bind_texture(l.fb.color_slot());
+                        let bound_view_staging = pipeline.bind_texture(v.staging_fb.color_slot());
+                        let transform = Matrix4::from_translation(
+                            (session.offset + view.offset + layer_offset).extend(*draw::VIEW_LAYER),
+                        ) * Matrix4::from_nonuniform_scale(
+                            view.zoom, view.zoom, 1.0,
+                        );
 
-                    // Render views.
-                    shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                        iface.tex.update(&bound_view);
-                        iface.ortho.update(ortho);
-                        iface.transform.update(unsafe { mem::transmute(transform) });
+                        // Render views.
+                        shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
+                            iface.tex.update(&bound_view);
+                            iface.ortho.update(ortho);
+                            iface.transform.update(unsafe { mem::transmute(transform) });
 
-                        rdr_gate.render(render_st, |mut tess_gate| {
-                            tess_gate.render(&v.tess);
+                            rdr_gate.render(render_st, |mut tess_gate| {
+                                tess_gate.render(&l.tess);
+                            });
+
+                            iface.tex.update(&bound_view_staging);
+                            rdr_gate.render(render_st, |mut tess_gate| {
+                                tess_gate.render(&l.tess);
+                            });
                         });
-
-                        iface.tex.update(&bound_view_staging);
-                        rdr_gate.render(render_st, |mut tess_gate| {
-                            tess_gate.render(&v.tess);
-                        });
-                    });
+                    }
                 }
             }
 
@@ -665,7 +677,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         match (&v.anim_tess, session.views.get(*id)) {
                             (Some(tess), Some(view)) if view.animation.len() > 1 => {
                                 let bound_view =
-                                    pipeline.bind_texture(&v.get_layer(0).color_slot()); // XXX
+                                    pipeline.bind_texture(&v.get_layer(0).fb.color_slot()); // XXX
 
                                 iface.tex.update(&bound_view);
 
@@ -770,7 +782,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
             if let Some(s) = self.resources.lock_mut().get_view_mut(v.id) {
-                let texels = v_data.get_layer(0).color_slot().get_raw_texels(); // XXX
+                let texels = v_data.get_layer(0).fb.color_slot().get_raw_texels(); // XXX
                 s.push_snapshot(Pixels::from_rgba8(Rgba8::align(&texels).into()), v.extent());
             }
         }
@@ -883,6 +895,7 @@ impl Renderer {
                         .get(&id)
                         .expect("views must have associated view data")
                         .get_layer(0) // XXX
+                        .fb
                         .color_slot()
                         .clear(GenMipmaps::No, (color.r, color.g, color.b, color.a))
                         .map_err(Error::Texture)?;
@@ -892,7 +905,8 @@ impl Renderer {
                         .view_data
                         .get(&id)
                         .expect("views must have associated view data")
-                        .get_layer(0); // XXX
+                        .get_layer(0)
+                        .fb; // XXX
 
                     let (_, texels) = self
                         .resources
@@ -950,7 +964,8 @@ impl Renderer {
                         .view_data
                         .get(&id)
                         .expect("views must have associated view data")
-                        .get_layer(0); // XXX
+                        .get_layer(0)
+                        .fb; // XXX
                     let texels = &[*rgba];
                     let texels = self::align_u8(texels);
                     fb.color_slot()
@@ -969,7 +984,8 @@ impl Renderer {
             .view_data
             .get(&id)
             .expect("views must have associated view data")
-            .get_layer(0); // XXX
+            .get_layer(0)
+            .fb; // XXX
 
         if fb.width() != vw || fb.height() != vh {
             return self.resize_view(id, vw, vh);
@@ -1016,7 +1032,8 @@ impl Renderer {
         let texels = self::align_u8(&texels);
 
         view_data
-            .get_layer(0) // XXX
+            .get_layer(0)
+            .fb // XXX
             .color_slot()
             .clear(GenMipmaps::No, (0, 0, 0, 0))
             .map_err(Error::Texture)?;
@@ -1026,7 +1043,8 @@ impl Renderer {
             .clear(GenMipmaps::No, (0, 0, 0, 0))
             .map_err(Error::Texture)?;
         view_data
-            .get_layer(0) // XXX
+            .get_layer(0)
+            .fb // XXX
             .color_slot()
             .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
             .map_err(Error::Texture)?;
