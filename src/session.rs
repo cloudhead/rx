@@ -11,7 +11,7 @@ use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
 use crate::resources::{Pixels, ResourceManager, SnapshotId};
 use crate::util;
-use crate::view::layer::LayerId;
+use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::{
     FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
 };
@@ -1222,6 +1222,7 @@ impl Session {
         for v in self.views.iter_mut() {
             let p = cursor - self.offset;
             if let Some(l) = v.contains(p) {
+                v.activate_layer(l);
                 self.hover_view = Some((v.id, l));
                 break;
             }
@@ -1459,6 +1460,26 @@ impl Session {
     pub fn active_view_coords(&self, p: SessionCoords) -> ViewCoords<f32> {
         self.view_coords(self.views.active_id, p)
     }
+
+    /// Convert session coordinates to layer coordinates of the active layer.
+    pub fn active_layer_coords(&self, p: SessionCoords) -> LayerCoords<f32> {
+        let v = self.active_view();
+        let SessionCoords(p) = p;
+
+        // XXX: Refactor
+        let p = p - self.offset - Vector2::from(v.layer_rect(v.active_layer_id).min());
+        let mut p = p / v.zoom;
+
+        if v.flip_x {
+            p.x = v.width() as f32 - p.x;
+        }
+        if v.flip_y {
+            p.y = v.height() as f32 - p.y;
+        }
+
+        LayerCoords::new(p.x.floor(), p.y.floor())
+    }
+
 
     /// Check whether a point is inside the selection, if any.
     pub fn is_selected(&self, p: ViewCoords<i32>) -> bool {
@@ -2062,7 +2083,8 @@ impl Session {
                     }
                     if self.is_active(id) {
                         let v = self.active_view();
-                        let p = self.view_coords(v.id, self.cursor);
+                        let p = self.active_layer_coords(self.cursor);
+
                         let extent = v.extent();
 
                         match self.mode {
@@ -2154,8 +2176,8 @@ impl Session {
             return;
         }
 
-        let p = self.active_view_coords(cursor);
-        let prev_p = self.active_view_coords(self.cursor);
+        let p = self.active_layer_coords(cursor);
+        let prev_p = self.active_layer_coords(self.cursor);
         let (vw, vh) = self.active_view().size();
 
         match self.tool {
@@ -2170,7 +2192,7 @@ impl Session {
                     Mode::Normal => match self.tool {
                         Tool::Brush(ref mut brush) if p != prev_p => match brush.state {
                             BrushState::DrawStarted { .. } | BrushState::Drawing { .. } => {
-                                let mut p: ViewCoords<i32> = p.into();
+                                let mut p: LayerCoords<i32> = p.into();
                                 if brush.is_set(BrushMode::Multi) {
                                     p.clamp(Rect::new(
                                         (brush.size / 2) as i32,

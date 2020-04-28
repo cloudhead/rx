@@ -1,4 +1,5 @@
 use crate::pixels::PixelsMut;
+use crate::view::layer::LayerCoords;
 use crate::view::{ViewCoords, ViewExtent};
 
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
@@ -139,7 +140,7 @@ impl Brush {
     }
 
     /// Start drawing. Called when input is first pressed.
-    pub fn start_drawing(&mut self, p: ViewCoords<i32>, color: Rgba8, extent: ViewExtent) {
+    pub fn start_drawing(&mut self, p: LayerCoords<i32>, color: Rgba8, extent: ViewExtent) {
         self.state = BrushState::DrawStarted(extent);
         self.color = color;
         self.stroke = Vec::with_capacity(32);
@@ -147,7 +148,7 @@ impl Brush {
     }
 
     /// Draw. Called while input is pressed.
-    pub fn draw(&mut self, p: ViewCoords<i32>) {
+    pub fn draw(&mut self, p: LayerCoords<i32>) {
         self.prev = if let BrushState::DrawStarted(_) = self.state {
             *p
         } else {

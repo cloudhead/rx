@@ -522,7 +522,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         };
 
         let v = session.active_view();
+        let l = v.active_layer_id;
         let v_data = view_data.get(&v.id).unwrap();
+        let l_data = v_data.get_layer(l);
         let view_ortho: linear::M44 =
             unsafe { mem::transmute(kit::ortho(v.width(), v.height(), Origin::TopLeft)) };
 
@@ -562,7 +564,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         // Render to view final buffer.
         builder.pipeline(
-            &v_data.get_layer(0).fb, // XXX
+            &l_data.fb, // XXX
             &pipeline_st.clone().enable_clear_color(false),
             |pipeline, mut shd_gate| {
                 let bound_paste = pipeline.bind_texture(paste);
@@ -782,7 +784,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
             if let Some(s) = self.resources.lock_mut().get_view_mut(v.id) {
-                let texels = v_data.get_layer(0).fb.color_slot().get_raw_texels(); // XXX
+                let texels = l_data.fb.color_slot().get_raw_texels(); // XXX
                 s.push_snapshot(Pixels::from_rgba8(Rgba8::align(&texels).into()), v.extent());
             }
         }

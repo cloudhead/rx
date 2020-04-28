@@ -188,6 +188,8 @@ pub struct View {
     pub animation: Animation<Rect<f32>>,
     /// View layers.
     pub layers: NonEmpty<Layer>,
+    /// Currently active layer.
+    pub active_layer_id: LayerId,
 
     /// Which view snapshot has been saved to disk, if any.
     saved_snapshot: Option<SnapshotId>,
@@ -220,6 +222,7 @@ impl View {
             animation: Animation::new(&frames, time::Duration::from_millis(delay)),
             state: ViewState::Okay,
             layers: NonEmpty::new(Layer::default()),
+            active_layer_id: LayerId::default(),
             saved_snapshot,
         }
     }
@@ -231,7 +234,7 @@ impl View {
 
     /// View height.
     pub fn height(&self) -> u32 {
-        self.fh * self.layers.len() as u32
+        self.fh
     }
 
     /// View width and height.
@@ -310,6 +313,20 @@ impl View {
         self.resized();
     }
 
+    /// Activate a layer.
+    pub fn activate_layer(&mut self, l: LayerId) {
+        self.active_layer_id = l;
+    }
+
+    /// Get the active layer.
+    pub fn active_layer(&self) -> &Layer {
+        let index: usize = self.active_layer_id.into();
+
+        self.layers
+            .get(index)
+            .expect("there is always an active layer")
+    }
+
     /// Add a layer.
     pub fn add_layer(&mut self) -> LayerId {
         let top = self
@@ -325,7 +342,7 @@ impl View {
 
         dbg!(&self.layers);
 
-        LayerId::new(self.layers.len() - 1)
+        self.layers.len() - 1
     }
 
     /// Remove a layer.
@@ -424,7 +441,7 @@ impl View {
             self.offset.x,
             self.offset.y,
             self.offset.x + self.width() as f32 * self.zoom,
-            self.offset.y + self.height() as f32 * self.zoom,
+            self.offset.y + (self.fh as usize * self.layers.len()) as f32 * self.zoom,
         )
     }
 
@@ -443,7 +460,7 @@ impl View {
         if self.rect().contains(*p) {
             for (i, _) in self.layers.iter().enumerate() {
                 if self.layer_rect(i).contains(*p) {
-                    return Some(LayerId::new(i));
+                    return Some(i);
                 }
             }
         }
