@@ -635,7 +635,6 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         let l = v.get_layer(layer_id);
                         let layer_offset = view.layer_rect(layer.index).min().into();
                         let bound_view = pipeline.bind_texture(l.fb.color_slot());
-                        let bound_view_staging = pipeline.bind_texture(v.staging_fb.color_slot());
                         let transform = Matrix4::from_translation(
                             (session.offset + view.offset + layer_offset).extend(*draw::VIEW_LAYER),
                         ) * Matrix4::from_nonuniform_scale(
@@ -652,10 +651,16 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                 tess_gate.render(&l.tess);
                             });
 
-                            iface.tex.update(&bound_view_staging);
-                            rdr_gate.render(render_st, |mut tess_gate| {
-                                tess_gate.render(&l.tess);
-                            });
+                            if layer_id == view.active_layer_id {
+                                // TODO: We only need to render this on the active view.
+                                let bound_view_staging =
+                                    pipeline.bind_texture(v.staging_fb.color_slot());
+
+                                iface.tex.update(&bound_view_staging);
+                                rdr_gate.render(render_st, |mut tess_gate| {
+                                    tess_gate.render(&l.tess);
+                                });
+                            }
                         });
                     }
                 }
