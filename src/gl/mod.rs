@@ -635,27 +635,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
             // Render text, tool & view animations.
             shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                {
-                    let bound_font = pipeline.bind_texture(font);
-
-                    iface.tex.update(&bound_font);
-                    iface.ortho.update(ortho);
-                    iface.transform.update(identity);
-
-                    // Render text.
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&text_tess);
-                    });
-                }
-                {
-                    let bound_tool = pipeline.bind_texture(cursors);
-                    iface.tex.update(&bound_tool);
-
-                    // Render tool.
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&tool_tess);
-                    });
-                }
+                iface.ortho.update(ortho);
+                iface.transform.update(identity);
 
                 // Render view animations.
                 if session.settings["animation"].is_set() {
@@ -673,6 +654,25 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                             _ => (),
                         }
                     }
+                }
+
+                {
+                    let bound_font = pipeline.bind_texture(font);
+                    iface.tex.update(&bound_font);
+
+                    // Render text.
+                    rdr_gate.render(render_st, |mut tess_gate| {
+                        tess_gate.render(&text_tess);
+                    });
+                }
+                {
+                    let bound_tool = pipeline.bind_texture(cursors);
+                    iface.tex.update(&bound_tool);
+
+                    // Render tool.
+                    rdr_gate.render(render_st, |mut tess_gate| {
+                        tess_gate.render(&tool_tess);
+                    });
                 }
             });
 
