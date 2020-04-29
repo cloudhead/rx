@@ -202,6 +202,7 @@ struct ViewData {
     layers: NonEmpty<LayerData>,
     staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     anim_tess: Option<Tess>,
+    layer_tess: Option<Tess>,
     w: u32,
     h: u32,
 }
@@ -220,6 +221,7 @@ impl ViewData {
             layers: NonEmpty::new(LayerData::new(w, h, pixels, ctx)),
             staging_fb,
             anim_tess: None,
+            layer_tess: None,
             w,
             h,
         }
@@ -423,6 +425,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         self.handle_effects(effects).unwrap();
         self.update_view_animations(session);
+        self.update_view_composites(session);
 
         let ortho: linear::M44 = unsafe {
             mem::transmute(kit::ortho(
@@ -672,6 +675,24 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
                 iface.ortho.update(ortho);
                 iface.transform.update(identity);
+
+                // Render view composites.
+                for (_, v) in view_data.iter() {
+                    match &v.layer_tess {
+                        Some(tess) => {
+                            for l in v.layers.iter() {
+                                let bound_view = pipeline.bind_texture(l.fb.color_slot());
+
+                                iface.tex.update(&bound_view);
+
+                                rdr_gate.render(render_st, |mut tess_gate| {
+                                    tess_gate.render(tess);
+                                });
+                            }
+                        }
+                        _ => (),
+                    }
+                }
 
                 // Render view animations.
                 if session.settings["animation"].is_set() {
@@ -1070,6 +1091,19 @@ impl Renderer {
 
             if let Some(vd) = self.view_data.get_mut(&v.id) {
                 vd.anim_tess = Some(self::tessellation::<_, Sprite2dVertex>(
+                    &mut self.ctx,
+                    batch.vertices().as_slice(),
+                ));
+            }
+        }
+    }
+
+    fn update_view_composites(&mut self, s: &Session) {
+        for v in s.views.iter() {
+            let batch = draw::draw_view_composites(s, &v);
+
+            if let Some(vd) = self.view_data.get_mut(&v.id) {
+                vd.layer_tess = Some(self::tessellation::<_, Sprite2dVertex>(
                     &mut self.ctx,
                     batch.vertices().as_slice(),
                 ));

@@ -743,6 +743,23 @@ pub fn draw_view_animation(session: &Session, v: &View) -> sprite2d::Batch {
     )
 }
 
+pub fn draw_view_composites(session: &Session, v: &View) -> sprite2d::Batch {
+    let mut batch = sprite2d::Batch::new(v.width(), v.height());
+
+    for frame in v.animation.frames.iter() {
+        batch.add(
+            *frame,
+            (*frame - Vector2::new(0., v.fh as f32)) * v.zoom + (session.offset + v.offset),
+            self::VIEW_LAYER,
+            Rgba::TRANSPARENT,
+            1.,
+            kit::Repeat::default(),
+        )
+    }
+
+    batch
+}
+
 pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::Batch) {
     shape.add(Shape::Rectangle(
         Rect::origin(session.width as f32, session.height as f32),
