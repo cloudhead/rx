@@ -1222,7 +1222,6 @@ impl Session {
         for v in self.views.iter_mut() {
             let p = cursor - self.offset;
             if let Some(l) = v.contains(p) {
-                v.activate_layer(l);
                 self.hover_view = Some((v.id, l));
                 break;
             }
@@ -1479,7 +1478,6 @@ impl Session {
 
         LayerCoords::new(p.x.floor(), p.y.floor())
     }
-
 
     /// Check whether a point is inside the selection, if any.
     pub fn is_selected(&self, p: ViewCoords<i32>) -> bool {
@@ -2075,14 +2073,18 @@ impl Session {
                 }
 
                 // Click on a view.
-                if let Some((id, _)) = self.hover_view {
+                if let Some((id, layer_id)) = self.hover_view {
                     // Clicking on a view is one way to get out of command mode.
                     if self.mode == Mode::Command {
                         self.cmdline_hide();
                         return;
                     }
                     if self.is_active(id) {
-                        let v = self.active_view();
+                        {
+                            let v = self.view_mut(id);
+                            v.activate_layer(layer_id);
+                        }
+                        let v = self.view(id);
                         let p = self.active_layer_coords(self.cursor);
 
                         let extent = v.extent();
