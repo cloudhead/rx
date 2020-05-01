@@ -708,7 +708,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                             (Some(tess), Some(view)) if view.animation.len() > 1 => {
                                 let composite_t = unsafe {
                                     mem::transmute(Matrix4::from_translation(
-                                        Vector2::new(0., -(v.h as f32)).extend(0.),
+                                        Vector2::new(0., -(v.h as f32 * view.zoom)).extend(0.),
                                     ))
                                 };
 
@@ -716,7 +716,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                     let bound_layer = pipeline.bind_texture(l.fb.color_slot());
                                     let layer_offset = v.h as usize * i;
                                     let t = Matrix4::from_translation(
-                                        Vector2::new(0., layer_offset as f32).extend(0.),
+                                        Vector2::new(0., layer_offset as f32 * view.zoom)
+                                            .extend(0.),
                                     );
 
                                     // Render layer animation.
