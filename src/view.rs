@@ -340,8 +340,6 @@ impl View {
         self.layers.push(Layer::new(range.clone(), top + 1));
         self.ops.push(ViewOp::AddLayer(range));
 
-        dbg!(&self.layers);
-
         self.layers.len() - 1
     }
 

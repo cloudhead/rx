@@ -217,7 +217,13 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             let n = n as f32;
             let x = n * v.zoom * v.fw as f32 + offset.x;
             canvas.add(Shape::Line(
-                Line::new([x, offset.y], [x, v.zoom * v.fh as f32 + offset.y]),
+                Line::new(
+                    [x, offset.y],
+                    [
+                        x,
+                        v.zoom * (v.fh as usize * v.layers.len()) as f32 + offset.y,
+                    ],
+                ),
                 self::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
@@ -228,7 +234,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             let n = n as f32;
             let y = n * v.zoom * v.fh as f32 + offset.y;
             canvas.add(Shape::Line(
-                Line::new([offset.x, y], [v.zoom * v.fw as f32 + offset.x, y]),
+                Line::new([offset.x, y], [v.zoom * v.width() as f32 + offset.x, y]),
                 self::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
