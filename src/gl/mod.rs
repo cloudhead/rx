@@ -6,7 +6,7 @@ use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
-use crate::view::layer::FrameRange;
+use crate::view::layer::{FrameRange, LayerId};
 use crate::view::{ViewId, ViewOp};
 use crate::{data, data::Assets, image};
 
@@ -228,7 +228,9 @@ impl ViewData {
     }
 
     fn get_layer(&self, index: usize) -> &LayerData {
-        self.layers.get(index).expect("the layer must exist")
+        self.layers
+            .get(index)
+            .unwrap_or_else(|| panic!("layer #{} must exist", index))
     }
 
     fn add_layer(&mut self, _range: &FrameRange, ctx: &mut Context) {
@@ -809,9 +811,13 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
-            if let Some(s) = self.resources.lock_mut().get_view_mut(v.id) {
+            if let Some(vr) = self.resources.lock_mut().get_view_mut(v.id) {
                 let texels = l_data.fb.color_slot().get_raw_texels(); // XXX
-                s.push_snapshot(Pixels::from_rgba8(Rgba8::align(&texels).into()), v.extent());
+                vr.record_layer_painted(
+                    v.active_layer_id,
+                    Pixels::from_rgba8(Rgba8::align(&texels).into()),
+                    v.extent(),
+                ); // XXX: If resized, we call a different function.
             }
         }
 
@@ -871,7 +877,8 @@ impl Renderer {
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
                     let resources = self.resources.lock();
-                    if let Some((s, pixels)) = resources.get_snapshot_safe(id) {
+                    // XXX: Should we add all layers here?
+                    if let Some((s, pixels)) = resources.get_snapshot_safe(id, LayerId::default()) {
                         let (w, h) = (s.width(), s.height());
 
                         self.view_data.insert(
@@ -929,6 +936,7 @@ impl Renderer {
                         .map_err(Error::Texture)?;
                 }
                 ViewOp::Blit(src, dst) => {
+                    // XXX: Should take a LayerId
                     let fb = &self
                         .view_data
                         .get(&id)
@@ -936,10 +944,10 @@ impl Renderer {
                         .get_layer(0)
                         .fb; // XXX
 
-                    let (_, texels) = self
-                        .resources
-                        .lock()
-                        .get_snapshot_rect(id, &src.map(|n| n as i32));
+                    let (_, texels) =
+                        self.resources
+                            .lock()
+                            .get_snapshot_rect(id, 0, &src.map(|n| n as i32)); // XXX
                     let texels = self::align_u8(&texels);
 
                     fb.color_slot()
@@ -953,7 +961,7 @@ impl Renderer {
                 }
                 ViewOp::Yank(src) => {
                     let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot_rect(id, src);
+                    let (_, pixels) = resources.get_snapshot_rect(id, 0, src); // XXX
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
@@ -1023,7 +1031,7 @@ impl Renderer {
         // with the same size as the view was restored.
         let pixels = {
             let rs = self.resources.lock();
-            let (_, pixels) = rs.get_snapshot(id);
+            let (_, pixels) = rs.get_snapshot(id, 0); // XXX
             pixels.to_owned()
         };
 
@@ -1043,7 +1051,7 @@ impl Renderer {
         // View size changed. Re-create view resources.
         let (sw, sh) = {
             let resources = self.resources.lock();
-            let (snapshot, _) = resources.get_snapshot(id);
+            let (snapshot, _) = resources.get_snapshot(id, 0); // XXX
             (snapshot.width(), snapshot.height())
         };
 
@@ -1053,29 +1061,24 @@ impl Renderer {
 
         let view_data = ViewData::new(vw, vh, None, &mut self.ctx);
 
-        let (_, texels) = self
-            .resources
-            .lock()
-            .get_snapshot_rect(id, &Rect::origin(tw as i32, th as i32));
-        let texels = self::align_u8(&texels);
-
-        view_data
-            .get_layer(0)
-            .fb // XXX
-            .color_slot()
-            .clear(GenMipmaps::No, (0, 0, 0, 0))
-            .map_err(Error::Texture)?;
         view_data
             .staging_fb
             .color_slot()
             .clear(GenMipmaps::No, (0, 0, 0, 0))
             .map_err(Error::Texture)?;
-        view_data
-            .get_layer(0)
-            .fb // XXX
-            .color_slot()
-            .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
-            .map_err(Error::Texture)?;
+
+        for (layer_id, layer) in self.resources.lock().get_view(id).unwrap().layers.iter() {
+            let (_, texels) = layer.get_snapshot_rect(&Rect::origin(tw as i32, th as i32));
+            let texels = self::align_u8(&texels);
+            let l = view_data.get_layer(*layer_id);
+
+            l.fb.color_slot()
+                .clear(GenMipmaps::No, (0, 0, 0, 0))
+                .map_err(Error::Texture)?;
+            l.fb.color_slot()
+                .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
+                .map_err(Error::Texture)?;
+        }
 
         self.view_data.insert(id, view_data);
 

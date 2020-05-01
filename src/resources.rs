@@ -1,5 +1,6 @@
 use crate::image;
 use crate::session::Rgb8;
+use crate::view::layer::LayerId;
 use crate::view::{ViewExtent, ViewId};
 
 use nonempty::NonEmpty;
@@ -9,7 +10,7 @@ use rgx::rect::Rect;
 use gif::{self, SetParameter};
 
 use std::cell::{Ref, RefCell, RefMut};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -30,6 +31,11 @@ pub struct Pixels {
 }
 
 impl Pixels {
+    pub fn blank(w: usize, h: usize) -> Self {
+        let buf = vec![Rgba8::TRANSPARENT; w * h];
+        Pixels::from_rgba8(buf.into())
+    }
+
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -124,57 +130,55 @@ impl Resources {
         }
     }
 
-    pub fn get_snapshot_safe(&self, id: ViewId) -> Option<(&Snapshot, &Pixels)> {
-        self.data.get(&id).map(|r| r.current_snapshot())
+    pub fn get_snapshot_safe(&self, id: ViewId, layer_id: LayerId) -> Option<(&Snapshot, &Pixels)> {
+        self.data
+            .get(&id)
+            .and_then(|v| v.current_snapshot(layer_id))
     }
 
-    pub fn get_snapshot(&self, id: ViewId) -> (&Snapshot, &Pixels) {
-        self.get_snapshot_safe(id).expect(&format!(
-            "view #{} must exist and have an associated snapshot",
-            id
+    pub fn get_snapshot(&self, id: ViewId, layer_id: LayerId) -> (&Snapshot, &Pixels) {
+        self.get_snapshot_safe(id, layer_id).expect(&format!(
+            "layer #{} of view #{} must exist and have an associated snapshot",
+            layer_id, id
         ))
     }
 
-    pub fn get_snapshot_id(&self, id: ViewId) -> Option<SnapshotId> {
-        self.data.get(&id).map(|r| SnapshotId(r.snapshot))
+    pub fn get_snapshot_id(&self, id: ViewId, layer_id: LayerId) -> Option<SnapshotId> {
+        self.data
+            .get(&id)
+            .and_then(|v| v.layers.get(&layer_id))
+            .map(|l| SnapshotId(l.snapshot))
     }
 
-    pub fn get_snapshot_mut(&mut self, id: ViewId) -> (&mut Snapshot, &Pixels) {
+    pub fn get_snapshot_mut(&mut self, id: ViewId, layer_id: LayerId) -> (&mut Snapshot, &Pixels) {
         self.data
             .get_mut(&id)
-            .map(|r| r.current_snapshot_mut())
+            .and_then(|v| v.layers.get_mut(&layer_id))
+            .map(|l| l.current_snapshot_mut())
             .expect(&format!(
-                "view #{} must exist and have an associated snapshot",
-                id
+                "layer #{} of view #{} must exist and have an associated snapshot",
+                layer_id, id
             ))
     }
 
-    pub fn get_snapshot_rect(&self, id: ViewId, rect: &Rect<i32>) -> (&Snapshot, Vec<Rgba8>) {
-        let (snapshot, pixels) = self.get_snapshot(id);
+    pub fn get_snapshot_rect(
+        &self,
+        id: ViewId,
+        layer_id: LayerId,
+        rect: &Rect<i32>,
+    ) -> (&Snapshot, Vec<Rgba8>) {
+        self.data
+            .get(&id)
+            .and_then(|v| v.layers.get(&layer_id))
+            .expect(&format!(
+                "view #{} with layer #{} must exist and have an associated snapshot",
+                id, layer_id
+            ))
+            .get_snapshot_rect(rect)
+    }
 
-        // Fast path.
-        if snapshot.extent.rect().map(|n| n as i32) == *rect {
-            return (snapshot, pixels.clone().into_rgba8());
-        }
-
-        let w = rect.width() as usize;
-        let h = rect.height() as usize;
-
-        let total_w = snapshot.width() as usize;
-        let total_h = snapshot.height() as usize;
-
-        let mut buffer: Vec<Rgba8> = Vec::with_capacity(w * h);
-
-        for y in (rect.y1 as usize..rect.y2 as usize).rev() {
-            let y = total_h - y - 1;
-            let offset = y * total_w + rect.x1 as usize;
-            let row = &pixels.slice(offset..offset + w);
-
-            buffer.extend_from_slice(row);
-        }
-        assert!(buffer.len() == w * h);
-
-        (snapshot, buffer)
+    pub fn get_view(&self, id: ViewId) -> Option<&ViewResources> {
+        self.data.get(&id)
     }
 
     pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResources> {
@@ -223,7 +227,8 @@ impl ResourceManager {
         path: P,
     ) -> io::Result<(SnapshotId, usize)> {
         let resources = self.lock();
-        let (snapshot, pixels) = resources.get_snapshot_rect(id, &rect.map(|n| n as i32));
+        let (snapshot, pixels) =
+            resources.get_snapshot_rect(id, LayerId::default(), &rect.map(|n| n as i32)); // XXX: Should save all views
         let (w, h) = (rect.width(), rect.height());
 
         image::save(path, w, h, &pixels)?;
@@ -235,7 +240,7 @@ impl ResourceManager {
         use std::io::Write;
 
         let resources = self.lock();
-        let (snapshot, pixels) = resources.get_snapshot(id);
+        let (snapshot, pixels) = resources.get_snapshot(id, 0); // XXX: Should save all views
         let (w, h) = (snapshot.width() as usize, snapshot.height() as usize);
 
         let f = File::create(path.as_ref())?;
@@ -286,7 +291,7 @@ impl ResourceManager {
         let frame_delay = u128::min(frame_delay, u16::max_value() as u128) as u16;
 
         let mut resources = self.lock_mut();
-        let (snapshot, pixels) = resources.get_snapshot_mut(id);
+        let (snapshot, pixels) = resources.get_snapshot_mut(id, 0); // XXX: Save layer composite
         let extent = snapshot.extent;
         let nframes = extent.nframes;
 
@@ -357,17 +362,88 @@ impl ResourceManager {
 }
 
 #[derive(Debug)]
+pub enum Edit {
+    LayerPainted(LayerId),
+    ViewResized(u32, u32),
+}
+
+#[derive(Debug)]
 pub struct ViewResources {
+    pub layers: HashMap<LayerId, LayerResources>,
+    pub history: Vec<Edit>,
+}
+
+impl ViewResources {
+    fn new(pixels: Pixels, fw: u32, fh: u32, nframes: usize) -> Self {
+        use std::iter::FromIterator;
+
+        Self {
+            layers: HashMap::from_iter(
+                vec![(
+                    LayerId::default(),
+                    LayerResources::new(pixels, fw, fh, nframes),
+                )]
+                .drain(..),
+            ),
+            history: Vec::new(),
+        }
+    }
+
+    pub fn layer(&self, layer: LayerId) -> &LayerResources {
+        self.layers
+            .get(&layer)
+            .expect(&format!("layer #{} should exist", layer))
+    }
+
+    pub fn layer_mut(&mut self, layer: LayerId) -> &mut LayerResources {
+        self.layers
+            .get_mut(&layer)
+            .expect(&format!("layer #{} should exist", layer))
+    }
+
+    // XXX: Do we need to pass in fw/fh/nframes?
+    pub fn add_layer(
+        &mut self,
+        layer_id: LayerId,
+        fw: u32,
+        fh: u32,
+        nframes: usize,
+        pixels: Pixels,
+    ) {
+        self.layers
+            .insert(layer_id, LayerResources::new(pixels, fw, fh, nframes));
+    }
+
+    // XXX: Extent is not needed.
+    pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Pixels, extent: ViewExtent) {
+        self.layer_mut(layer).push_snapshot(pixels, extent);
+    }
+
+    pub fn current_snapshot(&self, layer: LayerId) -> Option<(&Snapshot, &Pixels)> {
+        self.layers.get(&layer).map(|l| l.current_snapshot())
+    }
+
+    pub fn prev_snapshot(&mut self) -> Option<&Snapshot> {
+        unimplemented!()
+    }
+
+    pub fn next_snapshot(&mut self) -> Option<&Snapshot> {
+        unimplemented!()
+    }
+}
+
+#[derive(Debug)]
+pub struct LayerResources {
     /// Non empty list of view snapshots.
     snapshots: NonEmpty<Snapshot>,
-    /// Current view snapshot.
+    /// Current layer snapshot.
     snapshot: usize,
-    /// Current view pixels. We keep a separate decompressed
+    /// Current layer pixels. We keep a separate decompressed
     /// cache of the view pixels for performance reasons.
     pixels: Pixels,
 }
 
-impl ViewResources {
+impl LayerResources {
     fn new(pixels: Pixels, fw: u32, fh: u32, nframes: usize) -> Self {
         Self {
             snapshots: NonEmpty::new(Snapshot::new(
@@ -398,6 +474,35 @@ impl ViewResources {
         )
     }
 
+    pub fn get_snapshot_rect(&self, rect: &Rect<i32>) -> (&Snapshot, Vec<Rgba8>) {
+        let (snapshot, pixels) = self.current_snapshot();
+
+        // Fast path.
+        if snapshot.extent.rect().map(|n| n as i32) == *rect {
+            return (snapshot, pixels.clone().into_rgba8());
+        }
+
+        let w = rect.width() as usize;
+        let h = rect.height() as usize;
+
+        let total_w = snapshot.width() as usize;
+        let total_h = snapshot.height() as usize;
+
+        let mut buffer: Vec<Rgba8> = Vec::with_capacity(w * h);
+
+        for y in (rect.y1 as usize..rect.y2 as usize).rev() {
+            let y = total_h - y - 1;
+            let offset = y * total_w + rect.x1 as usize;
+            let row = &pixels.slice(offset..offset + w);
+
+            buffer.extend_from_slice(row);
+        }
+        assert!(buffer.len() == w * h);
+
+        (snapshot, buffer)
+    }
+
+    // XXX: Extent is not needed.
     pub fn push_snapshot(&mut self, pixels: Pixels, extent: ViewExtent) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
@@ -458,6 +563,7 @@ impl Default for SnapshotId {
 #[derive(Debug)]
 pub struct Snapshot {
     pub id: SnapshotId,
+    // XXX: Extent is not needed.
     pub extent: ViewExtent,
 
     size: usize,

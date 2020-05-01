@@ -1655,7 +1655,7 @@ impl Session {
                 let s_id = self
                     .resources
                     .lock()
-                    .get_snapshot_id(id)
+                    .get_snapshot_id(id, LayerId::default()) // XXX: Should save all layers
                     .expect("view must have a snapshot");
                 self.view_mut(id).save_as(s_id, storage.clone());
 
@@ -2704,9 +2704,9 @@ impl Session {
             }
             Command::PaletteSample => {
                 {
-                    let v = self.views.active_id;
+                    let v = self.active_view();
                     let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot(v);
+                    let (_, pixels) = resources.get_snapshot(v.id, v.active_layer_id);
 
                     for pixel in pixels.iter() {
                         if pixel != Rgba8::TRANSPARENT {
@@ -2826,7 +2826,21 @@ impl Session {
                 self.check_selection();
             }
             Command::LayerAdd => {
-                self.active_view_mut().add_layer();
+                let view_id = self.views.active_id;
+                let l = self.view_mut(view_id).add_layer();
+                let v = self.view(view_id);
+
+                self.resources
+                    .lock_mut()
+                    .get_view_mut(v.id)
+                    .expect(&format!("view #{} must exist", v.id))
+                    .add_layer(
+                        l,
+                        v.fw,
+                        v.fh,
+                        v.animation.len(),
+                        Pixels::blank(v.width() as usize, v.height() as usize),
+                    );
             }
             Command::LayerRemove(id) => {
                 if let Some(id) = id {
@@ -3208,8 +3222,9 @@ impl Session {
 
     /// Get the color at the given view coordinate.
     pub fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Option<Rgba8> {
+        let view = self.view(v);
         let resources = self.resources.lock();
-        let (snapshot, pixels) = resources.get_snapshot(v);
+        let (snapshot, pixels) = resources.get_snapshot(view.id, view.active_layer_id);
 
         let y_offset = snapshot
             .height()
