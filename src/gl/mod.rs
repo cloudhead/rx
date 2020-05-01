@@ -13,7 +13,7 @@ use crate::{data, data::Assets, image};
 use nonempty::NonEmpty;
 
 use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
-use rgx::math::Matrix4;
+use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
 
 use luminance::blending::{Equation, Factor};
@@ -706,14 +706,32 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     for (id, v) in view_data.iter() {
                         match (&v.anim_tess, session.views.get(*id)) {
                             (Some(tess), Some(view)) if view.animation.len() > 1 => {
-                                let bound_view =
-                                    pipeline.bind_texture(&v.get_layer(0).fb.color_slot()); // XXX
+                                let composite_t = unsafe {
+                                    mem::transmute(Matrix4::from_translation(
+                                        Vector2::new(0., -(v.h as f32)).extend(0.),
+                                    ))
+                                };
 
-                                iface.tex.update(&bound_view);
+                                for (i, l) in v.layers.iter().enumerate() {
+                                    let bound_layer = pipeline.bind_texture(l.fb.color_slot());
+                                    let layer_offset = v.h as usize * i;
+                                    let t = Matrix4::from_translation(
+                                        Vector2::new(0., layer_offset as f32).extend(0.),
+                                    );
 
-                                rdr_gate.render(render_st, |mut tess_gate| {
-                                    tess_gate.render(tess);
-                                });
+                                    // Render layer animation.
+                                    iface.tex.update(&bound_layer);
+                                    iface.transform.update(unsafe { mem::transmute(t) });
+                                    rdr_gate.render(render_st, |mut tess_gate| {
+                                        tess_gate.render(tess);
+                                    });
+
+                                    // Render composite animation.
+                                    iface.transform.update(composite_t);
+                                    rdr_gate.render(render_st, |mut tess_gate| {
+                                        tess_gate.render(tess);
+                                    });
+                                }
                             }
                             _ => (),
                         }
@@ -723,6 +741,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 {
                     let bound_font = pipeline.bind_texture(font);
                     iface.tex.update(&bound_font);
+                    iface.transform.update(identity);
 
                     // Render text.
                     rdr_gate.render(render_st, |mut tess_gate| {
