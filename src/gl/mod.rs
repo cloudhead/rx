@@ -196,6 +196,13 @@ impl LayerData {
 
         Self { fb, tess }
     }
+
+    fn upload(&self, offset: [u32; 2], size: [u32; 2], texels: &[u8]) -> Result<(), RendererError> {
+        self.fb
+            .color_slot()
+            .upload_part_raw(GenMipmaps::No, offset, size, texels)
+            .map_err(RendererError::Texture)
+    }
 }
 
 struct ViewData {
@@ -233,9 +240,11 @@ impl ViewData {
             .unwrap_or_else(|| panic!("layer #{} must exist", index))
     }
 
-    fn add_layer(&mut self, _range: &FrameRange, ctx: &mut Context) {
+    fn add_layer(&mut self, _range: &FrameRange, ctx: &mut Context) -> LayerId {
         let layer = LayerData::new(self.w, self.h, None, ctx);
         self.layers.push(layer);
+
+        self.layers.len() - 1
     }
 }
 
@@ -1066,8 +1075,6 @@ impl Renderer {
     }
 
     fn resize_view(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
-        use RendererError as Error;
-
         // View size changed. Re-create view resources.
         let (sw, sh) = {
             let resources = self.resources.lock();
@@ -1079,25 +1086,23 @@ impl Renderer {
         let tw = u32::min(sw, vw);
         let th = u32::min(sh, vh);
 
-        let view_data = ViewData::new(vw, vh, None, &mut self.ctx);
+        let mut view_data = ViewData::new(vw, vh, None, &mut self.ctx);
 
-        view_data
-            .staging_fb
-            .color_slot()
-            .clear(GenMipmaps::No, (0, 0, 0, 0))
-            .map_err(Error::Texture)?;
+        let resources = self.resources.lock();
+        let view_resource = resources.get_view(id).unwrap();
 
-        for (layer_id, layer) in self.resources.lock().get_view(id).unwrap().layers.iter() {
+        // Create n-1 layers, since layer #0 is created when a `ViewData` is created.
+        for _ in view_resource.layers.iter().skip(1) {
+            // XXX: Where should we get the frame range from?
+            view_data.add_layer(&FrameRange::default(), &mut self.ctx);
+        }
+
+        for (layer_id, layer) in view_resource.layers.iter() {
             let (_, texels) = layer.get_snapshot_rect(&Rect::origin(tw as i32, th as i32));
             let texels = self::align_u8(&texels);
             let l = view_data.get_layer(*layer_id);
 
-            l.fb.color_slot()
-                .clear(GenMipmaps::No, (0, 0, 0, 0))
-                .map_err(Error::Texture)?;
-            l.fb.color_slot()
-                .upload_part_raw(GenMipmaps::No, [0, vh - th], [tw, th], texels)
-                .map_err(Error::Texture)?;
+            l.upload([0, vh - th], [tw, th], texels)?;
         }
 
         self.view_data.insert(id, view_data);

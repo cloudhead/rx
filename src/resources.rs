@@ -10,7 +10,7 @@ use rgx::rect::Rect;
 use gif::{self, SetParameter};
 
 use std::cell::{Ref, RefCell, RefMut};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -369,7 +369,7 @@ pub enum Edit {
 
 #[derive(Debug)]
 pub struct ViewResources {
-    pub layers: HashMap<LayerId, LayerResources>,
+    pub layers: BTreeMap<LayerId, LayerResources>,
     pub history: Vec<Edit>,
 }
 
@@ -378,7 +378,7 @@ impl ViewResources {
         use std::iter::FromIterator;
 
         Self {
-            layers: HashMap::from_iter(
+            layers: BTreeMap::from_iter(
                 vec![(
                     LayerId::default(),
                     LayerResources::new(pixels, fw, fh, nframes),
