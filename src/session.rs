@@ -508,15 +508,9 @@ impl Default for KeyBindings {
                     is_toggle: false,
                     display: Some(":".to_string()),
                 },
-                #[cfg(winit)]
                 KeyBinding {
                     modes: vec![Mode::Normal],
-                    modifiers: ModifiersState {
-                        shift: true,
-                        ctrl: false,
-                        alt: false,
-                        meta: false,
-                    },
+                    modifiers: ModifiersState::default(),
                     key: platform::Key::Colon,
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
