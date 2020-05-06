@@ -203,6 +203,11 @@ impl LayerData {
             .upload_part_raw(GenMipmaps::No, offset, size, texels)
             .map_err(RendererError::Texture)
     }
+
+    fn pixels(&self) -> Pixels {
+        let texels = self.fb.color_slot().get_raw_texels();
+        Pixels::from_rgba8(Rgba8::align(&texels).into())
+    }
 }
 
 struct ViewData {
@@ -846,23 +851,12 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         .layers
                         .iter()
                         .enumerate()
-                        .map(|(i, l)| {
-                            let texels = l.fb.color_slot().get_raw_texels();
-                            let pixels = Pixels::from_rgba8(Rgba8::align(&texels).into());
-
-                            (i, pixels)
-                        })
+                        .map(|(i, l)| (i, l.pixels()))
                         .collect();
 
                     vr.record_view_resized(layers, v.extent());
                 } else {
-                    let texels = l_data.fb.color_slot().get_raw_texels(); // XXX
-
-                    vr.record_layer_painted(
-                        v.active_layer_id,
-                        Pixels::from_rgba8(Rgba8::align(&texels).into()),
-                        v.extent(),
-                    );
+                    vr.record_layer_painted(v.active_layer_id, l_data.pixels(), v.extent());
                 }
             }
         }
