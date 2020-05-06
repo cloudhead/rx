@@ -136,7 +136,7 @@ pub enum ViewState {
     Okay,
     /// The view has been touched, the changes need to be stored in a snapshot.
     /// If the parameter is `Some`, the view extents were changed.
-    Dirty,
+    Dirty(Option<ViewExtent>),
     /// The view is damaged, it needs to be redrawn from a snapshot.
     /// This happens when undo/redo is used.
     Damaged(ViewExtent),
@@ -477,7 +477,7 @@ impl View {
             self.file_status = FileStatus::Modified(f.clone());
         }
         if self.state == ViewState::Okay {
-            self.state = ViewState::Dirty;
+            self.state = ViewState::Dirty(None);
         }
     }
 
@@ -498,7 +498,18 @@ impl View {
 
     /// Check whether the view is dirty.
     pub fn is_dirty(&self) -> bool {
-        self.state == ViewState::Dirty
+        match self.state {
+            ViewState::Dirty(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Check whether the view is resized.
+    pub fn is_resized(&self) -> bool {
+        match self.state {
+            ViewState::Dirty(Some(_)) => true,
+            _ => false,
+        }
     }
 
     /// Check whether the view is okay.
@@ -524,7 +535,12 @@ impl View {
     ////////////////////////////////////////////////////////////////////////////
 
     fn resized(&mut self) {
-        self.touch();
+        if let FileStatus::Saved(ref f) = self.file_status {
+            self.file_status = FileStatus::Modified(f.clone());
+        }
+        if self.state == ViewState::Okay {
+            self.state = ViewState::Dirty(Some(self.extent()));
+        }
         self.ops.push(ViewOp::Resize(self.width(), self.height()));
     }
 

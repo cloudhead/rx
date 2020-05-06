@@ -414,8 +414,18 @@ impl ViewResources {
             .insert(layer_id, LayerResources::new(pixels, fw, fh, nframes));
     }
 
+    pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Pixels)>, extent: ViewExtent) {
+        self.history
+            .push(Edit::ViewResized(extent.width(), extent.height()));
+
+        for (id, pixels) in layers.into_iter() {
+            self.layer_mut(id).push_snapshot(pixels, extent);
+        }
+    }
+
     // XXX: Extent is not needed.
     pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Pixels, extent: ViewExtent) {
+        self.history.push(Edit::LayerPainted(layer));
         self.layer_mut(layer).push_snapshot(pixels, extent);
     }
 

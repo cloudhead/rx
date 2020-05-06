@@ -1074,7 +1074,7 @@ impl Session {
                         .push(Effect::ViewOps(v.id, v.ops.drain(..).collect()));
                 }
                 match v.state {
-                    ViewState::Dirty => {}
+                    ViewState::Dirty(_) => {}
                     ViewState::Damaged(extent) => {
                         self.effects.push(Effect::ViewDamaged(v.id, extent));
                     }

@@ -841,12 +841,29 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
             if let Some(vr) = self.resources.lock_mut().get_view_mut(v.id) {
-                let texels = l_data.fb.color_slot().get_raw_texels(); // XXX
-                vr.record_layer_painted(
-                    v.active_layer_id,
-                    Pixels::from_rgba8(Rgba8::align(&texels).into()),
-                    v.extent(),
-                ); // XXX: If resized, we call a different function.
+                if v.is_resized() {
+                    let layers = v_data
+                        .layers
+                        .iter()
+                        .enumerate()
+                        .map(|(i, l)| {
+                            let texels = l.fb.color_slot().get_raw_texels();
+                            let pixels = Pixels::from_rgba8(Rgba8::align(&texels).into());
+
+                            (i, pixels)
+                        })
+                        .collect();
+
+                    vr.record_view_resized(layers, v.extent());
+                } else {
+                    let texels = l_data.fb.color_slot().get_raw_texels(); // XXX
+
+                    vr.record_layer_painted(
+                        v.active_layer_id,
+                        Pixels::from_rgba8(Rgba8::align(&texels).into()),
+                        v.extent(),
+                    );
+                }
             }
         }
 
