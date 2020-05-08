@@ -1099,8 +1099,7 @@ impl Renderer {
     }
 
     fn handle_view_damaged(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
-        use RendererError as Error;
-
+        // XXX: what happens if you undo a resize?
         let fb = &self
             .view_data
             .get(&id)
@@ -1109,25 +1108,10 @@ impl Renderer {
             .fb; // XXX
 
         if fb.width() != vw || fb.height() != vh {
-            return self.resize_view(id, vw, vh);
+            self.resize_view(id, vw, vh)
+        } else {
+            Ok(())
         }
-
-        // View is damaged, but its size hasn't changed. This happens when a snapshot
-        // with the same size as the view was restored.
-        let pixels = {
-            let rs = self.resources.lock();
-            let (_, pixels) = rs.get_snapshot(id, 0); // XXX
-            pixels.to_owned()
-        };
-
-        fb.color_slot()
-            .clear(GenMipmaps::No, (0, 0, 0, 0))
-            .map_err(Error::Texture)?;
-        fb.color_slot()
-            .upload_raw(GenMipmaps::No, pixels.as_bytes())
-            .map_err(Error::Texture)?;
-
-        Ok(())
     }
 
     fn resize_view(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {

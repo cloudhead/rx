@@ -454,7 +454,7 @@ impl ViewResources {
             return None;
         }
 
-        if let Some(edit) = self.history.get(self.cursor).map(|e| *e) {
+        if let Some(edit) = self.history.get(self.cursor).cloned() {
             match edit {
                 Edit::LayerPainted(id) => {
                     self.layer_mut(id).prev_snapshot();
@@ -475,7 +475,24 @@ impl ViewResources {
     }
 
     pub fn history_next(&mut self) -> Option<(usize, Edit)> {
-        unimplemented!()
+        if let Some(edit) = self.history.get(self.cursor + 1).cloned() {
+            self.cursor += 1;
+
+            match edit {
+                Edit::LayerPainted(id) => {
+                    self.layer_mut(id).next_snapshot();
+                }
+                Edit::ViewResized(_) => {
+                    for (_, layer) in self.layers.iter_mut() {
+                        layer.next_snapshot();
+                    }
+                }
+                _ => return None,
+            }
+            Some((self.cursor, edit))
+        } else {
+            None
+        }
     }
 }
 
