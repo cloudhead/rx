@@ -225,15 +225,15 @@ impl ResourceManager {
         id: ViewId,
         rect: Rect<u32>,
         path: P,
-    ) -> io::Result<(SnapshotId, usize)> {
+    ) -> io::Result<(EditId, usize)> {
         let resources = self.lock();
-        let (snapshot, pixels) =
+        let (_edit, pixels) = // XXX Should return something?
             resources.get_snapshot_rect(id, LayerId::default(), &rect.map(|n| n as i32)); // XXX: Should save all views
         let (w, h) = (rect.width(), rect.height());
 
         image::save(path, w, h, &pixels)?;
 
-        Ok((snapshot.id, (w * h) as usize))
+        Ok((0, (w * h) as usize)) // XXX: `0` should be the EditId
     }
 
     pub fn save_view_svg<P: AsRef<Path>>(&self, id: ViewId, path: P) -> io::Result<usize> {
@@ -361,16 +361,20 @@ impl ResourceManager {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Edit {
     LayerPainted(LayerId),
-    ViewResized(u32, u32),
+    ViewResized(ViewExtent),
+    Initial,
 }
+
+pub type EditId = usize;
 
 #[derive(Debug)]
 pub struct ViewResources {
     pub layers: BTreeMap<LayerId, LayerResources>,
-    pub history: Vec<Edit>,
+    pub history: NonEmpty<Edit>,
+    pub cursor: usize,
 }
 
 impl ViewResources {
@@ -385,7 +389,8 @@ impl ViewResources {
                 )]
                 .drain(..),
             ),
-            history: Vec::new(),
+            history: NonEmpty::new(Edit::Initial),
+            cursor: 0,
         }
     }
 
@@ -415,8 +420,7 @@ impl ViewResources {
     }
 
     pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Pixels)>, extent: ViewExtent) {
-        self.history
-            .push(Edit::ViewResized(extent.width(), extent.height()));
+        self.history_record(Edit::ViewResized(extent));
 
         for (id, pixels) in layers.into_iter() {
             self.layer_mut(id).push_snapshot(pixels, extent);
@@ -425,19 +429,52 @@ impl ViewResources {
 
     // XXX: Extent is not needed.
     pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Pixels, extent: ViewExtent) {
-        self.history.push(Edit::LayerPainted(layer));
+        self.history_record(Edit::LayerPainted(layer));
         self.layer_mut(layer).push_snapshot(pixels, extent);
+    }
+
+    pub fn history_record(&mut self, edit: Edit) {
+        // If we try to add an edit when we're not at the
+        // latest, we have to clear the list forward.
+        if self.cursor != self.history.len() - 1 {
+            self.history.truncate(self.cursor + 1);
+            self.cursor = self.history.len() - 1;
+        }
+        self.cursor += 1;
+
+        self.history.push(edit);
     }
 
     pub fn current_snapshot(&self, layer: LayerId) -> Option<(&Snapshot, &Pixels)> {
         self.layers.get(&layer).map(|l| l.current_snapshot())
     }
 
-    pub fn prev_snapshot(&mut self) -> Option<&Snapshot> {
-        unimplemented!()
+    pub fn history_prev(&mut self) -> Option<(usize, Edit)> {
+        if self.cursor == 0 {
+            return None;
+        }
+
+        if let Some(edit) = self.history.get(self.cursor).map(|e| *e) {
+            match edit {
+                Edit::LayerPainted(id) => {
+                    self.layer_mut(id).prev_snapshot();
+                }
+                Edit::ViewResized(_) => {
+                    for (_, layer) in self.layers.iter_mut() {
+                        layer.prev_snapshot();
+                    }
+                }
+                _ => return None,
+            }
+            self.cursor -= 1;
+
+            Some((self.cursor, edit))
+        } else {
+            None
+        }
     }
 
-    pub fn next_snapshot(&mut self) -> Option<&Snapshot> {
+    pub fn history_next(&mut self) -> Option<(usize, Edit)> {
         unimplemented!()
     }
 }

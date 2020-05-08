@@ -1,6 +1,6 @@
 pub mod layer;
 
-use crate::resources::SnapshotId;
+use crate::resources::EditId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
 use crate::view::layer::{FrameRange, Layer, LayerId};
@@ -140,6 +140,9 @@ pub enum ViewState {
     /// The view is damaged, it needs to be redrawn from a snapshot.
     /// This happens when undo/redo is used.
     Damaged(ViewExtent),
+    /// A layer is damaged, it needs to be redrawn from a snapshot.
+    /// This happens when undo/redo is used.
+    LayerDamaged(LayerId),
 }
 
 /// A view operation to be carried out by the renderer.
@@ -192,14 +195,14 @@ pub struct View {
     pub active_layer_id: LayerId,
 
     /// Which view snapshot has been saved to disk, if any.
-    saved_snapshot: Option<SnapshotId>,
+    saved_snapshot: Option<EditId>,
 }
 
 impl View {
     /// Create a new view. Takes a frame width and height.
     pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32, nframes: usize, delay: u64) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
-            Some(SnapshotId::default())
+            Some(EditId::default())
         } else {
             None
         };
@@ -254,7 +257,7 @@ impl View {
 
     /// Mark the view as saved at a specific snapshot and with
     /// the given path.
-    pub fn save_as(&mut self, id: SnapshotId, storage: FileStorage) {
+    pub fn save_as(&mut self, id: EditId, storage: FileStorage) {
         match self.file_status {
             FileStatus::Modified(ref curr_fs) | FileStatus::New(ref curr_fs) => {
                 if curr_fs == &storage {
@@ -382,16 +385,38 @@ impl View {
         false
     }
 
-    /// Restore a view to a given snapshot and extent.
-    pub fn restore(&mut self, sid: SnapshotId, extent: ViewExtent) {
+    /// Restore a view layer to a given snapshot.
+    pub fn restore_layer(&mut self, eid: EditId, layer: LayerId) {
+        self.layer_damaged(layer);
+
+        // If the snapshot was saved to disk, we mark the view as saved too.
+        // Otherwise, if the view was saved before restoring the snapshot,
+        // we mark it as modified.
+        //
+        // XXX: Consolidate with `restore`.
+        match self.file_status {
+            FileStatus::Modified(ref f) if self.is_snapshot_saved(eid) => {
+                self.file_status = FileStatus::Saved(f.clone());
+            }
+            FileStatus::Saved(ref f) => {
+                self.file_status = FileStatus::Modified(f.clone());
+            }
+            _ => {
+                // TODO
+            }
+        }
+    }
+
+    /// Restore a view to a given snapshot and  extent.
+    pub fn restore(&mut self, eid: EditId, extent: ViewExtent) {
         self.reset(extent);
-        self.damaged();
+        self.damaged(extent);
 
         // If the snapshot was saved to disk, we mark the view as saved too.
         // Otherwise, if the view was saved before restoring the snapshot,
         // we mark it as modified.
         match self.file_status {
-            FileStatus::Modified(ref f) if self.is_snapshot_saved(sid) => {
+            FileStatus::Modified(ref f) if self.is_snapshot_saved(eid) => {
                 self.file_status = FileStatus::Saved(f.clone());
             }
             FileStatus::Saved(ref f) => {
@@ -483,16 +508,21 @@ impl View {
 
     /// View should be considered damaged and needs to be restored from snapshot.
     /// Used when undoing or redoing changes.
-    pub fn damaged(&mut self) {
-        self.state = ViewState::Damaged(self.extent());
+    pub fn damaged(&mut self, extent: ViewExtent) {
+        self.state = ViewState::Damaged(extent);
+    }
+
+    /// Layer should be considered damaged and needs to be restored from snapshot.
+    /// Used when undoing or redoing changes.
+    pub fn layer_damaged(&mut self, layer: LayerId) {
+        self.state = ViewState::LayerDamaged(layer);
     }
 
     /// Check whether the view is damaged.
     pub fn is_damaged(&self) -> bool {
-        if let ViewState::Damaged(_) = self.state {
-            true
-        } else {
-            false
+        match self.state {
+            ViewState::Damaged(_) | ViewState::LayerDamaged(_) => true,
+            _ => false,
         }
     }
 
@@ -545,12 +575,12 @@ impl View {
     }
 
     /// Check whether the given snapshot has been saved to disk.
-    fn is_snapshot_saved(&self, id: SnapshotId) -> bool {
+    fn is_snapshot_saved(&self, id: EditId) -> bool {
         self.saved_snapshot == Some(id)
     }
 
     /// Mark the view as saved at a given snapshot.
-    fn saved(&mut self, id: SnapshotId, storage: FileStorage) {
+    fn saved(&mut self, id: EditId, storage: FileStorage) {
         self.file_status = FileStatus::Saved(storage);
         self.saved_snapshot = Some(id);
     }

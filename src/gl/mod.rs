@@ -197,10 +197,29 @@ impl LayerData {
         Self { fb, tess }
     }
 
-    fn upload(&self, offset: [u32; 2], size: [u32; 2], texels: &[u8]) -> Result<(), RendererError> {
+    fn clear(&self) -> Result<(), RendererError> {
+        self.fb
+            .color_slot()
+            .clear(GenMipmaps::No, (0, 0, 0, 0))
+            .map_err(RendererError::Texture)
+    }
+
+    fn upload_part(
+        &self,
+        offset: [u32; 2],
+        size: [u32; 2],
+        texels: &[u8],
+    ) -> Result<(), RendererError> {
         self.fb
             .color_slot()
             .upload_part_raw(GenMipmaps::No, offset, size, texels)
+            .map_err(RendererError::Texture)
+    }
+
+    fn upload(&self, texels: &[u8]) -> Result<(), RendererError> {
+        self.fb
+            .color_slot()
+            .upload_raw(GenMipmaps::No, texels)
             .map_err(RendererError::Texture)
     }
 
@@ -936,6 +955,9 @@ impl Renderer {
                 Effect::ViewDamaged(id, extent) => {
                     self.handle_view_damaged(id, extent.width(), extent.height())?;
                 }
+                Effect::ViewLayerDamaged(id, layer) => {
+                    self.handle_view_layer_damaged(id, layer)?;
+                }
                 Effect::ViewBlendingChanged(blending) => {
                     self.blending = blending;
                 }
@@ -1053,6 +1075,29 @@ impl Renderer {
         Ok(())
     }
 
+    fn handle_view_layer_damaged(
+        &mut self,
+        id: ViewId,
+        layer_id: LayerId,
+    ) -> Result<(), RendererError> {
+        let layer = &self
+            .view_data
+            .get(&id)
+            .expect("views must have associated view data")
+            .get_layer(layer_id);
+
+        let pixels = {
+            let rs = self.resources.lock();
+            let (_, pixels) = rs.get_snapshot(id, layer_id);
+            pixels.to_owned()
+        };
+
+        layer.clear()?;
+        layer.upload(pixels.as_bytes())?;
+
+        Ok(())
+    }
+
     fn handle_view_damaged(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
         use RendererError as Error;
 
@@ -1113,7 +1158,7 @@ impl Renderer {
             let texels = self::align_u8(&texels);
             let l = view_data.get_layer(*layer_id);
 
-            l.upload([0, vh - th], [tw, th], texels)?;
+            l.upload_part([0, vh - th], [tw, th], texels)?;
         }
 
         self.view_data.insert(id, view_data);

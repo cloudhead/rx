@@ -9,7 +9,7 @@ use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::{Pixels, ResourceManager, SnapshotId};
+use crate::resources::{Edit, EditId, Pixels, ResourceManager};
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::{
@@ -243,6 +243,8 @@ pub enum Effect {
     ViewOps(ViewId, Vec<ViewOp>),
     /// When a view requires re-drawing.
     ViewDamaged(ViewId, ViewExtent),
+    /// When a view layer requires re-drawing.
+    ViewLayerDamaged(ViewId, LayerId),
     /// When the active view is non-permanently painted on.
     ViewPaintDraft(Vec<Shape>),
     /// When the active view is painted on.
@@ -1078,6 +1080,9 @@ impl Session {
                     ViewState::Damaged(extent) => {
                         self.effects.push(Effect::ViewDamaged(v.id, extent));
                     }
+                    ViewState::LayerDamaged(layer) => {
+                        self.effects.push(Effect::ViewLayerDamaged(v.id, layer));
+                    }
                     ViewState::Okay => {}
                 }
             }
@@ -1652,12 +1657,12 @@ impl Session {
                     self.save_view_rect_as(id, ext.frame(i), path)?;
                 }
 
-                let s_id = self
+                let _e_id = self
                     .resources
                     .lock()
                     .get_snapshot_id(id, LayerId::default()) // XXX: Should save all layers
                     .expect("view must have a snapshot");
-                self.view_mut(id).save_as(s_id, storage.clone());
+                self.view_mut(id).save_as(0, storage.clone()); // XXX: Should use EditId
 
                 format!(
                     "{} {} pixels written",
@@ -1678,7 +1683,7 @@ impl Session {
         id: ViewId,
         rect: Rect<u32>,
         path: &Path,
-    ) -> io::Result<Option<SnapshotId>> {
+    ) -> io::Result<Option<EditId>> {
         let ext = path.extension().ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
@@ -1717,9 +1722,9 @@ impl Session {
             ));
         }
 
-        let (s_id, _) = self.resources.save_view(id, rect, &path)?;
+        let (e_id, _) = self.resources.save_view(id, rect, &path)?;
 
-        Ok(Some(s_id))
+        Ok(Some(e_id))
     }
 
     /// Load a view into the session.
@@ -1933,22 +1938,24 @@ impl Session {
     }
 
     fn restore_view_snapshot(&mut self, id: ViewId, dir: Direction) {
-        let snapshot = self
-            .resources
-            .lock_mut()
-            .get_view_mut(id)
-            .and_then(|s| {
-                if dir == Direction::Backward {
-                    s.prev_snapshot()
-                } else {
-                    s.next_snapshot()
-                }
-            })
-            .map(|s| (s.id, s.extent));
+        let result = self.resources.lock_mut().get_view_mut(id).and_then(|s| {
+            if dir == Direction::Backward {
+                s.history_prev()
+            } else {
+                s.history_next()
+            }
+        });
 
-        if let Some((sid, extent)) = snapshot {
-            self.view_mut(id).restore(sid, extent);
-            self.cursor_dirty();
+        match result {
+            Some((eid, Edit::LayerPainted(layer))) => {
+                self.view_mut(id).restore_layer(eid, layer);
+                self.cursor_dirty();
+            }
+            Some((eid, Edit::ViewResized(extent))) => {
+                self.view_mut(id).restore(eid, extent);
+                self.cursor_dirty();
+            }
+            _ => {}
         }
     }
 
