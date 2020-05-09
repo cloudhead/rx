@@ -1099,19 +1099,7 @@ impl Renderer {
     }
 
     fn handle_view_damaged(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
-        // XXX: what happens if you undo a resize?
-        let fb = &self
-            .view_data
-            .get(&id)
-            .expect("views must have associated view data")
-            .get_layer(0)
-            .fb; // XXX
-
-        if fb.width() != vw || fb.height() != vh {
-            self.resize_view(id, vw, vh)
-        } else {
-            Ok(())
-        }
+        self.resize_view(id, vw, vh)
     }
 
     fn resize_view(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {

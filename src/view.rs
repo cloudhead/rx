@@ -407,10 +407,10 @@ impl View {
         }
     }
 
-    /// Restore a view to a given snapshot and  extent.
+    /// Restore a view to a given snapshot and extent.
     pub fn restore(&mut self, eid: EditId, extent: ViewExtent) {
-        self.reset(extent);
         self.damaged(extent);
+        self.reset(extent);
 
         // If the snapshot was saved to disk, we mark the view as saved too.
         // Otherwise, if the view was saved before restoring the snapshot,

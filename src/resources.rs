@@ -353,18 +353,18 @@ impl ResourceManager {
         Ok(fw * fh * nframes)
     }
 
-    pub fn add_view(&mut self, id: ViewId, fw: u32, fh: u32, nframes: usize, pixels: Pixels) {
+    pub fn add_view(&mut self, id: ViewId, extent: ViewExtent, pixels: Pixels) {
         self.resources
             .borrow_mut()
             .data
-            .insert(id, ViewResources::new(pixels, fw, fh, nframes));
+            .insert(id, ViewResources::new(pixels, extent));
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum Edit {
     LayerPainted(LayerId),
-    ViewResized(ViewExtent),
+    ViewResized(ViewExtent, ViewExtent),
     Initial,
 }
 
@@ -375,22 +375,20 @@ pub struct ViewResources {
     pub layers: BTreeMap<LayerId, LayerResources>,
     pub history: NonEmpty<Edit>,
     pub cursor: usize,
+    pub extent: ViewExtent,
 }
 
 impl ViewResources {
-    fn new(pixels: Pixels, fw: u32, fh: u32, nframes: usize) -> Self {
+    fn new(pixels: Pixels, extent: ViewExtent) -> Self {
         use std::iter::FromIterator;
 
         Self {
             layers: BTreeMap::from_iter(
-                vec![(
-                    LayerId::default(),
-                    LayerResources::new(pixels, fw, fh, nframes),
-                )]
-                .drain(..),
+                vec![(LayerId::default(), LayerResources::new(pixels, extent))].drain(..),
             ),
             history: NonEmpty::new(Edit::Initial),
             cursor: 0,
+            extent,
         }
     }
 
@@ -407,20 +405,14 @@ impl ViewResources {
     }
 
     // XXX: Do we need to pass in fw/fh/nframes?
-    pub fn add_layer(
-        &mut self,
-        layer_id: LayerId,
-        fw: u32,
-        fh: u32,
-        nframes: usize,
-        pixels: Pixels,
-    ) {
+    pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Pixels) {
         self.layers
-            .insert(layer_id, LayerResources::new(pixels, fw, fh, nframes));
+            .insert(layer_id, LayerResources::new(pixels, extent));
     }
 
     pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Pixels)>, extent: ViewExtent) {
-        self.history_record(Edit::ViewResized(extent));
+        self.history_record(Edit::ViewResized(self.extent, extent));
+        self.extent = extent;
 
         for (id, pixels) in layers.into_iter() {
             self.layer_mut(id).push_snapshot(pixels, extent);
@@ -459,7 +451,9 @@ impl ViewResources {
                 Edit::LayerPainted(id) => {
                     self.layer_mut(id).prev_snapshot();
                 }
-                Edit::ViewResized(_) => {
+                Edit::ViewResized(from, _) => {
+                    self.extent = from;
+
                     for (_, layer) in self.layers.iter_mut() {
                         layer.prev_snapshot();
                     }
@@ -482,7 +476,9 @@ impl ViewResources {
                 Edit::LayerPainted(id) => {
                     self.layer_mut(id).next_snapshot();
                 }
-                Edit::ViewResized(_) => {
+                Edit::ViewResized(_, to) => {
+                    self.extent = to;
+
                     for (_, layer) in self.layers.iter_mut() {
                         layer.next_snapshot();
                     }
@@ -508,13 +504,9 @@ pub struct LayerResources {
 }
 
 impl LayerResources {
-    fn new(pixels: Pixels, fw: u32, fh: u32, nframes: usize) -> Self {
+    fn new(pixels: Pixels, extent: ViewExtent) -> Self {
         Self {
-            snapshots: NonEmpty::new(Snapshot::new(
-                SnapshotId(0),
-                pixels.clone(),
-                ViewExtent::new(fw, fh, nframes),
-            )),
+            snapshots: NonEmpty::new(Snapshot::new(SnapshotId(0), pixels.clone(), extent)),
             snapshot: 0,
             pixels,
         }

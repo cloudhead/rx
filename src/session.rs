@@ -1800,8 +1800,11 @@ impl Session {
         let id = self.views.add(file_status, fw, fh, nframes, delay);
 
         self.effects.push(Effect::ViewAdded(id));
-        self.resources
-            .add_view(id, fw, fh, nframes, Pixels::from_rgba8(pixels.into()));
+        self.resources.add_view(
+            id,
+            ViewExtent::new(fw, fh, nframes),
+            Pixels::from_rgba8(pixels.into()),
+        );
         id
     }
 
@@ -1951,7 +1954,11 @@ impl Session {
                 self.view_mut(id).restore_layer(eid, layer);
                 self.cursor_dirty();
             }
-            Some((eid, Edit::ViewResized(extent))) => {
+            Some((eid, Edit::ViewResized(from, to))) => {
+                let extent = match dir {
+                    Direction::Backward => from,
+                    Direction::Forward => to,
+                };
                 self.view_mut(id).restore(eid, extent);
                 self.cursor_dirty();
             }
@@ -2843,9 +2850,7 @@ impl Session {
                     .expect(&format!("view #{} must exist", v.id))
                     .add_layer(
                         l,
-                        v.fw,
-                        v.fh,
-                        v.animation.len(),
+                        v.extent(),
                         Pixels::blank(v.width() as usize, v.height() as usize),
                     );
             }
