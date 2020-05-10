@@ -207,6 +207,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
     let mut session_events = Vec::with_capacity(16);
     let mut last = Instant::now();
     let mut resized = false;
+    let mut hovering = false;
 
     // Accumulated error from animation timeout.
     let mut anim_accum = Duration::from_secs(0);
@@ -256,10 +257,15 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                     }
                 }
                 WindowEvent::CursorEntered { .. } => {
-                    win.set_cursor_visible(false);
+                    if win.is_focused() {
+                        win.set_cursor_visible(false);
+                    }
+                    hovering = true;
                 }
                 WindowEvent::CursorLeft { .. } => {
                     win.set_cursor_visible(true);
+
+                    hovering = false;
                 }
                 WindowEvent::Minimized => {
                     session.transition(State::Paused);
@@ -271,8 +277,13 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                 }
                 WindowEvent::Focused(true) => {
                     session.transition(State::Running);
+
+                    if hovering {
+                        win.set_cursor_visible(false);
+                    }
                 }
                 WindowEvent::Focused(false) => {
+                    win.set_cursor_visible(true);
                     session.transition(State::Paused);
                 }
                 WindowEvent::RedrawRequested => {
