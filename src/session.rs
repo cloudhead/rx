@@ -1952,7 +1952,20 @@ impl Session {
         match result {
             Some((eid, Edit::LayerPainted(layer))) => {
                 self.view_mut(id).restore_layer(eid, layer);
-                self.cursor_dirty();
+            }
+            Some((eid, Edit::LayerAdded(layer))) => {
+                match dir {
+                    Direction::Backward => {
+                        self.view_mut(id).remove_layer(layer);
+                    }
+                    Direction::Forward => {
+                        // XXX: This won't really work if the layer removed wasn't the
+                        // last one, since this function doesn't take an id.
+                        let layer_id = self.view_mut(id).add_layer();
+                        debug_assert!(layer_id == layer);
+                    }
+                };
+                self.view_mut(id).refresh_file_status(eid);
             }
             Some((eid, Edit::ViewResized(from, to))) => {
                 let extent = match dir {
@@ -1960,10 +1973,10 @@ impl Session {
                     Direction::Forward => to,
                 };
                 self.view_mut(id).restore(eid, extent);
-                self.cursor_dirty();
             }
             _ => {}
         }
+        self.cursor_dirty();
     }
 
     ///////////////////////////////////////////////////////////////////////////

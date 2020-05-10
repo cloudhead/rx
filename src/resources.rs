@@ -364,6 +364,7 @@ impl ResourceManager {
 #[derive(Debug, Copy, Clone)]
 pub enum Edit {
     LayerPainted(LayerId),
+    LayerAdded(LayerId),
     ViewResized(ViewExtent, ViewExtent),
     Initial,
 }
@@ -408,6 +409,7 @@ impl ViewResources {
     pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Pixels) {
         self.layers
             .insert(layer_id, LayerResources::new(pixels, extent));
+        self.history_record(Edit::LayerAdded(layer_id));
     }
 
     pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Pixels)>, extent: ViewExtent) {
@@ -451,6 +453,9 @@ impl ViewResources {
                 Edit::LayerPainted(id) => {
                     self.layer_mut(id).prev_snapshot();
                 }
+                Edit::LayerAdded(id) => {
+                    self.layers.remove(&id);
+                }
                 Edit::ViewResized(from, _) => {
                     self.extent = from;
 
@@ -475,6 +480,16 @@ impl ViewResources {
             match edit {
                 Edit::LayerPainted(id) => {
                     self.layer_mut(id).next_snapshot();
+                }
+                Edit::LayerAdded(id) => {
+                    // TODO: Currently, when redoing a `LayerAdded`, we recreate a blank layer.
+                    // This is because we remove it from the map when undoing, so we lose all data.
+                    // This is also a problem because we lose the snapshots of that layer. A better
+                    // solution might be to use tombstones instead.
+                    let pixels =
+                        Pixels::blank(self.extent.width() as usize, self.extent.height() as usize);
+                    self.layers
+                        .insert(id, LayerResources::new(pixels, self.extent));
                 }
                 Edit::ViewResized(_, to) => {
                     self.extent = to;

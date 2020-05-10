@@ -347,8 +347,10 @@ impl View {
     }
 
     /// Remove a layer.
-    pub fn remove_layer(&mut self, _id: LayerId) {
-        unimplemented!()
+    pub fn remove_layer(&mut self, id: LayerId) {
+        debug_assert_eq!(id, self.layers.len() - 1); // XXX
+
+        self.layers.pop();
     }
 
     /// Clear the view to a color.
@@ -388,33 +390,20 @@ impl View {
     /// Restore a view layer to a given snapshot.
     pub fn restore_layer(&mut self, eid: EditId, layer: LayerId) {
         self.layer_damaged(layer);
-
-        // If the snapshot was saved to disk, we mark the view as saved too.
-        // Otherwise, if the view was saved before restoring the snapshot,
-        // we mark it as modified.
-        //
-        // XXX: Consolidate with `restore`.
-        match self.file_status {
-            FileStatus::Modified(ref f) if self.is_snapshot_saved(eid) => {
-                self.file_status = FileStatus::Saved(f.clone());
-            }
-            FileStatus::Saved(ref f) => {
-                self.file_status = FileStatus::Modified(f.clone());
-            }
-            _ => {
-                // TODO
-            }
-        }
+        self.refresh_file_status(eid);
     }
 
     /// Restore a view to a given snapshot and extent.
     pub fn restore(&mut self, eid: EditId, extent: ViewExtent) {
         self.damaged(extent);
         self.reset(extent);
+        self.refresh_file_status(eid);
+    }
 
-        // If the snapshot was saved to disk, we mark the view as saved too.
-        // Otherwise, if the view was saved before restoring the snapshot,
-        // we mark it as modified.
+    // If the snapshot was saved to disk, we mark the view as saved too.
+    // Otherwise, if the view was saved before restoring the snapshot,
+    // we mark it as modified.
+    pub fn refresh_file_status(&mut self, eid: EditId) {
         match self.file_status {
             FileStatus::Modified(ref f) if self.is_snapshot_saved(eid) => {
                 self.file_status = FileStatus::Saved(f.clone());
