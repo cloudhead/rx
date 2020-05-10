@@ -249,7 +249,7 @@ impl ResourceManager {
         let mut zip = zip::ZipWriter::new(out);
         let opts = FileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated)
-            .unix_permissions(0o755);
+            .unix_permissions(0o644);
 
         let resources = self.lock();
         let view = resources.get_view(id).expect("the view must exist");
