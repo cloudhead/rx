@@ -13,7 +13,8 @@ use crate::resources::{Edit, EditId, Pixels, ResourceManager};
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::{
-    FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
+    self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
+    ViewState,
 };
 
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
@@ -26,6 +27,7 @@ use nonempty::NonEmpty;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -763,10 +765,12 @@ impl Session {
     /// Default view height.
     pub const DEFAULT_VIEW_H: u32 = 128;
 
+    /// Rx archive format extension.
+    const ARCHIVE_FORMAT: &'static str = "rxi";
     /// Supported image formats for writing.
     const SUPPORTED_WRITE_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
     /// Supported image formats for reading.
-    const SUPPORTED_READ_FORMATS: &'static [&'static str] = &["png"];
+    const SUPPORTED_READ_FORMATS: &'static [&'static str] = &["png", Self::ARCHIVE_FORMAT];
     /// Minimum margin between views, in pixels.
     const VIEW_MARGIN: f32 = 24.;
     /// Size of palette cells, in pixels.
@@ -1736,29 +1740,14 @@ impl Session {
     /// Load a view into the session.
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         let path = path.as_ref();
+        let path = view::Path::try_from(path)?;
 
         debug!("load: {:?}", path);
-
-        match path.extension() {
-            Some(ext) if ext != "png" => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "trying to load file with unsupported extension",
-                ));
-            }
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "trying to load file with no extension",
-                ));
-            }
-            _ => {}
-        }
 
         // View is already loaded.
         if let Some(View { id, .. }) = self
             .views
-            .find(|v| v.file_storage().map_or(false, |f| f.contains(path)))
+            .find(|v| v.file_storage().map_or(false, |f| f.contains(&*path)))
         {
             // TODO: Reload from disk.
             let id = *id;
@@ -1766,18 +1755,31 @@ impl Session {
             return Ok(());
         }
 
-        let (width, height, pixels) = ResourceManager::load_image(&path)?;
+        match path.format {
+            view::Format::Png => {
+                let (width, height, pixels) = ResourceManager::load_image(&*path)?;
 
-        self.add_view(
-            FileStatus::Saved(FileStorage::Single(path.into())),
-            width,
-            height,
-            vec![pixels],
-        );
-        self.message(
-            format!("\"{}\" {} pixels read", path.display(), width * height),
-            MessageType::Info,
-        );
+                self.add_view(
+                    FileStatus::Saved(FileStorage::Single((*path).into())),
+                    width,
+                    height,
+                    vec![pixels],
+                );
+                self.message(
+                    format!("\"{}\" {} pixels read", path.display(), width * height),
+                    MessageType::Info,
+                );
+            }
+            view::Format::Archive => {
+                ResourceManager::load_archive(&*path)?;
+            }
+            view::Format::Gif => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "gif files are not supported",
+                ));
+            }
+        }
 
         Ok(())
     }

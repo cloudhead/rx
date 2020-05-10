@@ -1,4 +1,7 @@
 pub mod layer;
+pub mod path;
+
+pub use path::{Format, Path};
 
 use crate::resources::EditId;
 use crate::session::{Session, SessionCoords};
@@ -16,7 +19,6 @@ use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::ops::Deref;
-use std::path::{Path, PathBuf};
 use std::time;
 
 /// View identifier.
@@ -619,9 +621,9 @@ impl ToString for FileStatus {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum FileStorage {
     /// Stored as a range of files.
-    Range(NonEmpty<PathBuf>),
+    Range(NonEmpty<std::path::PathBuf>),
     /// Stored as a single file.
-    Single(PathBuf),
+    Single(std::path::PathBuf),
 }
 
 impl fmt::Display for FileStorage {
@@ -659,20 +661,20 @@ impl fmt::Display for FileStorage {
     }
 }
 
-impl From<&Path> for FileStorage {
-    fn from(p: &Path) -> Self {
+impl From<&std::path::Path> for FileStorage {
+    fn from(p: &std::path::Path) -> Self {
         FileStorage::Single(p.into())
     }
 }
 
-impl From<PathBuf> for FileStorage {
-    fn from(p: PathBuf) -> Self {
+impl From<std::path::PathBuf> for FileStorage {
+    fn from(p: std::path::PathBuf) -> Self {
         FileStorage::Single(p)
     }
 }
 
 impl FileStorage {
-    pub fn contains<P: AsRef<Path>>(&self, p: P) -> bool {
+    pub fn contains<P: AsRef<std::path::Path>>(&self, p: P) -> bool {
         match self {
             Self::Single(buf) => buf.as_path() == p.as_ref(),
             Self::Range(bufs) => bufs.iter().any(|buf| buf.as_path() == p.as_ref()),

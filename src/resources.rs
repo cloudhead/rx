@@ -220,6 +220,10 @@ impl ResourceManager {
         Ok((width, height, pixels.into()))
     }
 
+    pub fn load_archive<P: AsRef<Path>>(_path: P) -> io::Result<(u32, u32, Vec<Rgba8>)> {
+        unimplemented!()
+    }
+
     pub fn save_view<P: AsRef<Path>>(
         &self,
         id: ViewId,
