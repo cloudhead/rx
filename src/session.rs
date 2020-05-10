@@ -1639,9 +1639,15 @@ impl Session {
     /// Save a view with the given file name. Returns an error if
     /// the format is not supported.
     pub fn save_view_as(&mut self, id: ViewId, storage: FileStorage) -> io::Result<()> {
-        let ext = self.view(id).extent();
+        let view = self.view(id);
+        let ext = view.extent();
+        let nlayers = view.layers.len();
 
         let message = match &storage {
+            FileStorage::Single(path) if nlayers > 1 => {
+                let written = self.resources.save_view_archive(id, path)?;
+                format!("\"{}\" {} pixels written", storage, written)
+            }
             FileStorage::Single(path) => {
                 if let Some(s_id) = self.save_view_rect_as(id, ext.rect(), &path)? {
                     self.view_mut(id).save_as(s_id, storage.clone());

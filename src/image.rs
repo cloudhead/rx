@@ -125,6 +125,11 @@ pub fn load<P: AsRef<path::Path>>(path: P) -> io::Result<(Vec<u8>, u32, u32)> {
 pub fn save<P: AsRef<path::Path>>(path: P, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
     let f = File::create(path.as_ref())?;
     let out = &mut io::BufWriter::new(f);
+
+    self::write(out, w, h, pixels)
+}
+
+pub fn write<W: std::io::Write>(out: W, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
     let mut encoder = png::Encoder::new(out, w, h);
 
     encoder.set_color(png::ColorType::RGBA);

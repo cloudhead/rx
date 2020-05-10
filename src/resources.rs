@@ -236,6 +236,55 @@ impl ResourceManager {
         Ok((0, (w * h) as usize)) // XXX: `0` should be the EditId
     }
 
+    pub fn save_view_archive<P: AsRef<Path>>(&self, id: ViewId, path: P) -> io::Result<usize> {
+        use std::io::Write;
+        use zip::write::FileOptions;
+
+        let f = File::create(path.as_ref())?;
+        let out = &mut io::BufWriter::new(f);
+        let mut zip = zip::ZipWriter::new(out);
+        let opts = FileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o755);
+
+        let resources = self.lock();
+        let view = resources.get_view(id).expect("the view must exist");
+        let extent = view.extent;
+        let mut buffer = Vec::new();
+        let mut written = 0;
+
+        let name = path
+            .as_ref()
+            .file_stem()
+            .expect("the file must have a stem");
+
+        for (id, layer) in view.layers.iter() {
+            let path = Path::new(name).join("layers").join(id.to_string());
+
+            for i in 0..extent.nframes {
+                let rect = &extent.frame(i);
+                let (_, pixels) = layer.get_snapshot_rect(&rect.map(|n| n as i32));
+
+                buffer.clear();
+                image::write(&mut buffer, rect.width(), rect.height(), &pixels)?;
+
+                let path = path
+                    .join("frames")
+                    .join(i.to_string())
+                    .with_extension("png");
+
+                zip.start_file_from_path(&path, opts)?;
+                zip.write_all(&buffer)?;
+
+                written += pixels.len() * std::mem::size_of::<Rgba8>();
+            }
+        }
+
+        zip.finish()?;
+
+        Ok(written)
+    }
+
     pub fn save_view_svg<P: AsRef<Path>>(&self, id: ViewId, path: P) -> io::Result<usize> {
         use std::io::Write;
 

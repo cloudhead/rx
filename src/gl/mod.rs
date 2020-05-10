@@ -6,6 +6,7 @@ use crate::renderer;
 use crate::resources::{Pixels, ResourceManager};
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
+use crate::util;
 use crate::view::layer::{FrameRange, LayerId};
 use crate::view::{ViewId, ViewOp};
 use crate::{data, data::Assets, image};
@@ -190,7 +191,7 @@ impl LayerData {
         fb.color_slot().clear(GenMipmaps::No, (0, 0, 0, 0)).unwrap();
 
         if let Some(pixels) = pixels {
-            let aligned = self::align_u8(pixels);
+            let aligned = util::align_u8(pixels);
             fb.color_slot().upload_raw(GenMipmaps::No, aligned).unwrap();
         }
 
@@ -1010,7 +1011,7 @@ impl Renderer {
                         self.resources
                             .lock()
                             .get_snapshot_rect(id, 0, &src.map(|n| n as i32)); // XXX
-                    let texels = self::align_u8(&texels);
+                    let texels = util::align_u8(&texels);
 
                     fb.color_slot()
                         .upload_part_raw(
@@ -1032,7 +1033,7 @@ impl Renderer {
                             Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
                                 .map_err(Error::Texture)?;
                     }
-                    let body = self::align_u8(&pixels);
+                    let body = util::align_u8(&pixels);
 
                     self.paste
                         .upload_raw(GenMipmaps::No, body)
@@ -1065,7 +1066,7 @@ impl Renderer {
                         .get_layer(0)
                         .fb; // XXX
                     let texels = &[*rgba];
-                    let texels = self::align_u8(texels);
+                    let texels = util::align_u8(texels);
                     fb.color_slot()
                         .upload_part_raw(GenMipmaps::No, [*x as u32, *y as u32], [1, 1], texels)
                         .map_err(Error::Texture)?;
@@ -1127,7 +1128,7 @@ impl Renderer {
 
         for (layer_id, layer) in view_resource.layers.iter() {
             let (_, texels) = layer.get_snapshot_rect(&Rect::origin(tw as i32, th as i32));
-            let texels = self::align_u8(&texels);
+            let texels = util::align_u8(&texels);
             let l = view_data.get_layer(*layer_id);
 
             l.upload_part([0, vh - th], [tw, th], texels)?;
@@ -1200,13 +1201,4 @@ where
 
 fn text_batch([w, h]: [u32; 2]) -> TextBatch {
     TextBatch::new(w, h, draw::GLYPH_WIDTH, draw::GLYPH_HEIGHT)
-}
-
-fn align_u8<T>(data: &[T]) -> &[u8] {
-    let (head, body, tail) = unsafe { data.align_to::<u8>() };
-
-    assert!(head.is_empty());
-    assert!(tail.is_empty());
-
-    body
 }
