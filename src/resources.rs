@@ -9,14 +9,27 @@ use rgx::rect::Rect;
 
 use gif::{self, SetParameter};
 
+use serde_derive::{Deserialize, Serialize};
+
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::time;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Manifest {
+    pub extent: ViewExtent,
+}
+
+#[derive(Debug)]
+pub struct Archive {
+    pub layers: Vec<Vec<Vec<Rgba8>>>,
+    pub manifest: Manifest,
+}
 
 #[derive(Debug, Copy, Clone)]
 enum PixelFormat {
@@ -220,8 +233,66 @@ impl ResourceManager {
         Ok((width, height, pixels.into()))
     }
 
-    pub fn load_archive<P: AsRef<Path>>(_path: P) -> io::Result<(u32, u32, Vec<Rgba8>)> {
-        unimplemented!()
+    pub fn load_archive<P: AsRef<Path>>(path: P) -> io::Result<Archive> {
+        use std::io::Read;
+        use zip::result::ZipError;
+
+        let file = File::open(&path)?;
+        let mut archive = zip::ZipArchive::new(file)?;
+
+        let files: Vec<_> = archive.file_names().map(|f| PathBuf::from(f)).collect();
+
+        // Get the root directory name of the archive.
+        let root = files
+            .first()
+            .and_then(|f| f.iter().next())
+            .map(Path::new)
+            .ok_or(io::Error::new(io::ErrorKind::Other, "invalid archive"))?;
+
+        // Decode the manifest file.
+        let manifest: Manifest = {
+            let mut buf = String::new();
+
+            archive
+                .by_name(&root.join("manifest.toml").to_string_lossy())?
+                .read_to_string(&mut buf)?;
+            toml::from_str(&buf)?
+        };
+
+        let mut layers = Vec::new();
+
+        // Discover the layers and frames in the archive.
+        for layer in 0.. {
+            let path = root.join("layers").join(layer.to_string()).join("frames");
+
+            if !files.iter().any(|f| f.starts_with(&path)) {
+                break;
+            }
+
+            let mut frames = Vec::new();
+            for frame in 0.. {
+                let path = path.join(frame.to_string()).with_extension("png");
+
+                match archive.by_name(&path.to_string_lossy()) {
+                    Ok(mut file) => {
+                        let mut img = Vec::new();
+                        file.read_to_end(&mut img)?;
+
+                        let (pixels, w, h) = image::read(img.as_slice())?;
+                        debug_assert!(w == manifest.extent.fw && h == manifest.extent.fh);
+
+                        frames.push(unsafe { std::mem::transmute(pixels) });
+                    }
+                    Err(ZipError::FileNotFound) => {
+                        break;
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            }
+            layers.push(frames);
+        }
+
+        Ok(Archive { layers, manifest })
     }
 
     pub fn save_view<P: AsRef<Path>>(
@@ -261,6 +332,17 @@ impl ResourceManager {
             .as_ref()
             .file_stem()
             .expect("the file must have a stem");
+
+        let manifest = toml::to_string(&Manifest { extent })
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        zip.start_file_from_path(
+            &Path::new(name).join("manifest.toml"),
+            FileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored)
+                .unix_permissions(0o644),
+        )?;
+        zip.write_all(manifest.as_bytes())?;
 
         for (id, layer) in view.layers.iter() {
             let path = Path::new(name).join("layers").join(id.to_string());

@@ -15,6 +15,8 @@ use rgx::rect::Rect;
 
 use nonempty::NonEmpty;
 
+use serde_derive::{Deserialize, Serialize};
+
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
@@ -88,7 +90,7 @@ impl From<Point2<f32>> for ViewCoords<f32> {
 }
 
 /// View extent information.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ViewExtent {
     /// Frame width.
     pub fw: u32,

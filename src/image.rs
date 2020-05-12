@@ -79,6 +79,7 @@ impl TryFrom<&path::Path> for Path {
     }
 }
 
+// XXX This function isn't needed.
 pub fn decode<R: io::Read>(r: R) -> io::Result<(Vec<u8>, u32, u32)> {
     let decoder = png::Decoder::new(r);
     let (info, mut reader) = decoder.read_info()?;
