@@ -204,6 +204,12 @@ impl Resources {
     pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResources> {
         self.data.get_mut(&id)
     }
+
+    pub fn current_edit(&self, id: ViewId) -> EditId {
+        self.get_view(id)
+            .expect(&format!("view #{} must exist", id))
+            .cursor
+    }
 }
 
 impl ResourceManager {
@@ -309,13 +315,14 @@ impl ResourceManager {
         path: P,
     ) -> io::Result<(EditId, usize)> {
         let resources = self.lock();
-        let (_edit, pixels) = // XXX Should return something?
+        let (_, pixels) =
             resources.get_snapshot_rect(id, LayerId::default(), &rect.map(|n| n as i32)); // XXX: Should save all views
         let (w, h) = (rect.width(), rect.height());
+        let edit_id = resources.current_edit(id);
 
         image::save(path, w, h, &pixels)?;
 
-        Ok((0, (w * h) as usize)) // XXX: `0` should be the EditId
+        Ok((edit_id, (w * h) as usize))
     }
 
     pub fn save_view_archive<P: AsRef<Path>>(&self, id: ViewId, path: P) -> io::Result<usize> {

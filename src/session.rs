@@ -1645,6 +1645,10 @@ impl Session {
         let message = match &storage {
             FileStorage::Single(path) if nlayers > 1 => {
                 let written = self.resources.save_view_archive(id, path)?;
+                let edit_id = self.resources.lock().current_edit(id);
+
+                self.view_mut(id).save_as(edit_id, storage.clone());
+
                 format!("\"{}\" {} pixels written", storage, written)
             }
             FileStorage::Single(path) => {
