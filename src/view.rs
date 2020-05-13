@@ -165,7 +165,7 @@ pub enum ViewOp {
     /// Paint a single pixel.
     SetPixel(Rgba8, i32, i32),
     /// Add a layer.
-    AddLayer(FrameRange),
+    AddLayer(LayerId, FrameRange),
 }
 
 /// A view on a sprite or image.
@@ -343,11 +343,12 @@ impl View {
             .expect("there is always at least one layer")
             .index;
         let range = FrameRange::Full;
+        let id = self.layers.len();
 
         self.layers.push(Layer::new(range.clone(), top + 1));
-        self.ops.push(ViewOp::AddLayer(range));
+        self.ops.push(ViewOp::AddLayer(id, range));
 
-        self.layers.len() - 1
+        id
     }
 
     /// Remove a layer.

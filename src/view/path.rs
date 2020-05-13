@@ -3,6 +3,13 @@ use std::io;
 use std::ops::Deref;
 use std::path;
 
+/// Rx archive format extension.
+pub const ARCHIVE_FORMAT: &'static str = "rxz";
+/// Supported image formats for writing.
+pub const SUPPORTED_WRITE_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
+/// Supported image formats for reading.
+pub const SUPPORTED_READ_FORMATS: &'static [&'static str] = &["png", self::ARCHIVE_FORMAT];
+
 #[derive(Debug, Copy, Clone)]
 pub enum Format {
     Archive,
@@ -43,7 +50,7 @@ impl<'a> TryFrom<&'a path::Path> for Path<'a, path::Path> {
         let format = match ext {
             "gif" => Format::Gif,
             "png" => Format::Png,
-            "rxi" => Format::Archive,
+            ARCHIVE_FORMAT => Format::Archive,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,

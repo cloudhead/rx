@@ -126,6 +126,13 @@ impl Pixels {
         assert!(head.is_empty() && tail.is_empty());
         body
     }
+
+    pub fn as_rgba8(&self) -> Option<&[Rgba8]> {
+        match self.format {
+            PixelFormat::Rgba8 => Some(Rgba8::align(&self.buf)),
+            PixelFormat::Bgra8 => None,
+        }
+    }
 }
 
 pub struct ResourceManager {

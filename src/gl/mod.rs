@@ -265,8 +265,13 @@ impl ViewData {
             .unwrap_or_else(|| panic!("layer #{} must exist", index))
     }
 
-    fn add_layer(&mut self, _range: &FrameRange, ctx: &mut Context) -> LayerId {
-        let layer = LayerData::new(self.w, self.h, None, ctx);
+    fn add_layer(
+        &mut self,
+        _range: &FrameRange,
+        pixels: Option<&[Rgba8]>,
+        ctx: &mut Context,
+    ) -> LayerId {
+        let layer = LayerData::new(self.w, self.h, pixels, ctx);
         self.layers.push(layer);
 
         self.layers.len() - 1
@@ -937,7 +942,7 @@ impl Renderer {
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
                     let resources = self.resources.lock();
-                    // XXX: Should we add all layers here?
+
                     if let Some((s, pixels)) = resources.get_snapshot_safe(id, LayerId::default()) {
                         let (w, h) = (s.width(), s.height());
 
@@ -982,11 +987,19 @@ impl Renderer {
                 ViewOp::Resize(w, h) => {
                     self.resize_view(id, *w, *h)?;
                 }
-                ViewOp::AddLayer(range) => {
-                    self.view_data
-                        .get_mut(&id)
-                        .expect("views must have associated view data")
-                        .add_layer(range, &mut self.ctx);
+                ViewOp::AddLayer(layer_id, range) => {
+                    let resources = self.resources.lock();
+
+                    if let Some((_, pixels)) = resources.get_snapshot_safe(id, *layer_id) {
+                        if let Some(pixels) = pixels.as_rgba8() {
+                            self.view_data
+                                .get_mut(&id)
+                                .expect("views must have associated view data")
+                                .add_layer(range, Some(pixels), &mut self.ctx);
+                        } else {
+                            unimplemented!()
+                        }
+                    }
                 }
                 ViewOp::Clear(color) => {
                     self.view_data
@@ -1123,7 +1136,7 @@ impl Renderer {
         // Create n-1 layers, since layer #0 is created when a `ViewData` is created.
         for _ in view_resource.layers.iter().skip(1) {
             // XXX: Where should we get the frame range from?
-            view_data.add_layer(&FrameRange::default(), &mut self.ctx);
+            view_data.add_layer(&FrameRange::default(), None, &mut self.ctx);
         }
 
         for (layer_id, layer) in view_resource.layers.iter() {

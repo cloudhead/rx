@@ -12,6 +12,7 @@ use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, Modifie
 use crate::resources::{Edit, EditId, Pixels, ResourceManager};
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
+use crate::view::path;
 use crate::view::{
     self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
     ViewState,
@@ -765,12 +766,6 @@ impl Session {
     /// Default view height.
     pub const DEFAULT_VIEW_H: u32 = 128;
 
-    /// Rx archive format extension.
-    const ARCHIVE_FORMAT: &'static str = "rxi";
-    /// Supported image formats for writing.
-    const SUPPORTED_WRITE_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
-    /// Supported image formats for reading.
-    const SUPPORTED_READ_FORMATS: &'static [&'static str] = &["png", Self::ARCHIVE_FORMAT];
     /// Minimum margin between views, in pixels.
     const VIEW_MARGIN: f32 = 24.;
     /// Size of palette cells, in pixels.
@@ -843,7 +838,7 @@ impl Session {
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
             ignore_received_characters: false,
-            cmdline: CommandLine::new(cwd, history_path, Self::SUPPORTED_READ_FORMATS),
+            cmdline: CommandLine::new(cwd, history_path, path::SUPPORTED_READ_FORMATS),
             mode: Mode::Normal,
             prev_mode: Option::default(),
             selection: Option::default(),
@@ -1555,7 +1550,7 @@ impl Session {
 
     /// Load the given paths into the session as frames in a new view.
     pub fn edit_frames<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
-        let completer = FileCompleter::new(&self.cwd, Self::SUPPORTED_READ_FORMATS);
+        let completer = FileCompleter::new(&self.cwd, path::SUPPORTED_READ_FORMATS);
         let mut dirs = Vec::new();
 
         let mut paths = paths
@@ -1704,7 +1699,7 @@ impl Session {
             io::Error::new(io::ErrorKind::Other, "file extension is not valid unicode")
         })?;
 
-        if !Self::SUPPORTED_WRITE_FORMATS.contains(&ext) {
+        if !path::SUPPORTED_WRITE_FORMATS.contains(&ext) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("`{}` is not a supported output format", ext),
@@ -1771,7 +1766,27 @@ impl Session {
                 );
             }
             view::Format::Archive => {
-                ResourceManager::load_archive(&*path)?;
+                let archive = ResourceManager::load_archive(&*path)?;
+                let extent = archive.manifest.extent;
+                let mut layers = archive.layers.into_iter();
+
+                let frames = layers.next().expect("there is at least one layer");
+                let view_id = self.add_view(
+                    FileStatus::Saved(FileStorage::Single((*path).into())),
+                    extent.fw,
+                    extent.fh,
+                    frames,
+                );
+
+                for layer in layers {
+                    let pixels = util::stitch_frames(
+                        layer,
+                        extent.fw as usize,
+                        extent.fh as usize,
+                        Rgba8::TRANSPARENT,
+                    );
+                    self.add_layer(view_id, Some(Pixels::from_rgba8(pixels.into())));
+                }
             }
             view::Format::Gif => {
                 return Err(io::Error::new(
@@ -1782,6 +1797,21 @@ impl Session {
         }
 
         Ok(())
+    }
+
+    fn add_layer(&mut self, view_id: ViewId, pixels: Option<Pixels>) {
+        let l = self.view_mut(view_id).add_layer();
+        let v = self.view(view_id);
+
+        self.resources
+            .lock_mut()
+            .get_view_mut(v.id)
+            .expect(&format!("view #{} must exist", v.id))
+            .add_layer(
+                l,
+                v.extent(),
+                pixels.unwrap_or(Pixels::blank(v.width() as usize, v.height() as usize)),
+            );
     }
 
     fn add_view(
@@ -2862,18 +2892,7 @@ impl Session {
             }
             Command::LayerAdd => {
                 let view_id = self.views.active_id;
-                let l = self.view_mut(view_id).add_layer();
-                let v = self.view(view_id);
-
-                self.resources
-                    .lock_mut()
-                    .get_view_mut(v.id)
-                    .expect(&format!("view #{} must exist", v.id))
-                    .add_layer(
-                        l,
-                        v.extent(),
-                        Pixels::blank(v.width() as usize, v.height() as usize),
-                    );
+                self.add_layer(view_id, None);
             }
             Command::LayerRemove(id) => {
                 if let Some(id) = id {
