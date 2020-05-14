@@ -199,8 +199,14 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
     }
-
-    renderer.init(session.effects());
+    // Make sure our session ticks once before anything is rendered.
+    let effects = session.update(
+        &mut vec![],
+        execution.clone(),
+        Duration::default(),
+        Duration::default(),
+    );
+    renderer.init(effects);
 
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();
