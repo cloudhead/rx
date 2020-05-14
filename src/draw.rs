@@ -148,6 +148,7 @@ impl Context {
 
 fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch) {
     let view = session.active_view();
+    let layer = view.active_layer().index;
 
     if let Some(selection) = session.selection {
         let fill = match session.mode {
@@ -160,7 +161,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
         let stroke = color::RED;
 
         let r = selection.abs().bounds();
-        let offset = session.offset + view.offset;
+        let offset = session.offset + view.offset + view.layer_offset(layer);
 
         {
             // Selection dimensions.

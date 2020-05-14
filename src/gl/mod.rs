@@ -1035,9 +1035,9 @@ impl Renderer {
                         )
                         .map_err(Error::Texture)?;
                 }
-                ViewOp::Yank(src) => {
+                ViewOp::Yank(layer_id, src) => {
                     let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot_rect(id, 0, src); // XXX
+                    let (_, pixels) = resources.get_snapshot_rect(id, *layer_id, src); // XXX
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 

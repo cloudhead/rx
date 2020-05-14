@@ -157,7 +157,7 @@ pub enum ViewOp {
     /// Clear to a color.
     Clear(Rgba8),
     /// Yank the given area into the paste buffer.
-    Yank(Rect<i32>),
+    Yank(LayerId, Rect<i32>),
     /// Blit the paste buffer into the given area.
     Paste(Rect<i32>),
     /// Resize the view.
@@ -369,7 +369,7 @@ impl View {
     }
 
     pub fn yank(&mut self, area: Rect<i32>) {
-        self.ops.push(ViewOp::Yank(area));
+        self.ops.push(ViewOp::Yank(self.active_layer_id, area));
     }
 
     pub fn paste(&mut self, area: Rect<i32>) {
@@ -470,6 +470,11 @@ impl View {
             self.offset.x + self.width() as f32 * self.zoom,
             self.offset.y + (self.fh * (index + 1) as u32) as f32 * self.zoom,
         )
+    }
+
+    /// The offset of the layer at the given index.
+    pub fn layer_offset(&self, index: usize) -> Vector2<f32> {
+        Vector2::new(0., self.fh as f32 * index as f32)
     }
 
     /// Check whether the session coordinates are contained within the view.

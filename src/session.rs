@@ -1469,7 +1469,7 @@ impl Session {
         let v = self.active_view();
         let SessionCoords(p) = p;
 
-        // XXX: Refactor
+        // XXX: Refactor: use layer_offset
         let p = p - self.offset - Vector2::from(v.layer_rect(v.active_layer_id).min());
         let mut p = p / v.zoom;
 
