@@ -1464,13 +1464,11 @@ impl Session {
         self.view_coords(self.views.active_id, p)
     }
 
-    /// Convert session coordinates to layer coordinates of the active layer.
-    pub fn active_layer_coords(&self, p: SessionCoords) -> LayerCoords<f32> {
-        let v = self.active_view();
+    pub fn layer_coords(&self, v: ViewId, l: LayerId, p: SessionCoords) -> LayerCoords<f32> {
+        let v = self.view(v);
         let SessionCoords(p) = p;
 
-        // XXX: Refactor: use layer_offset
-        let p = p - self.offset - Vector2::from(v.layer_rect(v.active_layer_id).min());
+        let p = p - self.offset - v.layer_offset(l);
         let mut p = p / v.zoom;
 
         if v.flip_x {
@@ -1483,8 +1481,14 @@ impl Session {
         LayerCoords::new(p.x.floor(), p.y.floor())
     }
 
+    /// Convert session coordinates to layer coordinates of the active layer.
+    pub fn active_layer_coords(&self, p: SessionCoords) -> LayerCoords<f32> {
+        let v = self.active_view();
+        self.layer_coords(v.id, v.active_layer_id, p)
+    }
+
     /// Check whether a point is inside the selection, if any.
-    pub fn is_selected(&self, p: ViewCoords<i32>) -> bool {
+    pub fn is_selected(&self, p: LayerCoords<i32>) -> bool {
         if let Some(s) = self.selection {
             s.abs().bounds().contains(*p)
         } else {
@@ -2539,7 +2543,7 @@ impl Session {
 
     /// Center the selection to the given session coordinates.
     fn center_selection(&mut self, p: SessionCoords) {
-        let c = self.active_view_coords(p);
+        let c = self.active_layer_coords(p);
         if let Some(ref mut s) = self.selection {
             let r = s.abs().bounds();
             let (w, h) = (r.width(), r.height());

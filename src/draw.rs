@@ -148,7 +148,7 @@ impl Context {
 
 fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch) {
     let view = session.active_view();
-    let layer = view.active_layer().index;
+    let layer = view.active_layer_id;
 
     if let Some(selection) = session.selection {
         let fill = match session.mode {
@@ -592,7 +592,7 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
         &session.tool,
         session.mode,
         v.contains(c - session.offset).is_some(),
-        session.is_selected(session.view_coords(v.id, c).into()),
+        session.is_selected(session.layer_coords(v.id, v.active_layer_id, c).into()),
     ) {
         let dst = rect.with_origin(c.x, c.y) + offset;
         let zdepth = self::CURSOR_LAYER;
@@ -625,7 +625,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
 
     match session.mode {
         Mode::Visual(VisualState::Selecting { .. }) => {
-            if session.is_selected(session.view_coords(v.id, c).into()) {
+            if session.is_selected(session.layer_coords(v.id, v.active_layer_id, c).into()) {
                 return;
             }
 
