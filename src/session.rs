@@ -2195,6 +2195,8 @@ impl Session {
                                 }
                             }
                             Mode::Visual(VisualState::Pasting) => {
+                                // Re-center the selection in-case we've switched layer.
+                                self.center_selection(self.cursor);
                                 self.command(Command::SelectionPaste);
                             }
                             Mode::Present | Mode::Help => {}
@@ -2308,6 +2310,15 @@ impl Session {
                         }
                     }
                     Mode::Visual(VisualState::Pasting) => {
+                        let active_id = self.views.active_id;
+
+                        match self.hover_view {
+                            // Auto-switch layer when pasting, if on active view.
+                            Some((view_id, layer_id)) if view_id == active_id => {
+                                self.view_mut(active_id).activate_layer(layer_id);
+                            }
+                            _ => {}
+                        }
                         self.center_selection(cursor);
                     }
                     _ => {}
