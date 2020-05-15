@@ -321,8 +321,30 @@ impl View {
     }
 
     /// Activate a layer.
-    pub fn activate_layer(&mut self, l: LayerId) {
-        self.active_layer_id = l;
+    pub fn activate_layer(&mut self, l: LayerId) -> bool {
+        if self.layers.len() > l {
+            self.active_layer_id = l;
+            return true;
+        }
+        false
+    }
+
+    /// Activate the next layer.
+    pub fn activate_next_layer(&mut self) -> bool {
+        if self.layers.len() > self.active_layer_id + 1 {
+            self.active_layer_id += 1;
+            return true;
+        }
+        false
+    }
+
+    /// Activate the previous layer.
+    pub fn activate_prev_layer(&mut self) -> bool {
+        if self.active_layer_id > 0 {
+            self.active_layer_id -= 1;
+            return true;
+        }
+        false
     }
 
     /// Get the active layer.

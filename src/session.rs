@@ -3104,8 +3104,31 @@ impl Session {
                 self.unimplemented();
             }
             Command::SelectionMove(x, y) => {
+                let extent = self.active_view().extent();
+
                 if let Some(ref mut s) = self.selection {
                     s.translate(x, y);
+
+                    let rect = s.bounds();
+                    let v = self
+                        .views
+                        .active_mut()
+                        .expect("there is always an active view");
+
+                    if y > 0 && rect.max().y > extent.height() as i32 {
+                        if v.activate_next_layer() {
+                            *s = Selection::new(rect.x1, 0, rect.x2, rect.height());
+                        }
+                    } else if y < 0 && rect.min().y < 0 {
+                        if v.activate_prev_layer() {
+                            *s = Selection::new(
+                                rect.x1,
+                                extent.height() as i32 - rect.height(),
+                                rect.x2,
+                                extent.height() as i32,
+                            );
+                        }
+                    }
                 }
             }
             Command::SelectionResize(x, y) => {
