@@ -1103,7 +1103,7 @@ impl Session {
         debug_assert_eq!(self.offset, self.offset.map(|a| a.floor()));
 
         // Return and drain accumulated effects
-        self.effects()
+        self.effects.drain(..).collect()
     }
 
     /// Cleanup to be run at the end of the frame.
@@ -1122,11 +1122,6 @@ impl Session {
             );
         }
         self.transition(State::Closing(r));
-    }
-
-    /// Drain and return effects.
-    pub fn effects(&mut self) -> Vec<Effect> {
-        self.effects.drain(..).collect()
     }
 
     /// Return the session offset as a transformation matrix.
