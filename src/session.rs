@@ -1468,7 +1468,7 @@ impl Session {
         let v = self.view(v);
         let SessionCoords(p) = p;
 
-        let p = p - self.offset - v.layer_offset(l);
+        let p = p - self.offset - v.offset - v.layer_offset(l);
         let mut p = p / v.zoom;
 
         if v.flip_x {
