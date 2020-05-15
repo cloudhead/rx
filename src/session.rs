@@ -1937,11 +1937,20 @@ impl Session {
 
         first.offset.y = 0.;
 
-        let mut offset = first.height() as f32 * first.zoom + Self::VIEW_MARGIN;
+        // TODO: We need a way to distinguish view content size with real (rendered) size. Also
+        // create a distinction between layer and view height. Right now `View::height` is layer
+        // height.
+        let mut offset =
+            (first.height() * first.layers.len() as u32) as f32 * first.zoom + Self::VIEW_MARGIN;
 
         for v in self.views.iter_mut().skip(1) {
+            if v.layers.len() > 1 {
+                // Account for layer composite.
+                offset += v.height() as f32 * v.zoom;
+            }
             v.offset.y = offset;
-            offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
+
+            offset += (v.height() * v.layers.len() as u32) as f32 * v.zoom + Self::VIEW_MARGIN;
         }
         self.cursor_dirty();
     }
@@ -2912,10 +2921,12 @@ impl Session {
             Command::LayerAdd => {
                 let view_id = self.views.active_id;
                 self.add_layer(view_id, None);
+                self.organize_views();
             }
             Command::LayerRemove(id) => {
                 if let Some(id) = id {
                     self.active_view_mut().remove_layer(id);
+                    self.organize_views();
                 } else {
                     unimplemented!()
                 }
