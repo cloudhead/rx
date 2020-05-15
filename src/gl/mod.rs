@@ -725,7 +725,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 // Render view composites.
                 for (_, v) in view_data.iter() {
                     match &v.layer_tess {
-                        Some(tess) => {
+                        Some(tess) if v.layers.len() > 1 => {
                             for l in v.layers.iter() {
                                 let bound_view = pipeline.bind_texture(l.fb.color_slot());
 
