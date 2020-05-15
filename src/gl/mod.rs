@@ -672,9 +672,12 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
             for (id, v) in view_data.iter() {
                 if let Some(view) = session.views.get(*id) {
-                    for (layer_id, layer) in view.layers.iter().enumerate() {
+                    for (layer_id, _) in view.layers.iter().enumerate() {
                         let l = v.get_layer(layer_id);
-                        let layer_offset = view.layer_rect(layer.index).min().into();
+                        // TODO: This is profoundly annoying. Sometimes we need a layer offset
+                        // which includes the zoom, other times not... In this case, we're having
+                        // to undo the zoom.
+                        let layer_offset = view.layer_offset(layer_id) * (1. / view.zoom);
                         let bound_view = pipeline.bind_texture(l.fb.color_slot());
                         let transform = Matrix4::from_translation(
                             (session.offset + view.offset + layer_offset).extend(*draw::VIEW_LAYER),
