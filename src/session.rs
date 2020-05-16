@@ -245,7 +245,7 @@ pub enum Effect {
     /// When a view operation has taken place.
     ViewOps(ViewId, Vec<ViewOp>),
     /// When a view requires re-drawing.
-    ViewDamaged(ViewId, ViewExtent),
+    ViewDamaged(ViewId, Option<ViewExtent>),
     /// When a view layer requires re-drawing.
     ViewLayerDamaged(ViewId, LayerId),
     /// When the active view is non-permanently painted on.
@@ -1075,7 +1075,7 @@ impl Session {
                         .push(Effect::ViewOps(v.id, v.ops.drain(..).collect()));
                 }
                 match v.state {
-                    ViewState::Dirty(_) => {}
+                    ViewState::Dirty(_) | ViewState::LayerDirty(_) => {}
                     ViewState::Damaged(extent) => {
                         self.effects.push(Effect::ViewDamaged(v.id, extent));
                     }
@@ -2027,9 +2027,13 @@ impl Session {
                     Direction::Backward => from,
                     Direction::Forward => to,
                 };
-                self.view_mut(id).restore(eid, extent);
+                self.view_mut(id).restore_extent(eid, extent);
             }
-            _ => {}
+            Some((eid, Edit::ViewPainted)) => {
+                self.view_mut(id).restore(eid);
+            }
+            Some((_, Edit::Initial)) => {}
+            None => {}
         }
         self.cursor_dirty();
     }
@@ -2234,7 +2238,7 @@ impl Session {
                         match brush.state {
                             BrushState::Drawing { .. } | BrushState::DrawStarted { .. } => {
                                 brush.stop_drawing();
-                                self.active_view_mut().touch();
+                                self.active_view_mut().touch_layer();
                             }
                             _ => {}
                         }
@@ -3221,7 +3225,7 @@ impl Session {
                             Stroke::NONE,
                             Fill::Solid(color.unwrap_or(self.fg).into()),
                         )]));
-                    self.active_view_mut().touch();
+                    self.active_view_mut().touch_layer();
                 }
             }
             Command::SelectionErase => {
@@ -3236,7 +3240,7 @@ impl Session {
                             Fill::Solid(Rgba8::TRANSPARENT.into()),
                         )]),
                     ]);
-                    self.active_view_mut().touch();
+                    self.active_view_mut().touch_layer();
                 }
             }
             Command::PaintColor(rgba, x, y) => {

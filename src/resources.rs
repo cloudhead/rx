@@ -515,6 +515,7 @@ pub enum Edit {
     LayerPainted(LayerId),
     LayerAdded(LayerId),
     ViewResized(ViewExtent, ViewExtent),
+    ViewPainted,
     Initial,
 }
 
@@ -570,6 +571,15 @@ impl ViewResources {
         }
     }
 
+    pub fn record_view_painted(&mut self, layers: Vec<(LayerId, Pixels)>) {
+        let extent = self.extent.clone();
+        self.history_record(Edit::ViewPainted);
+
+        for (id, pixels) in layers.into_iter() {
+            self.layer_mut(id).push_snapshot(pixels, extent);
+        }
+    }
+
     // XXX: Extent is not needed.
     pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Pixels, extent: ViewExtent) {
         self.history_record(Edit::LayerPainted(layer));
@@ -577,6 +587,8 @@ impl ViewResources {
     }
 
     pub fn history_record(&mut self, edit: Edit) {
+        debug!("edit: {:?}", edit);
+
         // If we try to add an edit when we're not at the
         // latest, we have to clear the list forward.
         if self.cursor != self.history.len() - 1 {
@@ -612,6 +624,11 @@ impl ViewResources {
                         layer.prev_snapshot();
                     }
                 }
+                Edit::ViewPainted => {
+                    for (_, layer) in self.layers.iter_mut() {
+                        layer.prev_snapshot();
+                    }
+                }
                 _ => return None,
             }
             self.cursor -= 1;
@@ -643,6 +660,11 @@ impl ViewResources {
                 Edit::ViewResized(_, to) => {
                     self.extent = to;
 
+                    for (_, layer) in self.layers.iter_mut() {
+                        layer.next_snapshot();
+                    }
+                }
+                Edit::ViewPainted => {
                     for (_, layer) in self.layers.iter_mut() {
                         layer.next_snapshot();
                     }

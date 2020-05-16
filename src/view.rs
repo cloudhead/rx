@@ -143,7 +143,9 @@ pub enum ViewState {
     Dirty(Option<ViewExtent>),
     /// The view is damaged, it needs to be redrawn from a snapshot.
     /// This happens when undo/redo is used.
-    Damaged(ViewExtent),
+    Damaged(Option<ViewExtent>),
+    /// A layer has been touched.
+    LayerDirty(LayerId),
     /// A layer is damaged, it needs to be redrawn from a snapshot.
     /// This happens when undo/redo is used.
     LayerDamaged(LayerId),
@@ -396,7 +398,7 @@ impl View {
 
     pub fn paste(&mut self, area: Rect<i32>) {
         self.ops.push(ViewOp::Paste(area));
-        self.touch();
+        self.touch_layer();
     }
 
     /// Slice the view into the given number of frames.
@@ -421,9 +423,15 @@ impl View {
     }
 
     /// Restore a view to a given snapshot and extent.
-    pub fn restore(&mut self, eid: EditId, extent: ViewExtent) {
-        self.damaged(extent);
+    pub fn restore_extent(&mut self, eid: EditId, extent: ViewExtent) {
+        self.damaged(Some(extent));
         self.reset(extent);
+        self.refresh_file_status(eid);
+    }
+
+    /// Restore a view to a given snapshot.
+    pub fn restore(&mut self, eid: EditId) {
+        self.damaged(None);
         self.refresh_file_status(eid);
     }
 
@@ -516,6 +524,17 @@ impl View {
         ViewCoords::new(self.width() as f32 / 2., self.height() as f32 / 2.)
     }
 
+    /// Layer has been modified. Called when using the brush on the view,
+    /// or resizing the view.
+    pub fn touch_layer(&mut self) {
+        if let FileStatus::Saved(ref f) = self.file_status {
+            self.file_status = FileStatus::Modified(f.clone());
+        }
+        if self.state == ViewState::Okay {
+            self.state = ViewState::LayerDirty(self.active_layer_id);
+        }
+    }
+
     /// View has been modified. Called when using the brush on the view,
     /// or resizing the view.
     pub fn touch(&mut self) {
@@ -529,7 +548,7 @@ impl View {
 
     /// View should be considered damaged and needs to be restored from snapshot.
     /// Used when undoing or redoing changes.
-    pub fn damaged(&mut self, extent: ViewExtent) {
+    pub fn damaged(&mut self, extent: Option<ViewExtent>) {
         self.state = ViewState::Damaged(extent);
     }
 
@@ -550,7 +569,7 @@ impl View {
     /// Check whether the view is dirty.
     pub fn is_dirty(&self) -> bool {
         match self.state {
-            ViewState::Dirty(_) => true,
+            ViewState::Dirty(_) | ViewState::LayerDirty(_) => true,
             _ => false,
         }
     }

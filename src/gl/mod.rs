@@ -8,7 +8,7 @@ use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
 use crate::util;
 use crate::view::layer::{FrameRange, LayerId};
-use crate::view::{ViewId, ViewOp};
+use crate::view::{ViewId, ViewOp, ViewState};
 use crate::{data, data::Assets, image};
 
 use nonempty::NonEmpty;
@@ -257,6 +257,13 @@ impl ViewData {
             w,
             h,
         }
+    }
+
+    fn layer_pixels(&self) -> impl Iterator<Item = (LayerId, Pixels)> + '_ {
+        self.layers
+            .iter()
+            .enumerate()
+            .map(|(i, l)| (i, l.pixels()))
     }
 
     fn get_layer(&self, index: usize) -> &LayerData {
@@ -874,17 +881,18 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
             if let Some(vr) = self.resources.lock_mut().get_view_mut(v.id) {
-                if v.is_resized() {
-                    let layers = v_data
-                        .layers
-                        .iter()
-                        .enumerate()
-                        .map(|(i, l)| (i, l.pixels()))
-                        .collect();
-
-                    vr.record_view_resized(layers, v.extent());
-                } else {
-                    vr.record_layer_painted(v.active_layer_id, l_data.pixels(), v.extent());
+                match v.state {
+                    ViewState::Dirty(_) if v.is_resized() => {
+                        vr.record_view_resized(v_data.layer_pixels().collect(), v.extent());
+                    }
+                    ViewState::Dirty(_) => {
+                        vr.record_view_painted(v_data.layer_pixels().collect());
+                    }
+                    ViewState::LayerDirty(layer_id) => {
+                        let pixels = v_data.get_layer(layer_id).pixels();
+                        vr.record_layer_painted(layer_id, pixels, v.extent());
+                    }
+                    ViewState::Okay | ViewState::Damaged(_) | ViewState::LayerDamaged(_) => {}
                 }
             }
         }
@@ -961,8 +969,11 @@ impl Renderer {
                 Effect::ViewOps(id, ops) => {
                     self.handle_view_ops(id, &ops)?;
                 }
-                Effect::ViewDamaged(id, extent) => {
-                    self.handle_view_damaged(id, extent.width(), extent.height())?;
+                Effect::ViewDamaged(id, Some(extent)) => {
+                    self.handle_view_resized(id, extent.width(), extent.height())?;
+                }
+                Effect::ViewDamaged(id, None) => {
+                    self.handle_view_damaged(id)?;
                 }
                 Effect::ViewLayerDamaged(id, layer) => {
                     self.handle_view_layer_damaged(id, layer)?;
@@ -1005,38 +1016,40 @@ impl Renderer {
                     }
                 }
                 ViewOp::Clear(color) => {
-                    self.view_data
-                        .get(&id)
-                        .expect("views must have associated view data")
-                        .get_layer(0) // XXX
-                        .fb
-                        .color_slot()
-                        .clear(GenMipmaps::No, (color.r, color.g, color.b, color.a))
-                        .map_err(Error::Texture)?;
-                }
-                ViewOp::Blit(src, dst) => {
-                    // XXX: Should take a LayerId
-                    let fb = &self
+                    let view = self
                         .view_data
                         .get(&id)
-                        .expect("views must have associated view data")
-                        .get_layer(0)
-                        .fb; // XXX
+                        .expect("views must have associated view data");
 
-                    let (_, texels) =
-                        self.resources
-                            .lock()
-                            .get_snapshot_rect(id, 0, &src.map(|n| n as i32)); // XXX
-                    let texels = util::align_u8(&texels);
+                    for l in view.layers.iter() {
+                        l.fb.color_slot()
+                            .clear(GenMipmaps::No, (color.r, color.g, color.b, color.a))
+                            .map_err(Error::Texture)?;
+                    }
+                }
+                ViewOp::Blit(src, dst) => {
+                    let view = &self
+                        .view_data
+                        .get(&id)
+                        .expect("views must have associated view data");
 
-                    fb.color_slot()
-                        .upload_part_raw(
-                            GenMipmaps::No,
-                            [dst.x1 as u32, dst.y1 as u32],
-                            [src.width() as u32, src.height() as u32],
-                            &texels,
-                        )
-                        .map_err(Error::Texture)?;
+                    for (l_id, l) in view.layers.iter().enumerate() {
+                        let (_, texels) = self.resources.lock().get_snapshot_rect(
+                            id,
+                            l_id,
+                            &src.map(|n| n as i32),
+                        ); // XXX
+                        let texels = util::align_u8(&texels);
+
+                        l.fb.color_slot()
+                            .upload_part_raw(
+                                GenMipmaps::No,
+                                [dst.x1 as u32, dst.y1 as u32],
+                                [src.width() as u32, src.height() as u32],
+                                &texels,
+                            )
+                            .map_err(Error::Texture)?;
+                    }
                 }
                 ViewOp::Yank(layer_id, src) => {
                     let resources = self.resources.lock();
@@ -1115,7 +1128,22 @@ impl Renderer {
         Ok(())
     }
 
-    fn handle_view_damaged(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
+    fn handle_view_damaged(&mut self, id: ViewId) -> Result<(), RendererError> {
+        let n = self
+            .view_data
+            .get(&id)
+            .expect("views must have associated view data")
+            .layers
+            .len();
+
+        for layer_id in 0..n {
+            self.handle_view_layer_damaged(id, layer_id)?;
+        }
+
+        Ok(())
+    }
+
+    fn handle_view_resized(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
         self.resize_view(id, vw, vh)
     }
 
