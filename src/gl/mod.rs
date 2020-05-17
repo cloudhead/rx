@@ -771,10 +771,12 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                     });
 
                                     // Render composite animation.
-                                    iface.transform.update(composite_t);
-                                    rdr_gate.render(render_st, |mut tess_gate| {
-                                        tess_gate.render(tess);
-                                    });
+                                    if v.layers.len() > 1 {
+                                        iface.transform.update(composite_t);
+                                        rdr_gate.render(render_st, |mut tess_gate| {
+                                            tess_gate.render(tess);
+                                        });
+                                    }
                                 }
                             }
                             _ => (),
