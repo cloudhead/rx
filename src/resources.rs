@@ -559,6 +559,7 @@ impl ViewResources {
     pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Pixels) {
         self.layers
             .insert(layer_id, LayerResources::new(pixels, extent));
+        self.history_truncate();
         // TODO: Eventually, we want to record this as an edit that can be undone, but this
         // does introduce complications, so for now we don't.
         // ```
@@ -590,15 +591,19 @@ impl ViewResources {
         self.layer_mut(layer).push_snapshot(pixels, extent);
     }
 
+    pub fn history_truncate(&mut self) {
+        if self.cursor != self.history.len() - 1 {
+            self.history.truncate(self.cursor + 1);
+            self.cursor = self.history.len() - 1;
+        }
+    }
+
     pub fn history_record(&mut self, edit: Edit) {
         debug!("edit: {:?}", edit);
 
         // If we try to add an edit when we're not at the
         // latest, we have to clear the list forward.
-        if self.cursor != self.history.len() - 1 {
-            self.history.truncate(self.cursor + 1);
-            self.cursor = self.history.len() - 1;
-        }
+        self.history_truncate();
         self.cursor += 1;
 
         self.history.push(edit);
@@ -733,6 +738,8 @@ impl LayerResources {
 
         let total_w = snapshot.width() as usize;
         let total_h = snapshot.height() as usize;
+
+        debug_assert!(w * h <= total_w * total_h);
 
         let mut buffer: Vec<Rgba8> = Vec::with_capacity(w * h);
 
