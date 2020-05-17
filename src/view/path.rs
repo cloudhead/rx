@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::path;
 
 /// Rx archive format extension.
-pub const ARCHIVE_FORMAT: &'static str = "rxz";
+pub const ARCHIVE_FORMAT: &'static str = "rxa";
 /// Supported image formats for writing.
 pub const SUPPORTED_WRITE_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
 /// Supported image formats for reading.
