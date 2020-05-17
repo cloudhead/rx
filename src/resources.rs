@@ -559,7 +559,11 @@ impl ViewResources {
     pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Pixels) {
         self.layers
             .insert(layer_id, LayerResources::new(pixels, extent));
-        self.history_record(Edit::LayerAdded(layer_id));
+        // TODO: Eventually, we want to record this as an edit that can be undone, but this
+        // does introduce complications, so for now we don't.
+        // ```
+        // self.history_record(Edit::LayerAdded(layer_id));
+        // ```
     }
 
     pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Pixels)>, extent: ViewExtent) {
