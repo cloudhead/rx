@@ -260,10 +260,7 @@ impl ViewData {
     }
 
     fn layer_pixels(&self) -> impl Iterator<Item = (LayerId, Pixels)> + '_ {
-        self.layers
-            .iter()
-            .enumerate()
-            .map(|(i, l)| (i, l.pixels()))
+        self.layers.iter().enumerate().map(|(i, l)| (i, l.pixels()))
     }
 
     fn get_layer(&self, index: usize) -> &LayerData {
@@ -681,10 +678,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 if let Some(view) = session.views.get(*id) {
                     for (layer_id, _) in view.layers.iter().enumerate() {
                         let l = v.get_layer(layer_id);
-                        // TODO: This is profoundly annoying. Sometimes we need a layer offset
-                        // which includes the zoom, other times not... In this case, we're having
-                        // to undo the zoom.
-                        let layer_offset = view.layer_offset(layer_id) * (1. / view.zoom);
+                        let layer_offset = view.layer_offset(layer_id, view.zoom);
                         let bound_view = pipeline.bind_texture(l.fb.color_slot());
                         let transform = Matrix4::from_translation(
                             (session.offset + view.offset + layer_offset).extend(*draw::VIEW_LAYER),

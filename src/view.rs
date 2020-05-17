@@ -503,8 +503,8 @@ impl View {
     }
 
     /// The offset of the layer at the given index.
-    pub fn layer_offset(&self, index: usize) -> Vector2<f32> {
-        Vector2::new(0., self.fh as f32 * index as f32 * self.zoom)
+    pub fn layer_offset(&self, index: usize, zoom: f32) -> Vector2<f32> {
+        Vector2::new(0., self.fh as f32 * index as f32 * zoom)
     }
 
     /// Check whether the session coordinates are contained within the view.

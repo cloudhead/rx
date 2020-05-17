@@ -161,7 +161,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
         let stroke = color::RED;
 
         let r = selection.abs().bounds();
-        let offset = session.offset + view.offset + view.layer_offset(layer);
+        let offset = session.offset + view.offset + view.layer_offset(layer, view.zoom);
 
         {
             // Selection dimensions.
