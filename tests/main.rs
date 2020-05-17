@@ -115,6 +115,11 @@ fn visual_mouse() {
     test("visual-mouse");
 }
 
+#[test]
+fn layers() {
+    test("layers");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {
