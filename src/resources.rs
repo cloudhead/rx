@@ -387,11 +387,11 @@ impl ResourceManager {
         Ok(written)
     }
 
-    pub fn save_view_svg<P: AsRef<Path>>(&self, id: ViewId, path: P) -> io::Result<usize> {
+    pub fn save_view_svg<P: AsRef<Path>>(&self, id: ViewId, layer_id: LayerId, path: P) -> io::Result<usize> {
         use std::io::Write;
 
         let resources = self.lock();
-        let (snapshot, pixels) = resources.get_snapshot(id, 0); // XXX: Should save all views
+        let (snapshot, pixels) = resources.get_snapshot(id, layer_id);
         let (w, h) = (snapshot.width() as usize, snapshot.height() as usize);
 
         let f = File::create(path.as_ref())?;
@@ -431,6 +431,7 @@ impl ResourceManager {
     pub fn save_view_gif<P: AsRef<Path>>(
         &self,
         id: ViewId,
+        layer_id: LayerId,
         path: P,
         frame_delay: time::Duration,
         palette: &[Rgba8],
@@ -442,7 +443,7 @@ impl ResourceManager {
         let frame_delay = u128::min(frame_delay, u16::max_value() as u128) as u16;
 
         let mut resources = self.lock_mut();
-        let (snapshot, pixels) = resources.get_snapshot_mut(id, 0); // XXX: Save layer composite
+        let (snapshot, pixels) = resources.get_snapshot_mut(id, layer_id);
         let extent = snapshot.extent;
         let nframes = extent.nframes;
 
@@ -558,11 +559,10 @@ impl ViewResources {
             .expect(&format!("layer #{} should exist", layer))
     }
 
-    pub fn layers(&self) -> impl Iterator<Item=(&LayerId, &LayerResources)> + '_ {
+    pub fn layers(&self) -> impl Iterator<Item = (&LayerId, &LayerResources)> + '_ {
         self.layers.iter().filter(|(_, l)| !l.hidden)
     }
 
-    // XXX: Do we need to pass in fw/fh/nframes?
     pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Pixels) {
         self.layers
             .insert(layer_id, LayerResources::new(pixels, extent));
@@ -591,7 +591,6 @@ impl ViewResources {
         }
     }
 
-    // XXX: Extent is not needed.
     pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Pixels, extent: ViewExtent) {
         self.history_record(Edit::LayerPainted(layer));
         self.layer_mut(layer).push_snapshot(pixels, extent);
@@ -763,7 +762,6 @@ impl LayerResources {
         Some((snapshot, buffer))
     }
 
-    // XXX: Extent is not needed.
     pub fn push_snapshot(&mut self, pixels: Pixels, extent: ViewExtent) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
@@ -824,7 +822,6 @@ impl Default for SnapshotId {
 #[derive(Debug)]
 pub struct Snapshot {
     pub id: SnapshotId,
-    // XXX: Extent is not needed.
     pub extent: ViewExtent,
 
     size: usize,

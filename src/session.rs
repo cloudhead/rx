@@ -1678,12 +1678,8 @@ impl Session {
                     self.save_layer_rect_as(id, active_layer_id, ext.frame(i), path)?;
                 }
 
-                let _e_id = self
-                    .resources
-                    .lock()
-                    .get_snapshot_id(id, LayerId::default()) // XXX: Should save all layers
-                    .expect("view must have a snapshot");
-                self.view_mut(id).save_as(0, storage.clone()); // XXX: Should use EditId
+                let edit_id = self.resources.lock().current_edit(id);
+                self.view_mut(id).save_as(edit_id, storage.clone());
                 self.message(
                     format!(
                         "{} {} pixels written",
@@ -1731,10 +1727,10 @@ impl Session {
         }
 
         if ext == "gif" {
-            self.save_view_gif(id, path)?;
+            self.save_view_gif(id, layer_id, path)?;
             return Ok(None);
         } else if ext == "svg" {
-            self.save_view_svg(id, path)?;
+            self.save_view_svg(id, layer_id, path)?;
             return Ok(None);
         }
 
@@ -1904,10 +1900,10 @@ impl Session {
     }
 
     /// Save a view as a gif animation.
-    fn save_view_gif<P: AsRef<Path>>(&mut self, id: ViewId, path: P) -> io::Result<()> {
+    fn save_view_gif<P: AsRef<Path>>(&mut self, id: ViewId, layer_id: LayerId, path: P) -> io::Result<()> {
         let delay = self.view(id).animation.delay;
         let palette = self.colors();
-        let npixels = self.resources.save_view_gif(id, &path, delay, &palette)?;
+        let npixels = self.resources.save_view_gif(id, layer_id, &path, delay, &palette)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -1917,8 +1913,8 @@ impl Session {
     }
 
     /// Save a view as an svg.
-    fn save_view_svg<P: AsRef<Path>>(&mut self, id: ViewId, path: P) -> io::Result<()> {
-        let npixels = self.resources.save_view_svg(id, &path)?;
+    fn save_view_svg<P: AsRef<Path>>(&mut self, id: ViewId, layer_id: LayerId, path: P) -> io::Result<()> {
+        let npixels = self.resources.save_view_svg(id, layer_id, &path)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
