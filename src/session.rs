@@ -2022,14 +2022,14 @@ impl Session {
                 };
                 self.view_mut(id).refresh_file_status(eid);
             }
-            Some((eid, Edit::ViewResized(from, to))) => {
+            Some((eid, Edit::ViewResized(_, from, to))) => {
                 let extent = match dir {
                     Direction::Backward => from,
                     Direction::Forward => to,
                 };
                 self.view_mut(id).restore_extent(eid, extent);
             }
-            Some((eid, Edit::ViewPainted)) => {
+            Some((eid, Edit::ViewPainted(_))) => {
                 self.view_mut(id).restore(eid);
             }
             Some((_, Edit::Initial)) => {}

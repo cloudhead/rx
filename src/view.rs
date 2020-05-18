@@ -168,6 +168,8 @@ pub enum ViewOp {
     SetPixel(Rgba8, i32, i32),
     /// Add a layer.
     AddLayer(LayerId, FrameRange),
+    /// Remove a layer.
+    RemoveLayer(LayerId),
 }
 
 /// A view on a sprite or image.
@@ -380,6 +382,8 @@ impl View {
         debug_assert_eq!(id, self.layers.len() - 1); // XXX
 
         self.layers.pop();
+        self.ops.push(ViewOp::RemoveLayer(id));
+        self.active_layer_id = self.layers.len() - 1;
     }
 
     /// Clear the view to a color.

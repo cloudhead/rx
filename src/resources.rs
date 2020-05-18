@@ -186,7 +186,7 @@ impl Resources {
         id: ViewId,
         layer_id: LayerId,
         rect: &Rect<i32>,
-    ) -> (&Snapshot, Vec<Rgba8>) {
+    ) -> Option<(&Snapshot, Vec<Rgba8>)> {
         self.data
             .get(&id)
             .and_then(|v| v.layers.get(&layer_id))
@@ -308,6 +308,7 @@ impl ResourceManager {
         Ok(Archive { layers, manifest })
     }
 
+    // XXX: Should be `save_layer`
     pub fn save_view<P: AsRef<Path>>(
         &self,
         id: ViewId,
@@ -315,8 +316,9 @@ impl ResourceManager {
         path: P,
     ) -> io::Result<(EditId, usize)> {
         let resources = self.lock();
-        let (_, pixels) =
-            resources.get_snapshot_rect(id, LayerId::default(), &rect.map(|n| n as i32)); // XXX: Should save all views
+        let (_, pixels) = resources
+            .get_snapshot_rect(id, LayerId::default(), &rect.map(|n| n as i32))
+            .unwrap(); // XXX: Should save all views
         let (w, h) = (rect.width(), rect.height());
         let edit_id = resources.current_edit(id);
 
@@ -363,7 +365,7 @@ impl ResourceManager {
 
             for i in 0..extent.nframes {
                 let rect = &extent.frame(i);
-                let (_, pixels) = layer.get_snapshot_rect(&rect.map(|n| n as i32));
+                let (_, pixels) = layer.get_snapshot_rect(&rect.map(|n| n as i32)).unwrap(); // XXX
 
                 buffer.clear();
                 image::write(&mut buffer, rect.width(), rect.height(), &pixels)?;
@@ -510,12 +512,12 @@ impl ResourceManager {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum Edit {
     LayerPainted(LayerId),
     LayerAdded(LayerId),
-    ViewResized(ViewExtent, ViewExtent),
-    ViewPainted,
+    ViewResized(Vec<LayerId>, ViewExtent, ViewExtent),
+    ViewPainted(Vec<LayerId>),
     Initial,
 }
 
@@ -523,7 +525,8 @@ pub type EditId = usize;
 
 #[derive(Debug)]
 pub struct ViewResources {
-    pub layers: BTreeMap<LayerId, LayerResources>,
+    layers: BTreeMap<LayerId, LayerResources>,
+
     pub history: NonEmpty<Edit>,
     pub cursor: usize,
     pub extent: ViewExtent,
@@ -555,20 +558,23 @@ impl ViewResources {
             .expect(&format!("layer #{} should exist", layer))
     }
 
+    pub fn layers(&self) -> impl Iterator<Item=(&LayerId, &LayerResources)> + '_ {
+        self.layers.iter().filter(|(_, l)| !l.hidden)
+    }
+
     // XXX: Do we need to pass in fw/fh/nframes?
     pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Pixels) {
         self.layers
             .insert(layer_id, LayerResources::new(pixels, extent));
-        self.history_truncate();
-        // TODO: Eventually, we want to record this as an edit that can be undone, but this
-        // does introduce complications, so for now we don't.
-        // ```
-        // self.history_record(Edit::LayerAdded(layer_id));
-        // ```
+        self.history_record(Edit::LayerAdded(layer_id));
     }
 
     pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Pixels)>, extent: ViewExtent) {
-        self.history_record(Edit::ViewResized(self.extent, extent));
+        self.history_record(Edit::ViewResized(
+            layers.iter().map(|(l, _)| *l).collect(),
+            self.extent,
+            extent,
+        ));
         self.extent = extent;
 
         for (id, pixels) in layers.into_iter() {
@@ -578,7 +584,7 @@ impl ViewResources {
 
     pub fn record_view_painted(&mut self, layers: Vec<(LayerId, Pixels)>) {
         let extent = self.extent.clone();
-        self.history_record(Edit::ViewPainted);
+        self.history_record(Edit::ViewPainted(layers.iter().map(|(l, _)| *l).collect()));
 
         for (id, pixels) in layers.into_iter() {
             self.layer_mut(id).push_snapshot(pixels, extent);
@@ -624,18 +630,18 @@ impl ViewResources {
                     self.layer_mut(id).prev_snapshot();
                 }
                 Edit::LayerAdded(id) => {
-                    self.layers.remove(&id);
+                    self.layer_mut(id).hidden = true;
                 }
-                Edit::ViewResized(from, _) => {
+                Edit::ViewResized(ref layers, from, _) => {
                     self.extent = from;
 
-                    for (_, layer) in self.layers.iter_mut() {
-                        layer.prev_snapshot();
+                    for id in layers.iter() {
+                        self.layer_mut(*id).prev_snapshot();
                     }
                 }
-                Edit::ViewPainted => {
-                    for (_, layer) in self.layers.iter_mut() {
-                        layer.prev_snapshot();
+                Edit::ViewPainted(ref layers) => {
+                    for id in layers.iter() {
+                        self.layer_mut(*id).prev_snapshot();
                     }
                 }
                 _ => return None,
@@ -657,25 +663,18 @@ impl ViewResources {
                     self.layer_mut(id).next_snapshot();
                 }
                 Edit::LayerAdded(id) => {
-                    // TODO: Currently, when redoing a `LayerAdded`, we recreate a blank layer.
-                    // This is because we remove it from the map when undoing, so we lose all data.
-                    // This is also a problem because we lose the snapshots of that layer. A better
-                    // solution might be to use tombstones instead.
-                    let pixels =
-                        Pixels::blank(self.extent.width() as usize, self.extent.height() as usize);
-                    self.layers
-                        .insert(id, LayerResources::new(pixels, self.extent));
+                    self.layer_mut(id).hidden = false;
                 }
-                Edit::ViewResized(_, to) => {
+                Edit::ViewResized(ref layers, _, to) => {
                     self.extent = to;
 
-                    for (_, layer) in self.layers.iter_mut() {
-                        layer.next_snapshot();
+                    for id in layers.iter() {
+                        self.layer_mut(*id).next_snapshot();
                     }
                 }
-                Edit::ViewPainted => {
-                    for (_, layer) in self.layers.iter_mut() {
-                        layer.next_snapshot();
+                Edit::ViewPainted(ref layers) => {
+                    for id in layers.iter() {
+                        self.layer_mut(*id).next_snapshot();
                     }
                 }
                 _ => return None,
@@ -696,6 +695,8 @@ pub struct LayerResources {
     /// Current layer pixels. We keep a separate decompressed
     /// cache of the view pixels for performance reasons.
     pixels: Pixels,
+    /// Whether this layer should be hidden.
+    hidden: bool,
 }
 
 impl LayerResources {
@@ -704,6 +705,7 @@ impl LayerResources {
             snapshots: NonEmpty::new(Snapshot::new(SnapshotId(0), pixels.clone(), extent)),
             snapshot: 0,
             pixels,
+            hidden: false,
         }
     }
 
@@ -725,12 +727,13 @@ impl LayerResources {
         )
     }
 
-    pub fn get_snapshot_rect(&self, rect: &Rect<i32>) -> (&Snapshot, Vec<Rgba8>) {
+    pub fn get_snapshot_rect(&self, rect: &Rect<i32>) -> Option<(&Snapshot, Vec<Rgba8>)> {
         let (snapshot, pixels) = self.current_snapshot();
+        let snapshot_rect = snapshot.extent.rect().map(|n| n as i32);
 
         // Fast path.
-        if snapshot.extent.rect().map(|n| n as i32) == *rect {
-            return (snapshot, pixels.clone().into_rgba8());
+        if snapshot_rect == *rect {
+            return Some((snapshot, pixels.clone().into_rgba8()));
         }
 
         let w = rect.width() as usize;
@@ -739,6 +742,11 @@ impl LayerResources {
         let total_w = snapshot.width() as usize;
         let total_h = snapshot.height() as usize;
 
+        if !(snapshot_rect.x1 <= rect.x1 && snapshot_rect.y1 <= rect.y1)
+            || !(snapshot_rect.x2 >= rect.x2 && snapshot_rect.y2 >= rect.y2)
+        {
+            return None;
+        }
         debug_assert!(w * h <= total_w * total_h);
 
         let mut buffer: Vec<Rgba8> = Vec::with_capacity(w * h);
@@ -752,7 +760,7 @@ impl LayerResources {
         }
         assert!(buffer.len() == w * h);
 
-        (snapshot, buffer)
+        Some((snapshot, buffer))
     }
 
     // XXX: Extent is not needed.

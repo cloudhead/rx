@@ -121,6 +121,11 @@ fn layers() {
 }
 
 #[test]
+fn layers_snapshots() {
+    test("layers-snapshots");
+}
+
+#[test]
 fn archive() {
     test("archive");
 }

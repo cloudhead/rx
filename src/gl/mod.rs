@@ -727,10 +727,11 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 iface.transform.update(identity);
 
                 // Render view composites.
-                for (_, v) in view_data.iter() {
-                    match &v.layer_tess {
-                        Some(tess) if v.layers.len() > 1 => {
-                            for l in v.layers.iter() {
+                for (id, v) in view_data.iter() {
+                    match (&v.layer_tess, session.views.get(*id)) {
+                        (Some(tess), Some(view)) if view.layers.len() > 1 => {
+                            for (layer_id, _) in view.layers.iter().enumerate() {
+                                let l = v.get_layer(layer_id);
                                 let bound_view = pipeline.bind_texture(l.fb.color_slot());
 
                                 iface.tex.update(&bound_view);
@@ -755,7 +756,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                     ))
                                 };
 
-                                for (i, l) in v.layers.iter().enumerate() {
+                                for (i, _) in view.layers.iter().enumerate() {
+                                    let l = v.get_layer(i);
                                     let bound_layer = pipeline.bind_texture(l.fb.color_slot());
                                     let layer_offset = v.h as usize * i;
                                     let t = Matrix4::from_translation(
@@ -771,7 +773,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                     });
 
                                     // Render composite animation.
-                                    if v.layers.len() > 1 {
+                                    if view.layers.len() > 1 {
                                         iface.transform.update(composite_t);
                                         rdr_gate.render(render_st, |mut tess_gate| {
                                             tess_gate.render(tess);
@@ -1011,6 +1013,7 @@ impl Renderer {
                         }
                     }
                 }
+                ViewOp::RemoveLayer(_layer_id) => {}
                 ViewOp::Clear(color) => {
                     let view = self
                         .view_data
@@ -1030,11 +1033,11 @@ impl Renderer {
                         .expect("views must have associated view data");
 
                     for (l_id, l) in view.layers.iter().enumerate() {
-                        let (_, texels) = self.resources.lock().get_snapshot_rect(
-                            id,
-                            l_id,
-                            &src.map(|n| n as i32),
-                        ); // XXX
+                        let (_, texels) = self
+                            .resources
+                            .lock()
+                            .get_snapshot_rect(id, l_id, &src.map(|n| n as i32))
+                            .unwrap(); // XXX
                         let texels = util::align_u8(&texels);
 
                         l.fb.color_slot()
@@ -1049,7 +1052,7 @@ impl Renderer {
                 }
                 ViewOp::Yank(layer_id, src) => {
                     let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot_rect(id, *layer_id, src); // XXX
+                    let (_, pixels) = resources.get_snapshot_rect(id, *layer_id, src).unwrap(); // XXX
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
@@ -1145,15 +1148,15 @@ impl Renderer {
 
     fn resize_view(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
         // View size changed. Re-create view resources.
-        let (sw, sh) = {
+        let (ew, eh) = {
             let resources = self.resources.lock();
-            let (snapshot, _) = resources.get_snapshot(id, 0); // XXX
-            (snapshot.width(), snapshot.height())
+            let extent = resources.get_view(id).expect("view must exist").extent;
+            (extent.width(), extent.height())
         };
 
         // Ensure not to transfer more data than can fit in the view buffer.
-        let tw = u32::min(sw, vw);
-        let th = u32::min(sh, vh);
+        let tw = u32::min(ew, vw);
+        let th = u32::min(eh, vh);
 
         let mut view_data = ViewData::new(vw, vh, None, &mut self.ctx);
 
@@ -1161,17 +1164,27 @@ impl Renderer {
         let view_resource = resources.get_view(id).unwrap();
 
         // Create n-1 layers, since layer #0 is created when a `ViewData` is created.
-        for _ in view_resource.layers.iter().skip(1) {
+        for _ in view_resource.layers().skip(1) {
             // XXX: Where should we get the frame range from?
             view_data.add_layer(&FrameRange::default(), None, &mut self.ctx);
         }
 
-        for (layer_id, layer) in view_resource.layers.iter() {
-            let (_, texels) = layer.get_snapshot_rect(&Rect::origin(tw as i32, th as i32));
-            let texels = util::align_u8(&texels);
-            let l = view_data.get_layer(*layer_id);
+        let trect = Rect::origin(tw as i32, th as i32);
+        for (layer_id, layer) in view_resource.layers() {
+            // The following sequence of commands will try to copy a rect that isn't contained
+            // in the snapshot, hence we must skip the uploading in that case:
+            //
+            //     :f/add
+            //     :f/remove
+            //     :l/add
+            //     :undo
+            //
+            if let Some((_, texels)) = layer.get_snapshot_rect(&trect) {
+                let texels = util::align_u8(&texels);
+                let l = view_data.get_layer(*layer_id);
 
-            l.upload_part([0, vh - th], [tw, th], texels)?;
+                l.upload_part([0, vh - th], [tw, th], texels)?;
+            }
         }
 
         self.view_data.insert(id, view_data);
