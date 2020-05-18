@@ -1165,7 +1165,6 @@ impl Renderer {
 
         // Create n-1 layers, since layer #0 is created when a `ViewData` is created.
         for _ in view_resource.layers().skip(1) {
-            // XXX: Where should we get the frame range from?
             view_data.add_layer(&FrameRange::default(), None, &mut self.ctx);
         }
 

@@ -1233,9 +1233,9 @@ impl Session {
 
         self.hover_color = if self.palette.hover.is_some() {
             self.palette.hover
-        } else if let Some((v, _)) = self.hover_view {
-            let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
-            self.color_at(v, p) // XXX
+        } else if let Some((v, l)) = self.hover_view {
+            let p: LayerCoords<u32> = self.layer_coords(v, l, cursor).into();
+            self.color_at(v, l, p)
         } else {
             None
         };
@@ -1900,10 +1900,17 @@ impl Session {
     }
 
     /// Save a view as a gif animation.
-    fn save_view_gif<P: AsRef<Path>>(&mut self, id: ViewId, layer_id: LayerId, path: P) -> io::Result<()> {
+    fn save_view_gif<P: AsRef<Path>>(
+        &mut self,
+        id: ViewId,
+        layer_id: LayerId,
+        path: P,
+    ) -> io::Result<()> {
         let delay = self.view(id).animation.delay;
         let palette = self.colors();
-        let npixels = self.resources.save_view_gif(id, layer_id, &path, delay, &palette)?;
+        let npixels = self
+            .resources
+            .save_view_gif(id, layer_id, &path, delay, &palette)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -1913,7 +1920,12 @@ impl Session {
     }
 
     /// Save a view as an svg.
-    fn save_view_svg<P: AsRef<Path>>(&mut self, id: ViewId, layer_id: LayerId, path: P) -> io::Result<()> {
+    fn save_view_svg<P: AsRef<Path>>(
+        &mut self,
+        id: ViewId,
+        layer_id: LayerId,
+        path: P,
+    ) -> io::Result<()> {
         let npixels = self.resources.save_view_svg(id, layer_id, &path)?;
 
         self.message(
@@ -3342,10 +3354,10 @@ impl Session {
     }
 
     /// Get the color at the given view coordinate.
-    pub fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Option<Rgba8> {
+    pub fn color_at(&self, v: ViewId, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
         let view = self.view(v);
         let resources = self.resources.lock();
-        let (snapshot, pixels) = resources.get_snapshot(view.id, view.active_layer_id);
+        let (snapshot, pixels) = resources.get_snapshot(view.id, l);
 
         let y_offset = snapshot
             .height()

@@ -6,7 +6,7 @@ use crate::platform;
 use crate::session;
 use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
 use crate::sprite;
-use crate::view::{View, ViewCoords};
+use crate::view::{View, layer::LayerCoords, ViewCoords};
 
 use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use rgx::kit::Rgba;
@@ -642,7 +642,8 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
         }
         Mode::Normal => {
             if let Tool::Brush(ref brush) = session.tool {
-                let view_coords = session.active_view_coords(c);
+                let view_coords = session.active_view_coords(c); // XXX: Do we need this?
+                let layer_coords = session.active_layer_coords(c);
 
                 // Draw enabled brush
                 if v.contains(c - session.offset).is_some() {
@@ -653,8 +654,9 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                         // while erasing over previously erased pixels in the same stroke.
                         // To make this 100% correct, we have to read the underlying color
                         // from the view's staging buffer.
-                        if let Some(color) =
-                            session.color_at(v.id, view_coords.into()).map(Rgba::from)
+                        if let Some(color) = session
+                            .color_at(v.id, v.active_layer_id, layer_coords.into())
+                            .map(Rgba::from)
                         {
                             (
                                 Stroke::new(
@@ -686,9 +688,9 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
                         && brush.size == 1
                         && v.zoom >= self::XRAY_MIN_ZOOM
                     {
-                        let p: ViewCoords<u32> = view_coords.into();
+                        let p: LayerCoords<u32> = layer_coords.into();
 
-                        if let Some(xray) = session.color_at(v.id, p) {
+                        if let Some(xray) = session.color_at(v.id, v.active_layer_id, p) {
                             if xray != session.fg {
                                 let center = *session
                                     .session_coords(v.id, ViewCoords::new(p.x as f32, p.y as f32))

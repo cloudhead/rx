@@ -41,7 +41,7 @@ impl Layer {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LayerCoords<T>(Point2<T>);
 
 impl<T> LayerCoords<T> {

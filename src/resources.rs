@@ -387,7 +387,12 @@ impl ResourceManager {
         Ok(written)
     }
 
-    pub fn save_view_svg<P: AsRef<Path>>(&self, id: ViewId, layer_id: LayerId, path: P) -> io::Result<usize> {
+    pub fn save_view_svg<P: AsRef<Path>>(
+        &self,
+        id: ViewId,
+        layer_id: LayerId,
+        path: P,
+    ) -> io::Result<usize> {
         use std::io::Write;
 
         let resources = self.lock();

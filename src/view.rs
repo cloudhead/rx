@@ -393,7 +393,8 @@ impl View {
     }
 
     pub fn paint_color(&mut self, color: Rgba8, x: i32, y: i32) {
-        self.ops.push(ViewOp::SetPixel(self.active_layer_id, color, x, y));
+        self.ops
+            .push(ViewOp::SetPixel(self.active_layer_id, color, x, y));
     }
 
     pub fn yank(&mut self, area: Rect<i32>) {
