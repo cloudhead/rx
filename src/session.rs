@@ -1174,14 +1174,6 @@ impl Session {
             .collect()
     }
 
-    /// Return tuple of normal mode and visual mode key bindings
-    pub fn get_key_bindings(&self) -> (Vec<(&String, &KeyBinding)>, Vec<(&String, &KeyBinding)>) {
-        self.key_bindings
-            .iter()
-            .filter_map(|kb| kb.display.as_ref().map(|d| (d, kb)))
-            .partition(|(_, kb)| kb.modes.contains(&Mode::Normal))
-    }
-
     ////////////////////////////////////////////////////////////////////////////
 
     /// Pan the view by a relative amount.
