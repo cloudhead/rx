@@ -19,6 +19,7 @@ OPTIONS
 
     -v                   Verbose mode
     -u <script>          Use the commands in <script> for initialization
+    -m --man             Prints the `:help` command to the terminal
 
     --record <dir>       Record user input to a directory
     --replay <dir>       Replay user input from a directory
@@ -46,6 +47,11 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
 
     if args.contains(["-V", "--version"]) {
         println!("rx v{}", rx::VERSION);
+        return Ok(());
+    }
+
+    if args.contains(["-m", "--man"]) {
+        println!("{}", rx::manual()?);
         return Ok(());
     }
 
