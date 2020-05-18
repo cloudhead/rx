@@ -72,6 +72,8 @@ pub enum Command {
     Pan(i32, i32),
     Zoom(Op),
 
+    // TODO: These operate on the active layer. We should have a command
+    // to set the active layer.
     PaintColor(Rgba8, i32, i32),
     PaintForeground(i32, i32),
     PaintBackground(i32, i32),

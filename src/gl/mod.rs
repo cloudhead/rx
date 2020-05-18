@@ -1086,13 +1086,13 @@ impl Renderer {
                             batch.vertices().as_slice(),
                         ));
                 }
-                ViewOp::SetPixel(rgba, x, y) => {
+                ViewOp::SetPixel(layer_id, rgba, x, y) => {
                     let fb = &self
                         .view_data
                         .get(&id)
                         .expect("views must have associated view data")
-                        .get_layer(0)
-                        .fb; // XXX
+                        .get_layer(*layer_id)
+                        .fb;
                     let texels = &[*rgba];
                     let texels = util::align_u8(texels);
                     fb.color_slot()

@@ -165,7 +165,7 @@ pub enum ViewOp {
     /// Resize the view.
     Resize(u32, u32),
     /// Paint a single pixel.
-    SetPixel(Rgba8, i32, i32),
+    SetPixel(LayerId, Rgba8, i32, i32),
     /// Add a layer.
     AddLayer(LayerId, FrameRange),
     /// Remove a layer.
@@ -393,7 +393,7 @@ impl View {
     }
 
     pub fn paint_color(&mut self, color: Rgba8, x: i32, y: i32) {
-        self.ops.push(ViewOp::SetPixel(color, x, y));
+        self.ops.push(ViewOp::SetPixel(self.active_layer_id, color, x, y));
     }
 
     pub fn yank(&mut self, area: Rect<i32>) {
