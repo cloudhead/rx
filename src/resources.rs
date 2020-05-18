@@ -308,17 +308,17 @@ impl ResourceManager {
         Ok(Archive { layers, manifest })
     }
 
-    // XXX: Should be `save_layer`
-    pub fn save_view<P: AsRef<Path>>(
+    pub fn save_layer<P: AsRef<Path>>(
         &self,
         id: ViewId,
+        layer_id: LayerId,
         rect: Rect<u32>,
         path: P,
     ) -> io::Result<(EditId, usize)> {
         let resources = self.lock();
         let (_, pixels) = resources
-            .get_snapshot_rect(id, LayerId::default(), &rect.map(|n| n as i32))
-            .unwrap(); // XXX: Should save all views
+            .get_snapshot_rect(id, layer_id, &rect.map(|n| n as i32))
+            .expect("rect should be within view");
         let (w, h) = (rect.width(), rect.height());
         let edit_id = resources.current_edit(id);
 

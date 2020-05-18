@@ -1643,31 +1643,39 @@ impl Session {
     /// the format is not supported.
     pub fn save_view_as(&mut self, id: ViewId, storage: FileStorage) -> io::Result<()> {
         let view = self.view(id);
+        let active_layer_id = view.active_layer_id;
         let ext = view.extent();
         let nlayers = view.layers.len();
 
-        let message = match &storage {
+        match &storage {
             FileStorage::Single(path) if nlayers > 1 => {
                 let written = self.resources.save_view_archive(id, path)?;
                 let edit_id = self.resources.lock().current_edit(id);
 
                 self.view_mut(id).save_as(edit_id, storage.clone());
-
-                format!("\"{}\" {} pixels written", storage, written)
+                self.message(
+                    format!("\"{}\" {} pixels written", storage, written),
+                    MessageType::Info,
+                );
             }
             FileStorage::Single(path) => {
-                if let Some(s_id) = self.save_view_rect_as(id, ext.rect(), &path)? {
+                if let Some(s_id) =
+                    self.save_layer_rect_as(id, active_layer_id, ext.rect(), &path)?
+                {
                     self.view_mut(id).save_as(s_id, storage.clone());
                 }
-                format!(
-                    "\"{}\" {} pixels written",
-                    storage,
-                    ext.width() * ext.height()
-                )
+                self.message(
+                    format!(
+                        "\"{}\" {} pixels written",
+                        storage,
+                        ext.width() * ext.height()
+                    ),
+                    MessageType::Info,
+                );
             }
-            FileStorage::Range(paths) => {
+            FileStorage::Range(paths) if nlayers == 1 => {
                 for (i, path) in paths.iter().enumerate() {
-                    self.save_view_rect_as(id, ext.frame(i), path)?;
+                    self.save_layer_rect_as(id, active_layer_id, ext.frame(i), path)?;
                 }
 
                 let _e_id = self
@@ -1676,24 +1684,32 @@ impl Session {
                     .get_snapshot_id(id, LayerId::default()) // XXX: Should save all layers
                     .expect("view must have a snapshot");
                 self.view_mut(id).save_as(0, storage.clone()); // XXX: Should use EditId
-
-                format!(
-                    "{} {} pixels written",
-                    storage,
-                    paths.len() * (ext.fw * ext.fh) as usize,
+                self.message(
+                    format!(
+                        "{} {} pixels written",
+                        storage,
+                        paths.len() * (ext.fw * ext.fh) as usize
+                    ),
+                    MessageType::Info,
                 )
             }
+            FileStorage::Range(_) => {
+                self.message(
+                    "Error: range storage is not supported for more than one layer",
+                    MessageType::Error,
+                );
+            }
         };
-        self.message(message, MessageType::Info);
 
         Ok(())
     }
 
     /// Private ///////////////////////////////////////////////////////////////////
 
-    fn save_view_rect_as(
+    fn save_layer_rect_as(
         &mut self,
         id: ViewId,
+        layer_id: LayerId,
         rect: Rect<u32>,
         path: &Path,
     ) -> io::Result<Option<EditId>> {
@@ -1735,7 +1751,7 @@ impl Session {
             ));
         }
 
-        let (e_id, _) = self.resources.save_view(id, rect, &path)?;
+        let (e_id, _) = self.resources.save_layer(id, layer_id, rect, &path)?;
 
         Ok(Some(e_id))
     }
