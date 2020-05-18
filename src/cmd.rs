@@ -706,6 +706,7 @@ impl Default for Commands {
             .command("e/frames", "Edit frames as view", |p| {
                 p.then(paths()).map(|(_, paths)| Command::EditFrames(paths))
             })
+            .command("h", "Display help", |p| p.value(Command::Mode(Mode::Help)))
             .command("help", "Display help", |p| {
                 p.value(Command::Mode(Mode::Help))
             })
