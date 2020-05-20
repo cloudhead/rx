@@ -349,8 +349,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             gs: Rc::new(RefCell::new(gs)),
         };
 
-        let (font_img, font_w, font_h) = image::decode(assets.glyphs)?;
-        let (cursors_img, cursors_w, cursors_h) = image::decode(data::CURSORS)?;
+        let (font_img, font_w, font_h) = image::read(assets.glyphs)?;
+        let (cursors_img, cursors_w, cursors_h) = image::read(data::CURSORS)?;
         let (checker_w, checker_h) = (2, 2);
         let (paste_w, paste_h) = (8, 8);
 

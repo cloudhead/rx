@@ -79,16 +79,6 @@ impl TryFrom<&path::Path> for Path {
     }
 }
 
-// XXX This function isn't needed.
-pub fn decode<R: io::Read>(r: R) -> io::Result<(Vec<u8>, u32, u32)> {
-    let decoder = png::Decoder::new(r);
-    let (info, mut reader) = decoder.read_info()?;
-    let mut img = vec![0; info.buffer_size()];
-    reader.next_frame(&mut img)?;
-
-    Ok((img, info.width, info.height))
-}
-
 pub fn load<P: AsRef<path::Path>>(path: P) -> io::Result<(Vec<u8>, u32, u32)> {
     let f = File::open(&path).map_err(|e| {
         io::Error::new(
