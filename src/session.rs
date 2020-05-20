@@ -1414,6 +1414,18 @@ impl Session {
         self.views.active_id == id
     }
 
+    /// Activate the currently hovered layer, if in the active view.
+    pub fn activate_hover_layer(&mut self) {
+        let active_id = self.views.active_id;
+
+        match self.hover_view {
+            Some((view_id, layer_id)) if view_id == active_id => {
+                self.view_mut(active_id).activate_layer(layer_id);
+            }
+            _ => {}
+        }
+    }
+
     /// Convert "logical" window coordinates to session coordinates.
     pub fn window_to_session_coords(&self, position: platform::LogicalPosition) -> SessionCoords {
         let (x, y) = (position.x, position.y);
@@ -2290,13 +2302,17 @@ impl Session {
             return;
         }
 
+        let prev_cursor = self.cursor;
         let p = self.active_layer_coords(cursor);
-        let prev_p = self.active_layer_coords(self.cursor);
+        let prev_p = self.active_layer_coords(prev_cursor);
         let (vw, vh) = self.active_view().size();
+
+        self.cursor = cursor;
+        self.cursor_dirty();
 
         match self.tool {
             Tool::Pan(PanState::Panning) => {
-                self.pan(cursor.x - self.cursor.x, cursor.y - self.cursor.y);
+                self.pan(cursor.x - prev_cursor.x, cursor.y - prev_cursor.y);
             }
             Tool::Sampler if self.mouse_state == InputState::Pressed => {
                 self.sample_color();
@@ -2319,7 +2335,7 @@ impl Session {
                                     brush.draw(p);
                                 }
                             }
-                            _ => {}
+                            _ => self.activate_hover_layer(),
                         },
                         _ => {}
                     },
@@ -2347,24 +2363,13 @@ impl Session {
                         }
                     }
                     Mode::Visual(VisualState::Pasting) => {
-                        let active_id = self.views.active_id;
-
-                        match self.hover_view {
-                            // Auto-switch layer when pasting, if on active view.
-                            Some((view_id, layer_id)) if view_id == active_id => {
-                                self.view_mut(active_id).activate_layer(layer_id);
-                            }
-                            _ => {}
-                        }
+                        self.activate_hover_layer();
                         self.center_selection(cursor);
                     }
                     _ => {}
                 }
             }
         }
-
-        self.cursor = cursor;
-        self.cursor_dirty();
     }
 
     fn handle_paste(&mut self, paste: Option<String>) {
