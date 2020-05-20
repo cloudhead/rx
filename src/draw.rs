@@ -6,7 +6,7 @@ use crate::platform;
 use crate::session;
 use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
 use crate::sprite;
-use crate::view::{layer::LayerCoords, View, ViewCoords};
+use crate::view::{layer::LayerCoords, View};
 
 use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use rgx::kit::Rgba;
@@ -642,7 +642,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
         }
         Mode::Normal => {
             if let Tool::Brush(ref brush) = session.tool {
-                let view_coords = session.active_view_coords(c); // XXX: Do we need this?
+                let view_coords = session.active_view_coords(c);
                 let layer_coords = session.active_layer_coords(c);
 
                 // Draw enabled brush
@@ -692,8 +692,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
 
                         if let Some(xray) = session.color_at(v.id, v.active_layer_id, p) {
                             if xray != session.fg {
-                                let center = *session
-                                    .session_coords(v.id, ViewCoords::new(p.x as f32, p.y as f32))
+                                let center = *session.session_coords(v.id, view_coords)
                                     + Vector2::new(z / 2., z / 2.);
 
                                 shapes.add(

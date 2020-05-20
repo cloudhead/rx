@@ -379,7 +379,8 @@ impl View {
 
     /// Remove a layer.
     pub fn remove_layer(&mut self, id: LayerId) {
-        debug_assert_eq!(id, self.layers.len() - 1); // XXX
+        // TODO: For now, we only allow the last layer to be removed.
+        debug_assert_eq!(id, self.layers.len() - 1);
 
         self.layers.pop();
         self.ops.push(ViewOp::RemoveLayer(id));

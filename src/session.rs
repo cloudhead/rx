@@ -2038,8 +2038,8 @@ impl Session {
                         self.view_mut(id).remove_layer(layer);
                     }
                     Direction::Forward => {
-                        // XXX: This won't really work if the layer removed wasn't the
-                        // last one, since this function doesn't take an id.
+                        // TODO: This relies on the fact that `remove_layer` can
+                        // only remove the last layer.
                         let layer_id = self.view_mut(id).add_layer();
                         debug_assert!(layer_id == layer);
                     }

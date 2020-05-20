@@ -1037,7 +1037,7 @@ impl Renderer {
                             .resources
                             .lock()
                             .get_snapshot_rect(id, l_id, &src.map(|n| n as i32))
-                            .unwrap(); // XXX
+                            .unwrap(); // TODO: Handle this nicely?
                         let texels = util::align_u8(&texels);
 
                         l.fb.color_slot()
@@ -1052,7 +1052,7 @@ impl Renderer {
                 }
                 ViewOp::Yank(layer_id, src) => {
                     let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot_rect(id, *layer_id, src).unwrap(); // XXX
+                    let (_, pixels) = resources.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
