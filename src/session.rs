@@ -2071,6 +2071,7 @@ impl Session {
             Some((_, Edit::Initial)) => {}
             None => {}
         }
+        self.organize_views();
         self.cursor_dirty();
     }
 

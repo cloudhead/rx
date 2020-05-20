@@ -130,6 +130,11 @@ fn archive() {
     test("archive");
 }
 
+#[test]
+fn organize_views() {
+    test("organize-views");
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 fn test(name: &str) {
