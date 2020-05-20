@@ -612,7 +612,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         // Render to view final buffer.
         builder.pipeline(
-            &l_data.fb, // XXX
+            &l_data.fb,
             &pipeline_st.clone().enable_clear_color(false),
             |pipeline, mut shd_gate| {
                 let bound_paste = pipeline.bind_texture(paste);

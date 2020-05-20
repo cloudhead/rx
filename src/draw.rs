@@ -6,7 +6,7 @@ use crate::platform;
 use crate::session;
 use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
 use crate::sprite;
-use crate::view::{View, layer::LayerCoords, ViewCoords};
+use crate::view::{layer::LayerCoords, View, ViewCoords};
 
 use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use rgx::kit::Rgba;

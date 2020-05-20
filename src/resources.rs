@@ -365,7 +365,9 @@ impl ResourceManager {
 
             for i in 0..extent.nframes {
                 let rect = &extent.frame(i);
-                let (_, pixels) = layer.get_snapshot_rect(&rect.map(|n| n as i32)).unwrap(); // XXX
+                let (_, pixels) = layer
+                    .get_snapshot_rect(&rect.map(|n| n as i32))
+                    .expect("the rect is within the view");
 
                 buffer.clear();
                 image::write(&mut buffer, rect.width(), rect.height(), &pixels)?;
