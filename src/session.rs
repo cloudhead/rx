@@ -497,6 +497,20 @@ impl Default for KeyBindings {
                     display: Some("?".to_string()),
                 },
                 KeyBinding {
+                    modes: vec![Mode::Normal, Mode::Help],
+                    modifiers: ModifiersState {
+                        shift: true,
+                        ctrl: false,
+                        alt: false,
+                        meta: false,
+                    },
+                    key: platform::Key::Comma,
+                    state: InputState::Pressed,
+                    command: Command::Mode(Mode::Help),
+                    is_toggle: false,
+                    display: Some("?".to_string()),
+                },
+                KeyBinding {
                     modes: vec![
                         Mode::Normal,
                         Mode::Visual(VisualState::Pasting),
@@ -509,6 +523,24 @@ impl Default for KeyBindings {
                         meta: false,
                     },
                     key: platform::Key::Semicolon,
+                    state: InputState::Pressed,
+                    command: Command::Mode(Mode::Command),
+                    is_toggle: false,
+                    display: Some(":".to_string()),
+                },
+                KeyBinding {
+                    modes: vec![
+                        Mode::Normal,
+                        Mode::Visual(VisualState::Pasting),
+                        Mode::Visual(VisualState::selecting()),
+                    ],
+                    modifiers: ModifiersState {
+                        shift: true,
+                        ctrl: false,
+                        alt: false,
+                        meta: false,
+                    },
+                    key: platform::Key::Period,
                     state: InputState::Pressed,
                     command: Command::Mode(Mode::Command),
                     is_toggle: false,
