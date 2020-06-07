@@ -324,7 +324,7 @@ impl KeyMapping {
             .skip(whitespace())
             .then(press)
             .skip(optional(whitespace()))
-            .then(optional(between('{', '}', release).label("{<cmd>}")));
+            .then(optional(between('{', '}', release)));
 
         character
             .or(key)
@@ -334,6 +334,7 @@ impl KeyMapping {
                 release,
                 modes: modes.clone(),
             })
+            .label("<key> <cmd>") // TODO: We should provide the full command somehow.
     }
 }
 
