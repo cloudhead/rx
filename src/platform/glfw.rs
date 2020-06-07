@@ -197,7 +197,7 @@ impl From<glfw::WindowEvent> for WindowEvent {
             Glfw::CursorPos(x, y) => WindowEvent::CursorMoved {
                 position: LogicalPosition::new(x, y),
             },
-            Glfw::Char(c) => WindowEvent::ReceivedCharacter(c),
+            Glfw::CharModifiers(c, mods) => WindowEvent::ReceivedCharacter(c, mods.into()),
             Glfw::Key(key, _, action, modifiers) => WindowEvent::KeyboardInput(KeyboardInput {
                 key: Some(key.into()),
                 state: action.into(),

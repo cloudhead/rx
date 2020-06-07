@@ -67,7 +67,7 @@ pub enum Event {
     MouseWheel(platform::LogicalDelta),
     CursorMoved(platform::LogicalPosition),
     KeyboardInput(platform::KeyboardInput),
-    ReceivedCharacter(char),
+    ReceivedCharacter(char, platform::ModifiersState),
     Paste(Option<String>),
 }
 
@@ -89,7 +89,7 @@ impl From<Event> for String {
                 };
                 format!("keyboard/input {} {}", key.unwrap(), state)
             }
-            Event::ReceivedCharacter(c) => format!("char/received '{}'", c),
+            Event::ReceivedCharacter(c, _) => format!("char/received '{}'", c),
             Event::Paste(Some(s)) => format!("paste '{}'", s),
             Event::Paste(None) => format!("paste ''"),
         }
@@ -151,7 +151,7 @@ impl FromStr for Event {
                     .followed_by(end())
                     .parse(p)
                     .map_err(|(e, _)| e)?;
-                Ok((Event::ReceivedCharacter(c), p))
+                Ok((Event::ReceivedCharacter(c, Default::default()), p))
             }
             event => Err(parser::Error::new(format!(
                 "unrecognized event {:?}",

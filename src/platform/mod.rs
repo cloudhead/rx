@@ -56,7 +56,7 @@ pub enum WindowEvent {
     Destroyed,
 
     /// The window received a unicode character.
-    ReceivedCharacter(char),
+    ReceivedCharacter(char, ModifiersState),
 
     /// The window gained or lost focus.
     Focused(bool),
@@ -110,7 +110,7 @@ impl WindowEvent {
             | Self::Restored
             | Self::CloseRequested
             | Self::Destroyed
-            | Self::ReceivedCharacter(_)
+            | Self::ReceivedCharacter(_, _)
             | Self::Focused(_)
             | Self::KeyboardInput(_)
             | Self::CursorMoved { .. }
