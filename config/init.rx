@@ -7,8 +7,9 @@
 ----------- ------------- -------------------------------------------- -----------------------------------
 --           KEY           COMMAND                                       DESCRIPTION
 ----------- ------------- -------------------------------------------- -----------------------------------
+map        '?'            :help                                     --  Show help
+map/help   '?'            :help                                     --  Hide help
 map        ':'            :mode command                             --  Switch to command mode
-map         ;             :mode command                             --  Switch to command mode (alias)
 map         v             :mode visual                              --  Switch to visual mode
 map         .             :zoom +                                   --  Zoom in active view
 map         ,             :zoom -                                   --  Zoom out active view

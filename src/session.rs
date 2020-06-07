@@ -506,23 +506,7 @@ pub struct KeyBindings {
 
 impl Default for KeyBindings {
     fn default() -> Self {
-        // The only default is 'help'.
-        KeyBindings {
-            elems: vec![KeyBinding {
-                modes: vec![Mode::Normal, Mode::Help],
-                modifiers: ModifiersState {
-                    shift: true,
-                    ctrl: false,
-                    alt: false,
-                    meta: false,
-                },
-                input: Input::Key(platform::Key::Slash),
-                state: InputState::Pressed,
-                command: Command::Mode(Mode::Help),
-                is_toggle: false,
-                display: Some("?".to_string()),
-            }],
-        }
+        KeyBindings { elems: vec![] }
     }
 }
 
