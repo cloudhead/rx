@@ -34,8 +34,8 @@ map         <left>        :pan -1  0                                --  Pan view
 map         <right>       :pan  1  0                                --  Pan view right
 map         <return>      :f/add                                    --  Add a frame to the view
 map         <backspace>   :f/remove                                 --  Remove a frame from the view
-map/normal  h             :f/prev                                   -- Navigate to previous frame
-map/normal  l             :f/next                                   -- Navigate to next frame
+map/normal  h             :f/prev                                   --  Navigate to previous frame
+map/normal  l             :f/next                                   --  Navigate to next frame
 
 map/visual  j             :selection/move    0 -1
 map/visual  k             :selection/move    0  1
