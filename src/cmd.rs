@@ -3,7 +3,7 @@ use crate::brush::{Brush, BrushMode};
 use crate::history::History;
 use crate::parser::*;
 use crate::platform;
-use crate::session::{Direction, Mode, PanState, Tool, VisualState};
+use crate::session::{Direction, Input, Mode, PanState, Tool, VisualState};
 use crate::view::layer::LayerId;
 
 use memoir::traits::Parse;
@@ -279,7 +279,7 @@ impl From<Command> for String {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct KeyMapping {
-    pub key: platform::Key,
+    pub input: Input,
     pub press: Command,
     pub release: Option<Command>,
     pub modes: Vec<Mode>,
@@ -313,13 +313,22 @@ impl KeyMapping {
             "<cmd>",
         );
 
-        param::<platform::Key>()
+        let character = between('\'', '\'', character())
+            .map(|c| Input::Character(c))
+            .skip(whitespace())
+            .then(press.clone())
+            .map(|(input, press)| ((input, press), None));
+        let key = param::<platform::Key>()
+            .map(|k| Input::Key(k))
             .skip(whitespace())
             .then(press)
             .skip(optional(whitespace()))
-            .then(optional(between('{', '}', release).label("{<cmd>}")))
-            .map(move |((key, press), release)| KeyMapping {
-                key,
+            .then(optional(between('{', '}', release).label("{<cmd>}")));
+
+        character
+            .or(key)
+            .map(move |((input, press), release)| KeyMapping {
+                input,
                 press,
                 release,
                 modes: modes.clone(),

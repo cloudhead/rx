@@ -440,6 +440,21 @@ impl MessageType {
 /// A session error.
 type Error = String;
 
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum Input {
+    Key(Key),
+    Character(char),
+}
+
+impl fmt::Display for Input {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Key(k) => write!(f, "{}", k),
+            Self::Character(c) => write!(f, "'{}'", c),
+        }
+    }
+}
+
 /// A key binding.
 #[derive(PartialEq, Clone, Debug)]
 pub struct KeyBinding {
@@ -447,8 +462,8 @@ pub struct KeyBinding {
     pub modes: Vec<Mode>,
     /// Modifiers which must be held.
     pub modifiers: ModifiersState,
-    /// Key which must be pressed or released.
-    pub key: Key,
+    /// Input expected to trigger the binding.
+    pub input: Input,
     /// Whether the key should be pressed or released.
     pub state: InputState,
     /// The `Command` to run when this binding is triggered.
@@ -461,11 +476,24 @@ pub struct KeyBinding {
 }
 
 impl KeyBinding {
-    fn is_match(&self, key: Key, state: InputState, modifiers: ModifiersState, mode: Mode) -> bool {
-        self.key == key
-            && self.state == state
-            && self.modes.contains(&mode)
-            && (self.modifiers == modifiers || state == InputState::Released || key.is_modifier())
+    fn is_match(
+        &self,
+        input: Input,
+        state: InputState,
+        modifiers: ModifiersState,
+        mode: Mode,
+    ) -> bool {
+        match (input, self.input) {
+            (Input::Key(key), Input::Key(k)) => {
+                key == k
+                    && self.state == state
+                    && self.modes.contains(&mode)
+                    && (self.modifiers == modifiers
+                        || state == InputState::Released
+                        || key.is_modifier())
+            }
+            _ => todo!(),
+        }
     }
 }
 
@@ -477,53 +505,22 @@ pub struct KeyBindings {
 
 impl Default for KeyBindings {
     fn default() -> Self {
-        // The only defaults are switching to command mode and 'help'. On some platforms,
-        // Pressing `<shift> + ;` sends us a `:` directly, while on others
-        // we get `<shift>` and `;`.
+        // The only default is 'help'.
         KeyBindings {
-            elems: vec![
-                KeyBinding {
-                    modes: vec![Mode::Normal, Mode::Help],
-                    modifiers: ModifiersState {
-                        shift: true,
-                        ctrl: false,
-                        alt: false,
-                        meta: false,
-                    },
-                    key: platform::Key::Slash,
-                    state: InputState::Pressed,
-                    command: Command::Mode(Mode::Help),
-                    is_toggle: false,
-                    display: Some("?".to_string()),
+            elems: vec![KeyBinding {
+                modes: vec![Mode::Normal, Mode::Help],
+                modifiers: ModifiersState {
+                    shift: true,
+                    ctrl: false,
+                    alt: false,
+                    meta: false,
                 },
-                KeyBinding {
-                    modes: vec![
-                        Mode::Normal,
-                        Mode::Visual(VisualState::Pasting),
-                        Mode::Visual(VisualState::selecting()),
-                    ],
-                    modifiers: ModifiersState {
-                        shift: true,
-                        ctrl: false,
-                        alt: false,
-                        meta: false,
-                    },
-                    key: platform::Key::Semicolon,
-                    state: InputState::Pressed,
-                    command: Command::Mode(Mode::Command),
-                    is_toggle: false,
-                    display: Some(":".to_string()),
-                },
-                KeyBinding {
-                    modes: vec![Mode::Normal],
-                    modifiers: ModifiersState::default(),
-                    key: platform::Key::Colon,
-                    state: InputState::Pressed,
-                    command: Command::Mode(Mode::Command),
-                    is_toggle: false,
-                    display: None,
-                },
-            ],
+                input: Input::Key(platform::Key::Slash),
+                state: InputState::Pressed,
+                command: Command::Mode(Mode::Help),
+                is_toggle: false,
+                display: Some("?".to_string()),
+            }],
         }
     }
 }
@@ -538,7 +535,7 @@ impl KeyBindings {
     pub fn add(&mut self, binding: KeyBinding) {
         for mode in binding.modes.iter() {
             self.elems
-                .retain(|kb| !kb.is_match(binding.key, binding.state, binding.modifiers, *mode));
+                .retain(|kb| !kb.is_match(binding.input, binding.state, binding.modifiers, *mode));
         }
         self.elems.push(binding);
     }
@@ -554,7 +551,7 @@ impl KeyBindings {
     /// Find a key binding based on some input state.
     pub fn find(
         &self,
-        key: Key,
+        input: Input,
         modifiers: ModifiersState,
         state: InputState,
         mode: Mode,
@@ -563,7 +560,7 @@ impl KeyBindings {
             .iter()
             .rev()
             .cloned()
-            .find(|kb| kb.is_match(key, state, modifiers, mode))
+            .find(|kb| kb.is_match(input, state, modifiers, mode))
     }
 
     /// Iterate over all key bindings.
@@ -2471,7 +2468,10 @@ impl Session {
                 _ => {}
             }
 
-            if let Some(kb) = self.key_bindings.find(key, modifiers, state, self.mode) {
+            if let Some(kb) = self
+                .key_bindings
+                .find(Input::Key(key), modifiers, state, self.mode)
+            {
                 // For toggle-like key bindings, we don't want to run the command
                 // on key repeats. For regular key bindings, we run the command
                 // depending on if it's supposed to repeat.
@@ -3092,24 +3092,24 @@ impl Session {
             }
             Command::Map(map) => {
                 let KeyMapping {
-                    key,
+                    input,
                     press,
                     release,
                     modes,
                 } = *map;
 
                 self.key_bindings.add(KeyBinding {
-                    key,
+                    input,
                     modes: modes.clone(),
                     command: press,
                     state: InputState::Pressed,
                     modifiers: platform::ModifiersState::default(),
                     is_toggle: release.is_some(),
-                    display: Some(format!("{}", key)),
+                    display: Some(format!("{}", input)),
                 });
                 if let Some(cmd) = release {
                     self.key_bindings.add(KeyBinding {
-                        key,
+                        input,
                         modes,
                         command: cmd,
                         state: InputState::Released,
@@ -3393,7 +3393,7 @@ mod test {
 
         let kb1 = KeyBinding {
             modes: vec![Mode::Normal],
-            key: platform::Key::A,
+            input: Input::Key(platform::Key::A),
             command: Command::Noop,
             is_toggle: false,
             display: None,
@@ -3422,7 +3422,7 @@ mod test {
 
         assert_eq!(kbs.len(), 2, "bindings can be overwritten");
         assert_eq!(
-            kbs.find(kb2.key, kb2.modifiers, kb2.state, kb2.modes[0]),
+            kbs.find(kb2.input, kb2.modifiers, kb2.state, kb2.modes[0]),
             Some(kb3),
             "bindings can be overwritten"
         );
@@ -3432,7 +3432,7 @@ mod test {
     fn test_key_bindings_modifier() {
         let kb = KeyBinding {
             modes: vec![Mode::Normal],
-            key: platform::Key::Control,
+            input: Input::Key(platform::Key::Control),
             command: Command::Noop,
             is_toggle: false,
             display: None,
@@ -3445,7 +3445,7 @@ mod test {
 
         assert_eq!(
             kbs.find(
-                platform::Key::Control,
+                Input::Key(platform::Key::Control),
                 ModifiersState {
                     ctrl: true,
                     alt: false,
@@ -3460,7 +3460,7 @@ mod test {
 
         assert_eq!(
             kbs.find(
-                platform::Key::Control,
+                Input::Key(platform::Key::Control),
                 ModifiersState::default(),
                 InputState::Pressed,
                 Mode::Normal
