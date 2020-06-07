@@ -46,9 +46,10 @@ impl Palette {
         let cellsize = self.cellsize as i32;
         let size = self.size() as i32;
         let height = self.height as i32;
+        let columns = (self.size() as f32 / self.height as f32).ceil() as i32;
 
         let width = if size > height {
-            cellsize * 2
+            cellsize * columns
         } else {
             cellsize
         };
@@ -62,7 +63,7 @@ impl Palette {
         x /= cellsize;
         y /= cellsize;
 
-        let index = y + x * height;
+        let index = y + x * (height / cellsize);
 
         self.hover = if index < size {
             // We index from the back because the palette is reversed
