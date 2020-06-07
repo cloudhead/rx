@@ -492,7 +492,8 @@ impl KeyBinding {
                         || state == InputState::Released
                         || key.is_modifier())
             }
-            _ => todo!(),
+            (Input::Character(a), Input::Character(b)) => a == b,
+            _ => false,
         }
     }
 }
@@ -931,6 +932,9 @@ impl Session {
             if self.settings["animation"].is_set() {
                 v.update(delta);
             }
+        }
+        if self.ignore_received_characters {
+            self.ignore_received_characters = false;
         }
 
         let exec = &mut *exec.borrow_mut();
@@ -2130,7 +2134,7 @@ impl Session {
                 }
             }
             Event::KeyboardInput(input) => self.handle_keyboard_input(input, exec),
-            Event::ReceivedCharacter(c) => self.handle_received_character(c),
+            Event::ReceivedCharacter(c, mods) => self.handle_received_character(c, mods),
             Event::Paste(p) => self.handle_paste(p),
         }
     }
@@ -2376,16 +2380,17 @@ impl Session {
         }
     }
 
-    fn handle_received_character(&mut self, c: char) {
+    fn handle_received_character(&mut self, c: char, mods: ModifiersState) {
         if self.mode == Mode::Command {
-            if c.is_control() {
-                return;
-            }
-            if self.ignore_received_characters {
-                self.ignore_received_characters = false;
+            if c.is_control() || self.ignore_received_characters {
                 return;
             }
             self.cmdline_handle_input(c);
+        } else if let Some(kb) =
+            self.key_bindings
+                .find(Input::Character(c), mods, InputState::Pressed, self.mode)
+        {
+            self.command(kb.command);
         }
     }
 

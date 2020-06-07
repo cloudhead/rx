@@ -328,8 +328,8 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                     }
                     _ => session_events.push(Event::KeyboardInput(input)),
                 },
-                WindowEvent::ReceivedCharacter(c) => {
-                    session_events.push(Event::ReceivedCharacter(c));
+                WindowEvent::ReceivedCharacter(c, mods) => {
+                    session_events.push(Event::ReceivedCharacter(c, mods));
                 }
                 _ => {}
             };
