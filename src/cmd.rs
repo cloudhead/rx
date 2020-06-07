@@ -24,6 +24,12 @@ pub enum Op {
     Set(f32),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Flip {
+	Horizontal,
+	Vertical,
+}
+
 /// User command. Most of the interactions available to
 /// the user are modeled as commands that are processed
 /// by the session.
@@ -90,6 +96,7 @@ pub enum Command {
     SelectionFill(Option<Rgba8>),
     SelectionErase,
     SelectionJump(Direction),
+    SelectionFlip(Flip),
 
     // Settings
     Set(String, Value),
@@ -220,6 +227,8 @@ impl fmt::Display for Command {
                 write!(f, "Move selection backward by one frame")
             }
             Self::SelectionErase => write!(f, "Erase selection contents"),
+            Self::SelectionFlip(Flip::Horizontal) => write!(f, "Flip selection horizontally"),
+            Self::SelectionFlip(Flip::Vertical) => write!(f, "Flip selection vertically"),
             Self::PaintColor(_, x, y) => write!(f, "Paint {:2},{:2}", x, y),
             _ => write!(f, "..."),
         }
@@ -956,6 +965,14 @@ impl Default for Commands {
             .command("selection/fill", "Fill selection with color", |p| {
                 p.then(optional(color()))
                     .map(|(_, rgba)| Command::SelectionFill(rgba))
+            })
+            .command("selection/flip", "Flip selection", |p| {
+                p.then(word().label("h[orizontal]/v[ertical]"))
+                    .try_map(|(_, t)| match t.as_str() {
+                        "horizontal" | "h" => Ok(Command::SelectionFlip(Flip::Horizontal)),
+                        "vertical" | "v" => Ok(Command::SelectionFlip(Flip::Vertical)),
+                        _ => Err(format!("unknown direction {:?}", t)),
+                    })
             })
             .command("paint/color", "Paint color", |p| {
                 p.then(color())
