@@ -1,10 +1,11 @@
 use crate::session::SessionCoords;
 
 use rgx::kit::Rgba8;
+use arrayvec::ArrayVec;
 
 pub struct Palette {
     // TODO: Make this an `ArrayVec<[Rgba8; 256]>`.
-    pub colors: Vec<Rgba8>,
+    pub colors: ArrayVec<[Rgba8; 256]>,
     pub hover: Option<Rgba8>,
     pub cellsize: f32,
     pub height: usize,
@@ -15,7 +16,7 @@ pub struct Palette {
 impl Palette {
     pub fn new(cellsize: f32, height: usize) -> Self {
         Self {
-            colors: Vec::with_capacity(256),
+            colors: ArrayVec::new(),
             hover: None,
             cellsize,
             height,
