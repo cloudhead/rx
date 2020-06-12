@@ -40,11 +40,20 @@ pub fn stitch_frames<T: Clone>(mut frames: Vec<Vec<T>>, fw: usize, fh: usize, va
     buffer
 }
 
+pub fn align_u8<T>(data: &[T]) -> &[u8] {
+    let (head, body, tail) = unsafe { data.align_to::<u8>() };
+
+    assert!(head.is_empty());
+    assert!(tail.is_empty());
+
+    body
+}
+
 #[macro_export]
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
          let mut map = ::std::collections::HashMap::new();
-         $( map.insert($key.to_string(), $val); )*
+         $( map.insert($key.to_owned(), $val); )*
          map
     }}
 }

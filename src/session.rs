@@ -9,10 +9,13 @@ use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::{Pixels, ResourceManager, SnapshotId};
+use crate::resources::{Edit, EditId, Pixels, ResourceManager};
 use crate::util;
+use crate::view::layer::{LayerCoords, LayerId};
+use crate::view::path;
 use crate::view::{
-    FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp, ViewState,
+    self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
+    ViewState,
 };
 
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
@@ -25,6 +28,7 @@ use nonempty::NonEmpty;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -241,7 +245,9 @@ pub enum Effect {
     /// When a view operation has taken place.
     ViewOps(ViewId, Vec<ViewOp>),
     /// When a view requires re-drawing.
-    ViewDamaged(ViewId, ViewExtent),
+    ViewDamaged(ViewId, Option<ViewExtent>),
+    /// When a view layer requires re-drawing.
+    ViewLayerDamaged(ViewId, LayerId),
     /// When the active view is non-permanently painted on.
     ViewPaintDraft(Vec<Shape>),
     /// When the active view is painted on.
@@ -434,6 +440,21 @@ impl MessageType {
 /// A session error.
 type Error = String;
 
+#[derive(PartialEq, Copy, Clone, Debug)]
+pub enum Input {
+    Key(Key),
+    Character(char),
+}
+
+impl fmt::Display for Input {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Key(k) => write!(f, "{}", k),
+            Self::Character(c) => write!(f, "{}", c),
+        }
+    }
+}
+
 /// A key binding.
 #[derive(PartialEq, Clone, Debug)]
 pub struct KeyBinding {
@@ -441,8 +462,8 @@ pub struct KeyBinding {
     pub modes: Vec<Mode>,
     /// Modifiers which must be held.
     pub modifiers: ModifiersState,
-    /// Key which must be pressed or released.
-    pub key: Key,
+    /// Input expected to trigger the binding.
+    pub input: Input,
     /// Whether the key should be pressed or released.
     pub state: InputState,
     /// The `Command` to run when this binding is triggered.
@@ -455,11 +476,33 @@ pub struct KeyBinding {
 }
 
 impl KeyBinding {
-    fn is_match(&self, key: Key, state: InputState, modifiers: ModifiersState, mode: Mode) -> bool {
-        self.key == key
-            && self.state == state
-            && self.modes.contains(&mode)
-            && (self.modifiers == modifiers || state == InputState::Released || key.is_modifier())
+    fn is_match(
+        &self,
+        input: Input,
+        state: InputState,
+        modifiers: ModifiersState,
+        mode: Mode,
+    ) -> bool {
+        match (input, self.input) {
+            (Input::Key(key), Input::Key(k)) => {
+                key == k
+                    && self.state == state
+                    && self.modes.contains(&mode)
+                    && (self.modifiers == modifiers
+                        || state == InputState::Released
+                        || key.is_modifier())
+            }
+            (Input::Character(a), Input::Character(b)) => {
+                // Nb. We only check the <ctrl> modifier with characters,
+                // because the others (especially <shift>) will most likely
+                // input a different character.
+                a == b
+                    && self.modes.contains(&mode)
+                    && self.state == state
+                    && self.modifiers.ctrl == modifiers.ctrl
+            }
+            _ => false,
+        }
     }
 }
 
@@ -471,54 +514,7 @@ pub struct KeyBindings {
 
 impl Default for KeyBindings {
     fn default() -> Self {
-        // The only defaults are switching to command mode and 'help'. On some platforms,
-        // Pressing `<shift> + ;` sends us a `:` directly, while on others
-        // we get `<shift>` and `;`.
-        KeyBindings {
-            elems: vec![
-                KeyBinding {
-                    modes: vec![Mode::Normal, Mode::Help],
-                    modifiers: ModifiersState {
-                        shift: true,
-                        ctrl: false,
-                        alt: false,
-                        meta: false,
-                    },
-                    key: platform::Key::Slash,
-                    state: InputState::Pressed,
-                    command: Command::Mode(Mode::Help),
-                    is_toggle: false,
-                    display: Some("?".to_string()),
-                },
-                KeyBinding {
-                    modes: vec![
-                        Mode::Normal,
-                        Mode::Visual(VisualState::Pasting),
-                        Mode::Visual(VisualState::selecting()),
-                    ],
-                    modifiers: ModifiersState {
-                        shift: true,
-                        ctrl: false,
-                        alt: false,
-                        meta: false,
-                    },
-                    key: platform::Key::Semicolon,
-                    state: InputState::Pressed,
-                    command: Command::Mode(Mode::Command),
-                    is_toggle: false,
-                    display: Some(":".to_string()),
-                },
-                KeyBinding {
-                    modes: vec![Mode::Normal],
-                    modifiers: ModifiersState::default(),
-                    key: platform::Key::Colon,
-                    state: InputState::Pressed,
-                    command: Command::Mode(Mode::Command),
-                    is_toggle: false,
-                    display: None,
-                },
-            ],
-        }
+        KeyBindings { elems: vec![] }
     }
 }
 
@@ -532,7 +528,7 @@ impl KeyBindings {
     pub fn add(&mut self, binding: KeyBinding) {
         for mode in binding.modes.iter() {
             self.elems
-                .retain(|kb| !kb.is_match(binding.key, binding.state, binding.modifiers, *mode));
+                .retain(|kb| !kb.is_match(binding.input, binding.state, binding.modifiers, *mode));
         }
         self.elems.push(binding);
     }
@@ -548,7 +544,7 @@ impl KeyBindings {
     /// Find a key binding based on some input state.
     pub fn find(
         &self,
-        key: Key,
+        input: Input,
         modifiers: ModifiersState,
         state: InputState,
         mode: Mode,
@@ -557,7 +553,7 @@ impl KeyBindings {
             .iter()
             .rev()
             .cloned()
-            .find(|kb| kb.is_match(key, state, modifiers, mode))
+            .find(|kb| kb.is_match(input, state, modifiers, mode))
     }
 
     /// Iterate over all key bindings.
@@ -690,7 +686,7 @@ pub struct Session {
     /// The color under the cursor, if any.
     pub hover_color: Option<Rgba8>,
     /// The view under the cursor, if any.
-    pub hover_view: Option<ViewId>,
+    pub hover_view: Option<(ViewId, LayerId)>,
 
     /// The workspace offset. Views are offset by this vector.
     pub offset: Vector2<f32>,
@@ -767,10 +763,6 @@ impl Session {
     /// Default view height.
     pub const DEFAULT_VIEW_H: u32 = 128;
 
-    /// Supported image formats for writing.
-    const SUPPORTED_WRITE_FORMATS: &'static [&'static str] = &["png", "gif", "svg"];
-    /// Supported image formats for reading.
-    const SUPPORTED_READ_FORMATS: &'static [&'static str] = &["png"];
     /// Minimum margin between views, in pixels.
     const VIEW_MARGIN: f32 = 24.;
     /// Size of palette cells, in pixels.
@@ -843,7 +835,7 @@ impl Session {
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
             ignore_received_characters: false,
-            cmdline: CommandLine::new(cwd, history_path, Self::SUPPORTED_READ_FORMATS),
+            cmdline: CommandLine::new(cwd, history_path, path::SUPPORTED_READ_FORMATS),
             mode: Mode::Normal,
             prev_mode: Option::default(),
             selection: Option::default(),
@@ -939,6 +931,9 @@ impl Session {
             if self.settings["animation"].is_set() {
                 v.update(delta);
             }
+        }
+        if self.ignore_received_characters {
+            self.ignore_received_characters = false;
         }
 
         let exec = &mut *exec.borrow_mut();
@@ -1080,9 +1075,12 @@ impl Session {
                         .push(Effect::ViewOps(v.id, v.ops.drain(..).collect()));
                 }
                 match v.state {
-                    ViewState::Dirty => {}
+                    ViewState::Dirty(_) | ViewState::LayerDirty(_) => {}
                     ViewState::Damaged(extent) => {
                         self.effects.push(Effect::ViewDamaged(v.id, extent));
+                    }
+                    ViewState::LayerDamaged(layer) => {
+                        self.effects.push(Effect::ViewLayerDamaged(v.id, layer));
                     }
                     ViewState::Okay => {}
                 }
@@ -1226,17 +1224,18 @@ impl Session {
         }
 
         for v in self.views.iter_mut() {
-            if v.contains(cursor - self.offset) {
-                self.hover_view = Some(v.id);
+            let p = cursor - self.offset;
+            if let Some(l) = v.contains(p) {
+                self.hover_view = Some((v.id, l));
                 break;
             }
         }
 
         self.hover_color = if self.palette.hover.is_some() {
             self.palette.hover
-        } else if let Some(v) = self.hover_view {
-            let p: ViewCoords<u32> = self.view_coords(v, cursor).into();
-            self.color_at(v, p)
+        } else if let Some((v, l)) = self.hover_view {
+            let p: LayerCoords<u32> = self.layer_coords(v, l, cursor).into();
+            self.color_at(v, l, p)
         } else {
             None
         };
@@ -1415,6 +1414,18 @@ impl Session {
         self.views.active_id == id
     }
 
+    /// Activate the currently hovered layer, if in the active view.
+    pub fn activate_hover_layer(&mut self) {
+        let active_id = self.views.active_id;
+
+        match self.hover_view {
+            Some((view_id, layer_id)) if view_id == active_id => {
+                self.view_mut(active_id).activate_layer(layer_id);
+            }
+            _ => {}
+        }
+    }
+
     /// Convert "logical" window coordinates to session coordinates.
     pub fn window_to_session_coords(&self, position: platform::LogicalPosition) -> SessionCoords {
         let (x, y) = (position.x, position.y);
@@ -1465,8 +1476,31 @@ impl Session {
         self.view_coords(self.views.active_id, p)
     }
 
+    pub fn layer_coords(&self, v: ViewId, l: LayerId, p: SessionCoords) -> LayerCoords<f32> {
+        let v = self.view(v);
+        let SessionCoords(p) = p;
+
+        let p = p - self.offset - v.offset - v.layer_offset(l, v.zoom);
+        let mut p = p / v.zoom;
+
+        if v.flip_x {
+            p.x = v.width() as f32 - p.x;
+        }
+        if v.flip_y {
+            p.y = v.height() as f32 - p.y;
+        }
+
+        LayerCoords::new(p.x.floor(), p.y.floor())
+    }
+
+    /// Convert session coordinates to layer coordinates of the active layer.
+    pub fn active_layer_coords(&self, p: SessionCoords) -> LayerCoords<f32> {
+        let v = self.active_view();
+        self.layer_coords(v.id, v.active_layer_id, p)
+    }
+
     /// Check whether a point is inside the selection, if any.
-    pub fn is_selected(&self, p: ViewCoords<i32>) -> bool {
+    pub fn is_selected(&self, p: LayerCoords<i32>) -> bool {
         if let Some(s) = self.selection {
             s.abs().bounds().contains(*p)
         } else {
@@ -1532,7 +1566,7 @@ impl Session {
 
     /// Load the given paths into the session as frames in a new view.
     pub fn edit_frames<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
-        let completer = FileCompleter::new(&self.cwd, Self::SUPPORTED_READ_FORMATS);
+        let completer = FileCompleter::new(&self.cwd, path::SUPPORTED_READ_FORMATS);
         let mut dirs = Vec::new();
 
         let mut paths = paths
@@ -1620,51 +1654,73 @@ impl Session {
     /// Save a view with the given file name. Returns an error if
     /// the format is not supported.
     pub fn save_view_as(&mut self, id: ViewId, storage: FileStorage) -> io::Result<()> {
-        let ext = self.view(id).extent();
+        let view = self.view(id);
+        let active_layer_id = view.active_layer_id;
+        let ext = view.extent();
+        let nlayers = view.layers.len();
 
-        let message = match &storage {
+        match &storage {
+            FileStorage::Single(path) if nlayers > 1 => {
+                let written = self.resources.save_view_archive(id, path)?;
+                let edit_id = self.resources.lock().current_edit(id);
+
+                self.view_mut(id).save_as(edit_id, storage.clone());
+                self.message(
+                    format!("\"{}\" {} pixels written", storage, written),
+                    MessageType::Info,
+                );
+            }
             FileStorage::Single(path) => {
-                if let Some(s_id) = self.save_view_rect_as(id, ext.rect(), &path)? {
+                if let Some(s_id) =
+                    self.save_layer_rect_as(id, active_layer_id, ext.rect(), &path)?
+                {
                     self.view_mut(id).save_as(s_id, storage.clone());
                 }
-                format!(
-                    "\"{}\" {} pixels written",
-                    storage,
-                    ext.width() * ext.height()
-                )
+                self.message(
+                    format!(
+                        "\"{}\" {} pixels written",
+                        storage,
+                        ext.width() * ext.height()
+                    ),
+                    MessageType::Info,
+                );
             }
-            FileStorage::Range(paths) => {
+            FileStorage::Range(paths) if nlayers == 1 => {
                 for (i, path) in paths.iter().enumerate() {
-                    self.save_view_rect_as(id, ext.frame(i), path)?;
+                    self.save_layer_rect_as(id, active_layer_id, ext.frame(i), path)?;
                 }
 
-                let s_id = self
-                    .resources
-                    .lock()
-                    .get_snapshot_id(id)
-                    .expect("view must have a snapshot");
-                self.view_mut(id).save_as(s_id, storage.clone());
-
-                format!(
-                    "{} {} pixels written",
-                    storage,
-                    paths.len() * (ext.fw * ext.fh) as usize,
+                let edit_id = self.resources.lock().current_edit(id);
+                self.view_mut(id).save_as(edit_id, storage.clone());
+                self.message(
+                    format!(
+                        "{} {} pixels written",
+                        storage,
+                        paths.len() * (ext.fw * ext.fh) as usize
+                    ),
+                    MessageType::Info,
                 )
             }
+            FileStorage::Range(_) => {
+                self.message(
+                    "Error: range storage is not supported for more than one layer",
+                    MessageType::Error,
+                );
+            }
         };
-        self.message(message, MessageType::Info);
 
         Ok(())
     }
 
     /// Private ///////////////////////////////////////////////////////////////////
 
-    fn save_view_rect_as(
+    fn save_layer_rect_as(
         &mut self,
         id: ViewId,
+        layer_id: LayerId,
         rect: Rect<u32>,
         path: &Path,
-    ) -> io::Result<Option<SnapshotId>> {
+    ) -> io::Result<Option<EditId>> {
         let ext = path.extension().ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::Other,
@@ -1675,7 +1731,7 @@ impl Session {
             io::Error::new(io::ErrorKind::Other, "file extension is not valid unicode")
         })?;
 
-        if !Self::SUPPORTED_WRITE_FORMATS.contains(&ext) {
+        if !path::SUPPORTED_WRITE_FORMATS.contains(&ext) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 format!("`{}` is not a supported output format", ext),
@@ -1683,10 +1739,10 @@ impl Session {
         }
 
         if ext == "gif" {
-            self.save_view_gif(id, path)?;
+            self.save_view_gif(id, layer_id, path)?;
             return Ok(None);
         } else if ext == "svg" {
-            self.save_view_svg(id, path)?;
+            self.save_view_svg(id, layer_id, path)?;
             return Ok(None);
         }
 
@@ -1703,37 +1759,22 @@ impl Session {
             ));
         }
 
-        let (s_id, _) = self.resources.save_view(id, rect, &path)?;
+        let (e_id, _) = self.resources.save_layer(id, layer_id, rect, &path)?;
 
-        Ok(Some(s_id))
+        Ok(Some(e_id))
     }
 
     /// Load a view into the session.
     fn load_view<P: AsRef<Path>>(&mut self, path: P) -> io::Result<()> {
         let path = path.as_ref();
+        let path = view::Path::try_from(path)?;
 
         debug!("load: {:?}", path);
-
-        match path.extension() {
-            Some(ext) if ext != "png" => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "trying to load file with unsupported extension",
-                ));
-            }
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "trying to load file with no extension",
-                ));
-            }
-            _ => {}
-        }
 
         // View is already loaded.
         if let Some(View { id, .. }) = self
             .views
-            .find(|v| v.file_storage().map_or(false, |f| f.contains(path)))
+            .find(|v| v.file_storage().map_or(false, |f| f.contains(&*path)))
         {
             // TODO: Reload from disk.
             let id = *id;
@@ -1741,20 +1782,68 @@ impl Session {
             return Ok(());
         }
 
-        let (width, height, pixels) = ResourceManager::load_image(&path)?;
+        match path.format {
+            view::Format::Png => {
+                let (width, height, pixels) = ResourceManager::load_image(&*path)?;
 
-        self.add_view(
-            FileStatus::Saved(FileStorage::Single(path.into())),
-            width,
-            height,
-            vec![pixels],
-        );
-        self.message(
-            format!("\"{}\" {} pixels read", path.display(), width * height),
-            MessageType::Info,
-        );
+                self.add_view(
+                    FileStatus::Saved(FileStorage::Single((*path).into())),
+                    width,
+                    height,
+                    vec![pixels],
+                );
+                self.message(
+                    format!("\"{}\" {} pixels read", path.display(), width * height),
+                    MessageType::Info,
+                );
+            }
+            view::Format::Archive => {
+                let archive = ResourceManager::load_archive(&*path)?;
+                let extent = archive.manifest.extent;
+                let mut layers = archive.layers.into_iter();
+
+                let frames = layers.next().expect("there is at least one layer");
+                let view_id = self.add_view(
+                    FileStatus::Saved(FileStorage::Single((*path).into())),
+                    extent.fw,
+                    extent.fh,
+                    frames,
+                );
+
+                for layer in layers {
+                    let pixels = util::stitch_frames(
+                        layer,
+                        extent.fw as usize,
+                        extent.fh as usize,
+                        Rgba8::TRANSPARENT,
+                    );
+                    self.add_layer(view_id, Some(Pixels::from_rgba8(pixels.into())));
+                }
+            }
+            view::Format::Gif => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "gif files are not supported",
+                ));
+            }
+        }
 
         Ok(())
+    }
+
+    fn add_layer(&mut self, view_id: ViewId, pixels: Option<Pixels>) {
+        let l = self.view_mut(view_id).add_layer();
+        let v = self.view(view_id);
+
+        self.resources
+            .lock_mut()
+            .get_view_mut(v.id)
+            .expect(&format!("view #{} must exist", v.id))
+            .add_layer(
+                l,
+                v.extent(),
+                pixels.unwrap_or(Pixels::blank(v.width() as usize, v.height() as usize)),
+            );
     }
 
     fn add_view(
@@ -1781,8 +1870,11 @@ impl Session {
         let id = self.views.add(file_status, fw, fh, nframes, delay);
 
         self.effects.push(Effect::ViewAdded(id));
-        self.resources
-            .add_view(id, fw, fh, nframes, Pixels::from_rgba8(pixels.into()));
+        self.resources.add_view(
+            id,
+            ViewExtent::new(fw, fh, nframes),
+            Pixels::from_rgba8(pixels.into()),
+        );
         id
     }
 
@@ -1820,10 +1912,17 @@ impl Session {
     }
 
     /// Save a view as a gif animation.
-    fn save_view_gif<P: AsRef<Path>>(&mut self, id: ViewId, path: P) -> io::Result<()> {
+    fn save_view_gif<P: AsRef<Path>>(
+        &mut self,
+        id: ViewId,
+        layer_id: LayerId,
+        path: P,
+    ) -> io::Result<()> {
         let delay = self.view(id).animation.delay;
         let palette = self.colors();
-        let npixels = self.resources.save_view_gif(id, &path, delay, &palette)?;
+        let npixels = self
+            .resources
+            .save_view_gif(id, layer_id, &path, delay, &palette)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -1833,8 +1932,13 @@ impl Session {
     }
 
     /// Save a view as an svg.
-    fn save_view_svg<P: AsRef<Path>>(&mut self, id: ViewId, path: P) -> io::Result<()> {
-        let npixels = self.resources.save_view_svg(id, &path)?;
+    fn save_view_svg<P: AsRef<Path>>(
+        &mut self,
+        id: ViewId,
+        layer_id: LayerId,
+        path: P,
+    ) -> io::Result<()> {
+        let npixels = self.resources.save_view_svg(id, layer_id, &path)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -1869,11 +1973,20 @@ impl Session {
 
         first.offset.y = 0.;
 
-        let mut offset = first.height() as f32 * first.zoom + Self::VIEW_MARGIN;
+        // TODO: We need a way to distinguish view content size with real (rendered) size. Also
+        // create a distinction between layer and view height. Right now `View::height` is layer
+        // height.
+        let mut offset =
+            (first.height() * first.layers.len() as u32) as f32 * first.zoom + Self::VIEW_MARGIN;
 
         for v in self.views.iter_mut().skip(1) {
+            if v.layers.len() > 1 {
+                // Account for layer composite.
+                offset += v.height() as f32 * v.zoom;
+            }
             v.offset.y = offset;
-            offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
+
+            offset += (v.height() * v.layers.len() as u32) as f32 * v.zoom + Self::VIEW_MARGIN;
         }
         self.cursor_dirty();
     }
@@ -1919,23 +2032,47 @@ impl Session {
     }
 
     fn restore_view_snapshot(&mut self, id: ViewId, dir: Direction) {
-        let snapshot = self
-            .resources
-            .lock_mut()
-            .get_view_mut(id)
-            .and_then(|s| {
-                if dir == Direction::Backward {
-                    s.prev_snapshot()
-                } else {
-                    s.next_snapshot()
-                }
-            })
-            .map(|s| (s.id, s.extent));
+        let result = self.resources.lock_mut().get_view_mut(id).and_then(|s| {
+            if dir == Direction::Backward {
+                s.history_prev()
+            } else {
+                s.history_next()
+            }
+        });
 
-        if let Some((sid, extent)) = snapshot {
-            self.view_mut(id).restore(sid, extent);
-            self.cursor_dirty();
+        match result {
+            Some((eid, Edit::LayerPainted(layer))) => {
+                self.view_mut(id).restore_layer(eid, layer);
+            }
+            Some((eid, Edit::LayerAdded(layer))) => {
+                match dir {
+                    Direction::Backward => {
+                        self.view_mut(id).remove_layer(layer);
+                    }
+                    Direction::Forward => {
+                        // TODO: This relies on the fact that `remove_layer` can
+                        // only remove the last layer.
+                        let layer_id = self.view_mut(id).add_layer();
+                        debug_assert!(layer_id == layer);
+                    }
+                };
+                self.view_mut(id).refresh_file_status(eid);
+            }
+            Some((eid, Edit::ViewResized(_, from, to))) => {
+                let extent = match dir {
+                    Direction::Backward => from,
+                    Direction::Forward => to,
+                };
+                self.view_mut(id).restore_extent(eid, extent);
+            }
+            Some((eid, Edit::ViewPainted(_))) => {
+                self.view_mut(id).restore(eid);
+            }
+            Some((_, Edit::Initial)) => {}
+            None => {}
         }
+        self.organize_views();
+        self.cursor_dirty();
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -1996,7 +2133,7 @@ impl Session {
                 }
             }
             Event::KeyboardInput(input) => self.handle_keyboard_input(input, exec),
-            Event::ReceivedCharacter(c) => self.handle_received_character(c),
+            Event::ReceivedCharacter(c, mods) => self.handle_received_character(c, mods),
             Event::Paste(p) => self.handle_paste(p),
         }
     }
@@ -2059,15 +2196,20 @@ impl Session {
                 }
 
                 // Click on a view.
-                if let Some(id) = self.hover_view {
+                if let Some((id, layer_id)) = self.hover_view {
                     // Clicking on a view is one way to get out of command mode.
                     if self.mode == Mode::Command {
                         self.cmdline_hide();
                         return;
                     }
                     if self.is_active(id) {
-                        let v = self.active_view();
-                        let p = self.view_coords(v.id, self.cursor);
+                        {
+                            let v = self.view_mut(id);
+                            v.activate_layer(layer_id);
+                        }
+                        let v = self.view(id);
+                        let p = self.active_layer_coords(self.cursor);
+
                         let extent = v.extent();
 
                         match self.mode {
@@ -2103,6 +2245,8 @@ impl Session {
                                 }
                             }
                             Mode::Visual(VisualState::Pasting) => {
+                                // Re-center the selection in-case we've switched layer.
+                                self.center_selection(self.cursor);
                                 self.command(Command::SelectionPaste);
                             }
                             Mode::Present | Mode::Help => {}
@@ -2131,7 +2275,7 @@ impl Session {
                         match brush.state {
                             BrushState::Drawing { .. } | BrushState::DrawStarted { .. } => {
                                 brush.stop_drawing();
-                                self.active_view_mut().touch();
+                                self.active_view_mut().touch_layer();
                             }
                             _ => {}
                         }
@@ -2145,7 +2289,7 @@ impl Session {
 
     fn handle_mouse_wheel(&mut self, delta: platform::LogicalDelta) {
         if delta.y > 0. {
-            if let Some(v) = self.hover_view {
+            if let Some((v, _)) = self.hover_view {
                 self.activate(v);
             }
             self.zoom_in(self.cursor);
@@ -2159,13 +2303,17 @@ impl Session {
             return;
         }
 
-        let p = self.active_view_coords(cursor);
-        let prev_p = self.active_view_coords(self.cursor);
+        let prev_cursor = self.cursor;
+        let p = self.active_layer_coords(cursor);
+        let prev_p = self.active_layer_coords(prev_cursor);
         let (vw, vh) = self.active_view().size();
+
+        self.cursor = cursor;
+        self.cursor_dirty();
 
         match self.tool {
             Tool::Pan(PanState::Panning) => {
-                self.pan(cursor.x - self.cursor.x, cursor.y - self.cursor.y);
+                self.pan(cursor.x - prev_cursor.x, cursor.y - prev_cursor.y);
             }
             Tool::Sampler if self.mouse_state == InputState::Pressed => {
                 self.sample_color();
@@ -2175,7 +2323,7 @@ impl Session {
                     Mode::Normal => match self.tool {
                         Tool::Brush(ref mut brush) if p != prev_p => match brush.state {
                             BrushState::DrawStarted { .. } | BrushState::Drawing { .. } => {
-                                let mut p: ViewCoords<i32> = p.into();
+                                let mut p: LayerCoords<i32> = p.into();
                                 if brush.is_set(BrushMode::Multi) {
                                     p.clamp(Rect::new(
                                         (brush.size / 2) as i32,
@@ -2188,7 +2336,7 @@ impl Session {
                                     brush.draw(p);
                                 }
                             }
-                            _ => {}
+                            _ => self.activate_hover_layer(),
                         },
                         _ => {}
                     },
@@ -2216,15 +2364,13 @@ impl Session {
                         }
                     }
                     Mode::Visual(VisualState::Pasting) => {
+                        self.activate_hover_layer();
                         self.center_selection(cursor);
                     }
                     _ => {}
                 }
             }
         }
-
-        self.cursor = cursor;
-        self.cursor_dirty();
     }
 
     fn handle_paste(&mut self, paste: Option<String>) {
@@ -2233,16 +2379,17 @@ impl Session {
         }
     }
 
-    fn handle_received_character(&mut self, c: char) {
+    fn handle_received_character(&mut self, c: char, mods: ModifiersState) {
         if self.mode == Mode::Command {
-            if c.is_control() {
-                return;
-            }
-            if self.ignore_received_characters {
-                self.ignore_received_characters = false;
+            if c.is_control() || self.ignore_received_characters {
                 return;
             }
             self.cmdline_handle_input(c);
+        } else if let Some(kb) =
+            self.key_bindings
+                .find(Input::Character(c), mods, InputState::Pressed, self.mode)
+        {
+            self.command(kb.command);
         }
     }
 
@@ -2325,7 +2472,10 @@ impl Session {
                 _ => {}
             }
 
-            if let Some(kb) = self.key_bindings.find(key, modifiers, state, self.mode) {
+            if let Some(kb) = self
+                .key_bindings
+                .find(Input::Key(key), modifiers, state, self.mode)
+            {
                 // For toggle-like key bindings, we don't want to run the command
                 // on key repeats. For regular key bindings, we run the command
                 // depending on if it's supposed to repeat.
@@ -2451,7 +2601,7 @@ impl Session {
 
     /// Center the selection to the given session coordinates.
     fn center_selection(&mut self, p: SessionCoords) {
-        let c = self.active_view_coords(p);
+        let c = self.active_layer_coords(p);
         if let Some(ref mut s) = self.selection {
             let r = s.abs().bounds();
             let (w, h) = (r.width(), r.height());
@@ -2685,9 +2835,9 @@ impl Session {
             }
             Command::PaletteSample => {
                 {
-                    let v = self.views.active_id;
+                    let v = self.active_view();
                     let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot(v);
+                    let (_, pixels) = resources.get_snapshot(v.id, v.active_layer_id);
 
                     for pixel in pixels.iter() {
                         if pixel != Rgba8::TRANSPARENT {
@@ -2806,6 +2956,20 @@ impl Session {
                 self.active_view_mut().shrink();
                 self.check_selection();
             }
+            Command::LayerAdd => {
+                let view_id = self.views.active_id;
+                self.add_layer(view_id, None);
+                self.organize_views();
+            }
+            Command::LayerRemove(id) => {
+                if let Some(id) = id {
+                    self.active_view_mut().remove_layer(id);
+                    self.organize_views();
+                } else {
+                    unimplemented!()
+                }
+            }
+            Command::LayerExtend(_id) => unimplemented!(),
             Command::Slice(None) => {
                 let v = self.active_view_mut();
                 v.slice(1);
@@ -2932,24 +3096,24 @@ impl Session {
             }
             Command::Map(map) => {
                 let KeyMapping {
-                    key,
+                    input,
                     press,
                     release,
                     modes,
                 } = *map;
 
                 self.key_bindings.add(KeyBinding {
-                    key,
+                    input,
                     modes: modes.clone(),
                     command: press,
                     state: InputState::Pressed,
                     modifiers: platform::ModifiersState::default(),
                     is_toggle: release.is_some(),
-                    display: Some(format!("{}", key)),
+                    display: Some(format!("{}", input)),
                 });
                 if let Some(cmd) = release {
                     self.key_bindings.add(KeyBinding {
-                        key,
+                        input,
                         modes,
                         command: cmd,
                         state: InputState::Released,
@@ -2978,8 +3142,31 @@ impl Session {
                 self.unimplemented();
             }
             Command::SelectionMove(x, y) => {
+                let extent = self.active_view().extent();
+
                 if let Some(ref mut s) = self.selection {
                     s.translate(x, y);
+
+                    let rect = s.bounds();
+                    let v = self
+                        .views
+                        .active_mut()
+                        .expect("there is always an active view");
+
+                    if y > 0 && rect.max().y > extent.height() as i32 {
+                        if v.activate_next_layer() {
+                            *s = Selection::new(rect.x1, 0, rect.x2, rect.height());
+                        }
+                    } else if y < 0 && rect.min().y < 0 {
+                        if v.activate_prev_layer() {
+                            *s = Selection::new(
+                                rect.x1,
+                                extent.height() as i32 - rect.height(),
+                                rect.x2,
+                                extent.height() as i32,
+                            );
+                        }
+                    }
                 }
             }
             Command::SelectionResize(x, y) => {
@@ -3025,9 +3212,11 @@ impl Session {
                         y = 0;
                     }
                     *s = Selection::from(s.bounds().expand(x, y, x, y));
-                } else if self.hover_view == Some(self.views.active_id) {
-                    let p = self.active_view_coords(self.cursor).map(|n| n as i32);
-                    self.selection = Some(Selection::new(p.x, p.y, p.x + 1, p.y + 1));
+                } else if let Some((id, _)) = self.hover_view {
+                    if id == self.views.active_id {
+                        let p = self.active_view_coords(self.cursor).map(|n| n as i32);
+                        self.selection = Some(Selection::new(p.x, p.y, p.x + 1, p.y + 1));
+                    }
                 }
             }
             Command::SelectionJump(dir) => {
@@ -3070,7 +3259,7 @@ impl Session {
                             Stroke::NONE,
                             Fill::Solid(color.unwrap_or(self.fg).into()),
                         )]));
-                    self.active_view_mut().touch();
+                    self.active_view_mut().touch_layer();
                 }
             }
             Command::SelectionErase => {
@@ -3085,7 +3274,7 @@ impl Session {
                             Fill::Solid(Rgba8::TRANSPARENT.into()),
                         )]),
                     ]);
-                    self.active_view_mut().touch();
+                    self.active_view_mut().touch_layer();
                 }
             }
             Command::PaintColor(rgba, x, y) => {
@@ -3175,9 +3364,10 @@ impl Session {
     }
 
     /// Get the color at the given view coordinate.
-    pub fn color_at(&self, v: ViewId, p: ViewCoords<u32>) -> Option<Rgba8> {
+    pub fn color_at(&self, v: ViewId, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
+        let view = self.view(v);
         let resources = self.resources.lock();
-        let (snapshot, pixels) = resources.get_snapshot(v);
+        let (snapshot, pixels) = resources.get_snapshot(view.id, l);
 
         let y_offset = snapshot
             .height()
@@ -3207,7 +3397,7 @@ mod test {
 
         let kb1 = KeyBinding {
             modes: vec![Mode::Normal],
-            key: platform::Key::A,
+            input: Input::Key(platform::Key::A),
             command: Command::Noop,
             is_toggle: false,
             display: None,
@@ -3236,7 +3426,7 @@ mod test {
 
         assert_eq!(kbs.len(), 2, "bindings can be overwritten");
         assert_eq!(
-            kbs.find(kb2.key, kb2.modifiers, kb2.state, kb2.modes[0]),
+            kbs.find(kb2.input, kb2.modifiers, kb2.state, kb2.modes[0]),
             Some(kb3),
             "bindings can be overwritten"
         );
@@ -3246,7 +3436,7 @@ mod test {
     fn test_key_bindings_modifier() {
         let kb = KeyBinding {
             modes: vec![Mode::Normal],
-            key: platform::Key::Control,
+            input: Input::Key(platform::Key::Control),
             command: Command::Noop,
             is_toggle: false,
             display: None,
@@ -3259,7 +3449,7 @@ mod test {
 
         assert_eq!(
             kbs.find(
-                platform::Key::Control,
+                Input::Key(platform::Key::Control),
                 ModifiersState {
                     ctrl: true,
                     alt: false,
@@ -3274,7 +3464,7 @@ mod test {
 
         assert_eq!(
             kbs.find(
-                platform::Key::Control,
+                Input::Key(platform::Key::Control),
                 ModifiersState::default(),
                 InputState::Pressed,
                 Mode::Normal

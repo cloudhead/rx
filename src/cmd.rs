@@ -3,7 +3,8 @@ use crate::brush::{Brush, BrushMode};
 use crate::history::History;
 use crate::parser::*;
 use crate::platform;
-use crate::session::{Direction, Mode, PanState, Tool, VisualState};
+use crate::session::{Direction, Input, Mode, PanState, Tool, VisualState};
+use crate::view::layer::LayerId;
 
 use memoir::traits::Parse;
 use memoir::*;
@@ -71,6 +72,8 @@ pub enum Command {
     Pan(i32, i32),
     Zoom(Op),
 
+    // TODO: These operate on the active layer. We should have a command
+    // to set the active layer.
     PaintColor(Rgba8, i32, i32),
     PaintForeground(i32, i32),
     PaintBackground(i32, i32),
@@ -111,6 +114,11 @@ pub enum Command {
     ViewCenter,
     ViewNext,
     ViewPrev,
+
+    // Layers
+    LayerAdd,
+    LayerRemove(Option<LayerId>),
+    LayerExtend(Option<LayerId>),
 
     Noop,
 }
@@ -154,7 +162,8 @@ impl fmt::Display for Command {
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
             Self::Map(_) => write!(f, "Map a key combination to a command"),
             Self::MapClear => write!(f, "Clear all key mappings"),
-            Self::Mode(m) => write!(f, "Switch session mode to {}", m),
+            Self::Mode(Mode::Help) => write!(f, "Toggle help"),
+            Self::Mode(m) => write!(f, "Switch to {} mode", m),
             Self::FrameAdd => write!(f, "Add a blank frame to the view"),
             Self::FrameClone(i) => write!(f, "Clone frame {} and add it to the view", i),
             Self::FrameRemove => write!(f, "Remove the last frame of the view"),
@@ -271,7 +280,7 @@ impl From<Command> for String {
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct KeyMapping {
-    pub key: platform::Key,
+    pub input: Input,
     pub press: Command,
     pub release: Option<Command>,
     pub modes: Vec<Mode>,
@@ -305,17 +314,27 @@ impl KeyMapping {
             "<cmd>",
         );
 
-        param::<platform::Key>()
+        let character = between('\'', '\'', character())
+            .map(|c| Input::Character(c))
+            .skip(whitespace())
+            .then(press.clone())
+            .map(|(input, press)| ((input, press), None));
+        let key = param::<platform::Key>()
+            .map(|k| Input::Key(k))
             .skip(whitespace())
             .then(press)
             .skip(optional(whitespace()))
-            .then(optional(between('{', '}', release).label("{<cmd>}")))
-            .map(move |((key, press), release)| KeyMapping {
-                key,
+            .then(optional(between('{', '}', release)));
+
+        character
+            .or(key)
+            .map(move |((input, press), release)| KeyMapping {
+                input,
                 press,
                 release,
                 modes: modes.clone(),
             })
+            .label("<key> <cmd>") // TODO: We should provide the full command somehow.
     }
 }
 
@@ -893,6 +912,9 @@ impl Default for Commands {
                     natural().label("<height>"),
                 ))
                 .map(|(_, (w, h))| Command::FrameResize(w, h))
+            })
+            .command("l/add", "Add a new layer to the active view", |p| {
+                p.value(Command::LayerAdd)
             })
             .command("tool", "Switch tool", |p| {
                 p.then(word().label("pan/brush/sampler/.."))

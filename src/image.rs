@@ -79,45 +79,42 @@ impl TryFrom<&path::Path> for Path {
     }
 }
 
-pub fn decode<R: io::Read>(r: R) -> io::Result<(Vec<u8>, u32, u32)> {
-    let decoder = png::Decoder::new(r);
-    let (info, mut reader) = decoder.read_info()?;
-    let mut img = vec![0; info.buffer_size()];
-    reader.next_frame(&mut img)?;
-
-    Ok((img, info.width, info.height))
-}
-
 pub fn load<P: AsRef<path::Path>>(path: P) -> io::Result<(Vec<u8>, u32, u32)> {
-    let f = File::open(&path)?;
-    let decoder = png::Decoder::new(f);
-
-    let (info, mut reader) = decoder.read_info().map_err(|_e| {
+    let f = File::open(&path).map_err(|e| {
         io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("couldn't decode `{}`", path.as_ref().display()),
+            e.kind(),
+            format!("error opening {}: {}", path.as_ref().display(), e),
         )
     })?;
+
+    self::read(f).map_err(|e| {
+        io::Error::new(
+            e.kind(),
+            format!("error loading {}: {}", path.as_ref().display(), e),
+        )
+    })
+}
+
+pub fn read<R: io::Read>(reader: R) -> io::Result<(Vec<u8>, u32, u32)> {
+    let decoder = png::Decoder::new(reader);
+
+    let (info, mut reader) = decoder
+        .read_info()
+        .map_err(|_e| io::Error::new(io::ErrorKind::InvalidData, "decoding failed"))?;
 
     if info.color_type != png::ColorType::RGBA {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            format!(
-                "couldn't decode `{}`, only 8-bit RGBA images are supported",
-                path.as_ref().display()
-            ),
+            "only 8-bit RGBA images are supported",
         ));
     }
 
     let (width, height) = (info.width as u32, info.height as u32);
 
     let mut buffer: Vec<u8> = vec![0; info.buffer_size()];
-    reader.next_frame(&mut buffer).map_err(|_e| {
-        io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("couldn't decode `{}`", path.as_ref().display()),
-        )
-    })?;
+    reader
+        .next_frame(&mut buffer)
+        .map_err(|_e| io::Error::new(io::ErrorKind::InvalidData, "decoding failed"))?;
 
     Ok((buffer, width, height))
 }
@@ -125,6 +122,11 @@ pub fn load<P: AsRef<path::Path>>(path: P) -> io::Result<(Vec<u8>, u32, u32)> {
 pub fn save<P: AsRef<path::Path>>(path: P, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
     let f = File::create(path.as_ref())?;
     let out = &mut io::BufWriter::new(f);
+
+    self::write(out, w, h, pixels)
+}
+
+pub fn write<W: io::Write>(out: W, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
     let mut encoder = png::Encoder::new(out, w, h);
 
     encoder.set_color(png::ColorType::RGBA);
