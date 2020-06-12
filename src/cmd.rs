@@ -26,8 +26,8 @@ pub enum Op {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Flip {
-	Horizontal,
-	Vertical,
+    Horizontal,
+    Vertical,
 }
 
 /// User command. Most of the interactions available to

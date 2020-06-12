@@ -1,7 +1,7 @@
 ///! Session
 use crate::autocomplete::FileCompleter;
 use crate::brush::*;
-use crate::cmd::{self, Command, CommandLine, KeyMapping, Op, Value, Flip};
+use crate::cmd::{self, Command, CommandLine, Flip, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
@@ -3263,7 +3263,9 @@ impl Session {
                 // 3.     preserve location so you can flip repeatedly w/ hotkey
                 self.command(Command::SelectionErase);
                 self.command(Command::SelectionPaste);
-                self.command(Command::Mode(Mode::Visual(VisualState::Selecting { dragging: false })));
+                self.command(Command::Mode(Mode::Visual(VisualState::Selecting {
+                    dragging: false,
+                })));
             }
             Command::SelectionCut => {
                 // To mimick the behavior of `vi`, we yank the selection

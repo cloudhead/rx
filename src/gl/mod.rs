@@ -1,3 +1,4 @@
+use crate::cmd::Flip;
 use crate::draw;
 use crate::execution::Execution;
 use crate::font::TextBatch;
@@ -10,7 +11,6 @@ use crate::util;
 use crate::view::layer::{FrameRange, LayerId};
 use crate::view::{ViewId, ViewOp, ViewState};
 use crate::{data, data::Assets, image};
-use crate::cmd::Flip;
 
 use nonempty::NonEmpty;
 
@@ -1091,9 +1091,11 @@ impl Renderer {
                             {
                                 front_row.swap_with_slice(back_row);
                             }
-                        },
+                        }
                         Flip::Horizontal => {
-                            pixels.chunks_exact_mut(w as usize).for_each(|row| row.reverse());
+                            pixels
+                                .chunks_exact_mut(w as usize)
+                                .for_each(|row| row.reverse());
                         }
                     }
 

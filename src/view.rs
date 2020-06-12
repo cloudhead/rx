@@ -3,11 +3,11 @@ pub mod path;
 
 pub use path::{Format, Path};
 
+use crate::cmd::Flip;
 use crate::resources::EditId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
 use crate::view::layer::{FrameRange, Layer, LayerId};
-use crate::cmd::Flip;
 
 use rgx::kit::Animation;
 use rgx::kit::Rgba8;
@@ -405,9 +405,9 @@ impl View {
         self.ops.push(ViewOp::Yank(self.active_layer_id, area));
     }
 
-	pub fn flip(&mut self, area: Rect<i32>, dir: Flip) {
-		self.ops.push(ViewOp::Flip(self.active_layer_id, area, dir));
-	}
+    pub fn flip(&mut self, area: Rect<i32>, dir: Flip) {
+        self.ops.push(ViewOp::Flip(self.active_layer_id, area, dir));
+    }
 
     pub fn paste(&mut self, area: Rect<i32>) {
         self.ops.push(ViewOp::Paste(area));
