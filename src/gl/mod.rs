@@ -1,4 +1,4 @@
-use crate::cmd::Flip;
+use crate::cmd::Axis;
 use crate::draw;
 use crate::execution::Execution;
 use crate::font::TextBatch;
@@ -1081,7 +1081,7 @@ impl Renderer {
                     }
 
                     match dir {
-                        Flip::Vertical => {
+                        Axis::Vertical => {
                             let len = pixels.len();
 
                             let (front, back) = pixels.split_at_mut(len / 2);
@@ -1092,7 +1092,7 @@ impl Renderer {
                                 front_row.swap_with_slice(back_row);
                             }
                         }
-                        Flip::Horizontal => {
+                        Axis::Horizontal => {
                             pixels
                                 .chunks_exact_mut(w as usize)
                                 .for_each(|row| row.reverse());

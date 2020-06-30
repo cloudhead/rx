@@ -1,7 +1,7 @@
 ///! Session
 use crate::autocomplete::FileCompleter;
 use crate::brush::*;
-use crate::cmd::{self, Command, CommandLine, Flip, KeyMapping, Op, Value};
+use crate::cmd::{self, Command, CommandLine, KeyMapping, Op, Value};
 use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
@@ -2016,27 +2016,6 @@ impl Session {
         None
     }
 
-    /// Flip the selection.
-    fn flip_selection(&mut self, dir: Flip) -> Option<Rect<i32>> {
-        if let (Mode::Visual(VisualState::Selecting { .. }), Some(s)) = (self.mode, self.selection)
-        {
-            let v = self.active_view_mut();
-            let s = s.abs().bounds();
-
-            if s.intersects(v.bounds()) {
-                let s = s.intersection(v.bounds());
-
-                v.flip(s, dir);
-
-                self.selection = Some(Selection::from(s));
-                self.switch_mode(Mode::Visual(VisualState::Pasting));
-
-                return Some(s);
-            }
-        }
-        None
-    }
-
     fn undo(&mut self, id: ViewId) {
         self.restore_view_snapshot(id, Direction::Backward);
     }
@@ -3257,15 +3236,29 @@ impl Session {
                 self.yank_selection();
             }
             Command::SelectionFlip(dir) => {
-                self.flip_selection(dir);
-                // I think its handy to flip in place for now, hence these commands
-                // 1., 2. prevent overlap and paste
-                // 3.     preserve location so you can flip repeatedly w/ hotkey
-                self.command(Command::SelectionErase);
-                self.command(Command::SelectionPaste);
-                self.command(Command::Mode(Mode::Visual(VisualState::Selecting {
-                    dragging: false,
-                })));
+                if let (Mode::Visual(VisualState::Selecting { .. }), Some(s)) =
+                    (self.mode, self.selection)
+                {
+                    let v = self.active_view_mut();
+                    let s = s.abs().bounds();
+
+                    if s.intersects(v.bounds()) {
+                        let s = s.intersection(v.bounds());
+
+                        v.flip(s, dir);
+
+                        self.selection = Some(Selection::from(s));
+                        self.switch_mode(Mode::Visual(VisualState::Pasting));
+                    }
+                    // I think its handy to flip in place for now, hence these commands
+                    // 1., 2. prevent overlap and paste
+                    // 3.     preserve location so you can flip repeatedly w/ hotkey
+                    self.command(Command::SelectionErase);
+                    self.command(Command::SelectionPaste);
+                    self.command(Command::Mode(Mode::Visual(VisualState::Selecting {
+                        dragging: false,
+                    })));
+                }
             }
             Command::SelectionCut => {
                 // To mimick the behavior of `vi`, we yank the selection
