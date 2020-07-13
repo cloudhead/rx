@@ -4,7 +4,6 @@ use rgx::kit::Rgba8;
 use arrayvec::ArrayVec;
 
 pub struct Palette {
-    // TODO: Make this an `ArrayVec<[Rgba8; 256]>`.
     pub colors: ArrayVec<[Rgba8; 256]>,
     pub hover: Option<Rgba8>,
     pub cellsize: f32,
