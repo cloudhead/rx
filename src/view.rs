@@ -3,6 +3,7 @@ pub mod path;
 
 pub use path::{Format, Path};
 
+use crate::cmd::Axis;
 use crate::resources::EditId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
@@ -160,6 +161,8 @@ pub enum ViewOp {
     Clear(Rgba8),
     /// Yank the given area into the paste buffer.
     Yank(LayerId, Rect<i32>),
+    /// Flips a given area horizontally or vertically.
+    Flip(LayerId, Rect<i32>, Axis),
     /// Blit the paste buffer into the given area.
     Paste(Rect<i32>),
     /// Resize the view.
@@ -400,6 +403,10 @@ impl View {
 
     pub fn yank(&mut self, area: Rect<i32>) {
         self.ops.push(ViewOp::Yank(self.active_layer_id, area));
+    }
+
+    pub fn flip(&mut self, area: Rect<i32>, dir: Axis) {
+        self.ops.push(ViewOp::Flip(self.active_layer_id, area, dir));
     }
 
     pub fn paste(&mut self, area: Rect<i32>) {

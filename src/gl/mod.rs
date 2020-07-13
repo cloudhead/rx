@@ -1,3 +1,4 @@
+use crate::cmd::Axis;
 use crate::draw;
 use crate::execution::Execution;
 use crate::font::TextBatch;
@@ -1061,6 +1062,43 @@ impl Renderer {
                             Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
                                 .map_err(Error::Texture)?;
                     }
+                    let body = util::align_u8(&pixels);
+
+                    self.paste
+                        .upload_raw(GenMipmaps::No, body)
+                        .map_err(Error::Texture)?;
+                }
+                ViewOp::Flip(layer_id, src, dir) => {
+                    let resources = self.resources.lock();
+                    let (_, mut pixels) = resources.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
+                    let (w, h) = (src.width() as u32, src.height() as u32);
+                    let [paste_w, paste_h] = self.paste.size();
+
+                    if paste_w != w || paste_h != h {
+                        self.paste =
+                            Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
+                                .map_err(Error::Texture)?;
+                    }
+
+                    match dir {
+                        Axis::Vertical => {
+                            let len = pixels.len();
+
+                            let (front, back) = pixels.split_at_mut(len / 2);
+                            for (front_row, back_row) in front
+                                .chunks_exact_mut(w as usize)
+                                .zip(back.rchunks_exact_mut(w as usize))
+                            {
+                                front_row.swap_with_slice(back_row);
+                            }
+                        }
+                        Axis::Horizontal => {
+                            pixels
+                                .chunks_exact_mut(w as usize)
+                                .for_each(|row| row.reverse());
+                        }
+                    }
+
                     let body = util::align_u8(&pixels);
 
                     self.paste

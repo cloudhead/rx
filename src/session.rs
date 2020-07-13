@@ -3235,6 +3235,28 @@ impl Session {
             Command::SelectionYank => {
                 self.yank_selection();
             }
+            Command::SelectionFlip(dir) => {
+                if let (Mode::Visual(VisualState::Selecting { .. }), Some(s)) =
+                    (self.mode, self.selection)
+                {
+                    let v = self.active_view_mut();
+                    let s = s.abs().bounds();
+
+                    if s.intersects(v.bounds()) {
+                        let s = s.intersection(v.bounds());
+
+                        v.flip(s, dir);
+
+                        self.selection = Some(Selection::from(s));
+                        self.switch_mode(Mode::Visual(VisualState::Pasting));
+                    }
+                    self.command(Command::SelectionErase);
+                    self.command(Command::SelectionPaste);
+                    self.command(Command::Mode(Mode::Visual(VisualState::Selecting {
+                        dragging: false,
+                    })));
+                }
+            }
             Command::SelectionCut => {
                 // To mimick the behavior of `vi`, we yank the selection
                 // before deleting it.
