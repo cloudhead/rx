@@ -16,7 +16,7 @@ use rgx::rect::Rect;
 
 use nonempty::NonEmpty;
 
-use serde_derive::{Deserialize, Serialize};
+use miniserde::{Deserialize, Serialize};
 
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
@@ -213,7 +213,7 @@ impl View {
     /// Create a new view. Takes a frame width and height.
     pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32, nframes: usize, delay: u64) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
-            Some(EditId::default())
+            Some(Default::default())
         } else {
             None
         };
@@ -236,7 +236,7 @@ impl View {
             animation: Animation::new(&frames, time::Duration::from_millis(delay)),
             state: ViewState::Okay,
             layers: NonEmpty::new(Layer::default()),
-            active_layer_id: LayerId::default(),
+            active_layer_id: Default::default(),
             saved_snapshot,
         }
     }

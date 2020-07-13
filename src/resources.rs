@@ -9,7 +9,7 @@ use rgx::rect::Rect;
 
 use gif::{self, SetParameter};
 
-use serde_derive::{Deserialize, Serialize};
+use miniserde::{json, Deserialize, Serialize};
 
 use std::cell::{Ref, RefCell, RefMut};
 use std::collections::BTreeMap;
@@ -267,9 +267,9 @@ impl ResourceManager {
             let mut buf = String::new();
 
             archive
-                .by_name(&root.join("manifest.toml").to_string_lossy())?
+                .by_name(&root.join("manifest.json").to_string_lossy())?
                 .read_to_string(&mut buf)?;
-            toml::from_str(&buf)?
+            json::from_str(&buf).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err))?
         };
 
         let mut layers = Vec::new();
@@ -349,11 +349,10 @@ impl ResourceManager {
             .file_stem()
             .expect("the file must have a stem");
 
-        let manifest = toml::to_string(&Manifest { extent })
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let manifest = json::to_string(&Manifest { extent });
 
         zip.start_file_from_path(
-            &Path::new(name).join("manifest.toml"),
+            &Path::new(name).join("manifest.json"),
             FileOptions::default()
                 .compression_method(zip::CompressionMethod::Stored)
                 .unix_permissions(0o644),
@@ -546,7 +545,7 @@ impl ViewResources {
 
         Self {
             layers: BTreeMap::from_iter(
-                vec![(LayerId::default(), LayerResources::new(pixels, extent))].drain(..),
+                vec![(Default::default(), LayerResources::new(pixels, extent))].drain(..),
             ),
             history: NonEmpty::new(Edit::Initial),
             cursor: 0,
