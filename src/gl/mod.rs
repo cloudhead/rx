@@ -29,7 +29,7 @@ use luminance::render_state::RenderState;
 use luminance::shader::program::{Program, Uniform};
 use luminance::state::GraphicsState;
 use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, Flat, GenMipmaps, MagFilter, MinFilter, Sampler, Texture, Wrap};
+use luminance::texture::{Dim2, GenMipmaps, MagFilter, MinFilter, Sampler, Texture, Wrap};
 
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 
@@ -53,7 +53,7 @@ const SAMPLER: Sampler = Sampler {
 
 #[derive(UniformInterface)]
 struct Sprite2dInterface {
-    tex: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
+    tex: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
     ortho: Uniform<linear::M44>,
     transform: Uniform<linear::M44>,
 }
@@ -106,8 +106,8 @@ struct Shape2dVertex {
 
 #[derive(UniformInterface)]
 struct Cursor2dInterface {
-    cursor: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
-    framebuffer: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
+    cursor: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
+    framebuffer: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
     ortho: Uniform<linear::M44>,
     scale: Uniform<f32>,
 }
@@ -122,7 +122,7 @@ struct Cursor2dVertex {
 
 #[derive(UniformInterface)]
 struct Screen2dInterface {
-    framebuffer: Uniform<&'static BoundTexture<'static, Flat, Dim2, pixel::NormUnsigned>>,
+    framebuffer: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
 }
 
 pub struct Renderer {
@@ -134,8 +134,8 @@ pub struct Renderer {
     scale: f64,
     _present_mode: PresentMode,
     resources: ResourceManager,
-    present_fb: Framebuffer<Flat, Dim2, (), ()>,
-    screen_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+    present_fb: Framebuffer<Dim2, (), ()>,
+    screen_fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     render_st: RenderState,
     pipeline_st: PipelineState,
     blending: Blending,
@@ -143,10 +143,10 @@ pub struct Renderer {
     staging_batch: shape2d::Batch,
     final_batch: shape2d::Batch,
 
-    font: Texture<Flat, Dim2, pixel::SRGBA8UI>,
-    cursors: Texture<Flat, Dim2, pixel::SRGBA8UI>,
-    checker: Texture<Flat, Dim2, pixel::SRGBA8UI>,
-    paste: Texture<Flat, Dim2, pixel::SRGBA8UI>,
+    font: Texture<Dim2, pixel::SRGBA8UI>,
+    cursors: Texture<Dim2, pixel::SRGBA8UI>,
+    checker: Texture<Dim2, pixel::SRGBA8UI>,
+    paste: Texture<Dim2, pixel::SRGBA8UI>,
     paste_outputs: Vec<Tess>,
 
     sprite2d: Program<VertexSemantics, (), Sprite2dInterface>,
@@ -158,7 +158,7 @@ pub struct Renderer {
 }
 
 struct LayerData {
-    fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+    fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     tess: Tess,
 }
 
@@ -186,7 +186,7 @@ impl LayerData {
             .build()
             .unwrap();
 
-        let fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
+        let fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
             Framebuffer::new(ctx, [w, h], 0, self::SAMPLER).unwrap();
 
         fb.color_slot().clear(GenMipmaps::No, (0, 0, 0, 0)).unwrap();
@@ -233,7 +233,7 @@ impl LayerData {
 
 struct ViewData {
     layers: NonEmpty<LayerData>,
-    staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+    staging_fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     anim_tess: Option<Tess>,
     layer_tess: Option<Tess>,
     w: u32,
@@ -242,7 +242,7 @@ struct ViewData {
 
 impl ViewData {
     fn new(w: u32, h: u32, pixels: Option<&[Rgba8]>, ctx: &mut Context) -> Self {
-        let staging_fb: Framebuffer<Flat, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
+        let staging_fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
             Framebuffer::new(ctx, [w, h], 0, self::SAMPLER).unwrap();
 
         staging_fb
