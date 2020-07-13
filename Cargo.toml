@@ -15,7 +15,7 @@ wgpu = ["glfw", "rgx/renderer"]
 [dependencies]
 pico-args = "0.3.0"
 simple_logger = { version = "1.4.0", default-features = false }
-png = { version = "0.15.0" }
+png = { version = "0.16.6" }
 gif = "0.10.3"
 glfw = { version = "0.36.0", optional = true }
 raw-window-handle = { version = "0.3.3", optional = true }
