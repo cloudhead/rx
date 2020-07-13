@@ -3250,9 +3250,6 @@ impl Session {
                         self.selection = Some(Selection::from(s));
                         self.switch_mode(Mode::Visual(VisualState::Pasting));
                     }
-                    // I think its handy to flip in place for now, hence these commands
-                    // 1., 2. prevent overlap and paste
-                    // 3.     preserve location so you can flip repeatedly w/ hotkey
                     self.command(Command::SelectionErase);
                     self.command(Command::SelectionPaste);
                     self.command(Command::Mode(Mode::Visual(VisualState::Selecting {
