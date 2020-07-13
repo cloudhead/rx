@@ -23,6 +23,8 @@ use rgx::kit::{Rgba8, ZDepth};
 use rgx::math::*;
 use rgx::rect::Rect;
 
+use arrayvec::ArrayVec;
+
 use directories as dirs;
 use nonempty::NonEmpty;
 
@@ -1940,7 +1942,7 @@ impl Session {
         Ok(())
     }
 
-    fn colors(&self) -> Vec<Rgba8> {
+    fn colors(&self) -> ArrayVec<[Rgba8; 256]> {
         let mut palette = self.palette.colors.clone();
 
         palette.push(self.fg);
