@@ -3247,13 +3247,17 @@ impl Session {
                     if s.intersects(v.bounds()) {
                         let s = s.intersection(v.bounds());
 
+                        // The flip operation works by copying the flipped image into
+                        // the paste buffer, and pasting.
                         v.flip(s, dir);
+                        v.paste(s);
 
                         self.selection = Some(Selection::from(s));
                         self.switch_mode(Mode::Visual(VisualState::Pasting));
                     }
+                    // Note that the effects generated here will be processed *before* the
+                    // view operations.
                     self.command(Command::SelectionErase);
-                    self.command(Command::SelectionPaste);
                     self.command(Command::Mode(Mode::Visual(VisualState::Selecting {
                         dragging: false,
                     })));
