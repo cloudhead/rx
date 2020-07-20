@@ -18,20 +18,19 @@ use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
 
-use luminance::blending::{Equation, Factor};
+use luminance::blending::{self, Equation, Factor};
 use luminance::context::GraphicsContext;
 use luminance::depth_test::DepthComparison;
 use luminance::framebuffer::Framebuffer;
-use luminance::linear;
-use luminance::pipeline::{BoundTexture, Builder, PipelineState};
+use luminance::pipeline::{PipelineState, TextureBinding};
 use luminance::pixel;
 use luminance::render_state::RenderState;
-use luminance::shader::program::{Program, Uniform};
-use luminance::state::GraphicsState;
+use luminance::shader::{Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
 use luminance::texture::{Dim2, GenMipmaps, MagFilter, MinFilter, Sampler, Texture, Wrap};
 
 use luminance_derive::{Semantics, UniformInterface, Vertex};
+use luminance_gl::gl33;
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -41,6 +40,9 @@ use std::io;
 use std::mem;
 use std::rc::Rc;
 use std::time;
+
+type Backend = gl33::GL33;
+type M44 = [[f32; 4]; 4];
 
 const SAMPLER: Sampler = Sampler {
     wrap_r: Wrap::Repeat,
@@ -53,9 +55,9 @@ const SAMPLER: Sampler = Sampler {
 
 #[derive(UniformInterface)]
 struct Sprite2dInterface {
-    tex: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
-    ortho: Uniform<linear::M44>,
-    transform: Uniform<linear::M44>,
+    tex: Uniform<TextureBinding<Dim2, pixel::NormUnsigned>>,
+    ortho: Uniform<M44>,
+    transform: Uniform<M44>,
 }
 
 #[derive(Copy, Clone, Debug, Semantics)]
@@ -74,7 +76,8 @@ pub enum VertexSemantics {
     Center,
 }
 
-#[derive(Vertex)]
+#[repr(C)]
+#[derive(Copy, Clone, Vertex)]
 #[vertex(sem = "VertexSemantics")]
 #[rustfmt::skip]
 struct Sprite2dVertex {
@@ -89,11 +92,12 @@ struct Sprite2dVertex {
 
 #[derive(UniformInterface)]
 struct Shape2dInterface {
-    ortho: Uniform<linear::M44>,
-    transform: Uniform<linear::M44>,
+    ortho: Uniform<M44>,
+    transform: Uniform<M44>,
 }
 
-#[derive(Vertex)]
+#[repr(C)]
+#[derive(Copy, Clone, Vertex)]
 #[vertex(sem = "VertexSemantics")]
 #[rustfmt::skip]
 struct Shape2dVertex {
@@ -106,13 +110,13 @@ struct Shape2dVertex {
 
 #[derive(UniformInterface)]
 struct Cursor2dInterface {
-    cursor: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
-    framebuffer: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
-    ortho: Uniform<linear::M44>,
+    cursor: Uniform<TextureBinding<Dim2, pixel::NormUnsigned>>,
+    framebuffer: Uniform<TextureBinding<Dim2, pixel::NormUnsigned>>,
+    ortho: Uniform<M44>,
     scale: Uniform<f32>,
 }
 
-#[derive(Vertex)]
+#[derive(Copy, Clone, Vertex)]
 #[vertex(sem = "VertexSemantics")]
 #[rustfmt::skip]
 struct Cursor2dVertex {
@@ -122,7 +126,7 @@ struct Cursor2dVertex {
 
 #[derive(UniformInterface)]
 struct Screen2dInterface {
-    framebuffer: Uniform<&'static BoundTexture<'static, Dim2, pixel::NormUnsigned>>,
+    framebuffer: Uniform<TextureBinding<Dim2, pixel::NormUnsigned>>,
 }
 
 pub struct Renderer {
@@ -134,8 +138,8 @@ pub struct Renderer {
     scale: f64,
     _present_mode: PresentMode,
     resources: ResourceManager,
-    present_fb: Framebuffer<Dim2, (), ()>,
-    screen_fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+    present_fb: Framebuffer<Backend, Dim2, (), ()>,
+    screen_fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     render_st: RenderState,
     pipeline_st: PipelineState,
     blending: Blending,
@@ -143,23 +147,23 @@ pub struct Renderer {
     staging_batch: shape2d::Batch,
     final_batch: shape2d::Batch,
 
-    font: Texture<Dim2, pixel::SRGBA8UI>,
-    cursors: Texture<Dim2, pixel::SRGBA8UI>,
-    checker: Texture<Dim2, pixel::SRGBA8UI>,
-    paste: Texture<Dim2, pixel::SRGBA8UI>,
-    paste_outputs: Vec<Tess>,
+    font: Texture<Backend, Dim2, pixel::SRGBA8UI>,
+    cursors: Texture<Backend, Dim2, pixel::SRGBA8UI>,
+    checker: Texture<Backend, Dim2, pixel::SRGBA8UI>,
+    paste: Texture<Backend, Dim2, pixel::SRGBA8UI>,
+    paste_outputs: Vec<Tess<Backend, Sprite2dVertex>>,
 
-    sprite2d: Program<VertexSemantics, (), Sprite2dInterface>,
-    shape2d: Program<VertexSemantics, (), Shape2dInterface>,
-    cursor2d: Program<VertexSemantics, (), Cursor2dInterface>,
-    screen2d: Program<VertexSemantics, (), Screen2dInterface>,
+    sprite2d: Program<Backend, VertexSemantics, (), Sprite2dInterface>,
+    shape2d: Program<Backend, VertexSemantics, (), Shape2dInterface>,
+    cursor2d: Program<Backend, VertexSemantics, (), Cursor2dInterface>,
+    screen2d: Program<Backend, VertexSemantics, (), Screen2dInterface>,
 
     view_data: BTreeMap<ViewId, ViewData>,
 }
 
 struct LayerData {
-    fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
-    tess: Tess,
+    fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+    tess: Tess<Backend, Sprite2dVertex>,
 }
 
 impl LayerData {
@@ -181,12 +185,12 @@ impl LayerData {
             .map(|v| unsafe { mem::transmute(*v) })
             .collect();
         let tess = TessBuilder::new(ctx)
-            .add_vertices(verts)
+            .set_vertices(verts)
             .set_mode(Mode::Triangle)
             .build()
             .unwrap();
 
-        let fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
+        let mut fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
             Framebuffer::new(ctx, [w, h], 0, self::SAMPLER).unwrap();
 
         fb.color_slot().clear(GenMipmaps::No, (0, 0, 0, 0)).unwrap();
@@ -199,7 +203,7 @@ impl LayerData {
         Self { fb, tess }
     }
 
-    fn clear(&self) -> Result<(), RendererError> {
+    fn clear(&mut self) -> Result<(), RendererError> {
         self.fb
             .color_slot()
             .clear(GenMipmaps::No, (0, 0, 0, 0))
@@ -207,7 +211,7 @@ impl LayerData {
     }
 
     fn upload_part(
-        &self,
+        &mut self,
         offset: [u32; 2],
         size: [u32; 2],
         texels: &[u8],
@@ -218,31 +222,35 @@ impl LayerData {
             .map_err(RendererError::Texture)
     }
 
-    fn upload(&self, texels: &[u8]) -> Result<(), RendererError> {
+    fn upload(&mut self, texels: &[u8]) -> Result<(), RendererError> {
         self.fb
             .color_slot()
             .upload_raw(GenMipmaps::No, texels)
             .map_err(RendererError::Texture)
     }
 
-    fn pixels(&self) -> Pixels {
-        let texels = self.fb.color_slot().get_raw_texels();
+    fn pixels(&mut self) -> Pixels {
+        let texels = self
+            .fb
+            .color_slot()
+            .get_raw_texels()
+            .unwrap_or_else(|_| todo!());
         Pixels::from_rgba8(Rgba8::align(&texels).into())
     }
 }
 
 struct ViewData {
     layers: NonEmpty<LayerData>,
-    staging_fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
-    anim_tess: Option<Tess>,
-    layer_tess: Option<Tess>,
+    staging_fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
+    anim_tess: Option<Tess<Backend, Sprite2dVertex>>,
+    layer_tess: Option<Tess<Backend, Sprite2dVertex>>,
     w: u32,
     h: u32,
 }
 
 impl ViewData {
     fn new(w: u32, h: u32, pixels: Option<&[Rgba8]>, ctx: &mut Context) -> Self {
-        let staging_fb: Framebuffer<Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
+        let mut staging_fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F> =
             Framebuffer::new(ctx, [w, h], 0, self::SAMPLER).unwrap();
 
         staging_fb
@@ -260,13 +268,22 @@ impl ViewData {
         }
     }
 
-    fn layer_pixels(&self) -> impl Iterator<Item = (LayerId, Pixels)> + '_ {
-        self.layers.iter().enumerate().map(|(i, l)| (i, l.pixels()))
+    fn layer_pixels(&mut self) -> impl Iterator<Item = (LayerId, Pixels)> + '_ {
+        self.layers
+            .iter_mut()
+            .enumerate()
+            .map(|(i, l)| (i, l.pixels()))
     }
 
     fn get_layer(&self, index: usize) -> &LayerData {
         self.layers
             .get(index)
+            .unwrap_or_else(|| panic!("layer #{} must exist", index))
+    }
+
+    fn get_layer_mut(&mut self, index: usize) -> &mut LayerData {
+        self.layers
+            .get_mut(index)
             .unwrap_or_else(|| panic!("layer #{} must exist", index))
     }
 
@@ -284,16 +301,26 @@ impl ViewData {
 }
 
 struct Context {
-    gs: Rc<RefCell<GraphicsState>>,
+    ctx: Backend,
 }
 
 unsafe impl GraphicsContext for Context {
-    fn state(&self) -> &Rc<RefCell<GraphicsState>> {
-        &self.gs
-    }
+    type Backend = self::Backend;
 
-    fn pipeline_builder(&mut self) -> Builder<Context> {
-        Builder::new(self)
+    fn backend(&mut self) -> &mut Self::Backend {
+        &mut self.ctx
+    }
+}
+
+impl Context {
+    fn program<T>(&mut self, vert: &str, frag: &str) -> Program<Backend, VertexSemantics, (), T>
+    where
+        T: luminance::shader::UniformInterface<Backend>,
+    {
+        self.new_shader_program()
+            .from_strings(vert, None, None, frag)
+            .unwrap()
+            .ignore_warnings()
     }
 }
 
@@ -302,7 +329,7 @@ enum RendererError {
     Initialization,
     Texture(luminance::texture::TextureError),
     Framebuffer(luminance::framebuffer::FramebufferError),
-    State(luminance::state::StateQueryError),
+    State(luminance_gl::gl33::StateQueryError),
 }
 
 impl From<RendererError> for io::Error {
@@ -345,23 +372,21 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         gl::load_with(|s| win.get_proc_address(s) as *const _);
 
-        let gs = GraphicsState::new().map_err(Error::State)?;
-        let mut ctx = Context {
-            gs: Rc::new(RefCell::new(gs)),
-        };
+        let ctx = Backend::new().map_err(Error::State)?;
+        let mut ctx = Context { ctx };
 
         let (font_img, font_w, font_h) = image::read(assets.glyphs)?;
         let (cursors_img, cursors_w, cursors_h) = image::read(data::CURSORS)?;
         let (checker_w, checker_h) = (2, 2);
         let (paste_w, paste_h) = (8, 8);
 
-        let font =
+        let mut font =
             Texture::new(&mut ctx, [font_w, font_h], 0, self::SAMPLER).map_err(Error::Texture)?;
-        let cursors = Texture::new(&mut ctx, [cursors_w, cursors_h], 0, self::SAMPLER)
+        let mut cursors = Texture::new(&mut ctx, [cursors_w, cursors_h], 0, self::SAMPLER)
             .map_err(Error::Texture)?;
         let paste =
             Texture::new(&mut ctx, [paste_w, paste_h], 0, self::SAMPLER).map_err(Error::Texture)?;
-        let checker = Texture::new(&mut ctx, [checker_w, checker_h], 0, self::SAMPLER)
+        let mut checker = Texture::new(&mut ctx, [checker_w, checker_h], 0, self::SAMPLER)
             .map_err(Error::Texture)?;
 
         font.upload_raw(GenMipmaps::No, &font_img)
@@ -373,26 +398,27 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             .upload_raw(GenMipmaps::No, &draw::CHECKER)
             .map_err(Error::Texture)?;
 
-        let sprite2d = self::program::<Sprite2dInterface>(
+        let sprite2d = ctx.program::<Sprite2dInterface>(
             include_str!("data/sprite.vert"),
             include_str!("data/sprite.frag"),
         );
-        let shape2d = self::program::<Shape2dInterface>(
+        let shape2d = ctx.program::<Shape2dInterface>(
             include_str!("data/shape.vert"),
             include_str!("data/shape.frag"),
         );
-        let cursor2d = self::program::<Cursor2dInterface>(
+        let cursor2d = ctx.program::<Cursor2dInterface>(
             include_str!("data/cursor.vert"),
             include_str!("data/cursor.frag"),
         );
-        let screen2d = self::program::<Screen2dInterface>(
+        let screen2d = ctx.program::<Screen2dInterface>(
             include_str!("data/screen.vert"),
             include_str!("data/screen.frag"),
         );
 
         let physical = win_size.to_physical(scale_factor);
         let present_fb =
-            Framebuffer::back_buffer(&mut ctx, [physical.width as u32, physical.height as u32]);
+            Framebuffer::back_buffer(&mut ctx, [physical.width as u32, physical.height as u32])
+                .map_err(Error::Framebuffer)?;
         let screen_fb = Framebuffer::new(
             &mut ctx,
             [win_size.width as u32, win_size.height as u32],
@@ -402,11 +428,11 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         .map_err(Error::Framebuffer)?;
 
         let render_st = RenderState::default()
-            .set_blending((
-                Equation::Additive,
-                Factor::SrcAlpha,
-                Factor::SrcAlphaComplement,
-            ))
+            .set_blending(blending::Blending {
+                equation: Equation::Additive,
+                src: Factor::SrcAlpha,
+                dst: Factor::SrcAlphaComplement,
+            })
             .set_depth_test(Some(DepthComparison::LessOrEqual));
         let pipeline_st = PipelineState::default()
             .set_clear_color([0., 0., 0., 0.])
@@ -473,15 +499,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         self.update_view_animations(session);
         self.update_view_composites(session);
 
-        let ortho: linear::M44 = unsafe {
-            mem::transmute(kit::ortho(
-                self.screen_fb.width(),
-                self.screen_fb.height(),
-                Origin::TopLeft,
-            ))
-        };
-        let identity: Matrix4<f32> = Matrix4::identity();
-        let identity: linear::M44 = unsafe { mem::transmute(identity) };
+        let [screen_w, screen_h] = self.screen_fb.size();
+        let ortho: M44 = kit::ortho(screen_w, screen_h, Origin::TopLeft).into();
+        let identity: M44 = Matrix4::identity().into();
 
         let Self {
             draw_ctx,
@@ -525,7 +545,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             &mut self.ctx,
             &draw_ctx.checker_batch.vertices(),
         );
-        let screen_tess = TessBuilder::new(&mut self.ctx)
+        let screen_tess = TessBuilder::<Backend, ()>::new(&mut self.ctx)
             .set_vertex_nb(6)
             .set_mode(Mode::Triangle)
             .build()
@@ -574,21 +594,20 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         let l = v.active_layer_id;
         let v_data = view_data.get(&v.id).unwrap();
         let l_data = v_data.get_layer(l);
-        let view_ortho: linear::M44 =
-            unsafe { mem::transmute(kit::ortho(v.width(), v.height(), Origin::TopLeft)) };
+        let view_ortho = kit::ortho(v.width(), v.height(), Origin::TopLeft);
 
-        let mut builder = self.ctx.pipeline_builder();
+        let mut builder = self.ctx.new_pipeline_gate();
 
         // Render to view staging buffer.
-        builder.pipeline(
+        let result = builder.pipeline(
             &v_data.staging_fb,
             &pipeline_st,
             |pipeline, mut shd_gate| {
                 // Render staged brush strokes.
                 if let Some(tess) = staging_tess {
-                    shd_gate.shade(&shape2d, |iface, mut rdr_gate| {
-                        iface.ortho.update(view_ortho);
-                        iface.transform.update(identity);
+                    shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
+                        iface.set(&uni.ortho, view_ortho.into());
+                        iface.set(&uni.transform, identity.into());
 
                         rdr_gate.render(render_st, |mut tess_gate| {
                             tess_gate.render(&tess);
@@ -597,11 +616,11 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 }
                 // Render staging paste buffer.
                 if let Some(tess) = paste_tess {
-                    let bound_paste = pipeline.bind_texture(paste);
-                    shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                        iface.ortho.update(view_ortho);
-                        iface.transform.update(identity);
-                        iface.tex.update(&bound_paste);
+                    let bound_paste = pipeline.bind_texture(paste).unwrap_or_else(|_| todo!());
+                    shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                        iface.set(&uni.ortho, view_ortho.into());
+                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.tex, bound_paste.binding());
 
                         rdr_gate.render(render_st, |mut tess_gate| {
                             tess_gate.render(&tess);
@@ -610,26 +629,27 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 }
             },
         );
+        result.unwrap_or_else(|_| todo!());
 
         // Render to view final buffer.
-        builder.pipeline(
+        let result = builder.pipeline(
             &l_data.fb,
             &pipeline_st.clone().enable_clear_color(false),
             |pipeline, mut shd_gate| {
-                let bound_paste = pipeline.bind_texture(paste);
+                let bound_paste = pipeline.bind_texture(paste).unwrap_or_else(|_| todo!());
 
                 // Render final brush strokes.
                 if let Some(tess) = final_tess {
-                    shd_gate.shade(&shape2d, |iface, mut rdr_gate| {
-                        iface.ortho.update(view_ortho);
-                        iface.transform.update(identity);
+                    shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
+                        iface.set(&uni.ortho, view_ortho.into());
+                        iface.set(&uni.transform, identity.into());
 
                         let render_st = if blending == &Blending::Constant {
-                            render_st.clone().set_blending((
-                                Equation::Additive,
-                                Factor::One,
-                                Factor::Zero,
-                            ))
+                            render_st.clone().set_blending(blending::Blending {
+                                equation: Equation::Additive,
+                                src: Factor::One,
+                                dst: Factor::Zero,
+                            })
                         } else {
                             render_st.clone()
                         };
@@ -640,10 +660,10 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     });
                 }
                 if !paste_outputs.is_empty() {
-                    shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                        iface.ortho.update(view_ortho);
-                        iface.transform.update(identity);
-                        iface.tex.update(&bound_paste);
+                    shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                        iface.set(&uni.ortho, view_ortho.into());
+                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.tex, bound_paste.binding());
 
                         for out in paste_outputs.drain(..) {
                             rdr_gate.render(render_st, |mut tess_gate| {
@@ -654,33 +674,35 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 }
             },
         );
+        result.unwrap_or_else(|_| todo!());
 
         // Render to screen framebuffer.
         let bg = Rgba::from(session.settings["background"].to_rgba8());
         let screen_st = &pipeline_st
             .clone()
             .set_clear_color([bg.r, bg.g, bg.b, bg.a]);
-        builder.pipeline(screen_fb, &screen_st, |pipeline, mut shd_gate| {
+        let result = builder.pipeline(screen_fb, &screen_st, |pipeline, mut shd_gate| {
             // Draw view checkers to screen framebuffer.
             if session.settings["checker"].is_set() {
-                shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                    let bound_checker = pipeline.bind_texture(checker);
+                shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                    let bound_checker = pipeline.bind_texture(checker).unwrap_or_else(|_| todo!());
 
-                    iface.ortho.update(ortho);
-                    iface.transform.update(identity);
-                    iface.tex.update(&bound_checker);
+                    iface.set(&uni.ortho, ortho.into());
+                    iface.set(&uni.transform, identity.into());
+                    iface.set(&uni.tex, bound_checker.binding());
+
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&checker_tess);
                     });
                 });
             }
 
-            for (id, v) in view_data.iter() {
+            for (id, v) in view_data.iter_mut() {
                 if let Some(view) = session.views.get(*id) {
-                    for (layer_id, _) in view.layers.iter().enumerate() {
-                        let l = v.get_layer(layer_id);
+                    let staging_texture = v.staging_fb.color_slot();
+
+                    for (layer_id, l) in v.layers.iter_mut().enumerate() {
                         let layer_offset = view.layer_offset(layer_id, view.zoom);
-                        let bound_view = pipeline.bind_texture(l.fb.color_slot());
                         let transform = Matrix4::from_translation(
                             (session.offset + view.offset + layer_offset).extend(*draw::VIEW_LAYER),
                         ) * Matrix4::from_nonuniform_scale(
@@ -688,10 +710,14 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         );
 
                         // Render views.
-                        shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                            iface.tex.update(&bound_view);
-                            iface.ortho.update(ortho);
-                            iface.transform.update(unsafe { mem::transmute(transform) });
+                        shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                            let bound_view = pipeline
+                                .bind_texture(l.fb.color_slot())
+                                .unwrap_or_else(|_| todo!());
+
+                            iface.set(&uni.ortho, ortho.into());
+                            iface.set(&uni.transform, transform.into());
+                            iface.set(&uni.tex, bound_view.binding());
 
                             rdr_gate.render(render_st, |mut tess_gate| {
                                 tess_gate.render(&l.tess);
@@ -699,10 +725,11 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
                             if layer_id == view.active_layer_id {
                                 // TODO: We only need to render this on the active view.
-                                let bound_view_staging =
-                                    pipeline.bind_texture(v.staging_fb.color_slot());
+                                let bound_view_staging = pipeline
+                                    .bind_texture(staging_texture)
+                                    .unwrap_or_else(|_| todo!());
 
-                                iface.tex.update(&bound_view_staging);
+                                iface.set(&uni.tex, bound_view_staging.binding());
                                 rdr_gate.render(render_st, |mut tess_gate| {
                                     tess_gate.render(&l.tess);
                                 });
@@ -713,9 +740,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             }
 
             // Render UI.
-            shd_gate.shade(&shape2d, |iface, mut rdr_gate| {
-                iface.ortho.update(ortho);
-                iface.transform.update(identity);
+            shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
+                iface.set(&uni.ortho, ortho.into());
+                iface.set(&uni.transform, identity.into());
 
                 rdr_gate.render(render_st, |mut tess_gate| {
                     tess_gate.render(&ui_tess);
@@ -723,19 +750,20 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             });
 
             // Render text, tool & view animations.
-            shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                iface.ortho.update(ortho);
-                iface.transform.update(identity);
+            shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                iface.set(&uni.ortho, ortho.into());
+                iface.set(&uni.transform, identity.into());
 
                 // Render view composites.
-                for (id, v) in view_data.iter() {
+                for (id, v) in view_data.iter_mut() {
                     match (&v.layer_tess, session.views.get(*id)) {
                         (Some(tess), Some(view)) if view.layers.len() > 1 => {
-                            for (layer_id, _) in view.layers.iter().enumerate() {
-                                let l = v.get_layer(layer_id);
-                                let bound_view = pipeline.bind_texture(l.fb.color_slot());
+                            for l in v.layers.iter_mut() {
+                                let bound_view = pipeline
+                                    .bind_texture(l.fb.color_slot())
+                                    .unwrap_or_else(|_| todo!());
 
-                                iface.tex.update(&bound_view);
+                                iface.set(&uni.tex, bound_view.binding());
 
                                 rdr_gate.render(render_st, |mut tess_gate| {
                                     tess_gate.render(tess);
@@ -748,18 +776,20 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
                 // Render view animations.
                 if session.settings["animation"].is_set() {
-                    for (id, v) in view_data.iter() {
+                    for (id, v) in view_data.iter_mut() {
                         match (&v.anim_tess, session.views.get(*id)) {
                             (Some(tess), Some(view)) if view.animation.len() > 1 => {
-                                let composite_t = unsafe {
-                                    mem::transmute(Matrix4::from_translation(
-                                        Vector2::new(0., -(v.h as f32 * view.zoom)).extend(0.),
-                                    ))
-                                };
+                                let composite_t = Matrix4::from_translation(
+                                    Vector2::new(0., -(v.h as f32 * view.zoom)).extend(0.),
+                                );
 
-                                for (i, _) in view.layers.iter().enumerate() {
-                                    let l = v.get_layer(i);
-                                    let bound_layer = pipeline.bind_texture(l.fb.color_slot());
+                                for (i, l) in v.layers.iter_mut().enumerate() {
+                                    // TODO: Assert that this layer is actually registered in the
+                                    // view manager.
+
+                                    let bound_layer = pipeline
+                                        .bind_texture(l.fb.color_slot())
+                                        .unwrap_or_else(|_| todo!());
                                     let layer_offset = v.h as usize * i;
                                     let t = Matrix4::from_translation(
                                         Vector2::new(0., layer_offset as f32 * view.zoom)
@@ -767,15 +797,15 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                     );
 
                                     // Render layer animation.
-                                    iface.tex.update(&bound_layer);
-                                    iface.transform.update(unsafe { mem::transmute(t) });
+                                    iface.set(&uni.tex, bound_layer.binding());
+                                    iface.set(&uni.transform, t.into());
                                     rdr_gate.render(render_st, |mut tess_gate| {
                                         tess_gate.render(tess);
                                     });
 
                                     // Render composite animation.
                                     if view.layers.len() > 1 {
-                                        iface.transform.update(composite_t);
+                                        iface.set(&uni.transform, composite_t.into());
                                         rdr_gate.render(render_st, |mut tess_gate| {
                                             tess_gate.render(tess);
                                         });
@@ -788,9 +818,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 }
 
                 {
-                    let bound_font = pipeline.bind_texture(font);
-                    iface.tex.update(&bound_font);
-                    iface.transform.update(identity);
+                    let bound_font = pipeline.bind_texture(font).unwrap_or_else(|_| todo!());
+                    iface.set(&uni.tex, bound_font.binding());
+                    iface.set(&uni.transform, identity);
 
                     // Render text.
                     rdr_gate.render(render_st, |mut tess_gate| {
@@ -798,8 +828,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     });
                 }
                 {
-                    let bound_tool = pipeline.bind_texture(cursors);
-                    iface.tex.update(&bound_tool);
+                    let bound_tool = pipeline.bind_texture(cursors).unwrap_or_else(|_| todo!());
+                    iface.set(&uni.tex, bound_tool.binding());
 
                     // Render tool.
                     rdr_gate.render(render_st, |mut tess_gate| {
@@ -810,17 +840,17 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
             // Render help.
             if let Some((win_tess, text_tess)) = help_tess {
-                shd_gate.shade(&shape2d, |_iface, mut rdr_gate| {
+                shd_gate.shade(shape2d, |_iface, _uni, mut rdr_gate| {
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&win_tess);
                     });
                 });
-                shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                    let bound_font = pipeline.bind_texture(font);
+                shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                    let bound_font = pipeline.bind_texture(font).unwrap_or_else(|_| todo!());
 
-                    iface.tex.update(&bound_font);
-                    iface.ortho.update(ortho);
-                    iface.transform.update(identity);
+                    iface.set(&uni.tex, bound_font.binding());
+                    iface.set(&uni.ortho, ortho);
+                    iface.set(&uni.transform, identity);
 
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&text_tess);
@@ -828,13 +858,16 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 });
             }
         });
+        result.unwrap_or_else(|_| todo!());
 
         // Render to back buffer.
-        builder.pipeline(present_fb, &pipeline_st, |pipeline, mut shd_gate| {
+        let result = builder.pipeline(present_fb, &pipeline_st, |pipeline, mut shd_gate| {
             // Render screen framebuffer.
-            let bound_screen = pipeline.bind_texture(screen_fb.color_slot());
-            shd_gate.shade(&screen2d, |iface, mut rdr_gate| {
-                iface.framebuffer.update(&bound_screen);
+            let bound_screen = pipeline
+                .bind_texture(screen_fb.color_slot())
+                .unwrap_or_else(|_| todo!());
+            shd_gate.shade(screen2d, |mut iface, uni, mut rdr_gate| {
+                iface.set(&uni.framebuffer, bound_screen.binding());
 
                 rdr_gate.render(render_st, |mut tess_gate| {
                     tess_gate.render(&screen_tess);
@@ -842,17 +875,14 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             });
 
             if session.settings["debug"].is_set() || !execution.borrow().is_normal() {
-                let bound_font = pipeline.bind_texture(font);
+                let bound_font = pipeline.bind_texture(font).unwrap_or_else(|_| todo!());
 
-                shd_gate.shade(&sprite2d, |iface, mut rdr_gate| {
-                    iface.tex.update(&bound_font);
-                    iface.ortho.update(unsafe {
-                        mem::transmute::<_, linear::M44>(kit::ortho(
-                            screen_fb.width(),
-                            screen_fb.height(),
-                            Origin::BottomLeft,
-                        ))
-                    });
+                shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                    iface.set(&uni.tex, bound_font.binding());
+                    iface.set(
+                        &uni.ortho,
+                        kit::ortho(screen_w, screen_h, Origin::BottomLeft).into(),
+                    );
 
                     rdr_gate.render(render_st, |mut tess_gate| {
                         tess_gate.render(&overlay_tess);
@@ -861,25 +891,28 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             }
 
             // Render cursor.
-            let bound_cursors = pipeline.bind_texture(cursors);
-            shd_gate.shade(&cursor2d, |iface, mut rdr_gate| {
+            let bound_cursors = pipeline.bind_texture(cursors).unwrap_or_else(|_| todo!());
+            shd_gate.shade(cursor2d, |mut iface, uni, mut rdr_gate| {
                 let ui_scale = session.settings["scale"].to_f64();
                 let pixel_ratio = platform::pixel_ratio(*scale_factor);
 
-                iface.cursor.update(&bound_cursors);
-                iface.framebuffer.update(&bound_screen);
-                iface.ortho.update(ortho);
-                iface.scale.update((ui_scale * pixel_ratio) as f32);
+                iface.set(&uni.cursor, bound_cursors.binding());
+                iface.set(&uni.framebuffer, bound_screen.binding());
+                iface.set(&uni.ortho, ortho);
+                iface.set(&uni.scale, (ui_scale * pixel_ratio) as f32);
 
                 rdr_gate.render(render_st, |mut tess_gate| {
                     tess_gate.render(&cursor_tess);
                 });
             });
         });
+        result.unwrap_or_else(|_| todo!());
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
             if let Some(vr) = self.resources.lock_mut().get_view_mut(v.id) {
+                let v_data = view_data.get_mut(&v.id).unwrap();
+
                 match v.state {
                     ViewState::Dirty(_) if v.is_resized() => {
                         vr.record_view_resized(v_data.layer_pixels().collect(), v.extent());
@@ -888,7 +921,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         vr.record_view_painted(v_data.layer_pixels().collect());
                     }
                     ViewState::LayerDirty(layer_id) => {
-                        let pixels = v_data.get_layer(layer_id).pixels();
+                        let pixels = v_data.get_layer_mut(layer_id).pixels();
                         vr.record_layer_painted(layer_id, pixels, v.extent());
                     }
                     ViewState::Okay | ViewState::Damaged(_) | ViewState::LayerDamaged(_) => {}
@@ -897,7 +930,10 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         }
 
         if !execution.borrow().is_normal() {
-            let texels = screen_fb.color_slot().get_raw_texels();
+            let texels = screen_fb
+                .color_slot()
+                .get_raw_texels()
+                .unwrap_or_else(|_| todo!());
             let texels = Rgba8::align(&texels);
 
             execution
@@ -921,7 +957,9 @@ impl Renderer {
         self.present_fb = Framebuffer::back_buffer(
             &mut self.ctx,
             [physical.width as u32, physical.height as u32],
-        );
+        )
+        .unwrap_or_else(|_| todo!());
+
         self.win_size = size;
         self.handle_session_scale_changed(self.scale);
     }
@@ -1018,22 +1056,22 @@ impl Renderer {
                 ViewOp::Clear(color) => {
                     let view = self
                         .view_data
-                        .get(&id)
+                        .get_mut(&id)
                         .expect("views must have associated view data");
 
-                    for l in view.layers.iter() {
+                    for l in view.layers.iter_mut() {
                         l.fb.color_slot()
                             .clear(GenMipmaps::No, (color.r, color.g, color.b, color.a))
                             .map_err(Error::Texture)?;
                     }
                 }
                 ViewOp::Blit(src, dst) => {
-                    let view = &self
+                    let view = self
                         .view_data
-                        .get(&id)
+                        .get_mut(&id)
                         .expect("views must have associated view data");
 
-                    for (l_id, l) in view.layers.iter().enumerate() {
+                    for (l_id, l) in view.layers.iter_mut().enumerate() {
                         let (_, texels) = self
                             .resources
                             .lock()
@@ -1125,11 +1163,11 @@ impl Renderer {
                         ));
                 }
                 ViewOp::SetPixel(layer_id, rgba, x, y) => {
-                    let fb = &self
+                    let fb = &mut self
                         .view_data
-                        .get(&id)
+                        .get_mut(&id)
                         .expect("views must have associated view data")
-                        .get_layer(*layer_id)
+                        .get_layer_mut(*layer_id)
                         .fb;
                     let texels = &[*rgba];
                     let texels = util::align_u8(texels);
@@ -1147,11 +1185,11 @@ impl Renderer {
         id: ViewId,
         layer_id: LayerId,
     ) -> Result<(), RendererError> {
-        let layer = &self
+        let layer = self
             .view_data
-            .get(&id)
+            .get_mut(&id)
             .expect("views must have associated view data")
-            .get_layer(layer_id);
+            .get_layer_mut(layer_id);
 
         let pixels = {
             let rs = self.resources.lock();
@@ -1218,7 +1256,7 @@ impl Renderer {
             //
             if let Some((_, texels)) = layer.get_snapshot_rect(&trect) {
                 let texels = util::align_u8(&texels);
-                let l = view_data.get_layer(*layer_id);
+                let l = view_data.get_layer_mut(*layer_id);
 
                 l.upload_part([0, vh - th], [tw, th], texels)?;
             }
@@ -1264,7 +1302,7 @@ impl Renderer {
     }
 }
 
-fn tessellation<T, S>(ctx: &mut Context, verts: &[T]) -> Tess
+fn tessellation<T, S>(ctx: &mut Context, verts: &[T]) -> Tess<Backend, S>
 where
     S: luminance::vertex::Vertex + Sized,
 {
@@ -1274,19 +1312,10 @@ where
     assert!(tail.is_empty());
 
     TessBuilder::new(ctx)
-        .add_vertices(body)
+        .set_vertices(body)
         .set_mode(Mode::Triangle)
         .build()
         .unwrap()
-}
-
-fn program<T>(vert: &str, frag: &str) -> Program<VertexSemantics, (), T>
-where
-    T: luminance::shader::program::UniformInterface,
-{
-    Program::<VertexSemantics, (), T>::from_strings(None, vert, None, frag)
-        .unwrap()
-        .ignore_warnings()
 }
 
 fn text_batch([w, h]: [u32; 2]) -> TextBatch {
