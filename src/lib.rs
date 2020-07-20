@@ -294,7 +294,11 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                 }
                 WindowEvent::RedrawRequested => {
                     render_timer.run(|avg| {
-                        renderer.frame(&session, execution.clone(), vec![], &avg);
+                        renderer
+                            .frame(&session, execution.clone(), vec![], &avg)
+                            .unwrap_or_else(|err| {
+                                log::error!("{}", err);
+                            });
                     });
                     win.present();
                 }
@@ -355,7 +359,11 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
             .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
 
         render_timer.run(|avg| {
-            renderer.frame(&session, execution.clone(), effects, &avg);
+            renderer
+                .frame(&session, execution.clone(), effects, &avg)
+                .unwrap_or_else(|err| {
+                    log::error!("{}", err);
+                });
         });
 
         session.cleanup();

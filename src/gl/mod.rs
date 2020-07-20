@@ -234,7 +234,7 @@ impl LayerData {
             .fb
             .color_slot()
             .get_raw_texels()
-            .unwrap_or_else(|_| todo!());
+            .expect("getting raw texels never fails");
         Pixels::from_rgba8(Rgba8::align(&texels).into())
     }
 }
@@ -341,11 +341,18 @@ impl Context {
 }
 
 #[derive(Debug)]
-enum RendererError {
+pub enum RendererError {
     Initialization,
     Texture(luminance::texture::TextureError),
     Framebuffer(luminance::framebuffer::FramebufferError),
+    Pipeline(luminance::pipeline::PipelineError),
     State(luminance_gl::gl33::StateQueryError),
+}
+
+impl From<luminance::pipeline::PipelineError> for RendererError {
+    fn from(other: luminance::pipeline::PipelineError) -> Self {
+        Self::Pipeline(other)
+    }
 }
 
 impl From<RendererError> for io::Error {
@@ -360,6 +367,7 @@ impl fmt::Display for RendererError {
             Self::Initialization => write!(f, "initialization error"),
             Self::Texture(e) => write!(f, "texture error: {}", e),
             Self::Framebuffer(e) => write!(f, "framebuffer error: {}", e),
+            Self::Pipeline(e) => write!(f, "pipeline error: {}", e),
             Self::State(e) => write!(f, "state error: {}", e),
         }
     }
@@ -376,6 +384,8 @@ impl Error for RendererError {
 }
 
 impl<'a> renderer::Renderer<'a> for Renderer {
+    type Error = RendererError;
+
     fn new(
         win: &mut platform::backend::Window,
         win_size: LogicalSize,
@@ -504,9 +514,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         execution: Rc<RefCell<Execution>>,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
-    ) {
+    ) -> Result<(), RendererError> {
         if session.state != session::State::Running {
-            return;
+            return Ok(());
         }
         self.staging_batch.clear();
         self.final_batch.clear();
@@ -617,7 +627,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         let mut builder = self.ctx.new_pipeline_gate();
 
         // Render to view staging buffer.
-        let result = builder.pipeline(
+        builder.pipeline(
             &v_data.staging_fb,
             &pipeline_st,
             |pipeline, mut shd_gate| {
@@ -634,7 +644,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 }
                 // Render staging paste buffer.
                 if let Some(tess) = paste_tess {
-                    let bound_paste = pipeline.bind_texture(paste).unwrap_or_else(|_| todo!());
+                    let bound_paste = pipeline
+                        .bind_texture(paste)
+                        .expect("binding textures never fails. qed.");
                     shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
                         iface.set(&uni.ortho, view_ortho.into());
                         iface.set(&uni.transform, identity.into());
@@ -646,15 +658,16 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     });
                 }
             },
-        );
-        result.unwrap_or_else(|_| todo!());
+        )?;
 
         // Render to view final buffer.
-        let result = builder.pipeline(
+        builder.pipeline(
             &l_data.fb,
             &pipeline_st.clone().enable_clear_color(false),
             |pipeline, mut shd_gate| {
-                let bound_paste = pipeline.bind_texture(paste).unwrap_or_else(|_| todo!());
+                let bound_paste = pipeline
+                    .bind_texture(paste)
+                    .expect("binding textures never fails. qed.");
 
                 // Render final brush strokes.
                 if let Some(tess) = final_tess {
@@ -691,19 +704,20 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     });
                 }
             },
-        );
-        result.unwrap_or_else(|_| todo!());
+        )?;
 
         // Render to screen framebuffer.
         let bg = Rgba::from(session.settings["background"].to_rgba8());
         let screen_st = &pipeline_st
             .clone()
             .set_clear_color([bg.r, bg.g, bg.b, bg.a]);
-        let result = builder.pipeline(screen_fb, &screen_st, |pipeline, mut shd_gate| {
+        builder.pipeline(screen_fb, &screen_st, |pipeline, mut shd_gate| {
             // Draw view checkers to screen framebuffer.
             if session.settings["checker"].is_set() {
                 shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                    let bound_checker = pipeline.bind_texture(checker).unwrap_or_else(|_| todo!());
+                    let bound_checker = pipeline
+                        .bind_texture(checker)
+                        .expect("binding textures never fails");
 
                     iface.set(&uni.ortho, ortho.into());
                     iface.set(&uni.transform, identity.into());
@@ -731,7 +745,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
                             let bound_view = pipeline
                                 .bind_texture(l.fb.color_slot())
-                                .unwrap_or_else(|_| todo!());
+                                .expect("binding textures never fails");
 
                             iface.set(&uni.ortho, ortho.into());
                             iface.set(&uni.transform, transform.into());
@@ -745,7 +759,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                 // TODO: We only need to render this on the active view.
                                 let bound_view_staging = pipeline
                                     .bind_texture(staging_texture)
-                                    .unwrap_or_else(|_| todo!());
+                                    .expect("binding textures never fails");
 
                                 iface.set(&uni.tex, bound_view_staging.binding());
                                 rdr_gate.render(render_st, |mut tess_gate| {
@@ -779,7 +793,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                             for l in v.layers.iter_mut() {
                                 let bound_view = pipeline
                                     .bind_texture(l.fb.color_slot())
-                                    .unwrap_or_else(|_| todo!());
+                                    .expect("binding textures never fails");
 
                                 iface.set(&uni.tex, bound_view.binding());
 
@@ -807,7 +821,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
                                     let bound_layer = pipeline
                                         .bind_texture(l.fb.color_slot())
-                                        .unwrap_or_else(|_| todo!());
+                                        .expect("binding textures never fails");
                                     let layer_offset = v.h as usize * i;
                                     let t = Matrix4::from_translation(
                                         Vector2::new(0., layer_offset as f32 * view.zoom)
@@ -836,7 +850,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 }
 
                 {
-                    let bound_font = pipeline.bind_texture(font).unwrap_or_else(|_| todo!());
+                    let bound_font = pipeline
+                        .bind_texture(font)
+                        .expect("binding textures never fails");
                     iface.set(&uni.tex, bound_font.binding());
                     iface.set(&uni.transform, identity);
 
@@ -846,7 +862,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     });
                 }
                 {
-                    let bound_tool = pipeline.bind_texture(cursors).unwrap_or_else(|_| todo!());
+                    let bound_tool = pipeline
+                        .bind_texture(cursors)
+                        .expect("binding textures never fails");
                     iface.set(&uni.tex, bound_tool.binding());
 
                     // Render tool.
@@ -864,7 +882,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     });
                 });
                 shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                    let bound_font = pipeline.bind_texture(font).unwrap_or_else(|_| todo!());
+                    let bound_font = pipeline
+                        .bind_texture(font)
+                        .expect("binding textures never fails");
 
                     iface.set(&uni.tex, bound_font.binding());
                     iface.set(&uni.ortho, ortho);
@@ -875,15 +895,14 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     });
                 });
             }
-        });
-        result.unwrap_or_else(|_| todo!());
+        })?;
 
         // Render to back buffer.
-        let result = builder.pipeline(present_fb, &pipeline_st, |pipeline, mut shd_gate| {
+        builder.pipeline(present_fb, &pipeline_st, |pipeline, mut shd_gate| {
             // Render screen framebuffer.
             let bound_screen = pipeline
                 .bind_texture(screen_fb.color_slot())
-                .unwrap_or_else(|_| todo!());
+                .expect("binding textures never fails");
             shd_gate.shade(screen2d, |mut iface, uni, mut rdr_gate| {
                 iface.set(&uni.framebuffer, bound_screen.binding());
 
@@ -893,7 +912,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             });
 
             if session.settings["debug"].is_set() || !execution.borrow().is_normal() {
-                let bound_font = pipeline.bind_texture(font).unwrap_or_else(|_| todo!());
+                let bound_font = pipeline
+                    .bind_texture(font)
+                    .expect("binding textures never fails");
 
                 shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
                     iface.set(&uni.tex, bound_font.binding());
@@ -909,7 +930,9 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             }
 
             // Render cursor.
-            let bound_cursors = pipeline.bind_texture(cursors).unwrap_or_else(|_| todo!());
+            let bound_cursors = pipeline
+                .bind_texture(cursors)
+                .expect("binding textures never fails");
             shd_gate.shade(cursor2d, |mut iface, uni, mut rdr_gate| {
                 let ui_scale = session.settings["scale"].to_f64();
                 let pixel_ratio = platform::pixel_ratio(*scale_factor);
@@ -923,8 +946,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     tess_gate.render(&cursor_tess);
                 });
             });
-        });
-        result.unwrap_or_else(|_| todo!());
+        })?;
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
@@ -951,13 +973,15 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             let texels = screen_fb
                 .color_slot()
                 .get_raw_texels()
-                .unwrap_or_else(|_| todo!());
+                .expect("binding textures never fails");
             let texels = Rgba8::align(&texels);
 
             execution
                 .borrow_mut()
                 .record(&texels.iter().cloned().map(Bgra8::from).collect::<Vec<_>>());
         }
+
+        Ok(())
     }
 
     fn handle_present_mode_changed(&mut self, _present_mode: PresentMode) {}
@@ -976,7 +1000,7 @@ impl Renderer {
             &mut self.ctx,
             [physical.width as u32, physical.height as u32],
         )
-        .unwrap_or_else(|_| todo!());
+        .expect("binding textures never fails");
 
         self.win_size = size;
         self.handle_session_scale_changed(self.scale);
