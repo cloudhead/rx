@@ -9,6 +9,8 @@ use std::rc::Rc;
 use std::time;
 
 pub trait Renderer<'a>: std::marker::Sized {
+    type Error;
+
     fn new(
         win: &mut platform::backend::Window,
         win_size: LogicalSize,
@@ -26,7 +28,7 @@ pub trait Renderer<'a>: std::marker::Sized {
         execution: Rc<RefCell<Execution>>,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
-    );
+    ) -> Result<(), Self::Error>;
 
     fn handle_present_mode_changed(&mut self, present_mode: PresentMode);
     fn handle_scale_factor_changed(&mut self, scale_factor: f64);
