@@ -322,6 +322,22 @@ impl Context {
             .unwrap()
             .ignore_warnings()
     }
+
+    fn tessellation<T, S>(&mut self, verts: &[T]) -> Tess<Backend, S>
+    where
+        S: luminance::vertex::Vertex + Sized,
+    {
+        let (head, body, tail) = unsafe { verts.align_to::<S>() };
+
+        assert!(head.is_empty());
+        assert!(tail.is_empty());
+
+        TessBuilder::new(self)
+            .set_vertices(body)
+            .set_mode(Mode::Triangle)
+            .build()
+            .unwrap()
+    }
 }
 
 #[derive(Debug)]
@@ -527,24 +543,24 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         draw_ctx.clear();
         draw_ctx.draw(&session, avg_frametime, execution.clone());
 
-        let text_tess =
-            self::tessellation::<_, Sprite2dVertex>(&mut self.ctx, &draw_ctx.text_batch.vertices());
-        let overlay_tess = self::tessellation::<_, Sprite2dVertex>(
-            &mut self.ctx,
-            &draw_ctx.overlay_batch.vertices(),
-        );
-        let ui_tess =
-            self::tessellation::<_, Shape2dVertex>(&mut self.ctx, &draw_ctx.ui_batch.vertices());
-        let tool_tess =
-            self::tessellation::<_, Sprite2dVertex>(&mut self.ctx, &draw_ctx.tool_batch.vertices());
-        let cursor_tess = self::tessellation::<_, Cursor2dVertex>(
-            &mut self.ctx,
-            &draw_ctx.cursor_sprite.vertices(),
-        );
-        let checker_tess = self::tessellation::<_, Sprite2dVertex>(
-            &mut self.ctx,
-            &draw_ctx.checker_batch.vertices(),
-        );
+        let text_tess = self
+            .ctx
+            .tessellation::<_, Sprite2dVertex>(&draw_ctx.text_batch.vertices());
+        let overlay_tess = self
+            .ctx
+            .tessellation::<_, Sprite2dVertex>(&draw_ctx.overlay_batch.vertices());
+        let ui_tess = self
+            .ctx
+            .tessellation::<_, Shape2dVertex>(&draw_ctx.ui_batch.vertices());
+        let tool_tess = self
+            .ctx
+            .tessellation::<_, Sprite2dVertex>(&draw_ctx.tool_batch.vertices());
+        let cursor_tess = self
+            .ctx
+            .tessellation::<_, Cursor2dVertex>(&draw_ctx.cursor_sprite.vertices());
+        let checker_tess = self
+            .ctx
+            .tessellation::<_, Sprite2dVertex>(&draw_ctx.checker_batch.vertices());
         let screen_tess = TessBuilder::<Backend, ()>::new(&mut self.ctx)
             .set_vertex_nb(6)
             .set_mode(Mode::Triangle)
@@ -554,26 +570,26 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         let paste_tess = if draw_ctx.paste_batch.is_empty() {
             None
         } else {
-            Some(self::tessellation::<_, Sprite2dVertex>(
-                &mut self.ctx,
-                &draw_ctx.paste_batch.vertices(),
-            ))
+            Some(
+                self.ctx
+                    .tessellation::<_, Sprite2dVertex>(&draw_ctx.paste_batch.vertices()),
+            )
         };
         let staging_tess = if self.staging_batch.is_empty() {
             None
         } else {
-            Some(self::tessellation::<_, Shape2dVertex>(
-                &mut self.ctx,
-                &self.staging_batch.vertices(),
-            ))
+            Some(
+                self.ctx
+                    .tessellation::<_, Shape2dVertex>(&self.staging_batch.vertices()),
+            )
         };
         let final_tess = if self.final_batch.is_empty() {
             None
         } else {
-            Some(self::tessellation::<_, Shape2dVertex>(
-                &mut self.ctx,
-                &self.final_batch.vertices(),
-            ))
+            Some(
+                self.ctx
+                    .tessellation::<_, Shape2dVertex>(&self.final_batch.vertices()),
+            )
         };
 
         let help_tess = if session.mode == session::Mode::Help {
@@ -581,10 +597,12 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             let mut text = self::text_batch(font.size());
             draw::draw_help(session, &mut text, &mut win);
 
-            let win_tess =
-                self::tessellation::<_, Shape2dVertex>(&mut self.ctx, win.vertices().as_slice());
-            let text_tess =
-                self::tessellation::<_, Sprite2dVertex>(&mut self.ctx, text.vertices().as_slice());
+            let win_tess = self
+                .ctx
+                .tessellation::<_, Shape2dVertex>(win.vertices().as_slice());
+            let text_tess = self
+                .ctx
+                .tessellation::<_, Sprite2dVertex>(text.vertices().as_slice());
             Some((win_tess, text_tess))
         } else {
             None
@@ -1156,11 +1174,10 @@ impl Renderer {
                         kit::Repeat::default(),
                     );
 
-                    self.paste_outputs
-                        .push(self::tessellation::<_, Sprite2dVertex>(
-                            &mut self.ctx,
-                            batch.vertices().as_slice(),
-                        ));
+                    self.paste_outputs.push(
+                        self.ctx
+                            .tessellation::<_, Sprite2dVertex>(batch.vertices().as_slice()),
+                    );
                 }
                 ViewOp::SetPixel(layer_id, rgba, x, y) => {
                     let fb = &mut self
@@ -1280,10 +1297,10 @@ impl Renderer {
             let batch = draw::draw_view_animation(s, &v);
 
             if let Some(vd) = self.view_data.get_mut(&v.id) {
-                vd.anim_tess = Some(self::tessellation::<_, Sprite2dVertex>(
-                    &mut self.ctx,
-                    batch.vertices().as_slice(),
-                ));
+                vd.anim_tess = Some(
+                    self.ctx
+                        .tessellation::<_, Sprite2dVertex>(batch.vertices().as_slice()),
+                );
             }
         }
     }
@@ -1293,29 +1310,13 @@ impl Renderer {
             let batch = draw::draw_view_composites(s, &v);
 
             if let Some(vd) = self.view_data.get_mut(&v.id) {
-                vd.layer_tess = Some(self::tessellation::<_, Sprite2dVertex>(
-                    &mut self.ctx,
-                    batch.vertices().as_slice(),
-                ));
+                vd.layer_tess = Some(
+                    self.ctx
+                        .tessellation::<_, Sprite2dVertex>(batch.vertices().as_slice()),
+                );
             }
         }
     }
-}
-
-fn tessellation<T, S>(ctx: &mut Context, verts: &[T]) -> Tess<Backend, S>
-where
-    S: luminance::vertex::Vertex + Sized,
-{
-    let (head, body, tail) = unsafe { verts.align_to::<S>() };
-
-    assert!(head.is_empty());
-    assert!(tail.is_empty());
-
-    TessBuilder::new(ctx)
-        .set_vertices(body)
-        .set_mode(Mode::Triangle)
-        .build()
-        .unwrap()
 }
 
 fn text_batch([w, h]: [u32; 2]) -> TextBatch {
