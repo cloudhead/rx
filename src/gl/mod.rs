@@ -116,6 +116,7 @@ struct Cursor2dInterface {
     scale: Uniform<f32>,
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Vertex)]
 #[vertex(sem = "VertexSemantics")]
 #[rustfmt::skip]
