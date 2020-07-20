@@ -517,20 +517,26 @@ dependencies = [
 
 [[package]]
 name = "luminance"
-version = "0.39.0"
+version = "0.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "gl 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "luminance-derive"
-version = "0.5.3"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 1.0.16 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "luminance-gl"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "gl 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "luminance 0.40.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -863,8 +869,9 @@ dependencies = [
  "glfw 0.36.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "luminance 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "luminance-derive 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "luminance 0.40.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "luminance-derive 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "luminance-gl 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "memoir 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "miniserde 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "nonempty 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1278,8 +1285,9 @@ dependencies = [
 "checksum libloading 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f2b111a074963af1d37a139918ac6d49ad1d0d5e47f72fd55388619691a7d753"
 "checksum lock_api 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "79b2de95ecb4691949fea4716ca53cdbcfccb2c612e19644a8bad05edcf9f47b"
 "checksum log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)" = "14b6052be84e6b71ab17edffc2eeabf5c2c3ae1fdb464aae35ac50c67a44e1f7"
-"checksum luminance 0.39.0 (registry+https://github.com/rust-lang/crates.io-index)" = "367433f73e04ed455320ca7d2111aaa7594d2d5f88a924d1896120c079f70426"
-"checksum luminance-derive 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bbd8bb4fe936c7c532597cdf0a1e9a2548fec9e9a77e76285e1a4d0227ddaadf"
+"checksum luminance 0.40.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2470d5250320d9a2042c0de4bb86159050854899d480fbbfad412c27715b28cf"
+"checksum luminance-derive 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "da4aaf49b9a3b469dd8123f7e41e3f09e6f4254482362fad9581e002f26cda66"
+"checksum luminance-gl 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "00314e061d19178394dd2167a6215ed5d86fc6feb7fa3b5217abc1f03f2760c7"
 "checksum lzw 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)" = "7d947cbb889ed21c2a84be6ffbaebf5b4e0f4340638cba0444907e38b56be084"
 "checksum malloc_buf 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 "checksum maybe-uninit 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
