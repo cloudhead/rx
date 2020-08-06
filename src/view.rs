@@ -987,12 +987,4 @@ impl ViewManager<ViewResource> {
             ))
             .get_snapshot_rect(rect)
     }
-
-    pub fn get_view(&self, id: ViewId) -> Option<&ViewResource> {
-        self.views.get(&id).map(|v| &v.resource)
-    }
-
-    pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResource> {
-        self.views.get_mut(&id).map(|v| &mut v.resource)
-    }
 }
