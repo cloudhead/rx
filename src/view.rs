@@ -4,7 +4,8 @@ pub mod pixels;
 pub mod resource;
 
 pub use path::{Format, Path};
-pub use resource::EditId;
+pub use pixels::Pixels;
+pub use resource::{EditId, Snapshot, ViewResource};
 
 use crate::cmd::Axis;
 use crate::session::{Session, SessionCoords};
@@ -179,7 +180,7 @@ pub enum ViewOp {
 
 /// A view on a sprite or image.
 #[derive(Debug)]
-pub struct View {
+pub struct View<R> {
     /// Frame width.
     pub fw: u32,
     /// Frame height.
@@ -206,14 +207,38 @@ pub struct View {
     pub layers: NonEmpty<Layer>,
     /// Currently active layer.
     pub active_layer_id: LayerId,
+    /// View resource.
+    pub resource: R,
 
     /// Which view snapshot has been saved to disk, if any.
     saved_snapshot: Option<EditId>,
 }
 
-impl View {
+impl<R> std::ops::Deref for View<R> {
+    type Target = R;
+
+    fn deref(&self) -> &Self::Target {
+        &self.resource
+    }
+}
+
+impl<R> std::ops::DerefMut for View<R> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.resource
+    }
+}
+
+impl<R> View<R> {
     /// Create a new view. Takes a frame width and height.
-    pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32, nframes: usize, delay: u64) -> Self {
+    pub fn new(
+        id: ViewId,
+        fs: FileStatus,
+        fw: u32,
+        fh: u32,
+        nframes: usize,
+        delay: u64,
+        resource: R,
+    ) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
             Some(Default::default())
         } else {
@@ -240,6 +265,7 @@ impl View {
             layers: NonEmpty::new(Layer::default()),
             active_layer_id: Default::default(),
             saved_snapshot,
+            resource,
         }
     }
 
@@ -267,7 +293,9 @@ impl View {
             FileStatus::NoFile => None,
         }
     }
+}
 
+impl View<ViewResource> {
     /// Mark the view as saved at a specific snapshot and with
     /// the given path.
     pub fn save_as(&mut self, id: EditId, storage: FileStorage) {
@@ -365,8 +393,8 @@ impl View {
             .expect("there is always an active layer")
     }
 
-    /// Add a layer.
-    pub fn add_layer(&mut self) -> LayerId {
+    /// Push an empty layer.
+    pub fn push_layer(&mut self) -> LayerId {
         let top = self
             .layers
             .iter()
@@ -378,6 +406,19 @@ impl View {
 
         self.layers.push(Layer::new(range.clone(), top + 1));
         self.ops.push(ViewOp::AddLayer(id, range));
+
+        id
+    }
+
+    /// Add a new layer with optional pixels.
+    pub fn add_layer(&mut self, pixels: Option<Pixels>) -> LayerId {
+        let id = self.push_layer();
+
+        self.resource.add_layer(
+            id,
+            self.extent(),
+            pixels.unwrap_or(Pixels::blank(self.width() as usize, self.height() as usize)),
+        );
 
         id
     }
@@ -750,12 +791,12 @@ impl FileStorage {
 
 /// Manages views.
 #[derive(Debug)]
-pub struct ViewManager {
+pub struct ViewManager<R> {
     /// Currently active view.
     pub active_id: ViewId,
 
     /// View dictionary.
-    views: BTreeMap<ViewId, View>,
+    views: BTreeMap<ViewId, View<R>>,
 
     /// The next `ViewId`.
     next_id: ViewId,
@@ -764,7 +805,7 @@ pub struct ViewManager {
     lru: VecDeque<ViewId>,
 }
 
-impl ViewManager {
+impl<R> ViewManager<R> {
     /// Maximum number of views in the view LRU list.
     const MAX_LRU: usize = Session::MAX_VIEWS;
 
@@ -779,9 +820,17 @@ impl ViewManager {
     }
 
     /// Add a view.
-    pub fn add(&mut self, fs: FileStatus, w: u32, h: u32, nframes: usize, delay: u64) -> ViewId {
+    pub fn add(
+        &mut self,
+        fs: FileStatus,
+        w: u32,
+        h: u32,
+        nframes: usize,
+        delay: u64,
+        resource: R,
+    ) -> ViewId {
         let id = self.gen_id();
-        let view = View::new(id, fs, w, h, nframes, delay);
+        let view = View::new(id, fs, w, h, nframes, delay, resource);
 
         self.views.insert(id, view);
 
@@ -805,12 +854,12 @@ impl ViewManager {
     }
 
     /// Return the currently active view, if any.
-    pub fn active(&self) -> Option<&View> {
+    pub fn active(&self) -> Option<&View<R>> {
         self.views.get(&self.active_id)
     }
 
     /// Return the currently active view mutably, if any.
-    pub fn active_mut(&mut self) -> Option<&mut View> {
+    pub fn active_mut(&mut self) -> Option<&mut View<R>> {
         self.views.get_mut(&self.active_id)
     }
 
@@ -829,29 +878,29 @@ impl ViewManager {
     }
 
     /// Iterate over views.
-    pub fn iter(&self) -> btree_map::Values<'_, ViewId, View> {
+    pub fn iter(&self) -> btree_map::Values<'_, ViewId, View<R>> {
         self.views.values()
     }
 
     /// Iterate over views, mutably.
-    pub fn iter_mut(&mut self) -> btree_map::ValuesMut<'_, ViewId, View> {
+    pub fn iter_mut(&mut self) -> btree_map::ValuesMut<'_, ViewId, View<R>> {
         self.views.values_mut()
     }
 
     /// Get a view, mutably.
-    pub fn get(&self, id: ViewId) -> Option<&View> {
+    pub fn get(&self, id: ViewId) -> Option<&View<R>> {
         self.views.get(&id)
     }
 
     /// Get a view, mutably.
-    pub fn get_mut(&mut self, id: ViewId) -> Option<&mut View> {
+    pub fn get_mut(&mut self, id: ViewId) -> Option<&mut View<R>> {
         self.views.get_mut(&id)
     }
 
     /// Find a view.
-    pub fn find<F>(&self, f: F) -> Option<&View>
+    pub fn find<F>(&self, f: F) -> Option<&View<R>>
     where
-        for<'r> F: Fn(&'r &View) -> bool,
+        for<'r> F: Fn(&'r &View<R>) -> bool,
     {
         self.iter().find(f)
     }
@@ -872,24 +921,24 @@ impl ViewManager {
     }
 
     /// Get the first view.
-    pub fn first(&self) -> Option<&View> {
+    pub fn first(&self) -> Option<&View<R>> {
         self.iter().next()
     }
 
     /// Get the first view, mutably.
-    pub fn first_mut(&mut self) -> Option<&mut View> {
+    pub fn first_mut(&mut self) -> Option<&mut View<R>> {
         self.iter_mut().next()
     }
 
     /// Get the last view.
-    pub fn last(&self) -> Option<&View> {
+    pub fn last(&self) -> Option<&View<R>> {
         self.iter().next_back()
     }
 
     /// Get view id range.
-    pub fn range<'a, R>(&'a self, r: R) -> impl DoubleEndedIterator<Item = ViewId> + 'a
+    pub fn range<'a, G>(&'a self, r: G) -> impl DoubleEndedIterator<Item = ViewId> + 'a
     where
-        R: std::ops::RangeBounds<ViewId>,
+        G: std::ops::RangeBounds<ViewId>,
     {
         self.views.range(r).map(|(id, _)| *id)
     }
@@ -905,5 +954,45 @@ impl ViewManager {
         self.next_id = ViewId(id + 1);
 
         ViewId(id)
+    }
+}
+
+impl ViewManager<ViewResource> {
+    pub fn get_snapshot_safe(&self, id: ViewId, layer_id: LayerId) -> Option<(&Snapshot, &Pixels)> {
+        self.views
+            .get(&id)
+            .and_then(|v| v.resource.current_snapshot(layer_id))
+    }
+
+    pub fn get_snapshot(&self, id: ViewId, layer_id: LayerId) -> (&Snapshot, &Pixels) {
+        self.get_snapshot_safe(id, layer_id).expect(&format!(
+            "layer #{} of view #{} must exist and have an associated snapshot",
+            layer_id, id
+        ))
+    }
+
+    pub fn get_snapshot_rect(
+        &self,
+        id: ViewId,
+        layer_id: LayerId,
+        rect: &Rect<i32>,
+    ) -> Option<(&Snapshot, Vec<Rgba8>)> {
+        self.views
+            .get(&id)
+            .map(|v| &v.resource)
+            .and_then(|v| v.layers.get(&layer_id))
+            .expect(&format!(
+                "view #{} with layer #{} must exist and have an associated snapshot",
+                id, layer_id
+            ))
+            .get_snapshot_rect(rect)
+    }
+
+    pub fn get_view(&self, id: ViewId) -> Option<&ViewResource> {
+        self.views.get(&id).map(|v| &v.resource)
+    }
+
+    pub fn get_view_mut(&mut self, id: ViewId) -> Option<&mut ViewResource> {
+        self.views.get_mut(&id).map(|v| &mut v.resource)
     }
 }

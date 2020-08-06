@@ -4,7 +4,6 @@ use crate::execution::Execution;
 use crate::font::TextBatch;
 use crate::platform::{self, LogicalSize};
 use crate::renderer;
-use crate::resources::ResourceManager;
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
 use crate::util;
@@ -139,7 +138,6 @@ pub struct Renderer {
     scale_factor: f64,
     scale: f64,
     _present_mode: PresentMode,
-    resources: ResourceManager,
     present_fb: Framebuffer<Backend, Dim2, (), ()>,
     screen_fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     render_st: RenderState,
@@ -393,7 +391,6 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         win_size: LogicalSize,
         scale_factor: f64,
         _present_mode: PresentMode,
-        resources: ResourceManager,
         assets: Assets<'a>,
     ) -> io::Result<Self> {
         use RendererError as Error;
@@ -486,7 +483,6 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             scale: 1.0,
             _present_mode,
             blending: Blending::Alpha,
-            resources,
             present_fb,
             screen_fb,
             render_st,
@@ -506,13 +502,13 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         })
     }
 
-    fn init(&mut self, effects: Vec<Effect>) {
-        self.handle_effects(effects).unwrap();
+    fn init(&mut self, effects: Vec<Effect>, session: &Session) {
+        self.handle_effects(effects, session).unwrap();
     }
 
     fn frame(
         &mut self,
-        session: &Session,
+        session: &mut Session,
         execution: Rc<RefCell<Execution>>,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
@@ -523,7 +519,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         self.staging_batch.clear();
         self.final_batch.clear();
 
-        self.handle_effects(effects).unwrap();
+        self.handle_effects(effects, session).unwrap();
         self.update_view_animations(session);
         self.update_view_composites(session);
 
@@ -620,7 +616,10 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             None
         };
 
-        let v = session.active_view();
+        let v = session
+            .views
+            .active()
+            .expect("there must always be an active view");
         let l = v.active_layer_id;
         let v_data = view_data.get(&v.id).unwrap();
         let l_data = v_data.get_layer(l);
@@ -952,19 +951,25 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
-            if let Some(vr) = self.resources.lock_mut().get_view_mut(v.id) {
-                let v_data = view_data.get_mut(&v.id).unwrap();
+            // FIXME: This is ugly.
+            let id = v.id;
+            let state = v.state;
+            let is_resized = v.is_resized();
+            let extent = v.extent();
 
-                match v.state {
-                    ViewState::Dirty(_) if v.is_resized() => {
-                        vr.record_view_resized(v_data.layer_pixels().collect(), v.extent());
+            if let Some(vr) = session.views.get_mut(id) {
+                let v_data = view_data.get_mut(&id).unwrap();
+
+                match state {
+                    ViewState::Dirty(_) if is_resized => {
+                        vr.record_view_resized(v_data.layer_pixels().collect(), extent);
                     }
                     ViewState::Dirty(_) => {
                         vr.record_view_painted(v_data.layer_pixels().collect());
                     }
                     ViewState::LayerDirty(layer_id) => {
                         let pixels = v_data.get_layer_mut(layer_id).pixels();
-                        vr.record_layer_painted(layer_id, pixels, v.extent());
+                        vr.record_layer_painted(layer_id, pixels, extent);
                     }
                     ViewState::Okay | ViewState::Damaged(_) | ViewState::LayerDamaged(_) => {}
                 }
@@ -1022,7 +1027,11 @@ impl Renderer {
         .unwrap();
     }
 
-    fn handle_effects(&mut self, mut effects: Vec<Effect>) -> Result<(), RendererError> {
+    fn handle_effects(
+        &mut self,
+        mut effects: Vec<Effect>,
+        session: &Session,
+    ) -> Result<(), RendererError> {
         for eff in effects.drain(..) {
             match eff {
                 Effect::SessionResized(size) => {
@@ -1033,9 +1042,10 @@ impl Renderer {
                 }
                 Effect::ViewActivated(_) => {}
                 Effect::ViewAdded(id) => {
-                    let resources = self.resources.lock();
-
-                    if let Some((s, pixels)) = resources.get_snapshot_safe(id, LayerId::default()) {
+                    // FIXME: This should be done when the view is added in the ViewManager.
+                    if let Some((s, pixels)) =
+                        session.views.get_snapshot_safe(id, LayerId::default())
+                    {
                         let (w, h) = (s.width(), s.height());
 
                         self.view_data.insert(
@@ -1048,16 +1058,16 @@ impl Renderer {
                     self.view_data.remove(&id);
                 }
                 Effect::ViewOps(id, ops) => {
-                    self.handle_view_ops(id, &ops)?;
+                    self.handle_view_ops(id, &ops, session)?;
                 }
                 Effect::ViewDamaged(id, Some(extent)) => {
-                    self.handle_view_resized(id, extent.width(), extent.height())?;
+                    self.handle_view_resized(id, extent.width(), extent.height(), session)?;
                 }
                 Effect::ViewDamaged(id, None) => {
-                    self.handle_view_damaged(id)?;
+                    self.handle_view_damaged(id, session)?;
                 }
                 Effect::ViewLayerDamaged(id, layer) => {
-                    self.handle_view_layer_damaged(id, layer)?;
+                    self.handle_view_layer_damaged(id, layer, session)?;
                 }
                 Effect::ViewBlendingChanged(blending) => {
                     self.blending = blending;
@@ -1074,18 +1084,21 @@ impl Renderer {
         Ok(())
     }
 
-    fn handle_view_ops(&mut self, id: ViewId, ops: &[ViewOp]) -> Result<(), RendererError> {
+    fn handle_view_ops(
+        &mut self,
+        id: ViewId,
+        ops: &[ViewOp],
+        session: &Session,
+    ) -> Result<(), RendererError> {
         use RendererError as Error;
 
         for op in ops {
             match op {
                 ViewOp::Resize(w, h) => {
-                    self.resize_view(id, *w, *h)?;
+                    self.resize_view(id, *w, *h, session)?;
                 }
                 ViewOp::AddLayer(layer_id, range) => {
-                    let resources = self.resources.lock();
-
-                    if let Some((_, pixels)) = resources.get_snapshot_safe(id, *layer_id) {
+                    if let Some((_, pixels)) = session.views.get_snapshot_safe(id, *layer_id) {
                         if let Some(pixels) = pixels.as_rgba8() {
                             self.view_data
                                 .get_mut(&id)
@@ -1116,9 +1129,8 @@ impl Renderer {
                         .expect("views must have associated view data");
 
                     for (l_id, l) in view.layers.iter_mut().enumerate() {
-                        let (_, texels) = self
-                            .resources
-                            .lock()
+                        let (_, texels) = session
+                            .views
                             .get_snapshot_rect(id, l_id, &src.map(|n| n as i32))
                             .unwrap(); // TODO: Handle this nicely?
                         let texels = util::align_u8(&texels);
@@ -1134,8 +1146,7 @@ impl Renderer {
                     }
                 }
                 ViewOp::Yank(layer_id, src) => {
-                    let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
+                    let (_, pixels) = session.views.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
@@ -1151,8 +1162,8 @@ impl Renderer {
                         .map_err(Error::Texture)?;
                 }
                 ViewOp::Flip(layer_id, src, dir) => {
-                    let resources = self.resources.lock();
-                    let (_, mut pixels) = resources.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
+                    let (_, mut pixels) =
+                        session.views.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
@@ -1227,6 +1238,7 @@ impl Renderer {
         &mut self,
         id: ViewId,
         layer_id: LayerId,
+        session: &Session,
     ) -> Result<(), RendererError> {
         let layer = self
             .view_data
@@ -1235,8 +1247,7 @@ impl Renderer {
             .get_layer_mut(layer_id);
 
         let pixels = {
-            let rs = self.resources.lock();
-            let (_, pixels) = rs.get_snapshot(id, layer_id);
+            let (_, pixels) = session.views.get_snapshot(id, layer_id);
             pixels.to_owned()
         };
 
@@ -1246,7 +1257,7 @@ impl Renderer {
         Ok(())
     }
 
-    fn handle_view_damaged(&mut self, id: ViewId) -> Result<(), RendererError> {
+    fn handle_view_damaged(&mut self, id: ViewId, session: &Session) -> Result<(), RendererError> {
         let n = self
             .view_data
             .get(&id)
@@ -1255,21 +1266,32 @@ impl Renderer {
             .len();
 
         for layer_id in 0..n {
-            self.handle_view_layer_damaged(id, layer_id)?;
+            self.handle_view_layer_damaged(id, layer_id, session)?;
         }
 
         Ok(())
     }
 
-    fn handle_view_resized(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
-        self.resize_view(id, vw, vh)
+    fn handle_view_resized(
+        &mut self,
+        id: ViewId,
+        vw: u32,
+        vh: u32,
+        session: &Session,
+    ) -> Result<(), RendererError> {
+        self.resize_view(id, vw, vh, session)
     }
 
-    fn resize_view(&mut self, id: ViewId, vw: u32, vh: u32) -> Result<(), RendererError> {
+    fn resize_view(
+        &mut self,
+        id: ViewId,
+        vw: u32,
+        vh: u32,
+        session: &Session,
+    ) -> Result<(), RendererError> {
         // View size changed. Re-create view resources.
         let (ew, eh) = {
-            let resources = self.resources.lock();
-            let extent = resources.get_view(id).expect("view must exist").extent;
+            let extent = session.view(id).extent;
             (extent.width(), extent.height())
         };
 
@@ -1278,9 +1300,7 @@ impl Renderer {
         let th = u32::min(eh, vh);
 
         let mut view_data = ViewData::new(vw, vh, None, &mut self.ctx);
-
-        let resources = self.resources.lock();
-        let view_resource = resources.get_view(id).unwrap();
+        let view_resource = &session.view(id).resource;
 
         // Create n-1 layers, since layer #0 is created when a `ViewData` is created.
         for _ in view_resource.layers().skip(1) {

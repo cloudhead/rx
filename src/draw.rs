@@ -738,7 +738,7 @@ fn draw_paste(session: &Session, batch: &mut sprite2d::Batch) {
     }
 }
 
-pub fn draw_view_animation(session: &Session, v: &View) -> sprite2d::Batch {
+pub fn draw_view_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
     sprite2d::Batch::singleton(
         v.width(),
         v.height(),
@@ -751,7 +751,7 @@ pub fn draw_view_animation(session: &Session, v: &View) -> sprite2d::Batch {
     )
 }
 
-pub fn draw_view_composites(session: &Session, v: &View) -> sprite2d::Batch {
+pub fn draw_view_composites<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
     let mut batch = sprite2d::Batch::new(v.width(), v.height());
 
     for frame in v.animation.frames.iter() {

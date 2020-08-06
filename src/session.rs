@@ -9,12 +9,11 @@ use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::ResourceManager;
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::path;
 use crate::view::pixels::Pixels;
-use crate::view::resource::{Edit, EditId};
+use crate::view::resource::{Edit, EditId, ViewResource};
 use crate::view::{
     self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
     ViewState,
@@ -705,9 +704,6 @@ pub struct Session {
     /// User directories.
     base_dirs: dirs::BaseDirs,
 
-    /// Resources shared with the `Renderer`.
-    resources: ResourceManager,
-
     /// Whether we should ignore characters received.
     ignore_received_characters: bool,
     /// The set of keys currently pressed.
@@ -724,7 +720,7 @@ pub struct Session {
     pub settings_changed: HashSet<String>,
 
     /// Views loaded in the session.
-    pub views: ViewManager,
+    pub views: ViewManager<ViewResource>,
     /// Effects produced by the session. Cleared at the beginning of every
     /// update.
     pub effects: Vec<Effect>,
@@ -800,7 +796,6 @@ impl Session {
         w: u32,
         h: u32,
         cwd: P,
-        resources: ResourceManager,
         proj_dirs: dirs::ProjectDirs,
         base_dirs: dirs::BaseDirs,
     ) -> Self {
@@ -837,7 +832,6 @@ impl Session {
             prev_mode: Option::default(),
             selection: Option::default(),
             message: Message::default(),
-            resources,
             avg_time: time::Duration::from_secs(0),
             frame_number: 0,
             queue: Vec::new(),
@@ -1354,7 +1348,7 @@ impl Session {
     /// # Panics
     ///
     /// Panics if the view isn't found.
-    pub fn view(&self, id: ViewId) -> &View {
+    pub fn view(&self, id: ViewId) -> &View<ViewResource> {
         self.views
             .get(id)
             .expect(&format!("view #{} must exist", id))
@@ -1365,7 +1359,7 @@ impl Session {
     /// # Panics
     ///
     /// Panics if the view isn't found.
-    pub fn view_mut(&mut self, id: ViewId) -> &mut View {
+    pub fn view_mut(&mut self, id: ViewId) -> &mut View<ViewResource> {
         self.views
             .get_mut(id)
             .expect(&format!("view #{} must exist", id))
@@ -1376,7 +1370,7 @@ impl Session {
     /// # Panics
     ///
     /// Panics if there is no active view.
-    pub fn active_view(&self) -> &View {
+    pub fn active_view(&self) -> &View<ViewResource> {
         assert!(
             self.views.active_id != ViewId::default(),
             "fatal: no active view"
@@ -1389,7 +1383,7 @@ impl Session {
     /// # Panics
     ///
     /// Panics if there is no active view.
-    pub fn active_view_mut(&mut self) -> &mut View {
+    pub fn active_view_mut(&mut self) -> &mut View<ViewResource> {
         assert!(
             self.views.active_id != ViewId::default(),
             "fatal: no active view"
@@ -1658,14 +1652,9 @@ impl Session {
 
         match &storage {
             FileStorage::Single(path) if nlayers > 1 => {
-                let resources = self.resources.lock();
-                let view = resources
-                    .get_view(id)
-                    .expect(&format!("view #{} must exist", id));
-                let written = view.save_archive(path)?;
-                let cursor = view.cursor;
-
-                drop(resources);
+                let view = self.view(id);
+                let written = view.resource.save_archive(path)?;
+                let cursor = view.resource.cursor;
 
                 self.view_mut(id).save_as(cursor, storage.clone());
                 self.message(
@@ -1693,12 +1682,7 @@ impl Session {
                     self.save_layer_rect_as(id, active_layer_id, ext.frame(i), path)?;
                 }
 
-                let edit_id = self
-                    .resources
-                    .lock()
-                    .get_view(id)
-                    .expect(&format!("view #{} must exist", id))
-                    .current_edit();
+                let edit_id = self.view(id).resource.current_edit();
                 self.view_mut(id).save_as(edit_id, storage.clone());
                 self.message(
                     format!(
@@ -1767,12 +1751,7 @@ impl Session {
             ));
         }
 
-        let (e_id, _) = self
-            .resources
-            .lock()
-            .get_view(id)
-            .expect(&format!("view #{} must exist", id))
-            .save_layer(layer_id, rect, &path)?;
+        let (e_id, _) = self.view(id).save_layer(layer_id, rect, &path)?;
 
         Ok(Some(e_id))
     }
@@ -1845,18 +1824,7 @@ impl Session {
     }
 
     fn add_layer(&mut self, view_id: ViewId, pixels: Option<Pixels>) {
-        let l = self.view_mut(view_id).add_layer();
-        let v = self.view(view_id);
-
-        self.resources
-            .lock_mut()
-            .get_view_mut(v.id)
-            .expect(&format!("view #{} must exist", v.id))
-            .add_layer(
-                l,
-                v.extent(),
-                pixels.unwrap_or(Pixels::blank(v.width() as usize, v.height() as usize)),
-            );
+        self.view_mut(view_id).add_layer(pixels);
     }
 
     fn add_view(
@@ -1880,14 +1848,16 @@ impl Session {
 
         let pixels = util::stitch_frames(frames, fw as usize, fh as usize, Rgba8::TRANSPARENT);
         let delay = self.settings["animation/delay"].to_u64();
-        let id = self.views.add(file_status, fw, fh, nframes, delay);
+        let resource = ViewResource::new(
+            Pixels::from_rgba8(pixels.into()),
+            ViewExtent::new(fw, fh, nframes),
+        );
+        let id = self
+            .views
+            .add(file_status, fw, fh, nframes, delay, resource);
 
         self.effects.push(Effect::ViewAdded(id));
-        self.resources.add_view(
-            id,
-            ViewExtent::new(fw, fh, nframes),
-            Pixels::from_rgba8(pixels.into()),
-        );
+
         id
     }
 
@@ -1896,7 +1866,6 @@ impl Session {
         assert!(!self.views.is_empty());
 
         self.views.remove(id);
-        self.resources.remove_view(id);
         self.effects.push(Effect::ViewRemoved(id));
     }
 
@@ -1933,12 +1902,7 @@ impl Session {
     ) -> io::Result<()> {
         let delay = self.view(id).animation.delay;
         let palette = self.colors();
-        let npixels = self
-            .resources
-            .lock()
-            .get_view(id)
-            .expect(&format!("view #{} must exist", id))
-            .save_gif(layer_id, &path, delay, &palette)?;
+        let npixels = self.view(id).save_gif(layer_id, &path, delay, &palette)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -1954,12 +1918,7 @@ impl Session {
         layer_id: LayerId,
         path: P,
     ) -> io::Result<()> {
-        let npixels = self
-            .resources
-            .lock()
-            .get_view(id)
-            .expect(&format!("view #{} must exist", id))
-            .save_svg(layer_id, &path)?;
+        let npixels = self.view(id).save_svg(layer_id, &path)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -2053,7 +2012,7 @@ impl Session {
     }
 
     fn restore_view_snapshot(&mut self, id: ViewId, dir: Direction) {
-        let result = self.resources.lock_mut().get_view_mut(id).and_then(|s| {
+        let result = self.views.get_mut(id).and_then(|s| {
             if dir == Direction::Backward {
                 s.history_prev()
             } else {
@@ -2073,7 +2032,7 @@ impl Session {
                     Direction::Forward => {
                         // TODO: This relies on the fact that `remove_layer` can
                         // only remove the last layer.
-                        let layer_id = self.view_mut(id).add_layer();
+                        let layer_id = self.view_mut(id).push_layer();
                         debug_assert!(layer_id == layer);
                     }
                 };
@@ -2857,9 +2816,9 @@ impl Session {
             Command::PaletteSample => {
                 {
                     let v = self.active_view();
-                    let resources = self.resources.lock();
-                    let (_, pixels) = resources
-                        .get_view(v.id)
+                    let (_, pixels) = self
+                        .views
+                        .get(v.id)
                         .expect(&format!("view #{} must exist", v.id))
                         .layer(v.active_layer_id)
                         .current_snapshot();
@@ -3417,8 +3376,7 @@ impl Session {
     /// Get the color at the given view coordinate.
     pub fn color_at(&self, v: ViewId, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
         let view = self.view(v);
-        let resources = self.resources.lock();
-        let (snapshot, pixels) = resources.get_snapshot(view.id, l);
+        let (snapshot, pixels) = self.views.get_snapshot(view.id, l);
 
         let y_offset = snapshot
             .height()

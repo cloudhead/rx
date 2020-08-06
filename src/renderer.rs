@@ -1,7 +1,6 @@
 use crate::data::Assets;
 use crate::execution::Execution;
 use crate::platform::{self, LogicalSize};
-use crate::resources::ResourceManager;
 use crate::session::{self, Effect, PresentMode, Session};
 
 use std::cell::RefCell;
@@ -16,15 +15,14 @@ pub trait Renderer<'a>: std::marker::Sized {
         win_size: LogicalSize,
         scale_factor: f64,
         present_mode: PresentMode,
-        resources: ResourceManager,
         assets: Assets<'a>,
     ) -> std::io::Result<Self>;
 
-    fn init(&mut self, effects: Vec<Effect>);
+    fn init(&mut self, effects: Vec<Effect>, session: &Session);
 
     fn frame(
         &mut self,
-        session: &Session,
+        session: &mut Session,
         execution: Rc<RefCell<Execution>>,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
