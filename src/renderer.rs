@@ -3,8 +3,6 @@ use crate::execution::Execution;
 use crate::platform::{self, LogicalSize};
 use crate::session::{self, Effect, PresentMode, Session};
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time;
 
 pub trait Renderer<'a>: std::marker::Sized {
@@ -23,7 +21,7 @@ pub trait Renderer<'a>: std::marker::Sized {
     fn frame(
         &mut self,
         session: &mut Session,
-        execution: Rc<RefCell<Execution>>,
+        execution: &mut Execution,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
     ) -> Result<(), Self::Error>;

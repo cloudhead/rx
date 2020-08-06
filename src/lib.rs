@@ -65,9 +65,7 @@ extern crate log;
 use directories as dirs;
 
 use std::alloc::System;
-use std::cell::RefCell;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 /// Program version.
@@ -156,7 +154,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
             .expect("'vsync' is a bool");
     }
 
-    let exec = match options.exec {
+    let mut execution = match options.exec {
         ExecutionMode::Normal => Execution::normal(),
         ExecutionMode::Replay(path, digest) => Execution::replaying(path, digest),
         ExecutionMode::Record(path, digest, gif) => {
@@ -166,7 +164,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
 
     // When working with digests, certain settings need to be overwritten
     // to ensure things work correctly.
-    match &exec {
+    match &execution {
         Execution::Replaying { digest, .. } | Execution::Recording { digest, .. }
             if digest.mode != DigestMode::Ignore =>
         {
@@ -182,8 +180,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
         _ => {}
     }
 
-    let wait_events = exec.is_normal() || exec.is_recording();
-    let execution = Rc::new(RefCell::new(exec));
+    let wait_events = execution.is_normal() || execution.is_recording();
     let present_mode = session.settings.present_mode();
 
     let mut renderer: gfx::Renderer =
@@ -195,7 +192,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
     // Make sure our session ticks once before anything is rendered.
     let effects = session.update(
         &mut vec![],
-        execution.clone(),
+        &mut execution,
         Duration::default(),
         Duration::default(),
     );
@@ -288,7 +285,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                 WindowEvent::RedrawRequested => {
                     render_timer.run(|avg| {
                         renderer
-                            .frame(&mut session, execution.clone(), vec![], &avg)
+                            .frame(&mut session, &mut execution, vec![], &avg)
                             .unwrap_or_else(|err| {
                                 log::error!("{}", err);
                             });
@@ -348,12 +345,12 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
             continue;
         }
 
-        let effects = update_timer
-            .run(|avg| session.update(&mut session_events, execution.clone(), delta, avg));
+        let effects =
+            update_timer.run(|avg| session.update(&mut session_events, &mut execution, delta, avg));
 
         render_timer.run(|avg| {
             renderer
-                .frame(&mut session, execution.clone(), effects, &avg)
+                .frame(&mut session, &mut execution, effects, &avg)
                 .unwrap_or_else(|err| {
                     log::error!("{}", err);
                 });
