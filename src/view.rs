@@ -293,9 +293,7 @@ impl<R> View<R> {
             FileStatus::NoFile => None,
         }
     }
-}
 
-impl View<ViewResource> {
     /// Mark the view as saved at a specific snapshot and with
     /// the given path.
     pub fn save_as(&mut self, id: EditId, storage: FileStorage) {
@@ -406,19 +404,6 @@ impl View<ViewResource> {
 
         self.layers.push(Layer::new(range.clone(), top + 1));
         self.ops.push(ViewOp::AddLayer(id, range));
-
-        id
-    }
-
-    /// Add a new layer with optional pixels.
-    pub fn add_layer(&mut self, pixels: Option<Pixels>) -> LayerId {
-        let id = self.push_layer();
-
-        self.resource.add_layer(
-            id,
-            self.extent(),
-            pixels.unwrap_or(Pixels::blank(self.width() as usize, self.height() as usize)),
-        );
 
         id
     }
@@ -693,6 +678,21 @@ impl View<ViewResource> {
             frames.push(origin + Vector2::new(i as f32 * self.fw as f32, 0.));
         }
         self.animation = Animation::new(&frames, self.animation.delay);
+    }
+}
+
+impl View<ViewResource> {
+    /// Add a new layer with optional pixels.
+    pub fn add_layer(&mut self, pixels: Option<Pixels>) -> LayerId {
+        let id = self.push_layer();
+
+        self.resource.add_layer(
+            id,
+            self.extent(),
+            pixels.unwrap_or(Pixels::blank(self.width() as usize, self.height() as usize)),
+        );
+
+        id
     }
 }
 
