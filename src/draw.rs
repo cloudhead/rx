@@ -16,8 +16,6 @@ use rgx::kit::{Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::time;
 
 pub const CHECKER_LAYER: ZDepth = ZDepth(-0.9);
@@ -123,7 +121,7 @@ impl Context {
         &mut self,
         session: &Session,
         avg_frametime: &time::Duration,
-        execution: Rc<RefCell<Execution>>,
+        execution: &Execution,
     ) {
         self::draw_brush(&session, &mut self.ui_batch);
         self::draw_paste(&session, &mut self.paste_batch);
@@ -401,11 +399,11 @@ fn draw_overlay(
     session: &Session,
     avg_frametime: &time::Duration,
     text: &mut TextBatch,
-    exec: Rc<RefCell<Execution>>,
+    exec: &Execution,
 ) {
     let debug = session.settings["debug"].is_set();
 
-    match &*exec.borrow() {
+    match exec {
         Execution::Recording { path, .. } => {
             text.add(
                 &format!("* recording: {} (<End> to stop)", path.display()),

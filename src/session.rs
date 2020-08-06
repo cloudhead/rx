@@ -29,7 +29,6 @@ use arrayvec::ArrayVec;
 use directories as dirs;
 use nonempty::NonEmpty;
 
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt;
@@ -38,7 +37,6 @@ use std::io;
 use std::io::Write;
 use std::ops::{Add, Deref, Sub};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 use std::time;
 
 /// Settings help string.
@@ -907,7 +905,7 @@ impl Session {
     pub fn update(
         &mut self,
         events: &mut Vec<Event>,
-        exec: Rc<RefCell<Execution>>,
+        exec: &mut Execution,
         delta: time::Duration,
         avg_time: time::Duration,
     ) -> Vec<Effect> {
@@ -926,8 +924,6 @@ impl Session {
         if self.ignore_received_characters {
             self.ignore_received_characters = false;
         }
-
-        let exec = &mut *exec.borrow_mut();
 
         // TODO: This whole block needs refactoring..
         if let Execution::Replaying {

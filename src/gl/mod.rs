@@ -32,13 +32,11 @@ use luminance::texture::{Dim2, GenMipmaps, MagFilter, MinFilter, Sampler, Textur
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_gl::gl33;
 
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
 use std::io;
 use std::mem;
-use std::rc::Rc;
 use std::time;
 
 type Backend = gl33::GL33;
@@ -509,7 +507,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
     fn frame(
         &mut self,
         session: &mut Session,
-        execution: Rc<RefCell<Execution>>,
+        execution: &mut Execution,
         effects: Vec<session::Effect>,
         avg_frametime: &time::Duration,
     ) -> Result<(), RendererError> {
@@ -549,7 +547,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         } = self;
 
         draw_ctx.clear();
-        draw_ctx.draw(&session, avg_frametime, execution.clone());
+        draw_ctx.draw(&session, avg_frametime, execution);
 
         let text_tess = self
             .ctx
@@ -912,7 +910,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 });
             });
 
-            if session.settings["debug"].is_set() || !execution.borrow().is_normal() {
+            if session.settings["debug"].is_set() || !execution.is_normal() {
                 let bound_font = pipeline
                     .bind_texture(font)
                     .expect("binding textures never fails");
@@ -976,16 +974,14 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             }
         }
 
-        if !execution.borrow().is_normal() {
+        if !execution.is_normal() {
             let texels = screen_fb
                 .color_slot()
                 .get_raw_texels()
                 .expect("binding textures never fails");
             let texels = Rgba8::align(&texels);
 
-            execution
-                .borrow_mut()
-                .record(&texels.iter().cloned().map(Bgra8::from).collect::<Vec<_>>());
+            execution.record(&texels.iter().cloned().map(Bgra8::from).collect::<Vec<_>>());
         }
 
         Ok(())
