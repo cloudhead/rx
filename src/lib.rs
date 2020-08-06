@@ -55,7 +55,6 @@ use event::Event;
 use execution::{DigestMode, Execution, ExecutionMode, GifMode};
 use platform::{WindowEvent, WindowHint};
 use renderer::Renderer;
-use resources::ResourceManager;
 use session::*;
 use timer::FrameTimer;
 use view::FileStatus;
@@ -129,14 +128,13 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
     info!("framebuffer size: {}x{}", win_size.width, win_size.height);
     info!("scale factor: {}", scale_factor);
 
-    let resources = ResourceManager::new();
     let assets = data::Assets::new(options.glyphs);
     let proj_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "config directory not found"))?;
     let base_dirs = dirs::BaseDirs::new()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
     let cwd = std::env::current_dir()?;
-    let mut session = Session::new(win_w, win_h, cwd, resources.clone(), proj_dirs, base_dirs)
+    let mut session = Session::new(win_w, win_h, cwd, proj_dirs, base_dirs)
         .with_blank(
             FileStatus::NoFile,
             Session::DEFAULT_VIEW_W,
@@ -188,14 +186,8 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
     let execution = Rc::new(RefCell::new(exec));
     let present_mode = session.settings.present_mode();
 
-    let mut renderer: gfx::Renderer = Renderer::new(
-        &mut win,
-        win_size,
-        scale_factor,
-        present_mode,
-        resources,
-        assets,
-    )?;
+    let mut renderer: gfx::Renderer =
+        Renderer::new(&mut win, win_size, scale_factor, present_mode, assets)?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
@@ -207,7 +199,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
         Duration::default(),
         Duration::default(),
     );
-    renderer.init(effects);
+    renderer.init(effects, &session);
 
     let mut render_timer = FrameTimer::new();
     let mut update_timer = FrameTimer::new();
@@ -296,7 +288,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
                 WindowEvent::RedrawRequested => {
                     render_timer.run(|avg| {
                         renderer
-                            .frame(&session, execution.clone(), vec![], &avg)
+                            .frame(&mut session, execution.clone(), vec![], &avg)
                             .unwrap_or_else(|err| {
                                 log::error!("{}", err);
                             });
@@ -361,7 +353,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
 
         render_timer.run(|avg| {
             renderer
-                .frame(&session, execution.clone(), effects, &avg)
+                .frame(&mut session, execution.clone(), effects, &avg)
                 .unwrap_or_else(|err| {
                     log::error!("{}", err);
                 });
