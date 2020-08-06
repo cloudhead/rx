@@ -28,6 +28,7 @@ mod event;
 mod font;
 mod history;
 mod image;
+mod io;
 mod palette;
 mod parser;
 mod pixels;

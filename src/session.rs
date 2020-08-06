@@ -9,10 +9,12 @@ use crate::execution::{DigestMode, DigestState, Execution};
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
-use crate::resources::{Edit, EditId, Pixels, ResourceManager};
+use crate::resources::ResourceManager;
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::path;
+use crate::view::pixels::Pixels;
+use crate::view::resource::{Edit, EditId};
 use crate::view::{
     self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
     ViewState,
@@ -1603,7 +1605,7 @@ impl Session {
         // Load images and collect errors.
         let mut frames = paths
             .iter()
-            .map(ResourceManager::load_image)
+            .map(crate::io::load_image)
             .collect::<io::Result<Vec<_>>>()?
             .into_iter()
             .peekable();
@@ -1656,10 +1658,16 @@ impl Session {
 
         match &storage {
             FileStorage::Single(path) if nlayers > 1 => {
-                let written = self.resources.save_view_archive(id, path)?;
-                let edit_id = self.resources.lock().current_edit(id);
+                let resources = self.resources.lock();
+                let view = resources
+                    .get_view(id)
+                    .expect(&format!("view #{} must exist", id));
+                let written = view.save_archive(path)?;
+                let cursor = view.cursor;
 
-                self.view_mut(id).save_as(edit_id, storage.clone());
+                drop(resources);
+
+                self.view_mut(id).save_as(cursor, storage.clone());
                 self.message(
                     format!("\"{}\" {} pixels written", storage, written),
                     MessageType::Info,
@@ -1685,7 +1693,12 @@ impl Session {
                     self.save_layer_rect_as(id, active_layer_id, ext.frame(i), path)?;
                 }
 
-                let edit_id = self.resources.lock().current_edit(id);
+                let edit_id = self
+                    .resources
+                    .lock()
+                    .get_view(id)
+                    .expect(&format!("view #{} must exist", id))
+                    .current_edit();
                 self.view_mut(id).save_as(edit_id, storage.clone());
                 self.message(
                     format!(
@@ -1754,7 +1767,12 @@ impl Session {
             ));
         }
 
-        let (e_id, _) = self.resources.save_layer(id, layer_id, rect, &path)?;
+        let (e_id, _) = self
+            .resources
+            .lock()
+            .get_view(id)
+            .expect(&format!("view #{} must exist", id))
+            .save_layer(layer_id, rect, &path)?;
 
         Ok(Some(e_id))
     }
@@ -1779,7 +1797,7 @@ impl Session {
 
         match path.format {
             view::Format::Png => {
-                let (width, height, pixels) = ResourceManager::load_image(&*path)?;
+                let (width, height, pixels) = crate::io::load_image(&*path)?;
 
                 self.add_view(
                     FileStatus::Saved(FileStorage::Single((*path).into())),
@@ -1793,7 +1811,7 @@ impl Session {
                 );
             }
             view::Format::Archive => {
-                let archive = ResourceManager::load_archive(&*path)?;
+                let archive = crate::io::load_archive(&*path)?;
                 let extent = archive.manifest.extent;
                 let mut layers = archive.layers.into_iter();
 
@@ -1917,7 +1935,10 @@ impl Session {
         let palette = self.colors();
         let npixels = self
             .resources
-            .save_view_gif(id, layer_id, &path, delay, &palette)?;
+            .lock()
+            .get_view(id)
+            .expect(&format!("view #{} must exist", id))
+            .save_gif(layer_id, &path, delay, &palette)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -1933,7 +1954,12 @@ impl Session {
         layer_id: LayerId,
         path: P,
     ) -> io::Result<()> {
-        let npixels = self.resources.save_view_svg(id, layer_id, &path)?;
+        let npixels = self
+            .resources
+            .lock()
+            .get_view(id)
+            .expect(&format!("view #{} must exist", id))
+            .save_svg(layer_id, &path)?;
 
         self.message(
             format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
@@ -2832,7 +2858,11 @@ impl Session {
                 {
                     let v = self.active_view();
                     let resources = self.resources.lock();
-                    let (_, pixels) = resources.get_snapshot(v.id, v.active_layer_id);
+                    let (_, pixels) = resources
+                        .get_view(v.id)
+                        .expect(&format!("view #{} must exist", v.id))
+                        .layer(v.active_layer_id)
+                        .current_snapshot();
 
                     for pixel in pixels.iter() {
                         if pixel != Rgba8::TRANSPARENT {

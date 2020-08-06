@@ -119,7 +119,7 @@ pub fn read<R: io::Read>(reader: R) -> io::Result<(Vec<u8>, u32, u32)> {
     Ok((buffer, width, height))
 }
 
-pub fn save<P: AsRef<path::Path>>(path: P, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
+pub fn save_as<P: AsRef<path::Path>>(path: P, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
     let f = File::create(path.as_ref())?;
     let out = &mut io::BufWriter::new(f);
 

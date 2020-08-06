@@ -4,11 +4,12 @@ use crate::execution::Execution;
 use crate::font::TextBatch;
 use crate::platform::{self, LogicalSize};
 use crate::renderer;
-use crate::resources::{Pixels, ResourceManager};
+use crate::resources::ResourceManager;
 use crate::session::{self, Blending, Effect, PresentMode, Session};
 use crate::sprite;
 use crate::util;
 use crate::view::layer::{FrameRange, LayerId};
+use crate::view::pixels::Pixels;
 use crate::view::{ViewId, ViewOp, ViewState};
 use crate::{data, data::Assets, image};
 

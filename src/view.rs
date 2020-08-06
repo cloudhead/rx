@@ -1,10 +1,12 @@
 pub mod layer;
 pub mod path;
+pub mod pixels;
+pub mod resource;
 
 pub use path::{Format, Path};
+pub use resource::EditId;
 
 use crate::cmd::Axis;
-use crate::resources::EditId;
 use crate::session::{Session, SessionCoords};
 use crate::util;
 use crate::view::layer::{FrameRange, Layer, LayerId};
