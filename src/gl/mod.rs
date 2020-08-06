@@ -9,7 +9,8 @@ use crate::sprite;
 use crate::util;
 use crate::view::layer::{FrameRange, LayerId};
 use crate::view::pixels::Pixels;
-use crate::view::{ViewId, ViewOp, ViewState};
+use crate::view::resource::ViewResource;
+use crate::view::{View, ViewId, ViewOp, ViewState};
 use crate::{data, data::Assets, image};
 
 use nonempty::NonEmpty;
@@ -1054,16 +1055,16 @@ impl Renderer {
                     self.view_data.remove(&id);
                 }
                 Effect::ViewOps(id, ops) => {
-                    self.handle_view_ops(id, &ops, session)?;
+                    self.handle_view_ops(session.view(id), &ops)?;
                 }
                 Effect::ViewDamaged(id, Some(extent)) => {
-                    self.handle_view_resized(id, extent.width(), extent.height(), session)?;
+                    self.handle_view_resized(session.view(id), extent.width(), extent.height())?;
                 }
                 Effect::ViewDamaged(id, None) => {
-                    self.handle_view_damaged(id, session)?;
+                    self.handle_view_damaged(session.view(id))?;
                 }
                 Effect::ViewLayerDamaged(id, layer) => {
-                    self.handle_view_layer_damaged(id, layer, session)?;
+                    self.handle_view_layer_damaged(session.view(id), layer)?;
                 }
                 Effect::ViewBlendingChanged(blending) => {
                     self.blending = blending;
@@ -1082,22 +1083,21 @@ impl Renderer {
 
     fn handle_view_ops(
         &mut self,
-        id: ViewId,
+        v: &View<ViewResource>,
         ops: &[ViewOp],
-        session: &Session,
     ) -> Result<(), RendererError> {
         use RendererError as Error;
 
         for op in ops {
             match op {
                 ViewOp::Resize(w, h) => {
-                    self.resize_view(id, *w, *h, session)?;
+                    self.resize_view(&v, *w, *h)?;
                 }
                 ViewOp::AddLayer(layer_id, range) => {
-                    if let Some((_, pixels)) = session.views.get_snapshot_safe(id, *layer_id) {
+                    if let Some((_, pixels)) = v.current_snapshot(*layer_id) {
                         if let Some(pixels) = pixels.as_rgba8() {
                             self.view_data
-                                .get_mut(&id)
+                                .get_mut(&v.id)
                                 .expect("views must have associated view data")
                                 .add_layer(range, Some(pixels), &mut self.ctx);
                         } else {
@@ -1109,7 +1109,7 @@ impl Renderer {
                 ViewOp::Clear(color) => {
                     let view = self
                         .view_data
-                        .get_mut(&id)
+                        .get_mut(&v.id)
                         .expect("views must have associated view data");
 
                     for l in view.layers.iter_mut() {
@@ -1121,13 +1121,13 @@ impl Renderer {
                 ViewOp::Blit(src, dst) => {
                     let view = self
                         .view_data
-                        .get_mut(&id)
+                        .get_mut(&v.id)
                         .expect("views must have associated view data");
 
                     for (l_id, l) in view.layers.iter_mut().enumerate() {
-                        let (_, texels) = session
-                            .views
-                            .get_snapshot_rect(id, l_id, &src.map(|n| n as i32))
+                        let (_, texels) = v
+                            .layer(l_id)
+                            .get_snapshot_rect(&src.map(|n| n as i32))
                             .unwrap(); // TODO: Handle this nicely?
                         let texels = util::align_u8(&texels);
 
@@ -1142,7 +1142,10 @@ impl Renderer {
                     }
                 }
                 ViewOp::Yank(layer_id, src) => {
-                    let (_, pixels) = session.views.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
+                    let (_, pixels) = v
+                        .layer(*layer_id)
+                        .get_snapshot_rect(&src.map(|n| n as i32))
+                        .unwrap(); // TODO: Handle this nicely?
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
@@ -1158,8 +1161,10 @@ impl Renderer {
                         .map_err(Error::Texture)?;
                 }
                 ViewOp::Flip(layer_id, src, dir) => {
-                    let (_, mut pixels) =
-                        session.views.get_snapshot_rect(id, *layer_id, src).unwrap(); // TODO: Handle this nicely?
+                    let (_, mut pixels) = v
+                        .layer(*layer_id)
+                        .get_snapshot_rect(&src.map(|n| n as i32))
+                        .unwrap(); // TODO: Handle this nicely?
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
@@ -1215,7 +1220,7 @@ impl Renderer {
                 ViewOp::SetPixel(layer_id, rgba, x, y) => {
                     let fb = &mut self
                         .view_data
-                        .get_mut(&id)
+                        .get_mut(&v.id)
                         .expect("views must have associated view data")
                         .get_layer_mut(*layer_id)
                         .fb;
@@ -1232,18 +1237,19 @@ impl Renderer {
 
     fn handle_view_layer_damaged(
         &mut self,
-        id: ViewId,
+        view: &View<ViewResource>,
         layer_id: LayerId,
-        session: &Session,
     ) -> Result<(), RendererError> {
         let layer = self
             .view_data
-            .get_mut(&id)
+            .get_mut(&view.id)
             .expect("views must have associated view data")
             .get_layer_mut(layer_id);
 
         let pixels = {
-            let (_, pixels) = session.views.get_snapshot(id, layer_id);
+            let (_, pixels) = view
+                .current_snapshot(layer_id)
+                .expect(&format!("view #{} has a current snapshot", view.id));
             pixels.to_owned()
         };
 
@@ -1253,16 +1259,16 @@ impl Renderer {
         Ok(())
     }
 
-    fn handle_view_damaged(&mut self, id: ViewId, session: &Session) -> Result<(), RendererError> {
+    fn handle_view_damaged(&mut self, view: &View<ViewResource>) -> Result<(), RendererError> {
         let n = self
             .view_data
-            .get(&id)
+            .get(&view.id)
             .expect("views must have associated view data")
             .layers
             .len();
 
         for layer_id in 0..n {
-            self.handle_view_layer_damaged(id, layer_id, session)?;
+            self.handle_view_layer_damaged(view, layer_id)?;
         }
 
         Ok(())
@@ -1270,24 +1276,22 @@ impl Renderer {
 
     fn handle_view_resized(
         &mut self,
-        id: ViewId,
+        view: &View<ViewResource>,
         vw: u32,
         vh: u32,
-        session: &Session,
     ) -> Result<(), RendererError> {
-        self.resize_view(id, vw, vh, session)
+        self.resize_view(view, vw, vh)
     }
 
     fn resize_view(
         &mut self,
-        id: ViewId,
+        view: &View<ViewResource>,
         vw: u32,
         vh: u32,
-        session: &Session,
     ) -> Result<(), RendererError> {
         // View size changed. Re-create view resources.
         let (ew, eh) = {
-            let extent = session.view(id).extent;
+            let extent = view.resource.extent;
             (extent.width(), extent.height())
         };
 
@@ -1296,7 +1300,7 @@ impl Renderer {
         let th = u32::min(eh, vh);
 
         let mut view_data = ViewData::new(vw, vh, None, &mut self.ctx);
-        let view_resource = &session.view(id).resource;
+        let view_resource = &view.resource;
 
         // Create n-1 layers, since layer #0 is created when a `ViewData` is created.
         for _ in view_resource.layers().skip(1) {
@@ -1321,7 +1325,7 @@ impl Renderer {
             }
         }
 
-        self.view_data.insert(id, view_data);
+        self.view_data.insert(view.id, view_data);
 
         Ok(())
     }
