@@ -40,14 +40,8 @@ impl Sprite {
         ]);
     }
 
-    #[cfg(not(feature = "wgpu"))]
     pub fn vertices(&self) -> Vec<Vertex> {
         self.buf.clone()
-    }
-
-    #[cfg(feature = "wgpu")]
-    pub fn finish(self, r: &rgx::core::Renderer) -> rgx::core::VertexBuffer {
-        r.device.create_buffer(self.buf.as_slice())
     }
 
     pub fn clear(&mut self) {

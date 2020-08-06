@@ -38,11 +38,6 @@ mod sprite;
 mod timer;
 mod view;
 
-#[cfg(feature = "wgpu")]
-#[path = "wgpu/mod.rs"]
-mod gfx;
-
-#[cfg(not(feature = "wgpu"))]
 #[path = "gl/mod.rs"]
 mod gfx;
 
@@ -105,18 +100,17 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
 
     debug!("options: {:?}", options);
 
-    let context = if cfg!(feature = "wgpu") {
-        platform::GraphicsContext::None
-    } else {
-        platform::GraphicsContext::Gl
-    };
-
     let hints = &[
         WindowHint::Resizable(options.resizable),
         WindowHint::Visible(!options.headless),
     ];
-    let (mut win, mut events) =
-        platform::init("rx", options.width, options.height, hints, context)?;
+    let (mut win, mut events) = platform::init(
+        "rx",
+        options.width,
+        options.height,
+        hints,
+        platform::GraphicsContext::Gl,
+    )?;
 
     let scale_factor = win.scale_factor();
     let win_size = win.size();
