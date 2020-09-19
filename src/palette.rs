@@ -30,6 +30,25 @@ impl Palette {
         }
     }
 
+    pub fn gradient(&mut self, colorstart: Rgba8, colorend: Rgba8, number: usize) {
+        fn blend_component(start: u8, end: u8, coef: f32) -> u8 {
+            (start as f32 * (1.0 - coef) + end as f32 * coef).round() as u8
+        }
+
+        let step: f32 = 1.0 / ((number - 1) as f32);
+        for i in 0..number {
+            let coef = i as f32 * step;
+            let color: Rgba8 = Rgba8 {
+                r: blend_component(colorstart.r, colorend.r, coef),
+                g: blend_component(colorstart.g, colorend.g, coef),
+                b: blend_component(colorstart.b, colorend.b, coef),
+                a: blend_component(colorstart.a, colorend.a, coef),
+            };
+
+            self.colors.push(color);
+        }
+    }
+
     pub fn clear(&mut self) {
         self.colors.clear();
     }

@@ -2801,6 +2801,10 @@ impl Session {
             Command::PaletteClear => {
                 self.palette.clear();
             }
+            Command::PaletteGradient(colorstart, colorend, steps) => {
+                self.palette.gradient(colorstart, colorend, steps);
+                self.center_palette();
+            }
             Command::PaletteSort => {
                 // Sort by total luminosity. This is pretty lame, but it's
                 // something to work with.

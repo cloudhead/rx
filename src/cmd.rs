@@ -70,6 +70,7 @@ pub enum Command {
     // Palette
     PaletteAdd(Rgba8),
     PaletteClear,
+    PaletteGradient(Rgba8, Rgba8, usize),
     PaletteSample,
     PaletteSort,
     PaletteWrite(String),
@@ -177,6 +178,13 @@ impl fmt::Display for Command {
             Self::Noop => write!(f, "No-op"),
             Self::PaletteAdd(c) => write!(f, "Add {color} to palette", color = c),
             Self::PaletteClear => write!(f, "Clear palette"),
+            Self::PaletteGradient(cs, ce, n) => write!(
+                f,
+                "Create {} colors gradient from {} to {}",
+                number = n,
+                colorstart = cs,
+                colorend = ce
+            ),
             Self::PaletteSample => write!(f, "Sample palette from view"),
             Self::PaletteSort => write!(f, "Sort palette colors"),
             Self::Pan(x, 0) if *x > 0 => write!(f, "Pan workspace right"),
@@ -260,6 +268,7 @@ impl From<Command> for String {
             Command::PaletteClear => format!("p/clear"),
             Command::PaletteWrite(_) => format!("p/write"),
             Command::PaletteSample => format!("p/sample"),
+            Command::PaletteGradient(cs, ce, n) => format!("p/gradient {} {} {}", cs, ce, n),
             Command::Pan(x, y) => format!("pan {} {}", x, y),
             Command::Quit => format!("q"),
             Command::Redo => format!("redo"),
@@ -882,6 +891,15 @@ impl Default for Commands {
             })
             .command("p/clear", "Clear the color palette", |p| {
                 p.value(Command::PaletteClear)
+            })
+            .command("p/gradient", "Add a gradient to the palette", |p| {
+                p.then(tuple::<Rgba8>(
+                    color().label("<colorstart>"),
+                    color().label("<colorend>"),
+                ))
+                .skip(whitespace())
+                .then(natural::<usize>())
+                .map(|((_, (cs, ce)), n)| Command::PaletteGradient(cs, ce, n))
             })
             .command(
                 "p/sample",
