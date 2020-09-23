@@ -26,6 +26,10 @@ pub fn word() -> Parser<String> {
     many(letter())
 }
 
+pub fn token() -> Parser<String> {
+    many::<_, String>(satisfy(|c| !c.is_whitespace(), "!<whitespace>"))
+}
+
 pub fn comment() -> Parser<String> {
     string("--")
         .skip(optional(whitespace()))
@@ -34,7 +38,7 @@ pub fn comment() -> Parser<String> {
 }
 
 pub fn path() -> Parser<String> {
-    many::<_, String>(satisfy(|c| !c.is_whitespace(), "!<whitespace>"))
+    token()
         .map(|input: String| {
             let mut path: OsString = input.clone().into();
 
@@ -122,43 +126,33 @@ pub fn param<T: Parse>() -> Parser<T> {
 }
 
 pub fn color() -> Parser<Rgba8> {
-    let label = "<color>";
+    peek(
+        token()
+            .try_map(move |input| {
+                if input.is_empty() {
+                    return Err("expected color".to_owned());
+                }
+                if input.len() < 7 {
+                    return Err(format!("{:?} is not a valid color value", input));
+                }
+                let (s, alpha) = input.split_at(7);
 
-    Parser::new(
-        move |input| {
-            if input.is_empty() {
-                return Err((
-                    memoir::result::Error::new(format!("expected {:?}", label)),
-                    input,
-                ));
-            }
-            if input.len() < 7 {
-                return Err((
-                    memoir::result::Error::new(format!("{:?} is not a valid color value", input)),
-                    input,
-                ));
-            }
-            let (s, alpha) = input.split_at(7);
-
-            match Rgba8::from_str(s) {
-                Ok(color) => {
-                    if alpha.is_empty() {
-                        Ok((color, alpha))
-                    } else {
-                        let (a, rest) = symbol('/')
+                match Rgba8::from_str(s) {
+                    Ok(color) => {
+                        if let Ok((a, _)) = symbol('/')
                             .then(rational::<f64>())
                             .map(|(_, a)| a)
-                            .parse(alpha)?;
-                        Ok((color.alpha((a * std::u8::MAX as f64) as u8), rest))
+                            .parse(alpha)
+                        {
+                            Ok(color.alpha((a * std::u8::MAX as f64) as u8))
+                        } else {
+                            Ok(color)
+                        }
                     }
+                    Err(_) => Err(format!("malformed color value `{}`", s)),
                 }
-                Err(_) => Err((
-                    memoir::result::Error::new(format!("malformed color value `{}`", s)),
-                    input,
-                )),
-            }
-        },
-        label,
+            })
+            .label("<color>"),
     )
 }
 
@@ -234,5 +228,16 @@ mod test {
 
         assert_eq!(rest, "");
         assert_eq!(out, vec!["path/one.png", "path/two.png", "path/three.png"]);
+    }
+
+    #[test]
+    fn test_color() {
+        let p = color().skip(whitespace()).then(color());
+
+        let ((a, b), rest) = p.parse("#ffaa44/0.5 #141414").unwrap();
+
+        assert_eq!(rest, "");
+        assert_eq!(a, Rgba8::new(0xff, 0xaa, 0x44, 127));
+        assert_eq!(b, Rgba8::new(0x14, 0x14, 0x14, 255));
     }
 }
