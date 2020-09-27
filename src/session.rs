@@ -2802,12 +2802,17 @@ impl Session {
                 self.palette.clear();
             }
             Command::PaletteSort => {
-                // Sort by total luminosity. This is pretty lame, but it's
-                // something to work with.
-                self.palette.colors.sort_by(|a, b| {
-                    (a.r as u32 + a.g as u32 + a.b as u32)
-                        .cmp(&(b.r as u32 + b.g as u32 + b.b as u32))
-                });
+                fn hue(color: Rgba8) -> f32 {
+                    let a = (3.0).sqrt() * (color.g as f32 - color.b as f32);
+                    let b = 2.0 * color.r as f32 - color.g as f32 - color.b as f32;
+                    a.atan2(b)
+                }
+
+                self.palette
+                    .colors
+                    .sort_by(|a, b| hue(*a).partial_cmp(&hue(*b)).unwrap());
+
+                self.center_palette();
             }
             Command::PaletteSample => {
                 {
