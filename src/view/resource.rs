@@ -1,6 +1,6 @@
 use crate::image;
 use crate::session::Rgb8;
-use crate::view::layer::LayerId;
+use crate::view::layer::{LayerId, LayerCoords};
 use crate::view::ViewExtent;
 
 use super::pixels::{PixelFormat, Pixels};
@@ -54,7 +54,7 @@ impl ViewResource {
             .expect(&format!("layer #{} should exist", layer))
     }
 
-    pub fn layers(&self) -> impl Iterator<Item = (&LayerId, &LayerResource)> + '_ {
+    pub fn layers(&self) -> impl Iterator<Item=(&LayerId, &LayerResource)> + '_ {
         self.layers.iter().filter(|(_, l)| !l.hidden)
     }
 
@@ -533,6 +533,15 @@ pub struct Snapshot {
     pixels: Compressed<Box<[u8]>>,
 
     format: PixelFormat,
+}
+
+impl Snapshot {
+    pub fn layer_coord_to_index(&self, p: LayerCoords<u32>) -> Option<usize>{
+        self.height()
+            .checked_sub(p.y)
+            .and_then(|x| x.checked_sub(1))
+            .map(|y| (y * self.width() + p.x) as usize)
+    }
 }
 
 impl Snapshot {
