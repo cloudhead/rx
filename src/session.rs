@@ -6,7 +6,7 @@ use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
 use crate::execution::{DigestMode, DigestState, Execution};
-use crate::flood::flood_fill;
+use crate::flood::FloodFiller;
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
@@ -2206,9 +2206,9 @@ impl Session {
                                 }
                                 Tool::Pan(_) => {}
                                 Tool::FloodFill => {
-                                    if let Some(shapes) =
-                                        flood_fill(self.active_view(), p.into(), self.fg)
-                                    {
+                                    let filler =
+                                        FloodFiller::new(self.active_view(), p.into(), self.fg);
+                                    if let Some(shapes) = filler.and_then(|f| f.run()) {
                                         self.effects.push(Effect::ViewPaintFinal(shapes));
                                         self.active_view_mut().touch_layer();
                                     }
