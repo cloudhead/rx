@@ -41,8 +41,7 @@ fn get_color<'a>(
     point: LayerCoords<u32>,
 ) -> Option<&'a mut Rgba8> {
     let idx = snapshot.layer_coord_to_index(point)?;
-    let color = canvas.get_mut(idx);
-    color
+    canvas.get_mut(idx)
 }
 
 fn to_shapes(points: Vec<(LayerCoords<u32>, Rgba8)>) -> Vec<Shape> {
