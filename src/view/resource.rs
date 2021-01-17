@@ -54,7 +54,7 @@ impl ViewResource {
             .expect(&format!("layer #{} should exist", layer))
     }
 
-    pub fn layers(&self) -> impl Iterator<Item=(&LayerId, &LayerResource)> + '_ {
+    pub fn layers(&self) -> impl Iterator<Item = (&LayerId, &LayerResource)> + '_ {
         self.layers.iter().filter(|(_, l)| !l.hidden)
     }
 
