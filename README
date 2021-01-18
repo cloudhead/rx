@@ -21,6 +21,8 @@ OVERVIEW
   (https://rx.cloudhead.io/guide.html), installation instructions,
   and binary download links.
 
+  For discussions, join the community: https://rx.cloudhead.io/#community.
+
   To build rx from source, see the build sections below.
 
   Once inside rx, enter the `:help` command to get a list of key bindings
