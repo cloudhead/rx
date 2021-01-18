@@ -25,6 +25,7 @@ mod cmd;
 mod color;
 mod draw;
 mod event;
+mod flood;
 mod font;
 mod history;
 mod image;

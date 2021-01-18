@@ -62,11 +62,12 @@ pub mod cursors {
         }
     }
 
-    const CROSSHAIR: Cursor = Cursor::new(Rect::new(16., 0., 32., 16.), -8., -8., true);
     const SAMPLER: Cursor = Cursor::new(Rect::new(0., 0., 16., 16.), 1., 1., false);
-    const PAN: Cursor = Cursor::new(Rect::new(48., 0., 64., 16.), -8., -8., false);
+    const CROSSHAIR: Cursor = Cursor::new(Rect::new(16., 0., 32., 16.), -8., -8., true);
     const OMNI: Cursor = Cursor::new(Rect::new(32., 0., 48., 16.), -8., -8., false);
+    const PAN: Cursor = Cursor::new(Rect::new(48., 0., 64., 16.), -8., -8., false);
     const ERASE: Cursor = Cursor::new(Rect::new(64., 0., 80., 16.), -8., -8., true);
+    const FLOOD: Cursor = Cursor::new(Rect::new(80., 0., 96., 16.), -8., -8., false);
 
     pub fn info(t: &Tool, m: Mode, in_view: bool, in_selection: bool) -> Option<Cursor> {
         match (m, t) {
@@ -79,6 +80,7 @@ pub mod cursors {
         let cursor = match t {
             Tool::Sampler => self::SAMPLER,
             Tool::Pan(_) => self::PAN,
+            Tool::FloodFill => self::FLOOD,
 
             Tool::Brush(b) => match m {
                 Mode::Visual(_) if in_selection && in_view => self::OMNI,

@@ -199,6 +199,7 @@ impl fmt::Display for Command {
             Self::Tool(Tool::Pan(_)) => write!(f, "Pan tool"),
             Self::Tool(Tool::Brush(_)) => write!(f, "Brush tool"),
             Self::Tool(Tool::Sampler) => write!(f, "Color sampler tool"),
+            Self::Tool(Tool::FloodFill) => write!(f, "Flood fill tool"),
             Self::ToolPrev => write!(f, "Switch to previous tool"),
             Self::Set(s, v) => write!(f, "Set {setting} to {val}", setting = s, val = v),
             Self::Slice(Some(n)) => write!(f, "Slice view into {} frame(s)", n),
@@ -828,6 +829,9 @@ impl Default for Commands {
             })
             .command("brush", "Switch to default brush", |p| {
                 p.value(Command::Tool(Tool::Brush(Brush::default())))
+            })
+            .command("flood", "Switch to flood fill tool", |p| {
+                p.value(Command::Tool(Tool::FloodFill))
             })
             .command("mode", "Set session mode, eg. `visual` or `normal`", |p| {
                 p.then(param::<Mode>()).map(|(_, m)| Command::Mode(m))

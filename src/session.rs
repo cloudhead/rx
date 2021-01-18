@@ -6,6 +6,7 @@ use crate::color;
 use crate::data;
 use crate::event::{Event, TimedEvent};
 use crate::execution::{DigestMode, DigestState, Execution};
+use crate::flood::flood_fill;
 use crate::hashmap;
 use crate::palette::*;
 use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, ModifiersState};
@@ -299,6 +300,8 @@ pub enum State {
 pub enum Tool {
     /// The standard drawing tool.
     Brush(Brush),
+    /// Used for filling enclosed regions with color.
+    FloodFill,
     /// Used to sample colors.
     Sampler,
     /// Used to pan the workspace.
@@ -2202,6 +2205,14 @@ impl Session {
                                     self.sample_color();
                                 }
                                 Tool::Pan(_) => {}
+                                Tool::FloodFill => {
+                                    if let Some(shapes) =
+                                        flood_fill(self.active_view(), p.into(), self.fg)
+                                    {
+                                        self.effects.push(Effect::ViewPaintFinal(shapes));
+                                        self.active_view_mut().touch_layer();
+                                    }
+                                }
                             },
                             Mode::Command => {
                                 // TODO
@@ -3377,14 +3388,9 @@ impl Session {
     pub fn color_at(&self, v: ViewId, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
         let view = self.view(v);
         let (snapshot, pixels) = self.views.get_snapshot(view.id, l);
-
-        let y_offset = snapshot
-            .height()
-            .checked_sub(p.y)
-            .and_then(|x| x.checked_sub(1));
-        let index = y_offset.map(|y| (y * snapshot.width() + p.x) as usize);
-
-        index.and_then(|idx| pixels.get(idx))
+        snapshot
+            .layer_coord_to_index(p)
+            .and_then(|idx| pixels.get(idx))
     }
 
     fn sample_color(&mut self) {
