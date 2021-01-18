@@ -1,6 +1,6 @@
 use crate::image;
 use crate::session::Rgb8;
-use crate::view::layer::{LayerId, LayerCoords};
+use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::ViewExtent;
 
 use super::pixels::{PixelFormat, Pixels};
@@ -536,7 +536,7 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub fn layer_coord_to_index(&self, p: LayerCoords<u32>) -> Option<usize>{
+    pub fn layer_coord_to_index(&self, p: LayerCoords<u32>) -> Option<usize> {
         self.height()
             .checked_sub(p.y)
             .and_then(|x| x.checked_sub(1))

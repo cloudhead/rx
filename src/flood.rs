@@ -1,6 +1,6 @@
 use crate::view::layer::LayerCoords;
 use crate::view::{Snapshot, View, ViewResource};
-use rgx::color::{Rgba8};
+use rgx::color::Rgba8;
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
 use rgx::kit::ZDepth;
 use rgx::rect::Rect;

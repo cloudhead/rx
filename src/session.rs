@@ -2206,7 +2206,9 @@ impl Session {
                                 }
                                 Tool::Pan(_) => {}
                                 Tool::FloodFill => {
-                                    if let Some(shapes) = flood_fill(self.active_view(), p.into(), self.fg) {
+                                    if let Some(shapes) =
+                                        flood_fill(self.active_view(), p.into(), self.fg)
+                                    {
                                         self.effects.push(Effect::ViewPaintFinal(shapes));
                                         self.active_view_mut().touch_layer();
                                     }
@@ -3386,7 +3388,9 @@ impl Session {
     pub fn color_at(&self, v: ViewId, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
         let view = self.view(v);
         let (snapshot, pixels) = self.views.get_snapshot(view.id, l);
-        snapshot.layer_coord_to_index(p).and_then(|idx| pixels.get(idx))
+        snapshot
+            .layer_coord_to_index(p)
+            .and_then(|idx| pixels.get(idx))
     }
 
     fn sample_color(&mut self) {
