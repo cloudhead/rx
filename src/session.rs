@@ -2213,10 +2213,7 @@ impl Session {
                                         self.effects.push(Effect::ViewPaintFinal(shapes));
                                         self.active_view_mut().touch_layer();
                                     }
-                                    debug!(
-                                        "flood fill in: {:?} ms",
-                                        (time::Instant::now() - start_time).as_millis()
-                                    );
+                                    debug!("flood fill in: {:?}", start_time.elapsed());
                                 }
                             },
                             Mode::Command => {
