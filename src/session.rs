@@ -2206,12 +2206,17 @@ impl Session {
                                 }
                                 Tool::Pan(_) => {}
                                 Tool::FloodFill => {
+                                    let start_time = time::Instant::now();
                                     let filler =
                                         FloodFiller::new(self.active_view(), p.into(), self.fg);
                                     if let Some(shapes) = filler.and_then(|f| f.run()) {
                                         self.effects.push(Effect::ViewPaintFinal(shapes));
                                         self.active_view_mut().touch_layer();
                                     }
+                                    debug!(
+                                        "flood fill in: {:?} ms",
+                                        (time::Instant::now() - start_time).as_millis()
+                                    );
                                 }
                             },
                             Mode::Command => {
