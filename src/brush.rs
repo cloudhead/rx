@@ -280,7 +280,7 @@ impl Brush {
     ///////////////////////////////////////////////////////////////////////////
 
     /// Draw a line between two points. Uses Bresenham's line algorithm.
-    fn line(mut p0: Point2<i32>, p1: Point2<i32>, canvas: &mut Vec<Point2<i32>>) {
+    pub fn line(mut p0: Point2<i32>, p1: Point2<i32>, canvas: &mut Vec<Point2<i32>>) {
         let dx = i32::abs(p1.x - p0.x);
         let dy = i32::abs(p1.y - p0.y);
         let sx = if p0.x < p1.x { 1 } else { -1 };

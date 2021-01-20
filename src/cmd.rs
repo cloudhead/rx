@@ -12,6 +12,7 @@ use memoir::*;
 use rgx::kit::Rgba8;
 use rgx::rect::Rect;
 
+use crate::shape::LineTool;
 use std::fmt;
 use std::path::Path;
 
@@ -832,6 +833,9 @@ impl Default for Commands {
             })
             .command("flood", "Switch to flood fill tool", |p| {
                 p.value(Command::Tool(Tool::FloodFill))
+            })
+            .command("line", "Switch to line tool", |p| {
+                p.value(Command::Tool(Tool::Line(LineTool::default())))
             })
             .command("mode", "Set session mode, eg. `visual` or `normal`", |p| {
                 p.then(param::<Mode>()).map(|(_, m)| Command::Mode(m))

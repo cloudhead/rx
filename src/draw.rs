@@ -81,6 +81,7 @@ pub mod cursors {
             Tool::Sampler => self::SAMPLER,
             Tool::Pan(_) => self::PAN,
             Tool::FloodFill => self::FLOOD,
+            Tool::Line(_) => self::CROSSHAIR,
 
             Tool::Brush(b) => match m {
                 Mode::Visual(_) if in_selection && in_view => self::OMNI,
