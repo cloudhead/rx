@@ -1199,10 +1199,16 @@ impl Session {
         self.palette.handle_cursor_moved(cursor);
         self.hover_view = None;
 
+        let gained_palette_focus = !palette_hover && self.palette.hover.is_some();
+
         match &self.tool {
             Tool::Brush(b) if !b.is_drawing() => {
-                if !palette_hover && self.palette.hover.is_some() {
-                    // Gained palette focus with brush.
+                if gained_palette_focus {
+                    self.tool(Tool::Sampler);
+                }
+            }
+            Tool::FloodFill => {
+                if gained_palette_focus {
                     self.tool(Tool::Sampler);
                 }
             }
