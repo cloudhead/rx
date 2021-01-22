@@ -188,7 +188,6 @@ impl Parse for LineDirection {
         choice(vec![
             string("v").value(Self::Vertical).label("vertical"),
             string("h").value(Self::Horizontal).label("horizontal"),
-            string("f").value(Self::Free).label("free"),
             succeed(Self::Free).label("free"),
         ])
     }
