@@ -168,7 +168,8 @@ impl Parse for BrushMode {
                     "xsym" => Ok((BrushMode::XSym, p)),
                     "ysym" => Ok((BrushMode::YSym, p)),
                     "xray" => Ok((BrushMode::XRay, p)),
-                    "line" => optional(whitespace()).then(param())
+                    "line" => optional(whitespace())
+                        .then(param())
                         .parse(p)
                         .map(|((_, line_mode), p)| (BrushMode::Line(line_mode), p)),
                     mode => Err((
