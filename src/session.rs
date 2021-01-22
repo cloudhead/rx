@@ -2257,16 +2257,17 @@ impl Session {
                 Mode::Visual(VisualState::Selecting { ref mut dragging }) => {
                     *dragging = false;
                 }
-                Mode::Normal => match self.tool {
-                    Tool::Brush(ref mut brush) => match brush.state {
-                        BrushState::Drawing { .. } | BrushState::DrawStarted { .. } => {
-                            brush.stop_drawing();
-                            self.active_view_mut().touch_layer();
+                Mode::Normal => {
+                    if let Tool::Brush(ref mut brush) = self.tool {
+                        match brush.state {
+                            BrushState::Drawing { .. } | BrushState::DrawStarted { .. } => {
+                                brush.stop_drawing();
+                                self.active_view_mut().touch_layer();
+                            }
+                            _ => {}
                         }
-                        _ => {}
-                    },
-                    _ => {}
-                },
+                    }
+                }
                 _ => {}
             },
             InputState::Repeated => {}
