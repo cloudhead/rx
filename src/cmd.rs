@@ -86,6 +86,7 @@ pub enum Command {
     PaintForeground(i32, i32),
     PaintBackground(i32, i32),
     PaintPalette(usize, i32, i32),
+    PaintLine(Rgba8, i32, i32, i32, i32),
 
     // Selection
     SelectionMove(i32, i32),
@@ -834,9 +835,6 @@ impl Default for Commands {
             .command("flood", "Switch to flood fill tool", |p| {
                 p.value(Command::Tool(Tool::FloodFill))
             })
-            .command("line", "Switch to line tool", |p| {
-                p.value(Command::Tool(Tool::Line(LineTool::default())))
-            })
             .command("mode", "Set session mode, eg. `visual` or `normal`", |p| {
                 p.then(param::<Mode>()).map(|(_, m)| Command::Mode(m))
             })
@@ -1016,6 +1014,22 @@ impl Default for Commands {
                     .skip(whitespace())
                     .then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
                     .map(|((_, rgba), (x, y))| Command::PaintColor(rgba, x, y))
+            })
+            .command("paint/line", "Draw a line between two points", |p| {
+                p.then(color())
+                    .skip(whitespace())
+                    .then(tuple::<i32>(
+                        integer().label("<x1>"),
+                        integer().label("<y1>"),
+                    ))
+                    .skip(whitespace())
+                    .then(tuple::<i32>(
+                        integer().label("<x2>"),
+                        integer().label("<y2>"),
+                    ))
+                    .map(|(((_, color), (x1, y1)), (x2, y2))| {
+                        Command::PaintLine(color, x1, y1, x2, y2)
+                    })
             })
             .command("paint/fg", "Paint foreground color", |p| {
                 p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))

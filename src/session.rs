@@ -3342,6 +3342,9 @@ impl Session {
             Command::PaintColor(rgba, x, y) => {
                 self.active_view_mut().paint_color(rgba, x, y);
             }
+            Command::PaintLine(rgba, x1, y1, x2, y2) => {
+                self.active_view_mut().paint_color(rgba, x, y);
+            }
             Command::PaintForeground(x, y) => {
                 let fg = self.fg;
                 self.active_view_mut().paint_color(fg, x, y);

@@ -1,10 +1,9 @@
 use crate::brush::Brush;
 use crate::view::layer::LayerCoords;
-use crate::view::{ViewCoords, ViewExtent};
+use crate::view::ViewExtent;
 use rgx::color::Rgba8;
 use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
 use rgx::kit::ZDepth;
-use rgx::math::{Point2, Vector2};
 use rgx::rect::Rect;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -36,6 +35,7 @@ impl LineTool {
             color: Rgba8::WHITE,
         }
     }
+
     pub fn start_drawing(&mut self, p: LayerCoords<i32>, color: Rgba8, extent: ViewExtent) {
         self.state = LineState::DrawStarted(extent);
         self.color = color;
