@@ -12,7 +12,6 @@ use memoir::*;
 use rgx::kit::Rgba8;
 use rgx::rect::Rect;
 
-use crate::shape::LineTool;
 use std::fmt;
 use std::path::Path;
 

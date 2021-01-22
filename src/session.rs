@@ -30,14 +30,13 @@ use arrayvec::ArrayVec;
 use directories as dirs;
 use nonempty::NonEmpty;
 
-use crate::shape::{LineState, LineTool};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt;
 use std::fs::File;
 use std::io;
 use std::io::Write;
-use std::ops::{Add, Deref, Not, Sub};
+use std::ops::{Add, Deref, Sub};
 use std::path::{Path, PathBuf};
 use std::time;
 
@@ -303,8 +302,6 @@ pub enum Tool {
     Brush(Brush),
     /// Used for filling enclosed regions with color.
     FloodFill,
-    /// Draws a preset shape
-    Line(LineTool),
     /// Used to sample colors.
     Sampler,
     /// Used to pan the workspace.
@@ -922,10 +919,6 @@ impl Session {
             b.update();
         }
 
-        if let Tool::Line(ref mut l) = self.tool {
-            l.update();
-        }
-
         for v in self.views.iter_mut() {
             if self.settings["animation"].is_set() {
                 v.update(delta);
@@ -1059,24 +1052,6 @@ impl Session {
                     // If the brush output isn't empty, we can't possibly not
                     // be drawing!
                     BrushState::NotDrawing => unreachable!(),
-                }
-            }
-        }
-
-        if let Tool::Line(ref line) = self.tool {
-            let output = line.output(Stroke::NONE, Fill::Solid(line.color.into()));
-            if !output.is_empty() {
-                match line.state {
-                    LineState::DrawStarted(_) | LineState::Drawing(_) => {
-                        self.effects.push(Effect::ViewPaintDraft(output));
-                    }
-                    LineState::DrawEnded(_) => {
-                        self.effects.extend_from_slice(&[
-                            Effect::ViewBlendingChanged(Blending::Alpha),
-                            Effect::ViewPaintFinal(output),
-                        ]);
-                    }
-                    LineState::NotDrawing => unreachable!(),
                 }
             }
         }
@@ -2226,9 +2201,6 @@ impl Session {
                                     };
                                     brush.start_drawing(p.into(), color, extent);
                                 }
-                                Tool::Line(ref mut line_tool) => {
-                                    line_tool.start_drawing(p.into(), self.fg, extent)
-                                }
                                 Tool::Sampler => {
                                     self.sample_color();
                                 }
@@ -2293,13 +2265,6 @@ impl Session {
                         }
                         _ => {}
                     },
-                    Tool::Line(ref mut line) => match line.state {
-                        LineState::DrawStarted { .. } | LineState::Drawing { .. } => {
-                            line.stop_drawing();
-                            self.active_view_mut().touch_layer();
-                        }
-                        _ => {}
-                    },
                     _ => {}
                 },
                 _ => {}
@@ -2356,13 +2321,6 @@ impl Session {
                                 } else {
                                     brush.draw(p);
                                 }
-                            }
-                            _ => self.activate_hover_layer(),
-                        },
-                        Tool::Line(ref mut line) if p != prev_p => match line.state {
-                            LineState::DrawStarted { .. } | LineState::Drawing { .. } => {
-                                let mut p: LayerCoords<i32> = p.into();
-                                line.draw(p);
                             }
                             _ => self.activate_hover_layer(),
                         },
@@ -3343,7 +3301,11 @@ impl Session {
                 self.active_view_mut().paint_color(rgba, x, y);
             }
             Command::PaintLine(rgba, x1, y1, x2, y2) => {
-                self.active_view_mut().paint_color(rgba, x, y);
+                let mut canvas = vec![];
+                Brush::line(Point2::new(x1, y1), Point2::new(x2, y2), &mut canvas);
+                for pt in canvas {
+                    self.active_view_mut().paint_color(rgba, pt.x, pt.y);
+                }
             }
             Command::PaintForeground(x, y) => {
                 let fg = self.fg;

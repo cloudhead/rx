@@ -23,6 +23,23 @@ pub enum BrushState {
     DrawEnded(ViewExtent),
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
+pub enum LineDirection {
+    Free,
+    Horizontal,
+    Vertical,
+}
+
+impl fmt::Display for LineDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Free => "free".fmt(f),
+            Self::Horizontal => "horizontal".fmt(f),
+            Self::Vertical => "vertical".fmt(f),
+        }
+    }
+}
+
 /// Brush mode. Any number of these modes can be active at once.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub enum BrushMode {
@@ -38,6 +55,8 @@ pub enum BrushMode {
     YSym,
     /// X-Ray mode.
     XRay,
+    /// Confine stroke to a straight line from the starting point
+    Line(LineDirection),
 }
 
 impl fmt::Display for BrushMode {
@@ -49,6 +68,7 @@ impl fmt::Display for BrushMode {
             Self::XSym => "xsym".fmt(f),
             Self::YSym => "ysym".fmt(f),
             Self::XRay => "xray".fmt(f),
+            Self::Line(dir) => write!(f, "{} line", dir),
         }
     }
 }
@@ -101,6 +121,12 @@ impl Brush {
 
     /// Activate the given brush mode.
     pub fn set(&mut self, m: BrushMode) -> bool {
+        if let BrushMode::Line(_) = m {
+            // only one line sub-mode may be active at a time
+            self.unset(BrushMode::Line(LineDirection::Horizontal));
+            self.unset(BrushMode::Line(LineDirection::Vertical));
+            self.unset(BrushMode::Line(LineDirection::Free));
+        }
         self.modes.insert(m)
     }
 
@@ -147,6 +173,12 @@ impl Brush {
         self.draw(p);
     }
 
+    pub fn is_line_mode(&self) -> bool {
+        self.is_set(BrushMode::Line(LineDirection::Free))
+            || self.is_set(BrushMode::Line(LineDirection::Vertical))
+            || self.is_set(BrushMode::Line(LineDirection::Horizontal))
+    }
+
     /// Draw. Called while input is pressed.
     pub fn draw(&mut self, p: LayerCoords<i32>) {
         self.prev = if let BrushState::DrawStarted(_) = self.state {
@@ -156,8 +188,23 @@ impl Brush {
         };
         self.curr = *p;
 
-        Brush::line(self.prev, self.curr, &mut self.stroke);
-        self.stroke.dedup();
+        if self.is_line_mode() {
+            let start = self.stroke.first().unwrap_or(&p).clone();
+            self.stroke.clear();
+
+            let end = if self.is_set(BrushMode::Line(LineDirection::Horizontal)) {
+                Point2::new(self.curr.x, start.y)
+            } else if self.is_set(BrushMode::Line(LineDirection::Vertical)) {
+                Point2::new(start.x, self.curr.y)
+            } else {
+                self.curr
+            };
+
+            Brush::line(start, end, &mut self.stroke);
+        } else {
+            Brush::line(self.prev, self.curr, &mut self.stroke);
+            self.stroke.dedup();
+        }
 
         if self.is_set(BrushMode::Perfect) {
             self.stroke = Brush::filter(&self.stroke);

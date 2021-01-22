@@ -68,7 +68,6 @@ pub mod cursors {
     const PAN: Cursor = Cursor::new(Rect::new(48., 0., 64., 16.), -8., -8., false);
     const ERASE: Cursor = Cursor::new(Rect::new(64., 0., 80., 16.), -8., -8., true);
     const FLOOD: Cursor = Cursor::new(Rect::new(80., 0., 96., 16.), -8., -8., false);
-    const LINE: Cursor = Cursor::new(Rect::new(96., 0., 112., 16.), -8., -8., false);
 
     pub fn info(t: &Tool, m: Mode, in_view: bool, in_selection: bool) -> Option<Cursor> {
         match (m, t) {
@@ -82,7 +81,6 @@ pub mod cursors {
             Tool::Sampler => self::SAMPLER,
             Tool::Pan(_) => self::PAN,
             Tool::FloodFill => self::FLOOD,
-            Tool::Line(_) => self::LINE,
 
             Tool::Brush(b) => match m {
                 Mode::Visual(_) if in_selection && in_view => self::OMNI,
