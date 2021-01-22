@@ -123,9 +123,9 @@ impl Brush {
     pub fn set(&mut self, m: BrushMode) -> bool {
         if let BrushMode::Line(_) = m {
             // only one line sub-mode may be active at a time
-            self.unset(BrushMode::Line(LineDirection::Horizontal));
-            self.unset(BrushMode::Line(LineDirection::Vertical));
-            self.unset(BrushMode::Line(LineDirection::Free));
+            if let Some(line_mode) = self.line_mode() {
+                self.unset(line_mode);
+            }
         }
         self.modes.insert(m)
     }
@@ -173,10 +173,13 @@ impl Brush {
         self.draw(p);
     }
 
-    pub fn is_line_mode(&self) -> bool {
-        self.is_set(BrushMode::Line(LineDirection::Free))
-            || self.is_set(BrushMode::Line(LineDirection::Vertical))
-            || self.is_set(BrushMode::Line(LineDirection::Horizontal))
+    /// If a line mode is active, return it
+    fn line_mode(&self) -> Option<BrushMode> {
+        self.modes
+            .iter()
+            .filter(|mode| matches!(mode, BrushMode::Line(_)))
+            .cloned()
+            .next()
     }
 
     /// Draw. Called while input is pressed.
@@ -188,16 +191,14 @@ impl Brush {
         };
         self.curr = *p;
 
-        if self.is_line_mode() {
+        if let Some(BrushMode::Line(direction)) = self.line_mode() {
             let start = self.stroke.first().unwrap_or(&p).clone();
             self.stroke.clear();
 
-            let end = if self.is_set(BrushMode::Line(LineDirection::Horizontal)) {
-                Point2::new(self.curr.x, start.y)
-            } else if self.is_set(BrushMode::Line(LineDirection::Vertical)) {
-                Point2::new(start.x, self.curr.y)
-            } else {
-                self.curr
+            let end = match direction {
+                LineDirection::Free => self.curr,
+                LineDirection::Horizontal => Point2::new(self.curr.x, start.y),
+                LineDirection::Vertical => Point2::new(start.x, self.curr.y),
             };
 
             Brush::line(start, end, &mut self.stroke);
