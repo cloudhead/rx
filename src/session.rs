@@ -3309,6 +3309,13 @@ impl Session {
             Command::PaintColor(rgba, x, y) => {
                 self.active_view_mut().paint_color(rgba, x, y);
             }
+            Command::PaintLine(rgba, x1, y1, x2, y2) => {
+                let mut stroke = vec![];
+                Brush::line(Point2::new(x1, y1), Point2::new(x2, y2), &mut stroke);
+                for pt in stroke {
+                    self.active_view_mut().paint_color(rgba, pt.x, pt.y);
+                }
+            }
             Command::PaintForeground(x, y) => {
                 let fg = self.fg;
                 self.active_view_mut().paint_color(fg, x, y);
