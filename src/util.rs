@@ -1,6 +1,5 @@
 use rgx::math::{Point2, Vector2};
 use rgx::rect::Rect;
-use std::f32::consts::PI;
 
 pub fn clamp(p: &mut Point2<i32>, rect: Rect<i32>) {
     if p.x < rect.x1 {
