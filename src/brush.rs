@@ -7,7 +7,9 @@ use rgx::kit::{Rgba8, ZDepth};
 use rgx::math::{Point2, Vector2};
 use rgx::rect::Rect;
 
+use crate::util::vector_angle;
 use std::collections::BTreeSet;
+use std::f32::consts::PI;
 use std::fmt;
 
 /// Input state of the brush.
@@ -28,6 +30,7 @@ pub enum LineDirection {
     Free,
     Horizontal,
     Vertical,
+    AngleSnap(u32),
 }
 
 impl fmt::Display for LineDirection {
@@ -36,6 +39,7 @@ impl fmt::Display for LineDirection {
             Self::Free => "free".fmt(f),
             Self::Horizontal => "horizontal".fmt(f),
             Self::Vertical => "vertical".fmt(f),
+            Self::AngleSnap(angle) => write!(f, "{} degree snap", angle),
         }
     }
 }
@@ -199,6 +203,16 @@ impl Brush {
                 LineDirection::Free => self.curr,
                 LineDirection::Horizontal => Point2::new(self.curr.x, start.y),
                 LineDirection::Vertical => Point2::new(start.x, self.curr.y),
+                LineDirection::AngleSnap(snap) => {
+                    let snap_rad = snap as f32 * PI / 180.0;
+                    let curr: Vector2<f32> = self.curr.map(|x| x as f32).into();
+                    let start: Vector2<f32> = start.map(|x| x as f32).into();
+                    let dist = curr.distance(start);
+                    let angle = vector_angle(&curr, &start) - PI / 2.0;
+                    let round_angle = (angle / snap_rad).round() * snap_rad;
+                    let end = start + Vector2::new(round_angle.cos(), round_angle.sin()) * dist;
+                    Point2::new(end.x.round() as i32, end.y.round() as i32)
+                }
             };
 
             Brush::line(start, end, &mut self.stroke);
