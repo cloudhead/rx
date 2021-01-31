@@ -1,4 +1,4 @@
-use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
+ use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
 use crate::brush::{Brush, BrushMode};
 use crate::history::History;
 use crate::parser::*;
@@ -51,6 +51,7 @@ pub enum Command {
     Edit(Vec<String>),
     EditFrames(Vec<String>),
     Write(Option<String>),
+    WriteDirectory(Option<String>),
     WriteFrames(Option<String>),
     WriteQuit,
     Quit,
@@ -214,6 +215,8 @@ impl fmt::Display for Command {
             Self::ViewPrev => write!(f, "Go to previous view"),
             Self::Write(None) => write!(f, "Write view to disk"),
             Self::Write(Some(_)) => write!(f, "Write view to disk as..."),
+            Self::WriteDirectory(None) => write!(f, "Write view to disk with creating subdirectories"),
+            Self::WriteDirectory(Some(_)) => write!(f, "Write view to disk as... with creating subdirectories"),
             Self::WriteQuit => write!(f, "Write file to disk and quit"),
             Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
             Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
@@ -287,6 +290,8 @@ impl From<Command> for String {
             Command::ViewPrev => format!("v/prev"),
             Command::Write(None) => format!("w"),
             Command::Write(Some(path)) => format!("w {}", path),
+            Command::WriteDirectory(None) => format!("wd"),
+            Command::WriteDirectory(Some(path)) => format!("wd {}", path),
             Command::WriteQuit => format!("wq"),
             Command::Zoom(Op::Incr) => format!("v/zoom +"),
             Command::Zoom(Op::Decr) => format!("v/zoom -"),
@@ -735,6 +740,10 @@ impl Default for Commands {
                 p.then(optional(path()))
                     .map(|(_, path)| Command::Write(path))
             })
+            .command("wd", "Write & create directories", |p| {
+                p.then(optional(path()))
+                    .map(|(_, path)| Command::WriteDirectory(path))
+            })
             .command("w/frames", "Write view as individual frames", |p| {
                 p.then(optional(path()))
                     .map(|(_, dir)| Command::WriteFrames(dir))
@@ -1075,7 +1084,7 @@ impl autocomplete::Completer for CommandCompleter {
                     input,
                     FileCompleterOpts { directories: true },
                 ),
-                Command::Source(path) | Command::Write(path) => {
+                Command::Source(path) | Command::Write(path) | Command::WriteDirectory(path) => {
                     self.complete_path(path.as_ref(), input, Default::default())
                 }
                 Command::Edit(paths) | Command::EditFrames(paths) => {

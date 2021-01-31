@@ -1637,6 +1637,18 @@ impl Session {
         Ok(())
     }
 
+
+    pub fn create_subdirectories(&mut self, id: ViewId) -> io::Result<()> {
+        if let Some(f) = self.view(id).file_storage().cloned() {
+            if let FileStorage::Single(mut pathbuf) = f.clone() {
+                pathbuf.pop();
+                return std::fs::create_dir_all(pathbuf.as_path())
+            }
+            Err(io::Error::new(io::ErrorKind::Other, "Only single file supported"))
+        } else {
+            Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
+        }
+    }
     /// Save the given view to disk with the current file name. Returns
     /// an error if the view has no file name.
     pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
@@ -3070,6 +3082,19 @@ impl Session {
                 }
             }
             Command::Write(Some(ref path)) => {
+                if let Err(e) = self.save_view_as(self.views.active_id, Path::new(path).into()) {
+                    self.message(format!("Error: {}", e), MessageType::Error);
+                }
+            }
+            Command::WriteDirectory(None) => {
+                if let Err(e) = self.create_subdirectories(self.views.active_id) {
+                    self.message(format!("Error: {}", e), MessageType::Error);
+                }
+                if let Err(e) = self.save_view(self.views.active_id) {
+                    self.message(format!("Error: {}", e), MessageType::Error);
+                }
+            }
+            Command::WriteDirectory(Some(ref path)) => {
                 if let Err(e) = self.save_view_as(self.views.active_id, Path::new(path).into()) {
                     self.message(format!("Error: {}", e), MessageType::Error);
                 }
