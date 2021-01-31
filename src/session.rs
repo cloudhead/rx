@@ -1660,6 +1660,10 @@ impl Session {
                 let view = self.view(id);
                 let written = view.resource.save_archive(path)?;
                 let cursor = view.resource.cursor;
+                
+                let FileStorage::Single(mut pathbuf) = f.clone();
+                pathbuf.pop();
+                std::fs::create_dir_all(pathbuf.as_path());
 
                 self.view_mut(id).save_as(cursor, storage.clone());
                 self.message(
