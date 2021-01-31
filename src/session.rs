@@ -1657,6 +1657,10 @@ impl Session {
 
         match &storage {
             FileStorage::Single(path) if nlayers > 1 => {
+                if let FileStorage::Single(mut pathbuf) = storage.clone() {
+                    pathbuf.pop();
+                    std::fs::create_dir_all(pathbuf.as_path()).expect("Error while creating directories");
+                }
                 let view = self.view(id);
                 let written = view.resource.save_archive(path)?;
                 let cursor = view.resource.cursor;
@@ -1668,6 +1672,10 @@ impl Session {
                 );
             }
             FileStorage::Single(path) => {
+                if let FileStorage::Single(mut pathbuf) = storage.clone() {
+                    pathbuf.pop();
+                    std::fs::create_dir_all(pathbuf.as_path()).expect("Error while creating directories");
+                }
                 if let Some(s_id) =
                     self.save_layer_rect_as(id, active_layer_id, ext.rect(), &path)?
                 {
