@@ -1,4 +1,4 @@
- use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
+use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
 use crate::brush::{Brush, BrushMode};
 use crate::history::History;
 use crate::parser::*;
