@@ -171,7 +171,7 @@ impl Parse for BrushMode {
                     "line" => optional(whitespace())
                         .then(optional(natural()))
                         .parse(p)
-                        .map(|((_, line_mode), p)| (BrushMode::Line(line_mode), p)),
+                        .map(|((_, snap), p)| (BrushMode::Line(snap), p)),
                     mode => Err((
                         memoir::result::Error::new(format!("unknown brush mode '{}'", mode)),
                         input,
