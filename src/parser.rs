@@ -5,7 +5,7 @@ use directories as dirs;
 
 use rgx::kit::Rgba8;
 
-use crate::brush::{BrushMode, LineDirection};
+use crate::brush::BrushMode;
 use crate::platform;
 use crate::session::{Direction, Mode, VisualState};
 
@@ -169,7 +169,7 @@ impl Parse for BrushMode {
                     "ysym" => Ok((BrushMode::YSym, p)),
                     "xray" => Ok((BrushMode::XRay, p)),
                     "line" => optional(whitespace())
-                        .then(param())
+                        .then(optional(natural()))
                         .parse(p)
                         .map(|((_, line_mode), p)| (BrushMode::Line(line_mode), p)),
                     mode => Err((
@@ -180,18 +180,6 @@ impl Parse for BrushMode {
             },
             "<mode>",
         )
-    }
-}
-
-impl Parse for LineDirection {
-    fn parser() -> Parser<Self> {
-        choice(vec![
-            whitespace()
-                .then(integer())
-                .map(|(_, angle)| Self::AngleSnap(angle))
-                .label("snap"),
-            succeed(Self::Free).label("free"),
-        ])
     }
 }
 
@@ -230,11 +218,6 @@ pub fn setting() -> Parser<String> {
 
 pub fn tuple<O>(x: Parser<O>, y: Parser<O>) -> Parser<(O, O)> {
     x.skip(whitespace()).then(y)
-}
-
-/// A parser which always succeeds with the provided value
-pub fn succeed<O: Copy>(value: O) -> Parser<O> {
-    Parser::new(move |s| Ok((value, s)), "")
 }
 
 #[cfg(test)]

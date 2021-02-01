@@ -25,21 +25,6 @@ pub enum BrushState {
     DrawEnded(ViewExtent),
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
-pub enum LineDirection {
-    Free,
-    AngleSnap(u32),
-}
-
-impl fmt::Display for LineDirection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Free => "free".fmt(f),
-            Self::AngleSnap(angle) => write!(f, "{} degree snap", angle),
-        }
-    }
-}
-
 /// Brush mode. Any number of these modes can be active at once.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub enum BrushMode {
@@ -56,7 +41,7 @@ pub enum BrushMode {
     /// X-Ray mode.
     XRay,
     /// Confine stroke to a straight line from the starting point
-    Line(LineDirection),
+    Line(Option<u32>),
 }
 
 impl fmt::Display for BrushMode {
@@ -68,7 +53,8 @@ impl fmt::Display for BrushMode {
             Self::XSym => "xsym".fmt(f),
             Self::YSym => "ysym".fmt(f),
             Self::XRay => "xray".fmt(f),
-            Self::Line(dir) => write!(f, "{} line", dir),
+            Self::Line(Some(snap)) => write!(f, "{} degree snap line", snap),
+            Self::Line(None) => write!(f, "line"),
         }
     }
 }
@@ -191,13 +177,13 @@ impl Brush {
         };
         self.curr = *p;
 
-        if let Some(BrushMode::Line(direction)) = self.line_mode() {
+        if let Some(BrushMode::Line(snap)) = self.line_mode() {
             let start = self.stroke.first().unwrap_or(&p).clone();
             self.stroke.clear();
 
-            let end = match direction {
-                LineDirection::Free => self.curr,
-                LineDirection::AngleSnap(snap) => {
+            let end = match snap {
+                None => self.curr,
+                Some(snap) => {
                     let snap_rad = snap as f32 * PI / 180.0;
                     let curr: Vector2<f32> = self.curr.map(|x| x as f32).into();
                     let start: Vector2<f32> = start.map(|x| x as f32).into();
