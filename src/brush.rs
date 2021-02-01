@@ -41,7 +41,10 @@ pub enum BrushMode {
     /// X-Ray mode.
     XRay,
     /// Confine stroke to a straight line from the starting point
-    Line(Option<u32>),
+    Line(
+        /// snap angle (degrees)
+        Option<u32>,
+    ),
 }
 
 impl fmt::Display for BrushMode {
