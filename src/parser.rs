@@ -186,11 +186,9 @@ impl Parse for BrushMode {
 impl Parse for LineDirection {
     fn parser() -> Parser<Self> {
         choice(vec![
-            string("v").value(Self::Vertical).label("vertical"),
-            string("h").value(Self::Horizontal).label("horizontal"),
-            string("s")
-                .then(optional(whitespace()).then(integer()))
-                .map(|(_, (_, angle))| Self::AngleSnap(angle))
+            whitespace()
+                .then(integer())
+                .map(|(_, angle)| Self::AngleSnap(angle))
                 .label("snap"),
             succeed(Self::Free).label("free"),
         ])

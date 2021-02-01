@@ -28,8 +28,6 @@ pub enum BrushState {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
 pub enum LineDirection {
     Free,
-    Horizontal,
-    Vertical,
     AngleSnap(u32),
 }
 
@@ -37,8 +35,6 @@ impl fmt::Display for LineDirection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Free => "free".fmt(f),
-            Self::Horizontal => "horizontal".fmt(f),
-            Self::Vertical => "vertical".fmt(f),
             Self::AngleSnap(angle) => write!(f, "{} degree snap", angle),
         }
     }
@@ -201,8 +197,6 @@ impl Brush {
 
             let end = match direction {
                 LineDirection::Free => self.curr,
-                LineDirection::Horizontal => Point2::new(self.curr.x, start.y),
-                LineDirection::Vertical => Point2::new(start.x, self.curr.y),
                 LineDirection::AngleSnap(snap) => {
                     let snap_rad = snap as f32 * PI / 180.0;
                     let curr: Vector2<f32> = self.curr.map(|x| x as f32).into();
