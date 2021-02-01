@@ -1657,6 +1657,11 @@ impl Session {
 
         match &storage {
             FileStorage::Single(path) if nlayers > 1 => {
+                {
+                    let mut path_copy = path.clone();
+                    path_copy.pop();
+                    std::fs::create_dir_all(path_copy.as_path())?;
+                }
                 let view = self.view(id);
                 let written = view.resource.save_archive(path)?;
                 let cursor = view.resource.cursor;
@@ -1668,6 +1673,11 @@ impl Session {
                 );
             }
             FileStorage::Single(path) => {
+                {
+                    let mut path_copy = path.clone();
+                    path_copy.pop();
+                    std::fs::create_dir_all(path_copy.as_path())?;
+                }
                 if let Some(s_id) =
                     self.save_layer_rect_as(id, active_layer_id, ext.rect(), &path)?
                 {
