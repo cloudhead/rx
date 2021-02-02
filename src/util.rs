@@ -1,4 +1,4 @@
-use rgx::math::Point2;
+use rgx::math::{Point2, Vector2};
 use rgx::rect::Rect;
 
 pub fn clamp(p: &mut Point2<i32>, rect: Rect<i32>) {
@@ -47,6 +47,11 @@ pub fn align_u8<T>(data: &[T]) -> &[u8] {
     assert!(tail.is_empty());
 
     body
+}
+
+/// Returns the angle between two vectors, in radians.
+pub fn vector_angle(a: &Vector2<f32>, b: &Vector2<f32>) -> f32 {
+    (a.x - b.x).atan2(b.y - a.y)
 }
 
 #[macro_export]

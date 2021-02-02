@@ -7,7 +7,9 @@ use rgx::kit::{Rgba8, ZDepth};
 use rgx::math::{Point2, Vector2};
 use rgx::rect::Rect;
 
+use crate::util::vector_angle;
 use std::collections::BTreeSet;
+use std::f32::consts::PI;
 use std::fmt;
 
 /// Input state of the brush.
@@ -21,23 +23,6 @@ pub enum BrushState {
     Drawing(ViewExtent),
     /// Drawing has just ended.
     DrawEnded(ViewExtent),
-}
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Debug)]
-pub enum LineDirection {
-    Free,
-    Horizontal,
-    Vertical,
-}
-
-impl fmt::Display for LineDirection {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Free => "free".fmt(f),
-            Self::Horizontal => "horizontal".fmt(f),
-            Self::Vertical => "vertical".fmt(f),
-        }
-    }
 }
 
 /// Brush mode. Any number of these modes can be active at once.
@@ -56,7 +41,10 @@ pub enum BrushMode {
     /// X-Ray mode.
     XRay,
     /// Confine stroke to a straight line from the starting point
-    Line(LineDirection),
+    Line(
+        /// snap angle (degrees)
+        Option<u32>,
+    ),
 }
 
 impl fmt::Display for BrushMode {
@@ -68,7 +56,8 @@ impl fmt::Display for BrushMode {
             Self::XSym => "xsym".fmt(f),
             Self::YSym => "ysym".fmt(f),
             Self::XRay => "xray".fmt(f),
-            Self::Line(dir) => write!(f, "{} line", dir),
+            Self::Line(Some(snap)) => write!(f, "{} degree snap line", snap),
+            Self::Line(None) => write!(f, "line"),
         }
     }
 }
@@ -191,14 +180,22 @@ impl Brush {
         };
         self.curr = *p;
 
-        if let Some(BrushMode::Line(direction)) = self.line_mode() {
+        if let Some(BrushMode::Line(snap)) = self.line_mode() {
             let start = self.stroke.first().unwrap_or(&p).clone();
             self.stroke.clear();
 
-            let end = match direction {
-                LineDirection::Free => self.curr,
-                LineDirection::Horizontal => Point2::new(self.curr.x, start.y),
-                LineDirection::Vertical => Point2::new(start.x, self.curr.y),
+            let end = match snap {
+                None => self.curr,
+                Some(snap) => {
+                    let snap_rad = snap as f32 * PI / 180.0;
+                    let curr: Vector2<f32> = self.curr.map(|x| x as f32).into();
+                    let start: Vector2<f32> = start.map(|x| x as f32).into();
+                    let dist = curr.distance(start);
+                    let angle = vector_angle(&curr, &start) - PI / 2.0;
+                    let round_angle = (angle / snap_rad).round() * snap_rad;
+                    let end = start + Vector2::new(round_angle.cos(), round_angle.sin()) * dist;
+                    Point2::new(end.x.round() as i32, end.y.round() as i32)
+                }
             };
 
             Brush::line(start, end, &mut self.stroke);
