@@ -121,7 +121,10 @@ impl Brush {
 
     /// De-activate the given brush mode.
     pub fn unset(&mut self, m: BrushMode) -> bool {
-        self.modes.remove(&m)
+        match self.line_mode() {
+            Some(line_mode) if matches!(m, BrushMode::Line(_)) => self.modes.remove(&line_mode),
+            _ => self.modes.remove(&m),
+        }
     }
 
     /// Toggle the given brush mode.
