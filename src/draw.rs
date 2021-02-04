@@ -40,6 +40,7 @@ pub const CHECKER: [u8; 16] = [
     0x66, 0x66, 0x66, 0xff,
     0x55, 0x55, 0x55, 0xff,
 ];
+const CHECKER_REPEAT: f32 = 4.;
 const LINE_HEIGHT: f32 = GLYPH_HEIGHT + 4.;
 const MARGIN: f32 = 10.;
 
@@ -69,7 +70,13 @@ pub mod cursors {
     const ERASE: Cursor = Cursor::new(Rect::new(64., 0., 80., 16.), -8., -8., true);
     const FLOOD: Cursor = Cursor::new(Rect::new(80., 0., 96., 16.), -8., -8., false);
 
-    pub fn info(t: &Tool, m: Mode, in_view: bool, in_selection: bool) -> Option<Cursor> {
+    pub fn info(
+        t: &Tool,
+        m: Mode,
+        in_view: bool,
+        in_layer: bool,
+        in_selection: bool,
+    ) -> Option<Cursor> {
         match (m, t) {
             (Mode::Help, Tool::Pan(_)) => {}
             (Mode::Help, Tool::Brush(_)) => {}
@@ -83,7 +90,7 @@ pub mod cursors {
             Tool::FloodFill => self::FLOOD,
 
             Tool::Brush(b) => match m {
-                Mode::Visual(_) if in_selection && in_view => self::OMNI,
+                Mode::Visual(_) if in_selection && in_view && in_layer => self::OMNI,
                 Mode::Visual(VisualState::Selecting { dragging: true }) if in_selection => {
                     self::OMNI
                 }
@@ -199,9 +206,11 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             Fill::Empty,
         ));
         // Selection fill.
-        if r.intersects(view.bounds()) {
+        if r.intersects(view.layer_bounds()) {
             canvas.add(Shape::Rectangle(
-                r.intersection(view.bounds()).map(|n| n as f32).transform(t),
+                r.intersection(view.layer_bounds())
+                    .map(|n| n as f32)
+                    .transform(t),
                 self::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::NONE,
@@ -505,8 +514,8 @@ fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
     if session.settings["checker"].is_set() {
         for v in session.views.iter() {
             let ratio = v.width() as f32 / v.height() as f32;
-            let rx = v.zoom * ratio;
-            let ry = v.zoom;
+            let rx = CHECKER_REPEAT * v.zoom * ratio * v.layers.len() as f32;
+            let ry = CHECKER_REPEAT * v.zoom * v.layers.len() as f32;
 
             batch.add(
                 checker::rect(),
@@ -584,6 +593,12 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
     let v = session.active_view();
     let c = session.cursor;
 
+    let in_active_layer = if let Some((_, layer)) = session.hover_view {
+        layer == v.active_layer_id
+    } else {
+        false
+    };
+
     if let Some(cursors::Cursor {
         rect,
         offset,
@@ -592,6 +607,7 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
         &session.tool,
         session.mode,
         v.contains(c - session.offset).is_some(),
+        in_active_layer,
         session.is_selected(session.layer_coords(v.id, v.active_layer_id, c).into()),
     ) {
         let dst = rect.with_origin(c.x, c.y) + offset;
@@ -741,7 +757,7 @@ fn draw_paste(session: &Session, batch: &mut sprite2d::Batch) {
 pub fn draw_view_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
     sprite2d::Batch::singleton(
         v.width(),
-        v.height(),
+        v.fh,
         v.animation.val(),
         Rect::new(-(v.fw as f32), 0., 0., v.fh as f32) * v.zoom + (session.offset + v.offset),
         self::VIEW_LAYER,
@@ -752,7 +768,7 @@ pub fn draw_view_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch
 }
 
 pub fn draw_view_composites<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
-    let mut batch = sprite2d::Batch::new(v.width(), v.height());
+    let mut batch = sprite2d::Batch::new(v.width(), v.fh);
 
     for frame in v.animation.frames.iter() {
         batch.add(

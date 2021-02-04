@@ -276,12 +276,17 @@ impl<R> View<R> {
 
     /// View height.
     pub fn height(&self) -> u32 {
-        self.fh
+        self.fh * self.layers.len() as u32
     }
 
     /// View width and height.
     pub fn size(&self) -> (u32, u32) {
         (self.width(), self.height())
+    }
+
+    /// View layer width and height.
+    pub fn layer_size(&self) -> (u32, u32) {
+        (self.width(), self.fh)
     }
 
     /// View file name, if any.
@@ -529,7 +534,7 @@ impl<R> View<R> {
             self.offset.x,
             self.offset.y,
             self.offset.x + self.width() as f32 * self.zoom,
-            self.offset.y + (self.fh as usize * self.layers.len()) as f32 * self.zoom,
+            self.offset.y + self.height() as f32 * self.zoom,
         )
     }
 
@@ -563,6 +568,14 @@ impl<R> View<R> {
     /// Get the center of the view.
     pub fn center(&self) -> ViewCoords<f32> {
         ViewCoords::new(self.width() as f32 / 2., self.height() as f32 / 2.)
+    }
+
+    /// Get the center of the active layer.
+    pub fn active_layer_center(&self) -> ViewCoords<f32> {
+        ViewCoords::new(
+            self.width() as f32 / 2.,
+            self.layer_offset(self.active_layer_id, 1.).y + self.fh as f32 / 2.,
+        )
     }
 
     /// Layer has been modified. Called when using the brush on the view,
@@ -643,6 +656,11 @@ impl<R> View<R> {
         Rect::origin(self.width() as i32, self.height() as i32)
     }
 
+    /// Return the view layer bounds, as an origin-anchored rectangle.
+    pub fn layer_bounds(&self) -> Rect<i32> {
+        Rect::origin(self.width() as i32, self.fh as i32)
+    }
+
     ////////////////////////////////////////////////////////////////////////////
 
     fn resized(&mut self) {
@@ -652,7 +670,7 @@ impl<R> View<R> {
         if self.state == ViewState::Okay {
             self.state = ViewState::Dirty(Some(self.extent()));
         }
-        self.ops.push(ViewOp::Resize(self.width(), self.height()));
+        self.ops.push(ViewOp::Resize(self.width(), self.fh));
     }
 
     /// Check whether the given snapshot has been saved to disk.
@@ -689,7 +707,7 @@ impl View<ViewResource> {
         self.resource.add_layer(
             id,
             self.extent(),
-            pixels.unwrap_or(Pixels::blank(self.width() as usize, self.height() as usize)),
+            pixels.unwrap_or(Pixels::blank(self.width() as usize, self.fh as usize)),
         );
 
         id

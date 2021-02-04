@@ -622,7 +622,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         let l = v.active_layer_id;
         let v_data = view_data.get(&v.id).unwrap();
         let l_data = v_data.get_layer(l);
-        let view_ortho = kit::ortho(v.width(), v.height(), Origin::TopLeft);
+        let view_ortho = kit::ortho(v.width(), v.fh, Origin::TopLeft);
 
         let mut builder = self.ctx.new_pipeline_gate();
 

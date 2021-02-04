@@ -1540,7 +1540,7 @@ impl Session {
             } else {
                 let (w, h) = if !self.views.is_empty() {
                     let v = self.active_view();
-                    (v.width(), v.height())
+                    (v.width(), v.fh)
                 } else {
                     (Self::DEFAULT_VIEW_W, Self::DEFAULT_VIEW_H)
                 };
@@ -1968,20 +1968,17 @@ impl Session {
 
         first.offset.y = 0.;
 
-        // TODO: We need a way to distinguish view content size with real (rendered) size. Also
-        // create a distinction between layer and view height. Right now `View::height` is layer
-        // height.
-        let mut offset =
-            (first.height() * first.layers.len() as u32) as f32 * first.zoom + Self::VIEW_MARGIN;
+        // TODO: We need a way to distinguish view content size with real (rendered) size.
+        let mut offset = first.height() as f32 * first.zoom + Self::VIEW_MARGIN;
 
         for v in self.views.iter_mut().skip(1) {
             if v.layers.len() > 1 {
                 // Account for layer composite.
-                offset += v.height() as f32 * v.zoom;
+                offset += v.fh as f32 * v.zoom;
             }
             v.offset.y = offset;
 
-            offset += (v.height() * v.layers.len() as u32) as f32 * v.zoom + Self::VIEW_MARGIN;
+            offset += v.height() as f32 * v.zoom + Self::VIEW_MARGIN;
         }
         self.cursor_dirty();
     }
@@ -2004,8 +2001,8 @@ impl Session {
             let v = self.active_view_mut();
             let s = s.abs().bounds();
 
-            if s.intersects(v.bounds()) {
-                let s = s.intersection(v.bounds());
+            if s.intersects(v.layer_bounds()) {
+                let s = s.intersection(v.layer_bounds());
 
                 v.yank(s);
 
@@ -2311,7 +2308,7 @@ impl Session {
         let prev_cursor = self.cursor;
         let p = self.active_layer_coords(cursor);
         let prev_p = self.active_layer_coords(prev_cursor);
-        let (vw, vh) = self.active_view().size();
+        let (vw, vh) = self.active_view().layer_size();
 
         self.cursor = cursor;
         self.cursor_dirty();
@@ -2353,8 +2350,9 @@ impl Session {
                         }
                     }
                     Mode::Visual(VisualState::Selecting { dragging: true }) => {
-                        let view = self.active_view().bounds();
+                        let view = self.active_view().layer_bounds();
 
+                        // Resize selection.
                         if self.mouse_state == InputState::Pressed && p != prev_p {
                             if let Some(ref mut s) = self.selection {
                                 // TODO: (rgx) Better API.
@@ -2566,7 +2564,8 @@ impl Session {
     fn center_active_view_v(&mut self) {
         if let Some(v) = self.views.active() {
             self.offset.y =
-                (self.height / 2. - v.height() as f32 / 2. * v.zoom - v.offset.y).floor();
+                // TODO: This should center based on the total view height, not the frame height.
+                (self.height / 2. - v.fh as f32 / 2. * v.zoom - v.offset.y).floor();
             self.cursor_dirty();
         }
     }
@@ -2881,14 +2880,17 @@ impl Session {
             },
             Command::Zoom(op) => {
                 let center = if let Some(s) = self.selection {
-                    self.session_coords(
-                        self.views.active_id,
-                        s.bounds().center().map(|n| n as f32).into(),
-                    )
+                    let v = self.active_view();
+                    let coords = s.bounds().center().map(|n| n as f32)
+                        + v.layer_offset(v.active_layer_id, 1.);
+                    self.session_coords(v.id, coords.into())
                 } else if self.hover_view.is_some() {
                     self.cursor
                 } else {
-                    self.session_coords(self.views.active_id, self.active_view().center())
+                    self.session_coords(
+                        self.views.active_id,
+                        self.active_view().active_layer_center(),
+                    )
                 };
 
                 match op {
@@ -2977,6 +2979,7 @@ impl Session {
             Command::LayerRemove(id) => {
                 if let Some(id) = id {
                     self.active_view_mut().remove_layer(id);
+                    self.check_selection();
                     self.organize_views();
                 } else {
                     unimplemented!()
@@ -3190,7 +3193,7 @@ impl Session {
             Command::SelectionExpand => {
                 let v = self.active_view();
                 let (fw, fh) = (v.fw as i32, v.fh as i32);
-                let (vw, vh) = (v.width() as i32, v.height() as i32);
+                let (vw, vh) = (v.width() as i32, v.fh as i32);
 
                 if let Some(ref mut selection) = self.selection {
                     let r = Rect::origin(vw, vh);
@@ -3233,6 +3236,7 @@ impl Session {
                 }
             }
             Command::SelectionJump(dir) => {
+                // TODO: Test this across layers.
                 let v = self.active_view();
                 let r = v.bounds();
                 let fw = v.extent().fw as i32;
@@ -3262,8 +3266,8 @@ impl Session {
                     let v = self.active_view_mut();
                     let s = s.abs().bounds();
 
-                    if s.intersects(v.bounds()) {
-                        let s = s.intersection(v.bounds());
+                    if s.intersects(v.layer_bounds()) {
+                        let s = s.intersection(v.layer_bounds());
 
                         // The flip operation works by copying the flipped image into
                         // the paste buffer, and pasting.
