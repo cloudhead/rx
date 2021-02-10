@@ -196,34 +196,18 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
     let mut update_timer = FrameTimer::new();
     let mut session_events = Vec::with_capacity(16);
     let mut last = Instant::now();
+    let mut delta = Duration::from_secs(0);
     let mut resized = false;
     let mut hovering = false;
 
-    // Accumulated error from animation timeout.
-    let mut anim_accum = Duration::from_secs(0);
-
     while !win.is_closing() {
-        let start = Instant::now();
-
         match session.animation_delay() {
             Some(delay) if session.is_running() => {
-                if delay > anim_accum {
-                    events.wait_timeout(delay - anim_accum);
+                if delay.as_millis().saturating_sub(delta.as_millis()) >= 1 {
+                    events.wait_timeout(delay - delta);
                 } else {
                     events.poll();
                 }
-                // How much time has actually passed waiting for events.
-                let d = start.elapsed();
-
-                if d > delay {
-                    // If more time has passed than the desired animation delay, then
-                    // add the difference to our accumulated error.
-                    anim_accum += d - delay;
-                } else if delay > d {
-                    // If less time has passed than our desired delay, then
-                    // reset the accumulator to zero, because we've overshot.
-                    anim_accum = Duration::from_secs(0);
-                };
             }
             _ if wait_events => events.wait(),
             _ => events.poll(),
@@ -330,8 +314,8 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
             session.handle_resized(win.size());
         }
 
-        let delta = last.elapsed();
-        last = Instant::now();
+        delta = last.elapsed();
+        last += delta;
 
         // If we're paused, we want to keep the timer running to not get a
         // "jump" when we unpause, but skip session updates and rendering.
