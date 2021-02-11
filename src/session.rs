@@ -1502,10 +1502,11 @@ impl Session {
     /// loads all files within that directory.
     ///
     /// If a path doesn't exist, creates a blank view for that path.
-    pub fn edit<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<()> {
+    pub fn edit<P: AsRef<Path>>(&mut self, paths: &[P]) -> io::Result<(usize, usize)> {
         use std::ffi::OsStr;
 
-        // TODO: Keep loading paths even if some fail?
+        let (mut success_count, mut fail_count) = (0usize, 0usize);
+
         for path in paths {
             let path = path.as_ref();
 
@@ -1517,29 +1518,38 @@ impl Session {
                     if path.is_dir() {
                         continue;
                     }
+
                     if path.file_name() == Some(OsStr::new(".rxrc")) {
                         continue;
                     }
 
-                    self.load_view(path)?;
+                    if let Err(_) = self.load_view(path) {
+                        fail_count += 1;
+                        continue;
+                    }
+
+                    success_count += 1;
                 }
                 self.source_dir(path).ok();
-            } else if path.exists() {
-                self.load_view(path)?;
-            } else if !path.exists() && path.with_extension("png").exists() {
-                self.load_view(path.with_extension("png"))?;
             } else {
-                let (w, h) = if !self.views.is_empty() {
-                    let v = self.active_view();
-                    (v.width(), v.height())
+                if path.exists() {
+                    self.load_view(path)?;
+                } else if !path.exists() && path.with_extension("png").exists() {
+                    self.load_view(path.with_extension("png"))?;
                 } else {
-                    (Self::DEFAULT_VIEW_W, Self::DEFAULT_VIEW_H)
-                };
-                self.blank(
-                    FileStatus::New(FileStorage::Single(path.with_extension("png"))),
-                    w,
-                    h,
-                );
+                    let (w, h) = if !self.views.is_empty() {
+                        let v = self.active_view();
+                        (v.width(), v.height())
+                    } else {
+                        (Self::DEFAULT_VIEW_W, Self::DEFAULT_VIEW_H)
+                    };
+                    self.blank(
+                        FileStatus::New(FileStorage::Single(path.with_extension("png"))),
+                        w,
+                        h,
+                    );
+                }
+                success_count += 1;
             }
         }
 
@@ -1548,7 +1558,7 @@ impl Session {
             self.edit_view(id);
         }
 
-        Ok(())
+        Ok((success_count, fail_count))
     }
 
     /// Load the given paths into the session as frames in a new view.
@@ -3031,8 +3041,19 @@ impl Session {
             Command::Edit(ref paths) => {
                 if paths.is_empty() {
                     self.unimplemented();
-                } else if let Err(e) = self.edit(paths) {
-                    self.message(format!("Error loading path(s): {}", e), MessageType::Error);
+                }
+
+                match self.edit(paths) {
+                    Ok((success_count, fail_count)) => self.message(
+                        format!(
+                            "Successfully loaded {} path(s), skipped {}",
+                            success_count, fail_count
+                        ),
+                        MessageType::Info,
+                    ),
+                    Err(e) => {
+                        self.message(format!("Error loading path(s): {}", e), MessageType::Error)
+                    }
                 }
             }
             Command::EditFrames(ref paths) => {
