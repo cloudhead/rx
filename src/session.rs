@@ -3044,13 +3044,17 @@ impl Session {
                 }
 
                 match self.edit(paths) {
-                    Ok((success_count, fail_count)) => self.message(
-                        format!(
-                            "Successfully loaded {} path(s), skipped {}",
-                            success_count, fail_count
-                        ),
-                        MessageType::Info,
-                    ),
+                    Ok((success_count, fail_count)) => {
+                        if success_count + fail_count > 0 {
+                            self.message(
+                                format!(
+                                    "{} path(s) loaded, {} skipped",
+                                    success_count, fail_count
+                                ),
+                                MessageType::Info,
+                            )
+                        }
+                    }
                     Err(e) => {
                         self.message(format!("Error loading path(s): {}", e), MessageType::Error)
                     }
