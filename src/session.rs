@@ -3093,7 +3093,7 @@ impl Session {
 
                 match self.edit(paths) {
                     Ok((success_count, fail_count)) => {
-                        if success_count + fail_count > 0 {
+                        if success_count + fail_count > 1 {
                             self.message(
                                 format!(
                                     "{} path(s) loaded, {} skipped",
