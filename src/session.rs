@@ -1559,23 +1559,7 @@ impl Session {
                     );
                 }
                 success_count += 1;
-            } else if path.exists() {
-                self.load_view(path)?;
-            } else if !path.exists() && path.with_extension("png").exists() {
-                self.load_view(path.with_extension("png"))?;
-            } else {
-                let (w, h) = if !self.views.is_empty() {
-                    let v = self.active_view();
-                    (v.width(), v.fh)
-                } else {
-                    (Self::DEFAULT_VIEW_W, Self::DEFAULT_VIEW_H)
-                };
-                self.blank(
-                    FileStatus::New(FileStorage::Single(path.with_extension("png"))),
-                    w,
-                    h,
-                );
-            }
+            } 
         }
 
         if let Some(id) = self.views.last().map(|v| v.id) {
