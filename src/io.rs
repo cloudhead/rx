@@ -74,10 +74,12 @@ pub fn load_archive<P: AsRef<Path>>(path: P) -> io::Result<Archive> {
                     let mut img = Vec::new();
                     file.read_to_end(&mut img)?;
 
-                    let (pixels, w, h) = image::read(img.as_slice())?;
+                    let (buf, w, h) = image::read(img.as_slice())?;
                     debug_assert!(w == manifest.extent.fw && h == manifest.extent.fh);
+                    debug_assert_eq!((w * h) as usize, buf.len() / std::mem::size_of::<Rgba8>());
 
-                    frames.push(unsafe { std::mem::transmute(pixels) });
+                    let pixels = Rgba8::align(&buf);
+                    frames.push(pixels.to_vec());
                 }
                 Err(ZipError::FileNotFound) => {
                     break;
