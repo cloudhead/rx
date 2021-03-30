@@ -4,7 +4,7 @@ use crate::execution::Execution;
 use crate::font::TextBatch;
 use crate::platform::{self, LogicalSize};
 use crate::renderer;
-use crate::session::{self, Blending, Effect, PresentMode, Session};
+use crate::session::{self, Blending, Effect, Session};
 use crate::sprite;
 use crate::util;
 use crate::view::layer::{FrameRange, LayerId};
@@ -136,7 +136,6 @@ pub struct Renderer {
     draw_ctx: draw::Context,
     scale_factor: f64,
     scale: f64,
-    _present_mode: PresentMode,
     present_fb: Framebuffer<Backend, Dim2, (), ()>,
     screen_fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     render_st: RenderState,
@@ -389,7 +388,6 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         win: &mut platform::backend::Window,
         win_size: LogicalSize,
         scale_factor: f64,
-        _present_mode: PresentMode,
         assets: Assets<'a>,
     ) -> io::Result<Self> {
         use RendererError as Error;
@@ -480,7 +478,6 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             win_size,
             scale_factor,
             scale: 1.0,
-            _present_mode,
             blending: Blending::Alpha,
             present_fb,
             screen_fb,
@@ -987,8 +984,6 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
         Ok(())
     }
-
-    fn handle_present_mode_changed(&mut self, _present_mode: PresentMode) {}
 
     fn handle_scale_factor_changed(&mut self, scale_factor: f64) {
         self.scale_factor = scale_factor;

@@ -47,7 +47,7 @@ pub mod util;
 
 use cmd::Value;
 use event::Event;
-use execution::{DigestMode, Execution, ExecutionMode, GifMode};
+use execution::{DigestMode, Execution, ExecutionMode};
 use platform::{WindowEvent, WindowHint};
 use renderer::Renderer;
 use session::*;
@@ -141,13 +141,6 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
             .expect("'debug' is a bool'");
     }
 
-    if let ExecutionMode::Record(_, _, GifMode::Record) = options.exec {
-        session
-            .settings
-            .set("vsync", Value::Bool(true))
-            .expect("'vsync' is a bool");
-    }
-
     let mut execution = match options.exec {
         ExecutionMode::Normal => Execution::normal(),
         ExecutionMode::Replay(path, digest) => Execution::replaying(path, digest),
@@ -164,10 +157,6 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
         {
             session
                 .settings
-                .set("vsync", Value::Bool(false))
-                .expect("'vsync' is a bool");
-            session
-                .settings
                 .set("animation", Value::Bool(false))
                 .expect("'animation' is a bool");
         }
@@ -175,10 +164,9 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
     }
 
     let wait_events = execution.is_normal() || execution.is_recording();
-    let present_mode = session.settings.present_mode();
 
     let mut renderer: gfx::Renderer =
-        Renderer::new(&mut win, win_size, scale_factor, present_mode, assets)?;
+        Renderer::new(&mut win, win_size, scale_factor, assets)?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
@@ -336,10 +324,6 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
 
         session.cleanup();
         win.present();
-
-        if session.settings_changed.contains("vsync") {
-            renderer.handle_present_mode_changed(session.settings.present_mode());
-        }
 
         match session.state {
             State::Closing(ExitReason::Normal) => {

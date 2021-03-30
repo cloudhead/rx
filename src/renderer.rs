@@ -1,7 +1,7 @@
 use crate::data::Assets;
 use crate::execution::Execution;
 use crate::platform::{self, LogicalSize};
-use crate::session::{self, Effect, PresentMode, Session};
+use crate::session::{self, Effect, Session};
 
 use std::time;
 
@@ -12,7 +12,6 @@ pub trait Renderer<'a>: std::marker::Sized {
         win: &mut platform::backend::Window,
         win_size: LogicalSize,
         scale_factor: f64,
-        present_mode: PresentMode,
         assets: Assets<'a>,
     ) -> std::io::Result<Self>;
 
@@ -26,6 +25,5 @@ pub trait Renderer<'a>: std::marker::Sized {
         avg_frametime: &time::Duration,
     ) -> Result<(), Self::Error>;
 
-    fn handle_present_mode_changed(&mut self, present_mode: PresentMode);
     fn handle_scale_factor_changed(&mut self, scale_factor: f64);
 }

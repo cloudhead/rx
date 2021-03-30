@@ -46,7 +46,6 @@ SETTINGS
 
 debug             on/off             Debug mode
 checker           on/off             Alpha checker toggle
-vsync             on/off             Vertical sync toggle
 scale             1.0..4.0           UI scale
 animation         on/off             View animation toggle
 animation/delay   1..1000            View animation delay (ms)
@@ -262,12 +261,6 @@ pub enum Effect {
 pub enum Blending {
     Constant,
     Alpha,
-}
-
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub enum PresentMode {
-    Vsync,
-    NoVsync,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -575,16 +568,7 @@ pub struct Settings {
 }
 
 impl Settings {
-    const DEPRECATED: &'static [&'static str] = &["frame_delay", "input/delay"];
-
-    /// Presentation mode.
-    pub fn present_mode(&self) -> PresentMode {
-        if self["vsync"].is_set() {
-            PresentMode::Vsync
-        } else {
-            PresentMode::NoVsync
-        }
-    }
+    const DEPRECATED: &'static [&'static str] = &["frame_delay", "input/delay", "vsync"];
 
     /// Lookup a setting.
     pub fn get(&self, setting: &str) -> Option<&Value> {
@@ -619,7 +603,6 @@ impl Default for Settings {
                 "debug" => Value::Bool(false),
                 "checker" => Value::Bool(false),
                 "background" => Value::Rgba8(color::TRANSPARENT),
-                "vsync" => Value::Bool(false),
                 "input/mouse" => Value::Bool(true),
                 "scale" => Value::F64(1.0),
                 "animation" => Value::Bool(true),
