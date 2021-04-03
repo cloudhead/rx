@@ -16,6 +16,7 @@
 
 pub mod data;
 pub mod execution;
+pub mod logger;
 pub mod session;
 
 mod alloc;
@@ -165,8 +166,7 @@ pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::R
 
     let wait_events = execution.is_normal() || execution.is_recording();
 
-    let mut renderer: gfx::Renderer =
-        Renderer::new(&mut win, win_size, scale_factor, assets)?;
+    let mut renderer: gfx::Renderer = Renderer::new(&mut win, win_size, scale_factor, assets)?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);

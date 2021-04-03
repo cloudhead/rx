@@ -1,4 +1,5 @@
 use rx::execution::{DigestMode, ExecutionMode, GifMode};
+use rx::logger;
 
 use std::io;
 use std::path::PathBuf;
@@ -94,7 +95,7 @@ fn execute(mut args: pico_args::Arguments) -> Result<(), Box<dyn std::error::Err
     } else {
         log::Level::Info
     };
-    simple_logger::init_with_level(log_lvl)?;
+    logger::init(log_lvl)?;
 
     let width = width.unwrap_or(default.width);
     let height = height.unwrap_or(default.height);
