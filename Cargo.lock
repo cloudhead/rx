@@ -298,15 +298,18 @@ dependencies = [
 
 [[package]]
 name = "luminance"
-version = "0.40.0"
+version = "0.43.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2470d5250320d9a2042c0de4bb86159050854899d480fbbfad412c27715b28cf"
+checksum = "5fe4219f6b16354a910a2163a52c8c3586c728a9d61816165d59bab076880a23"
+dependencies = [
+ "luminance-derive",
+]
 
 [[package]]
 name = "luminance-derive"
-version = "0.6.0"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da4aaf49b9a3b469dd8123f7e41e3f09e6f4254482362fad9581e002f26cda66"
+checksum = "bdd6b8d5743d7d434bda65a0657d699051aba986af7a9eebadff382f399f1c52"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -315,9 +318,9 @@ dependencies = [
 
 [[package]]
 name = "luminance-gl"
-version = "0.14.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00314e061d19178394dd2167a6215ed5d86fc6feb7fa3b5217abc1f03f2760c7"
+checksum = "9ec6224c577c680462316d3106170cc33949384aca8abe7e5c0496d2d333e1eb"
 dependencies = [
  "gl",
  "luminance",

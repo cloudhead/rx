@@ -28,9 +28,9 @@ nonempty = "0.1.4"
 memoir = "0.2.1"
 miniserde = "0.1"
 arrayvec = "0.5"
-luminance = "0.40.0"
-luminance-gl = "0.14.0"
-luminance-derive = "0.6.0"
+luminance = "0.43.2"
+luminance-gl = "0.16.1"
+luminance-derive = "0.6.3"
 gl = "0.14"
 
 [dependencies.rgx]

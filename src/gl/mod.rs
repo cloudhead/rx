@@ -19,7 +19,6 @@ use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
 
-use luminance::blending::{self, Equation, Factor};
 use luminance::context::GraphicsContext;
 use luminance::depth_test::DepthComparison;
 use luminance::framebuffer::Framebuffer;
@@ -29,6 +28,10 @@ use luminance::render_state::RenderState;
 use luminance::shader::{Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
 use luminance::texture::{Dim2, GenMipmaps, MagFilter, MinFilter, Sampler, Texture, Wrap};
+use luminance::{
+    blending::{self, Equation, Factor},
+    pipeline::PipelineError,
+};
 
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_gl::gl33;
@@ -624,7 +627,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         let mut builder = self.ctx.new_pipeline_gate();
 
         // Render to view staging buffer.
-        builder.pipeline(
+        builder.pipeline::<PipelineError, _, _, _, _>(
             &v_data.staging_fb,
             &pipeline_st,
             |pipeline, mut shd_gate| {
@@ -634,10 +637,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         iface.set(&uni.ortho, view_ortho.into());
                         iface.set(&uni.transform, identity.into());
 
-                        rdr_gate.render(render_st, |mut tess_gate| {
-                            tess_gate.render(&tess);
-                        });
-                    });
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
+                    })?;
                 }
                 // Render staging paste buffer.
                 if let Some(tess) = paste_tess {
@@ -649,16 +650,15 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         iface.set(&uni.transform, identity.into());
                         iface.set(&uni.tex, bound_paste.binding());
 
-                        rdr_gate.render(render_st, |mut tess_gate| {
-                            tess_gate.render(&tess);
-                        });
-                    });
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
+                    })?;
                 }
+                Ok(())
             },
-        )?;
+        );
 
         // Render to view final buffer.
-        builder.pipeline(
+        builder.pipeline::<PipelineError, _, _, _, _>(
             &l_data.fb,
             &pipeline_st.clone().enable_clear_color(false),
             |pipeline, mut shd_gate| {
@@ -682,10 +682,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                             render_st.clone()
                         };
 
-                        rdr_gate.render(&render_st, |mut tess_gate| {
-                            tess_gate.render(&tess);
-                        });
-                    });
+                        rdr_gate.render(&render_st, |mut tess_gate| tess_gate.render(&tess))
+                    })?;
                 }
                 if !paste_outputs.is_empty() {
                     shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
@@ -694,256 +692,248 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         iface.set(&uni.tex, bound_paste.binding());
 
                         for out in paste_outputs.drain(..) {
-                            rdr_gate.render(render_st, |mut tess_gate| {
-                                tess_gate.render(&out);
-                            });
+                            rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&out))?;
                         }
-                    });
+                        Ok(())
+                    })?;
                 }
+                Ok(())
             },
-        )?;
+        );
 
         // Render to screen framebuffer.
         let bg = Rgba::from(session.settings["background"].to_rgba8());
         let screen_st = &pipeline_st
             .clone()
             .set_clear_color([bg.r, bg.g, bg.b, bg.a]);
-        builder.pipeline(screen_fb, &screen_st, |pipeline, mut shd_gate| {
-            // Draw view checkers to screen framebuffer.
-            if session.settings["checker"].is_set() {
-                shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                    let bound_checker = pipeline
-                        .bind_texture(checker)
-                        .expect("binding textures never fails");
+        builder.pipeline::<PipelineError, _, _, _, _>(
+            screen_fb,
+            &screen_st,
+            |pipeline, mut shd_gate| {
+                // Draw view checkers to screen framebuffer.
+                if session.settings["checker"].is_set() {
+                    shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                        let bound_checker = pipeline
+                            .bind_texture(checker)
+                            .expect("binding textures never fails");
 
-                    iface.set(&uni.ortho, ortho.into());
-                    iface.set(&uni.transform, identity.into());
-                    iface.set(&uni.tex, bound_checker.binding());
+                        iface.set(&uni.ortho, ortho.into());
+                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.tex, bound_checker.binding());
 
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&checker_tess);
-                    });
-                });
-            }
-
-            for (id, v) in view_data.iter_mut() {
-                if let Some(view) = session.views.get(*id) {
-                    let staging_texture = v.staging_fb.color_slot();
-
-                    for (layer_id, l) in v.layers.iter_mut().enumerate() {
-                        let layer_offset = view.layer_offset(layer_id, view.zoom);
-                        let transform = Matrix4::from_translation(
-                            (session.offset + view.offset + layer_offset).extend(*draw::VIEW_LAYER),
-                        ) * Matrix4::from_nonuniform_scale(
-                            view.zoom, view.zoom, 1.0,
-                        );
-
-                        // Render views.
-                        shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                            let bound_view = pipeline
-                                .bind_texture(l.fb.color_slot())
-                                .expect("binding textures never fails");
-
-                            iface.set(&uni.ortho, ortho.into());
-                            iface.set(&uni.transform, transform.into());
-                            iface.set(&uni.tex, bound_view.binding());
-
-                            rdr_gate.render(render_st, |mut tess_gate| {
-                                tess_gate.render(&l.tess);
-                            });
-
-                            if layer_id == view.active_layer_id {
-                                // TODO: We only need to render this on the active view.
-                                let bound_view_staging = pipeline
-                                    .bind_texture(staging_texture)
-                                    .expect("binding textures never fails");
-
-                                iface.set(&uni.tex, bound_view_staging.binding());
-                                rdr_gate.render(render_st, |mut tess_gate| {
-                                    tess_gate.render(&l.tess);
-                                });
-                            }
-                        });
-                    }
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&checker_tess))
+                    })?;
                 }
-            }
 
-            // Render UI.
-            shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
-                iface.set(&uni.ortho, ortho.into());
-                iface.set(&uni.transform, identity.into());
-
-                rdr_gate.render(render_st, |mut tess_gate| {
-                    tess_gate.render(&ui_tess);
-                });
-            });
-
-            // Render text, tool & view animations.
-            shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                iface.set(&uni.ortho, ortho.into());
-                iface.set(&uni.transform, identity.into());
-
-                // Render view composites.
                 for (id, v) in view_data.iter_mut() {
-                    match (&v.layer_tess, session.views.get(*id)) {
-                        (Some(tess), Some(view)) if view.layers.len() > 1 => {
-                            for l in v.layers.iter_mut() {
+                    if let Some(view) = session.views.get(*id) {
+                        let staging_texture = v.staging_fb.color_slot();
+
+                        for (layer_id, l) in v.layers.iter_mut().enumerate() {
+                            let layer_offset = view.layer_offset(layer_id, view.zoom);
+                            let transform =
+                                Matrix4::from_translation(
+                                    (session.offset + view.offset + layer_offset)
+                                        .extend(*draw::VIEW_LAYER),
+                                ) * Matrix4::from_nonuniform_scale(view.zoom, view.zoom, 1.0);
+
+                            // Render views.
+                            shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
                                 let bound_view = pipeline
                                     .bind_texture(l.fb.color_slot())
                                     .expect("binding textures never fails");
 
+                                iface.set(&uni.ortho, ortho.into());
+                                iface.set(&uni.transform, transform.into());
                                 iface.set(&uni.tex, bound_view.binding());
 
-                                rdr_gate.render(render_st, |mut tess_gate| {
-                                    tess_gate.render(tess);
-                                });
-                            }
+                                rdr_gate
+                                    .render(render_st, |mut tess_gate| tess_gate.render(&l.tess))?;
+
+                                if layer_id == view.active_layer_id {
+                                    // TODO: We only need to render this on the active view.
+                                    let bound_view_staging = pipeline
+                                        .bind_texture(staging_texture)
+                                        .expect("binding textures never fails");
+
+                                    iface.set(&uni.tex, bound_view_staging.binding());
+                                    rdr_gate.render(render_st, |mut tess_gate| {
+                                        tess_gate.render(&l.tess)
+                                    })?;
+                                }
+                                Ok(())
+                            })?;
                         }
-                        _ => (),
                     }
                 }
 
-                // Render view animations.
-                if session.settings["animation"].is_set() {
+                // Render UI.
+                shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
+                    iface.set(&uni.ortho, ortho.into());
+                    iface.set(&uni.transform, identity.into());
+
+                    rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&ui_tess))
+                })?;
+
+                // Render text, tool & view animations.
+                shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                    iface.set(&uni.ortho, ortho.into());
+                    iface.set(&uni.transform, identity.into());
+
+                    // Render view composites.
                     for (id, v) in view_data.iter_mut() {
-                        match (&v.anim_tess, session.views.get(*id)) {
-                            (Some(tess), Some(view)) if view.animation.len() > 1 => {
-                                let composite_t = Matrix4::from_translation(
-                                    Vector2::new(0., -(v.h as f32 * view.zoom)).extend(0.),
-                                );
-
-                                for (i, l) in v.layers.iter_mut().enumerate() {
-                                    // TODO: Assert that this layer is actually registered in the
-                                    // view manager.
-
-                                    let bound_layer = pipeline
+                        match (&v.layer_tess, session.views.get(*id)) {
+                            (Some(tess), Some(view)) if view.layers.len() > 1 => {
+                                for l in v.layers.iter_mut() {
+                                    let bound_view = pipeline
                                         .bind_texture(l.fb.color_slot())
                                         .expect("binding textures never fails");
-                                    let layer_offset = v.h as usize * i;
-                                    let t = Matrix4::from_translation(
-                                        Vector2::new(0., layer_offset as f32 * view.zoom)
-                                            .extend(0.),
-                                    );
 
-                                    // Render layer animation.
-                                    iface.set(&uni.tex, bound_layer.binding());
-                                    iface.set(&uni.transform, t.into());
+                                    iface.set(&uni.tex, bound_view.binding());
+
                                     rdr_gate.render(render_st, |mut tess_gate| {
-                                        tess_gate.render(tess);
-                                    });
-
-                                    // Render composite animation.
-                                    if view.layers.len() > 1 {
-                                        iface.set(&uni.transform, composite_t.into());
-                                        rdr_gate.render(render_st, |mut tess_gate| {
-                                            tess_gate.render(tess);
-                                        });
-                                    }
+                                        tess_gate.render(tess)
+                                    })?;
                                 }
                             }
                             _ => (),
                         }
                     }
+
+                    // Render view animations.
+                    if session.settings["animation"].is_set() {
+                        for (id, v) in view_data.iter_mut() {
+                            match (&v.anim_tess, session.views.get(*id)) {
+                                (Some(tess), Some(view)) if view.animation.len() > 1 => {
+                                    let composite_t = Matrix4::from_translation(
+                                        Vector2::new(0., -(v.h as f32 * view.zoom)).extend(0.),
+                                    );
+
+                                    for (i, l) in v.layers.iter_mut().enumerate() {
+                                        // TODO: Assert that this layer is actually registered in the
+                                        // view manager.
+
+                                        let bound_layer = pipeline
+                                            .bind_texture(l.fb.color_slot())
+                                            .expect("binding textures never fails");
+                                        let layer_offset = v.h as usize * i;
+                                        let t = Matrix4::from_translation(
+                                            Vector2::new(0., layer_offset as f32 * view.zoom)
+                                                .extend(0.),
+                                        );
+
+                                        // Render layer animation.
+                                        iface.set(&uni.tex, bound_layer.binding());
+                                        iface.set(&uni.transform, t.into());
+                                        rdr_gate.render(render_st, |mut tess_gate| {
+                                            tess_gate.render(tess)
+                                        })?;
+
+                                        // Render composite animation.
+                                        if view.layers.len() > 1 {
+                                            iface.set(&uni.transform, composite_t.into());
+                                            rdr_gate.render(render_st, |mut tess_gate| {
+                                                tess_gate.render(tess)
+                                            })?;
+                                        }
+                                    }
+                                }
+                                _ => (),
+                            }
+                        }
+                    }
+
+                    {
+                        let bound_font = pipeline
+                            .bind_texture(font)
+                            .expect("binding textures never fails");
+                        iface.set(&uni.tex, bound_font.binding());
+                        iface.set(&uni.transform, identity);
+
+                        // Render text.
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&text_tess))?;
+                    }
+                    {
+                        let bound_tool = pipeline
+                            .bind_texture(cursors)
+                            .expect("binding textures never fails");
+                        iface.set(&uni.tex, bound_tool.binding());
+
+                        // Render tool.
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tool_tess))?;
+                    }
+                    Ok(())
+                })?;
+
+                // Render help.
+                if let Some((win_tess, text_tess)) = help_tess {
+                    shd_gate.shade(shape2d, |_iface, _uni, mut rdr_gate| {
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&win_tess))
+                    })?;
+                    shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                        let bound_font = pipeline
+                            .bind_texture(font)
+                            .expect("binding textures never fails");
+
+                        iface.set(&uni.tex, bound_font.binding());
+                        iface.set(&uni.ortho, ortho);
+                        iface.set(&uni.transform, identity);
+
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&text_tess))
+                    })?;
                 }
-
-                {
-                    let bound_font = pipeline
-                        .bind_texture(font)
-                        .expect("binding textures never fails");
-                    iface.set(&uni.tex, bound_font.binding());
-                    iface.set(&uni.transform, identity);
-
-                    // Render text.
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&text_tess);
-                    });
-                }
-                {
-                    let bound_tool = pipeline
-                        .bind_texture(cursors)
-                        .expect("binding textures never fails");
-                    iface.set(&uni.tex, bound_tool.binding());
-
-                    // Render tool.
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&tool_tess);
-                    });
-                }
-            });
-
-            // Render help.
-            if let Some((win_tess, text_tess)) = help_tess {
-                shd_gate.shade(shape2d, |_iface, _uni, mut rdr_gate| {
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&win_tess);
-                    });
-                });
-                shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                    let bound_font = pipeline
-                        .bind_texture(font)
-                        .expect("binding textures never fails");
-
-                    iface.set(&uni.tex, bound_font.binding());
-                    iface.set(&uni.ortho, ortho);
-                    iface.set(&uni.transform, identity);
-
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&text_tess);
-                    });
-                });
-            }
-        })?;
+                Ok(())
+            },
+        );
 
         // Render to back buffer.
-        builder.pipeline(present_fb, &pipeline_st, |pipeline, mut shd_gate| {
-            // Render screen framebuffer.
-            let bound_screen = pipeline
-                .bind_texture(screen_fb.color_slot())
-                .expect("binding textures never fails");
-            shd_gate.shade(screen2d, |mut iface, uni, mut rdr_gate| {
-                iface.set(&uni.framebuffer, bound_screen.binding());
-
-                rdr_gate.render(render_st, |mut tess_gate| {
-                    tess_gate.render(&screen_tess);
-                });
-            });
-
-            if session.settings["debug"].is_set() || !execution.is_normal() {
-                let bound_font = pipeline
-                    .bind_texture(font)
+        builder.pipeline::<PipelineError, _, _, _, _>(
+            present_fb,
+            &pipeline_st,
+            |pipeline, mut shd_gate| {
+                // Render screen framebuffer.
+                let bound_screen = pipeline
+                    .bind_texture(screen_fb.color_slot())
                     .expect("binding textures never fails");
+                shd_gate.shade(screen2d, |mut iface, uni, mut rdr_gate| {
+                    iface.set(&uni.framebuffer, bound_screen.binding());
 
-                shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                    iface.set(&uni.tex, bound_font.binding());
-                    iface.set(
-                        &uni.ortho,
-                        kit::ortho(screen_w, screen_h, Origin::BottomLeft).into(),
-                    );
+                    rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&screen_tess))
+                })?;
 
-                    rdr_gate.render(render_st, |mut tess_gate| {
-                        tess_gate.render(&overlay_tess);
-                    });
-                });
-            }
+                if session.settings["debug"].is_set() || !execution.is_normal() {
+                    let bound_font = pipeline
+                        .bind_texture(font)
+                        .expect("binding textures never fails");
 
-            // Render cursor.
-            let bound_cursors = pipeline
-                .bind_texture(cursors)
-                .expect("binding textures never fails");
-            shd_gate.shade(cursor2d, |mut iface, uni, mut rdr_gate| {
-                let ui_scale = session.settings["scale"].to_f64();
-                let pixel_ratio = platform::pixel_ratio(*scale_factor);
+                    shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                        iface.set(&uni.tex, bound_font.binding());
+                        iface.set(
+                            &uni.ortho,
+                            kit::ortho(screen_w, screen_h, Origin::BottomLeft).into(),
+                        );
 
-                iface.set(&uni.cursor, bound_cursors.binding());
-                iface.set(&uni.framebuffer, bound_screen.binding());
-                iface.set(&uni.ortho, ortho);
-                iface.set(&uni.scale, (ui_scale * pixel_ratio) as f32);
+                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&overlay_tess))
+                    })?;
+                }
 
-                rdr_gate.render(render_st, |mut tess_gate| {
-                    tess_gate.render(&cursor_tess);
-                });
-            });
-        })?;
+                // Render cursor.
+                let bound_cursors = pipeline
+                    .bind_texture(cursors)
+                    .expect("binding textures never fails");
+                shd_gate.shade(cursor2d, |mut iface, uni, mut rdr_gate| {
+                    let ui_scale = session.settings["scale"].to_f64();
+                    let pixel_ratio = platform::pixel_ratio(*scale_factor);
+
+                    iface.set(&uni.cursor, bound_cursors.binding());
+                    iface.set(&uni.framebuffer, bound_screen.binding());
+                    iface.set(&uni.ortho, ortho);
+                    iface.set(&uni.scale, (ui_scale * pixel_ratio) as f32);
+
+                    rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&cursor_tess))
+                })
+            },
+        );
 
         // If active view is dirty, record a snapshot of it.
         if v.is_dirty() {
