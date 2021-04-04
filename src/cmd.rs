@@ -134,20 +134,20 @@ pub enum Command {
 
 impl Command {
     pub fn repeats(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::Zoom(_)
-            | Self::BrushSize(_)
-            | Self::Pan(_, _)
-            | Self::Undo
-            | Self::Redo
-            | Self::ViewNext
-            | Self::ViewPrev
-            | Self::SelectionMove(_, _)
-            | Self::SelectionJump(_)
-            | Self::SelectionResize(_, _)
-            | Self::SelectionOffset(_, _) => true,
-            _ => false,
-        }
+                | Self::BrushSize(_)
+                | Self::Pan(_, _)
+                | Self::Undo
+                | Self::Redo
+                | Self::ViewNext
+                | Self::ViewPrev
+                | Self::SelectionMove(_, _)
+                | Self::SelectionJump(_)
+                | Self::SelectionResize(_, _)
+                | Self::SelectionOffset(_, _)
+        )
     }
 }
 
@@ -335,12 +335,12 @@ impl KeyMapping {
         );
 
         let character = between('\'', '\'', character())
-            .map(|c| Input::Character(c))
+            .map(Input::Character)
             .skip(whitespace())
             .then(press.clone())
             .map(|(input, press)| ((input, press), None));
         let key = param::<platform::Key>()
-            .map(|k| Input::Key(k))
+            .map(Input::Key)
             .skip(whitespace())
             .then(press)
             .skip(optional(whitespace()))
@@ -415,30 +415,30 @@ impl Value {
     }
 }
 
-impl Into<(u32, u32)> for Value {
-    fn into(self) -> (u32, u32) {
-        if let Value::U32Tuple(x, y) = self {
+impl From<Value> for (u32, u32) {
+    fn from(other: Value) -> (u32, u32) {
+        if let Value::U32Tuple(x, y) = other {
             return (x, y);
         }
-        panic!("expected {:?} to be a `(u32, u32)`", self);
+        panic!("expected {:?} to be a `(u32, u32)`", other);
     }
 }
 
-impl Into<f32> for Value {
-    fn into(self) -> f32 {
-        if let Value::F64(x) = self {
+impl From<Value> for f32 {
+    fn from(other: Value) -> f32 {
+        if let Value::F64(x) = other {
             return x as f32;
         }
-        panic!("expected {:?} to be a `f64`", self);
+        panic!("expected {:?} to be a `f64`", other);
     }
 }
 
-impl Into<f64> for Value {
-    fn into(self) -> f64 {
-        if let Value::F64(x) = self {
+impl From<Value> for f64 {
+    fn from(other: Value) -> f64 {
+        if let Value::F64(x) = other {
             return x as f64;
         }
-        panic!("expected {:?} to be a `f64`", self);
+        panic!("expected {:?} to be a `f64`", other);
     }
 }
 

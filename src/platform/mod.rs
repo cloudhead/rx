@@ -103,23 +103,23 @@ pub enum WindowEvent {
 impl WindowEvent {
     /// Events that are triggered by user input.
     pub fn is_input(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Self::Resized(_)
-            | Self::Moved(_)
-            | Self::Minimized
-            | Self::Restored
-            | Self::CloseRequested
-            | Self::Destroyed
-            | Self::ReceivedCharacter(_, _)
-            | Self::Focused(_)
-            | Self::KeyboardInput(_)
-            | Self::CursorMoved { .. }
-            | Self::CursorEntered
-            | Self::CursorLeft
-            | Self::MouseInput { .. }
-            | Self::ScaleFactorChanged(_) => true,
-            _ => false,
-        }
+                | Self::Moved(_)
+                | Self::Minimized
+                | Self::Restored
+                | Self::CloseRequested
+                | Self::Destroyed
+                | Self::ReceivedCharacter(_, _)
+                | Self::Focused(_)
+                | Self::KeyboardInput(_)
+                | Self::CursorMoved { .. }
+                | Self::CursorEntered
+                | Self::CursorLeft
+                | Self::MouseInput { .. }
+                | Self::ScaleFactorChanged(_)
+        )
     }
 }
 
@@ -285,10 +285,7 @@ impl fmt::Display for Key {
 
 impl Key {
     pub fn is_modifier(self) -> bool {
-        match self {
-            Key::Alt | Key::Control | Key::Shift => true,
-            _ => false,
-        }
+        matches!(self, Key::Alt | Key::Control | Key::Shift)
     }
 }
 
@@ -410,10 +407,10 @@ impl From<(u32, u32)> for LogicalSize {
     }
 }
 
-impl Into<(u32, u32)> for LogicalSize {
+impl From<LogicalSize> for (u32, u32) {
     /// Note that this rounds instead of truncating.
-    fn into(self) -> (u32, u32) {
-        (self.width.round() as _, self.height.round() as _)
+    fn from(other: LogicalSize) -> (u32, u32) {
+        (other.width.round() as _, other.height.round() as _)
     }
 }
 
@@ -446,10 +443,10 @@ impl From<(u32, u32)> for PhysicalSize {
     }
 }
 
-impl Into<(u32, u32)> for PhysicalSize {
+impl From<PhysicalSize> for (u32, u32) {
     /// Note that this rounds instead of truncating.
-    fn into(self) -> (u32, u32) {
-        (self.width.round() as _, self.height.round() as _)
+    fn from(other: PhysicalSize) -> (u32, u32) {
+        (other.width.round() as _, other.height.round() as _)
     }
 }
 

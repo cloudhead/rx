@@ -30,12 +30,10 @@ pub struct ViewResource {
 
 impl ViewResource {
     pub fn new(pixels: Pixels, extent: ViewExtent) -> Self {
-        use std::iter::FromIterator;
-
         Self {
-            layers: BTreeMap::from_iter(
-                vec![(Default::default(), LayerResource::new(pixels, extent))].drain(..),
-            ),
+            layers: vec![(Default::default(), LayerResource::new(pixels, extent))]
+                .drain(..)
+                .collect(),
             history: NonEmpty::new(Edit::Initial),
             cursor: 0,
             extent,
@@ -95,7 +93,7 @@ impl ViewResource {
     }
 
     pub fn record_view_painted(&mut self, layers: Vec<(LayerId, Pixels)>) {
-        let extent = self.extent.clone();
+        let extent = self.extent;
         self.history_record(Edit::ViewPainted(layers.iter().map(|(l, _)| *l).collect()));
 
         for (id, pixels) in layers.into_iter() {

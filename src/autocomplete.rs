@@ -132,7 +132,7 @@ impl Completer for FileCompleter {
         let len = candidates.len();
         if let Some((ref mut c, is_dir)) = candidates.first_mut() {
             if *is_dir && len == 1 {
-                c.push_str("/");
+                c.push('/');
                 return vec![c.to_owned()];
             }
         }

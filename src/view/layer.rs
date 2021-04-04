@@ -64,21 +64,21 @@ impl<T> Deref for LayerCoords<T> {
     }
 }
 
-impl Into<LayerCoords<i32>> for LayerCoords<f32> {
-    fn into(self) -> LayerCoords<i32> {
-        LayerCoords::new(self.x.round() as i32, self.y.round() as i32)
+impl From<LayerCoords<f32>> for LayerCoords<i32> {
+    fn from(other: LayerCoords<f32>) -> LayerCoords<i32> {
+        LayerCoords::new(other.x.round() as i32, other.y.round() as i32)
     }
 }
 
-impl Into<LayerCoords<f32>> for LayerCoords<i32> {
-    fn into(self) -> LayerCoords<f32> {
-        LayerCoords::new(self.x as f32, self.y as f32)
+impl From<LayerCoords<i32>> for LayerCoords<f32> {
+    fn from(other: LayerCoords<i32>) -> LayerCoords<f32> {
+        LayerCoords::new(other.x as f32, other.y as f32)
     }
 }
 
-impl Into<LayerCoords<u32>> for LayerCoords<f32> {
-    fn into(self) -> LayerCoords<u32> {
-        LayerCoords::new(self.x.round() as u32, self.y.round() as u32)
+impl From<LayerCoords<f32>> for LayerCoords<u32> {
+    fn from(other: LayerCoords<f32>) -> LayerCoords<u32> {
+        LayerCoords::new(other.x.round() as u32, other.y.round() as u32)
     }
 }
 

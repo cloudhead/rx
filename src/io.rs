@@ -36,7 +36,7 @@ pub fn load_archive<P: AsRef<Path>>(path: P) -> io::Result<Archive> {
     let file = File::open(&path)?;
     let mut archive = zip::ZipArchive::new(file)?;
 
-    let files: Vec<_> = archive.file_names().map(|f| PathBuf::from(f)).collect();
+    let files: Vec<_> = archive.file_names().map(PathBuf::from).collect();
 
     // Get the root directory name of the archive.
     let root = files

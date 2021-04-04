@@ -69,21 +69,21 @@ impl<T> Deref for ViewCoords<T> {
     }
 }
 
-impl Into<ViewCoords<i32>> for ViewCoords<f32> {
-    fn into(self) -> ViewCoords<i32> {
-        ViewCoords::new(self.x.round() as i32, self.y.round() as i32)
+impl From<ViewCoords<f32>> for ViewCoords<i32> {
+    fn from(other: ViewCoords<f32>) -> ViewCoords<i32> {
+        ViewCoords::new(other.x.round() as i32, other.y.round() as i32)
     }
 }
 
-impl Into<ViewCoords<f32>> for ViewCoords<i32> {
-    fn into(self) -> ViewCoords<f32> {
-        ViewCoords::new(self.x as f32, self.y as f32)
+impl From<ViewCoords<i32>> for ViewCoords<f32> {
+    fn from(other: ViewCoords<i32>) -> ViewCoords<f32> {
+        ViewCoords::new(other.x as f32, other.y as f32)
     }
 }
 
-impl Into<ViewCoords<u32>> for ViewCoords<f32> {
-    fn into(self) -> ViewCoords<u32> {
-        ViewCoords::new(self.x.round() as u32, self.y.round() as u32)
+impl From<ViewCoords<f32>> for ViewCoords<u32> {
+    fn from(other: ViewCoords<f32>) -> ViewCoords<u32> {
+        ViewCoords::new(other.x.round() as u32, other.y.round() as u32)
     }
 }
 
@@ -389,7 +389,7 @@ impl<R> View<R> {
 
     /// Get the active layer.
     pub fn active_layer(&self) -> &Layer {
-        let index: usize = self.active_layer_id.into();
+        let index: usize = self.active_layer_id;
 
         self.layers
             .get(index)
@@ -614,26 +614,20 @@ impl<R> View<R> {
 
     /// Check whether the view is damaged.
     pub fn is_damaged(&self) -> bool {
-        match self.state {
-            ViewState::Damaged(_) | ViewState::LayerDamaged(_) => true,
-            _ => false,
-        }
+        matches!(
+            self.state,
+            ViewState::Damaged(_) | ViewState::LayerDamaged(_)
+        )
     }
 
     /// Check whether the view is dirty.
     pub fn is_dirty(&self) -> bool {
-        match self.state {
-            ViewState::Dirty(_) | ViewState::LayerDirty(_) => true,
-            _ => false,
-        }
+        matches!(self.state, ViewState::Dirty(_) | ViewState::LayerDirty(_))
     }
 
     /// Check whether the view is resized.
     pub fn is_resized(&self) -> bool {
-        match self.state {
-            ViewState::Dirty(Some(_)) => true,
-            _ => false,
-        }
+        matches!(self.state, ViewState::Dirty(Some(_)))
     }
 
     /// Check whether the view is okay.
@@ -924,7 +918,7 @@ impl<R> ViewManager<R> {
     }
 
     /// Iterate over view ids.
-    pub fn ids<'a>(&'a self) -> impl DoubleEndedIterator<Item = ViewId> + 'a {
+    pub fn ids(&self) -> impl DoubleEndedIterator<Item = ViewId> + '_ {
         self.views.keys().cloned()
     }
 
@@ -954,7 +948,7 @@ impl<R> ViewManager<R> {
     }
 
     /// Get view id range.
-    pub fn range<'a, G>(&'a self, r: G) -> impl DoubleEndedIterator<Item = ViewId> + 'a
+    pub fn range<G>(&self, r: G) -> impl DoubleEndedIterator<Item = ViewId> + '_
     where
         G: std::ops::RangeBounds<ViewId>,
     {

@@ -138,10 +138,7 @@ impl Brush {
 
     /// Check whether the brush is currently drawing.
     pub fn is_drawing(&self) -> bool {
-        match self.state {
-            BrushState::NotDrawing => false,
-            _ => true,
-        }
+        !matches!(self.state, BrushState::NotDrawing)
     }
 
     #[allow(dead_code)]
@@ -184,7 +181,7 @@ impl Brush {
         self.curr = *p;
 
         if let Some(BrushMode::Line(snap)) = self.line_mode() {
-            let start = self.stroke.first().unwrap_or(&p).clone();
+            let start = *self.stroke.first().unwrap_or(&p);
             self.stroke.clear();
 
             let end = match snap {

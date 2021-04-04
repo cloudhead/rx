@@ -1,4 +1,4 @@
-#![forbid(clippy::all)]
+#![deny(clippy::all)]
 #![allow(
     clippy::collapsible_if,
     clippy::many_single_char_names,
@@ -97,7 +97,7 @@ impl<'a> Default for Options<'a> {
     }
 }
 
-pub fn init<'a, P: AsRef<Path>>(paths: &[P], options: Options<'a>) -> std::io::Result<()> {
+pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Result<()> {
     use std::io;
 
     debug!("options: {:?}", options);

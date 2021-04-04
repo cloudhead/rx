@@ -66,8 +66,8 @@ struct Sprite2dInterface {
 pub enum VertexSemantics {
     #[sem(name = "position", repr = "[f32; 3]", wrapper = "VertexPosition")]
     Position,
-    #[sem(name = "uv", repr = "[f32; 2]", wrapper = "VertexUV")]
-    UV,
+    #[sem(name = "uv", repr = "[f32; 2]", wrapper = "VertexUv")]
+    Uv,
     #[sem(name = "color", repr = "[u8; 4]", wrapper = "VertexColor")]
     Color,
     #[sem(name = "opacity", repr = "[f32; 1]", wrapper = "VertexOpacity")]
@@ -84,7 +84,7 @@ pub enum VertexSemantics {
 #[rustfmt::skip]
 struct Sprite2dVertex {
     #[allow(dead_code)] position: VertexPosition,
-    #[allow(dead_code)] uv: VertexUV,
+    #[allow(dead_code)] uv: VertexUv,
     #[vertex(normalized = "true")]
     #[allow(dead_code)] color: VertexColor,
     #[allow(dead_code)] opacity: VertexOpacity,
@@ -124,7 +124,7 @@ struct Cursor2dInterface {
 #[rustfmt::skip]
 struct Cursor2dVertex {
     #[allow(dead_code)] position: VertexPosition,
-    #[allow(dead_code)] uv: VertexUV,
+    #[allow(dead_code)] uv: VertexUv,
 }
 
 #[derive(UniformInterface)]
@@ -635,7 +635,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 if let Some(tess) = staging_tess {
                     shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
                         iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.transform, identity);
 
                         rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
                     })?;
@@ -647,7 +647,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         .expect("binding textures never fails. qed.");
                     shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
                         iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.transform, identity);
                         iface.set(&uni.tex, bound_paste.binding());
 
                         rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
@@ -670,7 +670,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 if let Some(tess) = final_tess {
                     shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
                         iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.transform, identity);
 
                         let render_st = if blending == &Blending::Constant {
                             render_st.clone().set_blending(blending::Blending {
@@ -688,7 +688,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 if !paste_outputs.is_empty() {
                     shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
                         iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.transform, identity);
                         iface.set(&uni.tex, bound_paste.binding());
 
                         for out in paste_outputs.drain(..) {
@@ -717,8 +717,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                             .bind_texture(checker)
                             .expect("binding textures never fails");
 
-                        iface.set(&uni.ortho, ortho.into());
-                        iface.set(&uni.transform, identity.into());
+                        iface.set(&uni.ortho, ortho);
+                        iface.set(&uni.transform, identity);
                         iface.set(&uni.tex, bound_checker.binding());
 
                         rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&checker_tess))
@@ -743,7 +743,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                                     .bind_texture(l.fb.color_slot())
                                     .expect("binding textures never fails");
 
-                                iface.set(&uni.ortho, ortho.into());
+                                iface.set(&uni.ortho, ortho);
                                 iface.set(&uni.transform, transform.into());
                                 iface.set(&uni.tex, bound_view.binding());
 
@@ -769,16 +769,16 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
                 // Render UI.
                 shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
-                    iface.set(&uni.ortho, ortho.into());
-                    iface.set(&uni.transform, identity.into());
+                    iface.set(&uni.ortho, ortho);
+                    iface.set(&uni.transform, identity);
 
                     rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&ui_tess))
                 })?;
 
                 // Render text, tool & view animations.
                 shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                    iface.set(&uni.ortho, ortho.into());
-                    iface.set(&uni.transform, identity.into());
+                    iface.set(&uni.ortho, ortho);
+                    iface.set(&uni.transform, identity);
 
                     // Render view composites.
                     for (id, v) in view_data.iter_mut() {

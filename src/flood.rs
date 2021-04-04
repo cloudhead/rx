@@ -65,7 +65,7 @@ impl FloodFiller {
             grid.height - starting_point.y as usize - 1,
         );
 
-        let target_color = grid.get(starting_point.x, starting_point.y)?.clone();
+        let target_color = *grid.get(starting_point.x, starting_point.y)?;
         Some(FloodFiller {
             grid,
             target_color,

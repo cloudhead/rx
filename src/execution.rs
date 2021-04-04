@@ -250,19 +250,11 @@ impl Execution {
     }
 
     pub fn is_normal(&self) -> bool {
-        if let Execution::Normal = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Execution::Normal)
     }
 
     pub fn is_recording(&self) -> bool {
-        if let Execution::Recording { .. } = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, Execution::Recording { .. })
     }
 
     pub fn record(&mut self, data: &[Bgra8]) {
@@ -505,7 +497,7 @@ impl FrameRecorder {
         let actual = Self::hash(data);
 
         if self.frames.is_empty() {
-            return VerifyResult::EOF;
+            return VerifyResult::Eof;
         }
         if Some(actual.clone()) == self.last_verified {
             return VerifyResult::Stale(actual);
@@ -519,7 +511,7 @@ impl FrameRecorder {
                 VerifyResult::Failed(actual, expected)
             }
         } else {
-            VerifyResult::EOF
+            VerifyResult::Eof
         }
     }
 
@@ -593,7 +585,7 @@ impl ReplayResult {
                 self.failed_count += 1;
                 // TODO: Stop replaying
             }
-            VerifyResult::EOF => {
+            VerifyResult::Eof => {
                 self.eof = true;
             }
             VerifyResult::Stale { .. } => {
@@ -613,7 +605,7 @@ pub enum VerifyResult {
     /// The actual and expected hashes don't match.
     Failed(Hash, Hash),
     /// There are no further expected hashes.
-    EOF,
+    Eof,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]

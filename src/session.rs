@@ -988,12 +988,7 @@ impl Session {
             // A common case is that we have multiple `CursorMoved` events
             // in one update. In that case we keep only the last one,
             // since the in-betweens will never be seen.
-            if events.len() > 1
-                && events.iter().all(|e| match e {
-                    Event::CursorMoved(_) => true,
-                    _ => false,
-                })
-            {
+            if events.len() > 1 && events.iter().all(|e| matches!(e, Event::CursorMoved(_))) {
                 events.drain(..events.len() - 1);
             }
 
@@ -1519,7 +1514,7 @@ impl Session {
                         continue;
                     }
 
-                    if let Err(_) = self.load_view(path) {
+                    if self.load_view(path).is_err() {
                         fail_count += 1;
                         continue;
                     }
@@ -2217,8 +2212,7 @@ impl Session {
                                 Tool::Pan(_) => {}
                                 Tool::FloodFill => {
                                     let start_time = time::Instant::now();
-                                    let filler =
-                                        FloodFiller::new(self.active_view(), p.into(), self.fg);
+                                    let filler = FloodFiller::new(self.active_view(), p, self.fg);
                                     if let Some(shapes) = filler.and_then(|f| f.run()) {
                                         self.effects.push(Effect::ViewPaintFinal(shapes));
                                         self.active_view_mut().touch_layer();
@@ -2892,7 +2886,7 @@ impl Session {
                         self.zoom_out(center);
                     }
                     Op::Set(z) => {
-                        if z < 1. || z > Self::MAX_ZOOM {
+                        if !(1. ..=Self::MAX_ZOOM).contains(&z) {
                             self.message("Error: invalid zoom level", MessageType::Error);
                         } else {
                             self.zoom(z, center);
@@ -3060,10 +3054,7 @@ impl Session {
                     Ok((success_count, fail_count)) => {
                         if success_count + fail_count > 1 {
                             self.message(
-                                format!(
-                                    "{} path(s) loaded, {} skipped",
-                                    success_count, fail_count
-                                ),
+                                format!("{} path(s) loaded, {} skipped", success_count, fail_count),
                                 MessageType::Info,
                             )
                         }

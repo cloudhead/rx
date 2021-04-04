@@ -81,7 +81,7 @@ impl Events {
         self.glfw.poll_events();
     }
 
-    pub fn flush<'a>(&'a self) -> impl Iterator<Item = WindowEvent> + 'a {
+    pub fn flush(&self) -> impl Iterator<Item = WindowEvent> + '_ {
         glfw::flush_messages(&self.handle).map(|(_, e)| e.into())
     }
 }
@@ -137,11 +137,11 @@ impl Window {
     }
 }
 
-impl Into<glfw::WindowHint> for WindowHint {
-    fn into(self) -> glfw::WindowHint {
-        match self {
-            Self::Resizable(b) => glfw::WindowHint::Resizable(b),
-            Self::Visible(b) => glfw::WindowHint::Visible(b),
+impl From<WindowHint> for glfw::WindowHint {
+    fn from(other: WindowHint) -> glfw::WindowHint {
+        match other {
+            WindowHint::Resizable(b) => glfw::WindowHint::Resizable(b),
+            WindowHint::Visible(b) => glfw::WindowHint::Visible(b),
         }
     }
 }

@@ -83,7 +83,7 @@ impl Pixels {
         }
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Rgba8> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item = Rgba8> + '_ {
         self.buf.iter().cloned().map(move |u| match self.format {
             PixelFormat::Rgba8 => Rgba8::from(u),
             PixelFormat::Bgra8 => Bgra8::from(u).into(),
