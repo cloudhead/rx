@@ -292,7 +292,7 @@ pub enum State {
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Tool {
     /// The standard drawing tool.
-    Brush(Brush),
+    Brush,
     /// Used for filling enclosed regions with color.
     FloodFill,
     /// Used to sample colors.
@@ -303,7 +303,7 @@ pub enum Tool {
 
 impl Default for Tool {
     fn default() -> Self {
-        Tool::Brush(Brush::default())
+        Tool::Brush
     }
 }
 
@@ -721,6 +721,8 @@ pub struct Session {
     pub tool: Tool,
     /// The previous tool, if any.
     pub prev_tool: Option<Tool>,
+    /// The brush tool settings.
+    pub brush: Brush,
 
     /// Input state of the mouse.
     mouse_state: InputState,
@@ -803,6 +805,7 @@ impl Session {
             hover_view: Option::default(),
             fg: color::WHITE,
             bg: color::BLACK,
+            brush: Brush::default(),
             settings: Settings::default(),
             settings_changed: HashSet::new(),
             views: ViewManager::new(),
@@ -898,8 +901,8 @@ impl Session {
         self.settings_changed.clear();
         self.avg_time = avg_time;
 
-        if let Tool::Brush(ref mut b) = self.tool {
-            b.update();
+        if let Tool::Brush = self.tool {
+            self.brush.update();
         }
 
         for v in self.views.iter_mut() {
@@ -1004,7 +1007,8 @@ impl Session {
             }
         }
 
-        if let Tool::Brush(ref brush) = self.tool {
+        if let Tool::Brush = self.tool {
+            let brush = &self.brush;
             let output = brush.output(
                 Stroke::NONE,
                 Fill::Solid(brush.color.into()),
@@ -1185,7 +1189,7 @@ impl Session {
         let gained_palette_focus = !palette_hover && self.palette.hover.is_some();
 
         match &self.tool {
-            Tool::Brush(b) if !b.is_drawing() => {
+            Tool::Brush if !self.brush.is_drawing() => {
                 if gained_palette_focus {
                     self.tool(Tool::Sampler);
                 }
@@ -1542,7 +1546,7 @@ impl Session {
                     );
                 }
                 success_count += 1;
-            } 
+            }
         }
 
         if let Some(id) = self.views.last().map(|v| v.id) {
@@ -2199,13 +2203,13 @@ impl Session {
 
                         match self.mode {
                             Mode::Normal => match self.tool {
-                                Tool::Brush(ref mut brush) => {
-                                    let color = if brush.is_set(BrushMode::Erase) {
+                                Tool::Brush => {
+                                    let color = if self.brush.is_set(BrushMode::Erase) {
                                         Rgba8::TRANSPARENT
                                     } else {
                                         self.fg
                                     };
-                                    brush.start_drawing(p.into(), color, extent);
+                                    self.brush.start_drawing(p.into(), color, extent);
                                 }
                                 Tool::Sampler => {
                                     self.sample_color();
@@ -2266,10 +2270,10 @@ impl Session {
                     *dragging = false;
                 }
                 Mode::Normal => {
-                    if let Tool::Brush(ref mut brush) = self.tool {
-                        match brush.state {
+                    if let Tool::Brush = self.tool {
+                        match self.brush.state {
                             BrushState::Drawing { .. } | BrushState::DrawStarted { .. } => {
-                                brush.stop_drawing();
+                                self.brush.stop_drawing();
                                 self.active_view_mut().touch_layer();
                             }
                             _ => {}
@@ -2316,9 +2320,10 @@ impl Session {
             _ => {
                 match self.mode {
                     Mode::Normal => match self.tool {
-                        Tool::Brush(ref mut brush) if p != prev_p => match brush.state {
+                        Tool::Brush if p != prev_p => match self.brush.state {
                             BrushState::DrawStarted { .. } | BrushState::Drawing { .. } => {
                                 let mut p: LayerCoords<i32> = p.into();
+                                let brush = &mut self.brush;
                                 if brush.is_set(BrushMode::Multi) {
                                     p.clamp(Rect::new(
                                         (brush.size / 2) as i32,
@@ -2703,41 +2708,34 @@ impl Session {
                 std::mem::swap(&mut self.fg, &mut self.bg);
             }
             Command::BrushSet(mode) => {
-                if let Tool::Brush(ref mut b) = self.tool {
-                    b.set(mode);
-                }
+                self.brush.set(mode);
             }
             Command::BrushUnset(mode) => {
-                if let Tool::Brush(ref mut b) = self.tool {
-                    b.unset(mode);
-                }
+                self.brush.unset(mode);
             }
             Command::BrushToggle(mode) => {
-                if let Tool::Brush(ref mut b) = self.tool {
-                    b.toggle(mode);
-                }
+                self.brush.toggle(mode);
             }
             Command::Brush => {
                 self.unimplemented();
             }
             Command::BrushSize(op) => {
-                if let Tool::Brush(ref mut b) = self.tool {
-                    match op {
-                        Op::Incr => {
-                            b.size += 1;
-                            b.size += b.size % 2;
-                        }
-                        Op::Decr => {
-                            b.size -= 1;
-                            b.size -= b.size % 2;
-                        }
-                        Op::Set(s) => {
-                            b.size = s as usize;
-                        }
+                let b = &mut self.brush;
+                match op {
+                    Op::Incr => {
+                        b.size += 1;
+                        b.size += b.size % 2;
                     }
-                    if b.size < Self::MIN_BRUSH_SIZE {
-                        b.size = Self::MIN_BRUSH_SIZE;
+                    Op::Decr => {
+                        b.size -= 1;
+                        b.size -= b.size % 2;
                     }
+                    Op::Set(s) => {
+                        b.size = s as usize;
+                    }
+                }
+                if b.size < Self::MIN_BRUSH_SIZE {
+                    b.size = Self::MIN_BRUSH_SIZE;
                 }
             }
             Command::FrameResize(fw, fh) => {

@@ -6,6 +6,7 @@ set ui/cursor = off
 set ui/palette = off
 
 brush
+brush/unset perfect
 
 map/clear!
 map         .           :zoom +

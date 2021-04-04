@@ -1,4 +1,4 @@
-use crate::brush::{Align, BrushMode};
+use crate::brush::{Align, Brush, BrushMode};
 use crate::color;
 use crate::execution::Execution;
 use crate::font::{TextAlign, TextBatch};
@@ -72,6 +72,7 @@ pub mod cursors {
 
     pub fn info(
         t: &Tool,
+        b: &Brush,
         m: Mode,
         in_view: bool,
         in_layer: bool,
@@ -79,7 +80,7 @@ pub mod cursors {
     ) -> Option<Cursor> {
         match (m, t) {
             (Mode::Help, Tool::Pan(_)) => {}
-            (Mode::Help, Tool::Brush(_)) => {}
+            (Mode::Help, Tool::Brush) => {}
             (Mode::Help, _) => return None,
             (Mode::Present, _) => return None,
             _ => {}
@@ -89,7 +90,7 @@ pub mod cursors {
             Tool::Pan(_) => self::PAN,
             Tool::FloodFill => self::FLOOD,
 
-            Tool::Brush(b) => match m {
+            Tool::Brush => match m {
                 Mode::Visual(_) if in_selection && in_view && in_layer => self::OMNI,
                 Mode::Visual(VisualState::Selecting { dragging: true }) if in_selection => {
                     self::OMNI
@@ -132,7 +133,7 @@ impl Context {
         avg_frametime: &time::Duration,
         execution: &Execution,
     ) {
-        self::draw_brush(&session, &mut self.ui_batch);
+        self::draw_brush(&session, &session.brush, &mut self.ui_batch);
         self::draw_paste(&session, &mut self.paste_batch);
         self::draw_grid(&session, &mut self.ui_batch);
         self::draw_ui(&session, &mut self.ui_batch, &mut self.text_batch);
@@ -605,6 +606,7 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
         invert,
     }) = cursors::info(
         &session.tool,
+        &session.brush,
         session.mode,
         v.contains(c - session.offset).is_some(),
         in_active_layer,
@@ -628,7 +630,7 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
     }
 }
 
-fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
+fn draw_brush(session: &Session, brush: &Brush, shapes: &mut shape2d::Batch) {
     if session.palette.hover.is_some() {
         return;
     }
@@ -657,7 +659,7 @@ fn draw_brush(session: &Session, shapes: &mut shape2d::Batch) {
             }
         }
         Mode::Normal => {
-            if let Tool::Brush(ref brush) = session.tool {
+            if let Tool::Brush = session.tool {
                 let view_coords = session.active_view_coords(c);
                 let layer_coords = session.active_layer_coords(c);
 

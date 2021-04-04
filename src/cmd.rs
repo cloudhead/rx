@@ -1,5 +1,5 @@
 use crate::autocomplete::{self, Autocomplete, FileCompleter, FileCompleterOpts};
-use crate::brush::{Brush, BrushMode};
+use crate::brush::BrushMode;
 use crate::history::History;
 use crate::parser::*;
 use crate::platform;
@@ -198,7 +198,7 @@ impl fmt::Display for Command {
             Self::Redo => write!(f, "Redo view edit"),
             Self::FrameResize(_, _) => write!(f, "Resize active view frame"),
             Self::Tool(Tool::Pan(_)) => write!(f, "Pan tool"),
-            Self::Tool(Tool::Brush(_)) => write!(f, "Brush tool"),
+            Self::Tool(Tool::Brush) => write!(f, "Brush tool"),
             Self::Tool(Tool::Sampler) => write!(f, "Color sampler tool"),
             Self::Tool(Tool::FloodFill) => write!(f, "Flood fill tool"),
             Self::ToolPrev => write!(f, "Switch to previous tool"),
@@ -828,8 +828,8 @@ impl Default for Commands {
                 p.then(param::<BrushMode>())
                     .map(|(_, m)| Command::BrushToggle(m))
             })
-            .command("brush", "Switch to default brush", |p| {
-                p.value(Command::Tool(Tool::Brush(Brush::default())))
+            .command("brush", "Switch to brush", |p| {
+                p.value(Command::Tool(Tool::Brush))
             })
             .command("flood", "Switch to flood fill tool", |p| {
                 p.value(Command::Tool(Tool::FloodFill))
@@ -951,7 +951,7 @@ impl Default for Commands {
                 p.then(word().label("pan/brush/sampler/.."))
                     .try_map(|(_, t)| match t.as_str() {
                         "pan" => Ok(Command::Tool(Tool::Pan(PanState::default()))),
-                        "brush" => Ok(Command::Tool(Tool::Brush(Brush::default()))),
+                        "brush" => Ok(Command::Tool(Tool::Brush)),
                         "sampler" => Ok(Command::Tool(Tool::Sampler)),
                         _ => Err(format!("unknown tool {:?}", t)),
                     })
