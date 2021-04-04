@@ -3,12 +3,12 @@
                                       RELEASE CHECKLIST
 
 
+  0. Run tests & clippy
   1. Tag the release commit:
 
       git tag -s vX.X.X
 
-  2. Update the version constant in `src/lib.rs`
-  3. Update the version in Cargo.toml
-  4. Push tags:
+  2. Update the version in Cargo.toml
+  3. Push tags:
 
       git push --tags
