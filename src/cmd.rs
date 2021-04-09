@@ -50,6 +50,7 @@ pub enum Command {
     // Files
     Edit(Vec<String>),
     EditFrames(Vec<String>),
+    Export(Option<u32>, String),
     Write(Option<String>),
     WriteFrames(Option<String>),
     WriteQuit,
@@ -265,6 +266,8 @@ impl From<Command> for String {
             Command::FrameAdd => format!("f/add"),
             Command::FrameClone(i) => format!("f/clone {}", i),
             Command::FrameRemove => format!("f/remove"),
+            Command::Export(None, path) => format!("export {}", path),
+            Command::Export(Some(s), path) => format!("export @{}x {}", s, path),
             Command::Noop => format!(""),
             Command::PaletteAdd(c) => format!("p/add {}", c),
             Command::PaletteClear => format!("p/clear"),
@@ -728,6 +731,16 @@ impl Default for Commands {
             .command("q!", "Force quit view", |p| p.value(Command::ForceQuit))
             .command("qa!", "Force quit all views", |p| {
                 p.value(Command::ForceQuitAll)
+            })
+            .command("export", "Export view", |p| {
+                p.then(
+                    scale()
+                        .skip(whitespace())
+                        .then(path())
+                        .map(|(scale, path)| Command::Export(Some(scale), path))
+                        .or(path().map(|path| Command::Export(None, path))),
+                )
+                .map(|(_, cmd)| cmd)
             })
             .command("wq", "Write & quit view", |p| p.value(Command::WriteQuit))
             .command("x", "Write & quit view", |p| p.value(Command::WriteQuit))

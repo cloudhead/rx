@@ -1713,6 +1713,34 @@ impl Session {
 
     /// Private ///////////////////////////////////////////////////////////////////
 
+    /// Export a layer in a specific format.
+    fn export_layer_as(&mut self, id: ViewId, layer_id: LayerId, path: &Path) -> io::Result<()> {
+        let ext = path.extension().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "file path requires an extension")
+        })?;
+        let ext = ext.to_str().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::Other, "file extension is not valid unicode")
+        })?;
+
+        match ext {
+            "gif" => {
+                self.save_view_gif(id, layer_id, path)?;
+                return Ok(());
+            }
+            "svg" => {
+                self.save_view_svg(id, layer_id, path)?;
+                return Ok(());
+            }
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("`{}` is not a supported export format", ext),
+                ));
+            }
+        }
+    }
+
+    /// Save an part of a layer to disk.
     fn save_layer_rect_as(
         &mut self,
         id: ViewId,
@@ -1720,31 +1748,6 @@ impl Session {
         rect: Rect<u32>,
         path: &Path,
     ) -> io::Result<Option<EditId>> {
-        let ext = path.extension().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                "file path requires an extension (.gif or .png)",
-            )
-        })?;
-        let ext = ext.to_str().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::Other, "file extension is not valid unicode")
-        })?;
-
-        if !path::SUPPORTED_WRITE_FORMATS.contains(&ext) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("`{}` is not a supported output format", ext),
-            ));
-        }
-
-        if ext == "gif" {
-            self.save_view_gif(id, layer_id, path)?;
-            return Ok(None);
-        } else if ext == "svg" {
-            self.save_view_svg(id, layer_id, path)?;
-            return Ok(None);
-        }
-
         // Only allow overwriting of files if it's the file of the view being saved.
         if path.exists()
             && self
@@ -3071,6 +3074,23 @@ impl Session {
                             format!("Error loading frames(s): {}", e),
                             MessageType::Error,
                         );
+                    }
+                }
+            }
+            Command::Export(_scale, path) => {
+                let view = self.active_view();
+                let active_layer_id = view.active_layer_id;
+                let nlayers = view.layers.len();
+                let id = view.id;
+
+                if nlayers > 1 {
+                    self.message(
+                        format!("Error: the `export` command only works with a single layer"),
+                        MessageType::Error,
+                    );
+                } else {
+                    if let Err(e) = self.export_layer_as(id, active_layer_id, Path::new(&path)) {
+                        self.message(format!("Error: {}", e), MessageType::Error);
                     }
                 }
             }

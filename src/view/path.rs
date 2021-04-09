@@ -5,8 +5,6 @@ use std::path;
 
 /// Rx archive format extension.
 pub const ARCHIVE_FORMAT: &str = "rxa";
-/// Supported image formats for writing.
-pub const SUPPORTED_WRITE_FORMATS: &[&str] = &["png", "gif", "svg"];
 /// Supported image formats for reading.
 pub const SUPPORTED_READ_FORMATS: &[&str] = &["png", self::ARCHIVE_FORMAT];
 

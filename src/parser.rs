@@ -37,6 +37,14 @@ pub fn comment() -> Parser<String> {
         .map(|(_, comment)| comment)
 }
 
+pub fn scale() -> Parser<u32> {
+    symbol('@')
+        .then(integer())
+        .skip(symbol('x'))
+        .label("@<scale>")
+        .map(|(_, scale)| scale)
+}
+
 pub fn path() -> Parser<String> {
     token()
         .map(|input: String| {
