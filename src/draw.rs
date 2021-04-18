@@ -672,8 +672,8 @@ fn draw_brush(session: &Session, brush: &Brush, shapes: &mut shape2d::Batch) {
                         // while erasing over previously erased pixels in the same stroke.
                         // To make this 100% correct, we have to read the underlying color
                         // from the view's staging buffer.
-                        if let Some(color) = session
-                            .color_at(v.id, v.active_layer_id, layer_coords.into())
+                        if let Some(color) = v
+                            .color_at(v.active_layer_id, layer_coords.into())
                             .map(Rgba::from)
                         {
                             (
@@ -708,7 +708,7 @@ fn draw_brush(session: &Session, brush: &Brush, shapes: &mut shape2d::Batch) {
                     {
                         let p: LayerCoords<u32> = layer_coords.into();
 
-                        if let Some(xray) = session.color_at(v.id, v.active_layer_id, p) {
+                        if let Some(xray) = v.color_at(v.active_layer_id, p) {
                             if xray != session.fg {
                                 let center = *session.session_coords(v.id, view_coords)
                                     + Vector2::new(z / 2., z / 2.);

@@ -10,7 +10,7 @@ pub use resource::{Edit, EditId, Snapshot, ViewResource};
 use crate::cmd::Axis;
 use crate::session::{Direction, Session, SessionCoords};
 use crate::util;
-use crate::view::layer::{FrameRange, Layer, LayerId};
+use crate::view::layer::{FrameRange, Layer, LayerCoords, LayerId};
 
 use rgx::kit::Animation;
 use rgx::kit::Rgba8;
@@ -690,6 +690,17 @@ impl View<ViewResource> {
         );
 
         id
+    }
+
+    /// Get the color at the given view coordinate.
+    pub fn color_at(&self, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
+        self.resource
+            .current_snapshot(l)
+            .and_then(|(snapshot, pixels)| {
+                snapshot
+                    .layer_coord_to_index(p)
+                    .and_then(|idx| pixels.get(idx))
+            })
     }
 
     /// Restore a view snapshot (undo/redo an edit).

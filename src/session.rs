@@ -1213,7 +1213,7 @@ impl Session {
             self.palette.hover
         } else if let Some((v, l)) = self.hover_view {
             let p: LayerCoords<u32> = self.layer_coords(v, l, cursor).into();
-            self.color_at(v, l, p)
+            self.view(v).color_at(l, p)
         } else {
             None
         };
@@ -3303,15 +3303,6 @@ impl Session {
             self.fg = color;
         }
         // TODO: Switch to brush.
-    }
-
-    /// Get the color at the given view coordinate.
-    pub fn color_at(&self, v: ViewId, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
-        let view = self.view(v);
-        let (snapshot, pixels) = self.views.get_snapshot(view.id, l);
-        snapshot
-            .layer_coord_to_index(p)
-            .and_then(|idx| pixels.get(idx))
     }
 
     fn sample_color(&mut self) {
