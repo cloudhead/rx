@@ -1644,7 +1644,13 @@ impl Session {
     /// Private ///////////////////////////////////////////////////////////////////
 
     /// Export a layer in a specific format.
-    fn export_layer_as(&mut self, id: ViewId, layer_id: LayerId, path: &Path) -> io::Result<()> {
+    fn export_layer_as(
+        &mut self,
+        id: ViewId,
+        layer_id: LayerId,
+        path: &Path,
+        scale: u32,
+    ) -> io::Result<()> {
         let ext = path.extension().ok_or_else(|| {
             io::Error::new(io::ErrorKind::Other, "file path requires an extension")
         })?;
@@ -1658,9 +1664,10 @@ impl Session {
                 let view = self.view(id);
                 let delay = view.animation.delay;
 
-                view.save_gif(layer_id, &path, delay, &palette)?
+                view.save_gif(layer_id, &path, delay, &palette, scale)?
             }
-            "svg" => self.view(id).save_svg(layer_id, &path)?,
+            "svg" => self.view(id).save_svg(layer_id, &path, scale)?,
+            "png" => self.view(id).save_png(layer_id, &path, scale)?,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -2910,11 +2917,12 @@ impl Session {
                     }
                 }
             }
-            Command::Export(_scale, path) => {
+            Command::Export(scale, path) => {
                 let view = self.active_view();
                 let active_layer_id = view.active_layer_id;
                 let nlayers = view.layers.len();
                 let id = view.id;
+                let scale = scale.unwrap_or(1);
 
                 if nlayers > 1 {
                     self.message(
@@ -2922,7 +2930,9 @@ impl Session {
                         MessageType::Error,
                     );
                 } else {
-                    if let Err(e) = self.export_layer_as(id, active_layer_id, Path::new(&path)) {
+                    if let Err(e) =
+                        self.export_layer_as(id, active_layer_id, Path::new(&path), scale)
+                    {
                         self.message(format!("Error: {}", e), MessageType::Error);
                     }
                 }

@@ -801,7 +801,7 @@ impl View<ViewResource> {
         Ok(written)
     }
 
-    /// Save an part of a layer to disk.
+    /// Save part of a layer to disk.
     fn save_layer_rect_as(
         &mut self,
         layer_id: LayerId,

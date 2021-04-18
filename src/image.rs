@@ -7,6 +7,9 @@ use std::fs::File;
 use std::io;
 use std::path::{self, PathBuf};
 
+use crate::pixels::{Pixels, PixelsMut};
+use crate::util;
+
 enum Encoding {
     Png,
 }
@@ -119,23 +122,51 @@ pub fn read<R: io::Read>(reader: R) -> io::Result<(Vec<u8>, u32, u32)> {
     Ok((buffer, width, height))
 }
 
-pub fn save_as<P: AsRef<path::Path>>(path: P, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
+pub fn save_as<P: AsRef<path::Path>>(
+    path: P,
+    w: u32,
+    h: u32,
+    scale: u32,
+    pixels: &[Rgba8],
+) -> io::Result<()> {
     let f = File::create(path.as_ref())?;
     let out = &mut io::BufWriter::new(f);
 
-    self::write(out, w, h, pixels)
+    self::write(out, w, h, scale, pixels)
 }
 
-pub fn write<W: io::Write>(out: W, w: u32, h: u32, pixels: &[Rgba8]) -> io::Result<()> {
-    let mut encoder = png::Encoder::new(out, w, h);
+pub fn write<W: io::Write>(out: W, w: u32, h: u32, scale: u32, pixels: &[Rgba8]) -> io::Result<()> {
+    let width = w * scale;
+    let height = h * scale;
+    let mut encoder = png::Encoder::new(out, width, height);
 
     encoder.set_color(png::ColorType::RGBA);
     encoder.set_depth(png::BitDepth::Eight);
 
-    let (head, pixels, tail) = unsafe { pixels.align_to::<u8>() };
-    assert!(head.is_empty() && tail.is_empty());
-
     let mut writer = encoder.write_header()?;
+
+    if scale == 1 {
+        let pixels = util::align_u8(pixels);
+
+        return writer
+            .write_image_data(pixels)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
+    }
+
+    // Scale is greater than 1, interpolate via nearest-neighbor before writing the image.
+
+    let mut output_buf = vec![Rgba8::TRANSPARENT; (width * height) as usize];
+    let mut output = PixelsMut::new(&mut output_buf, width as usize, height as usize);
+
+    let input = Pixels::new(pixels, w as usize, h as usize);
+
+    for (x, y, pixel) in output.iter_mut() {
+        let x = x / scale as usize;
+        let y = y / scale as usize;
+
+        *pixel = *input.get(x, y).unwrap();
+    }
+    let pixels = util::align_u8(output_buf.as_slice());
 
     writer
         .write_image_data(pixels)

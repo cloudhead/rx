@@ -74,7 +74,7 @@ impl ViewResource {
             .expect("rect should be within view");
         let (w, h) = (rect.width(), rect.height());
 
-        image::save_as(path, w, h, &pixels)?;
+        image::save_as(path, w, h, 1, &pixels)?;
 
         Ok((self.cursor, (w * h) as usize))
     }
@@ -238,7 +238,7 @@ impl ViewResource {
                     .expect("the rect is within the view");
 
                 buffer.clear();
-                image::write(&mut buffer, rect.width(), rect.height(), &pixels)?;
+                image::write(&mut buffer, rect.width(), rect.height(), 1, &pixels)?;
 
                 let path = path
                     .join("frames")
@@ -257,7 +257,27 @@ impl ViewResource {
         Ok(written)
     }
 
-    pub fn save_svg<P: AsRef<Path>>(&self, layer_id: LayerId, path: P) -> io::Result<usize> {
+    pub fn save_png<P: AsRef<Path>>(
+        &self,
+        layer_id: LayerId,
+        path: P,
+        scale: u32,
+    ) -> io::Result<usize> {
+        let (snapshot, pixels) = self.layer(layer_id).current_snapshot();
+        let (w, h) = (snapshot.width(), snapshot.height());
+
+        // TODO: Remove unwrap.
+        image::save_as(path, w, h, scale, &pixels.as_rgba8().unwrap())?;
+
+        Ok((w * h * scale) as usize)
+    }
+
+    pub fn save_svg<P: AsRef<Path>>(
+        &self,
+        layer_id: LayerId,
+        path: P,
+        _scale: u32,
+    ) -> io::Result<usize> {
         use std::io::Write;
 
         let (snapshot, pixels) = self
@@ -305,6 +325,7 @@ impl ViewResource {
         path: P,
         frame_delay: time::Duration,
         palette: &[Rgba8],
+        _scale: u32,
     ) -> io::Result<usize> {
         // The gif encoder expects the frame delay in units of 10ms.
         let frame_delay = frame_delay.as_millis() / 10;
