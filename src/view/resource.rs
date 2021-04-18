@@ -1,12 +1,11 @@
 use crate::image;
 use crate::session::Rgb8;
+use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::ViewExtent;
 
-use super::pixels::{PixelFormat, Pixels};
-
 use nonempty::NonEmpty;
-use rgx::color::{Bgra8, Rgba8};
+use rgx::color::Rgba8;
 use rgx::rect::Rect;
 
 use gif::{self, SetParameter};
@@ -29,7 +28,7 @@ pub struct ViewResource {
 }
 
 impl ViewResource {
-    pub fn new(pixels: Pixels, extent: ViewExtent) -> Self {
+    pub fn new(pixels: Vec<Rgba8>, extent: ViewExtent) -> Self {
         Self {
             layers: vec![(Default::default(), LayerResource::new(pixels, extent))]
                 .drain(..)
@@ -56,7 +55,7 @@ impl ViewResource {
         self.layers.iter().filter(|(_, l)| !l.hidden)
     }
 
-    pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Pixels) {
+    pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Vec<Rgba8>) {
         self.layers
             .insert(layer_id, LayerResource::new(pixels, extent));
         self.history_record(Edit::LayerAdded(layer_id));
@@ -79,7 +78,7 @@ impl ViewResource {
         Ok((self.cursor, (w * h) as usize))
     }
 
-    pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Pixels)>, extent: ViewExtent) {
+    pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Vec<Rgba8>)>, extent: ViewExtent) {
         self.history_record(Edit::ViewResized(
             layers.iter().map(|(l, _)| *l).collect(),
             self.extent,
@@ -92,7 +91,7 @@ impl ViewResource {
         }
     }
 
-    pub fn record_view_painted(&mut self, layers: Vec<(LayerId, Pixels)>) {
+    pub fn record_view_painted(&mut self, layers: Vec<(LayerId, Vec<Rgba8>)>) {
         let extent = self.extent;
         self.history_record(Edit::ViewPainted(layers.iter().map(|(l, _)| *l).collect()));
 
@@ -101,7 +100,7 @@ impl ViewResource {
         }
     }
 
-    pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Pixels, extent: ViewExtent) {
+    pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Vec<Rgba8>, extent: ViewExtent) {
         self.history_record(Edit::LayerPainted(layer));
         self.layer_mut(layer).push_snapshot(pixels, extent);
     }
@@ -124,7 +123,7 @@ impl ViewResource {
         self.history.push(edit);
     }
 
-    pub fn current_snapshot(&self, layer: LayerId) -> Option<(&Snapshot, &Pixels)> {
+    pub fn current_snapshot(&self, layer: LayerId) -> Option<(&Snapshot, &[Rgba8])> {
         self.layers.get(&layer).map(|l| l.current_snapshot())
     }
 
@@ -266,8 +265,7 @@ impl ViewResource {
         let (snapshot, pixels) = self.layer(layer_id).current_snapshot();
         let (w, h) = (snapshot.width(), snapshot.height());
 
-        // TODO: Remove unwrap.
-        image::save_as(path, w, h, scale, &pixels.as_rgba8().unwrap())?;
+        image::save_as(path, w, h, scale, &pixels)?;
 
         Ok((w * h * scale) as usize)
     }
@@ -296,7 +294,6 @@ impl ViewResource {
 
         for (i, rgba) in pixels
             .clone()
-            .into_rgba8()
             .iter()
             .cloned()
             .enumerate()
@@ -351,7 +348,7 @@ impl ViewResource {
 
         // Convert BGRA pixels into indexed pixels.
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for rgba in pixels.clone().into_rgba8().iter().cloned() {
+        for rgba in pixels.clone().iter().cloned() {
             if let Ok(index) = palette.binary_search(&rgba) {
                 image.push(index as u8);
             } else {
@@ -406,22 +403,22 @@ pub struct LayerResource {
     snapshot: usize,
     /// Current layer pixels. We keep a separate decompressed
     /// cache of the view pixels for performance reasons.
-    pixels: Pixels,
+    pixels: Vec<Rgba8>,
     /// Whether this layer should be hidden.
     hidden: bool,
 }
 
 impl LayerResource {
-    fn new(pixels: Pixels, extent: ViewExtent) -> Self {
+    fn new(pixels: Vec<Rgba8>, extent: ViewExtent) -> Self {
         Self {
-            snapshots: NonEmpty::new(Snapshot::new(SnapshotId(0), pixels.clone(), extent)),
+            snapshots: NonEmpty::new(Snapshot::new(SnapshotId(0), &pixels, extent)),
             snapshot: 0,
             pixels,
             hidden: false,
         }
     }
 
-    pub fn current_snapshot(&self) -> (&Snapshot, &Pixels) {
+    pub fn current_snapshot(&self) -> (&Snapshot, &[Rgba8]) {
         (
             self.snapshots
                 .get(self.snapshot)
@@ -430,7 +427,7 @@ impl LayerResource {
         )
     }
 
-    pub fn current_snapshot_mut(&mut self) -> (&mut Snapshot, &Pixels) {
+    pub fn current_snapshot_mut(&mut self) -> (&mut Snapshot, &[Rgba8]) {
         (
             self.snapshots
                 .get_mut(self.snapshot)
@@ -445,7 +442,7 @@ impl LayerResource {
 
         // Fast path.
         if snapshot_rect == *rect {
-            return Some((snapshot, pixels.clone().into_rgba8()));
+            return Some((snapshot, pixels.into()));
         }
 
         let w = rect.width() as usize;
@@ -466,7 +463,7 @@ impl LayerResource {
         for y in (rect.y1 as usize..rect.y2 as usize).rev() {
             let y = total_h - y - 1;
             let offset = y * total_w + rect.x1 as usize;
-            let row = &pixels.slice(offset..offset + w);
+            let row = &pixels[offset..offset + w];
 
             buffer.extend_from_slice(row);
         }
@@ -475,7 +472,7 @@ impl LayerResource {
         Some((snapshot, buffer))
     }
 
-    pub fn push_snapshot(&mut self, pixels: Pixels, extent: ViewExtent) {
+    pub fn push_snapshot(&mut self, pixels: Vec<Rgba8>, extent: ViewExtent) {
         // FIXME: If pixels match current snapshot exactly, don't add the snapshot.
 
         // If we try to add a snapshot when we're not at the
@@ -485,10 +482,9 @@ impl LayerResource {
             self.snapshot = self.snapshots.len() - 1;
         }
         self.snapshot += 1;
-        self.pixels = pixels.clone();
-
         self.snapshots
-            .push(Snapshot::new(SnapshotId(self.snapshot), pixels, extent));
+            .push(Snapshot::new(SnapshotId(self.snapshot), &pixels, extent));
+        self.pixels = pixels;
     }
 
     pub fn prev_snapshot(&mut self) -> Option<&Snapshot> {
@@ -550,8 +546,6 @@ pub struct Snapshot {
 
     size: usize,
     pixels: Compressed<Box<[u8]>>,
-
-    format: PixelFormat,
 }
 
 impl Snapshot {
@@ -564,9 +558,8 @@ impl Snapshot {
 }
 
 impl Snapshot {
-    pub fn new(id: SnapshotId, pixels: Pixels, extent: ViewExtent) -> Self {
+    pub fn new(id: SnapshotId, pixels: &[Rgba8], extent: ViewExtent) -> Self {
         let size = pixels.len();
-        let format = pixels.format;
         let pixels =
             Compressed::from(pixels).expect("compressing snapshot shouldn't result in an error");
 
@@ -580,7 +573,6 @@ impl Snapshot {
             extent,
             size,
             pixels,
-            format,
         }
     }
 
@@ -594,15 +586,12 @@ impl Snapshot {
 
     ////////////////////////////////////////////////////////////////////////////
 
-    fn pixels(&self) -> Pixels {
+    fn pixels(&self) -> Vec<Rgba8> {
         let bytes = self
             .pixels
             .decompress()
             .expect("decompressing snapshot shouldn't result in an error");
-        match self.format {
-            PixelFormat::Rgba8 => Pixels::from_rgba8(Rgba8::align(&bytes).into()),
-            PixelFormat::Bgra8 => Pixels::from_bgra8(Bgra8::align(&bytes).into()),
-        }
+        Rgba8::align(&bytes).into()
     }
 }
 
@@ -612,9 +601,9 @@ impl Snapshot {
 pub struct Compressed<T>(T);
 
 impl Compressed<Box<[u8]>> {
-    fn from(input: Pixels) -> snap::Result<Self> {
+    fn from(input: &[Rgba8]) -> snap::Result<Self> {
         let mut enc = snap::Encoder::new();
-        let bytes = input.as_bytes();
+        let bytes = util::align_u8(input);
         enc.compress_vec(bytes).map(|v| Self(v.into_boxed_slice()))
     }
 

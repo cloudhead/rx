@@ -55,7 +55,7 @@ impl FloodFiller {
         let (snapshot, pixels) = view.current_snapshot(view.active_layer_id)?;
         let bounds = snapshot.extent.rect();
         let grid = Grid::new(
-            pixels.clone().into_rgba8(),
+            pixels.to_vec(),
             bounds.width() as usize,
             bounds.height() as usize,
         );

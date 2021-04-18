@@ -13,7 +13,6 @@ use crate::platform::{self, InputState, Key, KeyboardInput, LogicalSize, Modifie
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::path;
-use crate::view::pixels::Pixels;
 use crate::view::resource::ViewResource;
 use crate::view::{
     self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
@@ -1213,7 +1212,7 @@ impl Session {
             self.palette.hover
         } else if let Some((v, l)) = self.hover_view {
             let p: LayerCoords<u32> = self.layer_coords(v, l, cursor).into();
-            self.view(v).color_at(l, p)
+            self.view(v).color_at(l, p).cloned()
         } else {
             None
         };
@@ -1735,8 +1734,7 @@ impl Session {
                         extent.fh as usize,
                         Rgba8::TRANSPARENT,
                     );
-                    self.view_mut(view_id)
-                        .add_layer(Some(Pixels::from_rgba8(pixels.into())));
+                    self.view_mut(view_id).add_layer(Some(pixels.into()));
                 }
             }
             view::Format::Gif => {
@@ -1771,10 +1769,7 @@ impl Session {
 
         let pixels = util::stitch_frames(frames, fw as usize, fh as usize, Rgba8::TRANSPARENT);
         let delay = self.settings["animation/delay"].to_u64();
-        let resource = ViewResource::new(
-            Pixels::from_rgba8(pixels.into()),
-            ViewExtent::new(fw, fh, nframes),
-        );
+        let resource = ViewResource::new(pixels, ViewExtent::new(fw, fh, nframes));
         let id = self
             .views
             .add(file_status, fw, fh, nframes, delay, resource);
@@ -2680,7 +2675,7 @@ impl Session {
                         .layer(v.active_layer_id)
                         .current_snapshot();
 
-                    for pixel in pixels.iter() {
+                    for pixel in pixels.iter().cloned() {
                         if pixel != Rgba8::TRANSPARENT {
                             self.palette.add(pixel);
                         }

@@ -1,4 +1,5 @@
 use crate::event::TimedEvent;
+use crate::util;
 
 use std::collections::VecDeque;
 use std::fmt;
@@ -9,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time;
 
-use rgx::color::{Bgra8, Rgba8};
+use rgx::color::Rgba8;
 use seahash::SeaHasher;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -257,7 +258,7 @@ impl Execution {
         matches!(self, Execution::Recording { .. })
     }
 
-    pub fn record(&mut self, data: &[Bgra8]) {
+    pub fn record(&mut self, data: &[Rgba8]) {
         match self {
             // Replaying and verifying digests.
             Self::Replaying {
@@ -374,7 +375,7 @@ pub struct GifRecorder {
     width: u16,
     height: u16,
     encoder: Option<gif::Encoder<Box<File>>>,
-    frames: Vec<(time::Instant, Vec<u8>)>,
+    frames: Vec<(time::Instant, Vec<Rgba8>)>,
 }
 
 impl GifRecorder {
@@ -405,18 +406,13 @@ impl GifRecorder {
         self.width == 0 && self.height == 0
     }
 
-    fn record(&mut self, data: &[Bgra8]) {
+    fn record(&mut self, data: &[Rgba8]) {
         if self.is_dummy() {
             return;
         }
         let now = time::Instant::now();
-        let mut gif_data: Vec<u8> = Vec::with_capacity(data.len());
-        // TODO: (perf) Is it faster to convert to `Vec<Rgba8>` and then `align_to`?
-        for bgra in data.iter().cloned() {
-            let rgba: Rgba8 = bgra.into();
-            gif_data.extend_from_slice(&[rgba.r, rgba.g, rgba.b]);
-        }
-        self.frames.push((now, gif_data));
+
+        self.frames.push((now, data.to_vec()));
     }
 
     fn finish(&mut self) -> io::Result<()> {
@@ -431,10 +427,11 @@ impl GifRecorder {
                     time::Duration::from_secs(1)
                 };
 
+                let data = util::align_u8(gif_data);
                 let mut frame = gif::Frame::from_rgb_speed(
                     self.width,
                     self.height,
-                    &gif_data,
+                    data,
                     Self::GIF_ENCODING_SPEED,
                 );
                 frame.dispose = gif::DisposalMethod::Background;
@@ -479,7 +476,7 @@ impl FrameRecorder {
         }
     }
 
-    fn record_frame(&mut self, data: &[Bgra8]) {
+    fn record_frame(&mut self, data: &[Rgba8]) {
         let hash = Self::hash(data);
 
         if self.frames.back().map(|h| h != &hash).unwrap_or(true) {
@@ -493,7 +490,7 @@ impl FrameRecorder {
         }
     }
 
-    fn verify_frame(&mut self, data: &[Bgra8]) -> VerifyResult {
+    fn verify_frame(&mut self, data: &[Rgba8]) -> VerifyResult {
         let actual = Self::hash(data);
 
         if self.frames.is_empty() {
@@ -519,11 +516,11 @@ impl FrameRecorder {
         self.gif_recorder.finish()
     }
 
-    fn hash(data: &[Bgra8]) -> Hash {
+    fn hash(data: &[Rgba8]) -> Hash {
         use std::hash::Hasher;
 
         let mut hasher = SeaHasher::new();
-        let (_, data, _) = unsafe { data.align_to::<u8>() };
+        let data = util::align_u8(data);
 
         hasher.write(data);
         Hash(hasher.finish())

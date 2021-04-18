@@ -8,14 +8,13 @@ use crate::session::{self, Blending, Effect, Session};
 use crate::sprite;
 use crate::util;
 use crate::view::layer::{FrameRange, LayerId};
-use crate::view::pixels::Pixels;
 use crate::view::resource::ViewResource;
 use crate::view::{View, ViewId, ViewOp, ViewState};
 use crate::{data, data::Assets, image};
 
 use nonempty::NonEmpty;
 
-use rgx::kit::{self, shape2d, sprite2d, Bgra8, Origin, Rgba, Rgba8, ZDepth};
+use rgx::kit::{self, shape2d, sprite2d, Origin, Rgba, Rgba8, ZDepth};
 use rgx::math::{Matrix4, Vector2};
 use rgx::rect::Rect;
 
@@ -230,13 +229,13 @@ impl LayerData {
             .map_err(RendererError::Texture)
     }
 
-    fn pixels(&mut self) -> Pixels {
+    fn pixels(&mut self) -> Vec<Rgba8> {
         let texels = self
             .fb
             .color_slot()
             .get_raw_texels()
             .expect("getting raw texels never fails");
-        Pixels::from_rgba8(Rgba8::align(&texels).into())
+        Rgba8::align(&texels).to_vec()
     }
 }
 
@@ -269,7 +268,7 @@ impl ViewData {
         }
     }
 
-    fn layer_pixels(&mut self) -> impl Iterator<Item = (LayerId, Pixels)> + '_ {
+    fn layer_pixels(&mut self) -> impl Iterator<Item = (LayerId, Vec<Rgba8>)> + '_ {
         self.layers
             .iter_mut()
             .enumerate()
@@ -969,7 +968,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 .expect("binding textures never fails");
             let texels = Rgba8::align(&texels);
 
-            execution.record(&texels.iter().cloned().map(Bgra8::from).collect::<Vec<_>>());
+            execution.record(texels);
         }
 
         Ok(())
@@ -1032,7 +1031,7 @@ impl Renderer {
 
                         self.view_data.insert(
                             id,
-                            ViewData::new(w, h, Some(&pixels.clone().into_rgba8()), &mut self.ctx),
+                            ViewData::new(w, h, Some(&pixels.clone()), &mut self.ctx),
                         );
                     }
                 }
@@ -1080,14 +1079,10 @@ impl Renderer {
                 }
                 ViewOp::AddLayer(layer_id, range) => {
                     if let Some((_, pixels)) = v.current_snapshot(*layer_id) {
-                        if let Some(pixels) = pixels.as_rgba8() {
-                            self.view_data
-                                .get_mut(&v.id)
-                                .expect("views must have associated view data")
-                                .add_layer(range, Some(pixels), &mut self.ctx);
-                        } else {
-                            unimplemented!()
-                        }
+                        self.view_data
+                            .get_mut(&v.id)
+                            .expect("views must have associated view data")
+                            .add_layer(range, Some(pixels), &mut self.ctx);
                     }
                 }
                 ViewOp::RemoveLayer(_layer_id) => {}
@@ -1231,15 +1226,12 @@ impl Renderer {
             .expect("views must have associated view data")
             .get_layer_mut(layer_id);
 
-        let pixels = {
-            let (_, pixels) = view
-                .current_snapshot(layer_id)
-                .expect(&format!("view #{} has a current snapshot", view.id));
-            pixels.to_owned()
-        };
+        let (_, pixels) = view
+            .current_snapshot(layer_id)
+            .expect(&format!("view #{} has a current snapshot", view.id));
 
         layer.clear()?;
-        layer.upload(pixels.as_bytes())?;
+        layer.upload(util::align_u8(pixels))?;
 
         Ok(())
     }

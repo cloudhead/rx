@@ -1,10 +1,8 @@
 pub mod layer;
 pub mod path;
-pub mod pixels;
 pub mod resource;
 
 pub use path::{Format, Path};
-pub use pixels::Pixels;
 pub use resource::{Edit, EditId, Snapshot, ViewResource};
 
 use crate::cmd::Axis;
@@ -680,20 +678,23 @@ impl<R> View<R> {
 
 impl View<ViewResource> {
     /// Add a new layer with optional pixels.
-    pub fn add_layer(&mut self, pixels: Option<Pixels>) -> LayerId {
+    pub fn add_layer(&mut self, pixels: Option<Vec<Rgba8>>) -> LayerId {
         let id = self.push_layer();
 
         self.resource.add_layer(
             id,
             self.extent(),
-            pixels.unwrap_or(Pixels::blank(self.width() as usize, self.fh as usize)),
+            pixels.unwrap_or(vec![
+                Rgba8::TRANSPARENT;
+                self.width() as usize * self.fh as usize
+            ]),
         );
 
         id
     }
 
     /// Get the color at the given view coordinate.
-    pub fn color_at(&self, l: LayerId, p: LayerCoords<u32>) -> Option<Rgba8> {
+    pub fn color_at(&self, l: LayerId, p: LayerCoords<u32>) -> Option<&Rgba8> {
         self.resource
             .current_snapshot(l)
             .and_then(|(snapshot, pixels)| {
@@ -1083,13 +1084,17 @@ impl<R> ViewManager<R> {
 }
 
 impl ViewManager<ViewResource> {
-    pub fn get_snapshot_safe(&self, id: ViewId, layer_id: LayerId) -> Option<(&Snapshot, &Pixels)> {
+    pub fn get_snapshot_safe(
+        &self,
+        id: ViewId,
+        layer_id: LayerId,
+    ) -> Option<(&Snapshot, &[Rgba8])> {
         self.views
             .get(&id)
             .and_then(|v| v.resource.current_snapshot(layer_id))
     }
 
-    pub fn get_snapshot(&self, id: ViewId, layer_id: LayerId) -> (&Snapshot, &Pixels) {
+    pub fn get_snapshot(&self, id: ViewId, layer_id: LayerId) -> (&Snapshot, &[Rgba8]) {
         self.get_snapshot_safe(id, layer_id).expect(&format!(
             "layer #{} of view #{} must exist and have an associated snapshot",
             layer_id, id
