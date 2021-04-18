@@ -14,7 +14,7 @@ use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::path;
 use crate::view::pixels::Pixels;
-use crate::view::resource::{Edit, ViewResource};
+use crate::view::resource::ViewResource;
 use crate::view::{
     self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
     ViewState,
@@ -1632,7 +1632,7 @@ impl Session {
     /// Save the given view to disk with the current file name. Returns
     /// an error if the view has no file name.
     pub fn save_view(&mut self, id: ViewId) -> io::Result<(FileStorage, usize)> {
-        let view = self.views.get_mut(id).expect("view must exist");
+        let view = self.view_mut(id);
 
         if let Some(f) = view.file_storage().cloned() {
             view.save_as(&f).map(|w| (f, w))
@@ -1923,45 +1923,7 @@ impl Session {
     }
 
     fn restore_view_snapshot(&mut self, id: ViewId, dir: Direction) {
-        let result = self.views.get_mut(id).and_then(|s| {
-            if dir == Direction::Backward {
-                s.history_prev()
-            } else {
-                s.history_next()
-            }
-        });
-
-        match result {
-            Some((eid, Edit::LayerPainted(layer))) => {
-                self.view_mut(id).restore_layer(eid, layer);
-            }
-            Some((eid, Edit::LayerAdded(layer))) => {
-                match dir {
-                    Direction::Backward => {
-                        self.view_mut(id).remove_layer(layer);
-                    }
-                    Direction::Forward => {
-                        // TODO: This relies on the fact that `remove_layer` can
-                        // only remove the last layer.
-                        let layer_id = self.view_mut(id).push_layer();
-                        debug_assert!(layer_id == layer);
-                    }
-                };
-                self.view_mut(id).refresh_file_status(eid);
-            }
-            Some((eid, Edit::ViewResized(_, from, to))) => {
-                let extent = match dir {
-                    Direction::Backward => from,
-                    Direction::Forward => to,
-                };
-                self.view_mut(id).restore_extent(eid, extent);
-            }
-            Some((eid, Edit::ViewPainted(_))) => {
-                self.view_mut(id).restore(eid);
-            }
-            Some((_, Edit::Initial)) => {}
-            None => {}
-        }
+        self.view_mut(id).restore_snapshot(dir);
         self.organize_views();
         self.cursor_dirty();
     }
@@ -3006,12 +2968,7 @@ impl Session {
                 Err(err) => self.message(format!("Error: {}", err), MessageType::Error),
             },
             Command::Write(Some(ref path)) => {
-                match self
-                    .views
-                    .get_mut(self.views.active_id)
-                    .expect("there is always an active view")
-                    .save_as(&Path::new(path).into())
-                {
+                match self.active_view_mut().save_as(&Path::new(path).into()) {
                     Ok(written) => self.message(
                         format!("\"{}\" {} pixels written", path, written),
                         MessageType::Info,
@@ -3033,11 +2990,7 @@ impl Session {
                 let paths = NonEmpty::from_slice(paths.as_slice())
                     .expect("views always have at least one frame");
 
-                let view = self
-                    .views
-                    .get_mut(self.views.active_id)
-                    .expect("there is always an active view");
-
+                let view = self.active_view_mut();
                 let fs = FileStorage::Range(paths);
 
                 match view.save_as(&fs) {

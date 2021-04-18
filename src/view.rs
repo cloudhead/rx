@@ -5,10 +5,10 @@ pub mod resource;
 
 pub use path::{Format, Path};
 pub use pixels::Pixels;
-pub use resource::{EditId, Snapshot, ViewResource};
+pub use resource::{Edit, EditId, Snapshot, ViewResource};
 
 use crate::cmd::Axis;
-use crate::session::{Session, SessionCoords};
+use crate::session::{Direction, Session, SessionCoords};
 use crate::util;
 use crate::view::layer::{FrameRange, Layer, LayerId};
 
@@ -690,6 +690,47 @@ impl View<ViewResource> {
         );
 
         id
+    }
+
+    /// Restore a view snapshot (undo/redo an edit).
+    pub fn restore_snapshot(&mut self, dir: Direction) {
+        let result = if dir == Direction::Backward {
+            self.resource.history_prev()
+        } else {
+            self.resource.history_next()
+        };
+
+        match result {
+            Some((eid, Edit::LayerPainted(layer))) => {
+                self.restore_layer(eid, layer);
+            }
+            Some((eid, Edit::LayerAdded(layer))) => {
+                match dir {
+                    Direction::Backward => {
+                        self.remove_layer(layer);
+                    }
+                    Direction::Forward => {
+                        // TODO: This relies on the fact that `remove_layer` can
+                        // only remove the last layer.
+                        let layer_id = self.push_layer();
+                        debug_assert!(layer_id == layer);
+                    }
+                };
+                self.refresh_file_status(eid);
+            }
+            Some((eid, Edit::ViewResized(_, from, to))) => {
+                let extent = match dir {
+                    Direction::Backward => from,
+                    Direction::Forward => to,
+                };
+                self.restore_extent(eid, extent);
+            }
+            Some((eid, Edit::ViewPainted(_))) => {
+                self.restore(eid);
+            }
+            Some((_, Edit::Initial)) => {}
+            None => {}
+        }
     }
 
     pub fn save_as(&mut self, storage: &FileStorage) -> io::Result<usize> {
