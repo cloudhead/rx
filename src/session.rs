@@ -14,7 +14,7 @@ use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::path;
 use crate::view::pixels::Pixels;
-use crate::view::resource::{Edit, EditId, ViewResource};
+use crate::view::resource::{Edit, ViewResource};
 use crate::view::{
     self, FileStatus, FileStorage, View, ViewCoords, ViewExtent, ViewId, ViewManager, ViewOp,
     ViewState,
@@ -1631,84 +1631,14 @@ impl Session {
 
     /// Save the given view to disk with the current file name. Returns
     /// an error if the view has no file name.
-    pub fn save_view(&mut self, id: ViewId) -> io::Result<()> {
-        if let Some(f) = self.view(id).file_storage().cloned() {
-            self.save_view_as(id, f)
+    pub fn save_view(&mut self, id: ViewId) -> io::Result<(FileStorage, usize)> {
+        let view = self.views.get_mut(id).expect("view must exist");
+
+        if let Some(f) = view.file_storage().cloned() {
+            view.save_as(&f).map(|w| (f, w))
         } else {
             Err(io::Error::new(io::ErrorKind::Other, "no file name given"))
         }
-    }
-
-    /// Save a view with the given file name. Returns an error if
-    /// the format is not supported.
-    pub fn save_view_as(&mut self, id: ViewId, storage: FileStorage) -> io::Result<()> {
-        let view = self.view(id);
-        let active_layer_id = view.active_layer_id;
-        let ext = view.extent();
-        let nlayers = view.layers.len();
-
-        match &storage {
-            FileStorage::Single(path) if nlayers > 1 => {
-                {
-                    let mut path_copy = path.clone();
-                    path_copy.pop();
-                    std::fs::create_dir_all(path_copy.as_path())?;
-                }
-                let view = self.view(id);
-                let written = view.resource.save_archive(path)?;
-                let cursor = view.resource.cursor;
-
-                self.view_mut(id).save_as(cursor, storage.clone());
-                self.message(
-                    format!("\"{}\" {} pixels written", storage, written),
-                    MessageType::Info,
-                );
-            }
-            FileStorage::Single(path) => {
-                {
-                    let mut path_copy = path.clone();
-                    path_copy.pop();
-                    std::fs::create_dir_all(path_copy.as_path())?;
-                }
-                if let Some(s_id) =
-                    self.save_layer_rect_as(id, active_layer_id, ext.rect(), &path)?
-                {
-                    self.view_mut(id).save_as(s_id, storage.clone());
-                }
-                self.message(
-                    format!(
-                        "\"{}\" {} pixels written",
-                        storage,
-                        ext.width() * ext.height()
-                    ),
-                    MessageType::Info,
-                );
-            }
-            FileStorage::Range(paths) if nlayers == 1 => {
-                for (i, path) in paths.iter().enumerate() {
-                    self.save_layer_rect_as(id, active_layer_id, ext.frame(i), path)?;
-                }
-
-                let edit_id = self.view(id).resource.current_edit();
-                self.view_mut(id).save_as(edit_id, storage.clone());
-                self.message(
-                    format!(
-                        "{} {} pixels written",
-                        storage,
-                        paths.len() * (ext.fw * ext.fh) as usize
-                    ),
-                    MessageType::Info,
-                )
-            }
-            FileStorage::Range(_) => {
-                self.message(
-                    "Error: range storage is not supported for more than one layer",
-                    MessageType::Error,
-                );
-            }
-        };
-
-        Ok(())
     }
 
     /// Private ///////////////////////////////////////////////////////////////////
@@ -1738,32 +1668,6 @@ impl Session {
                 ));
             }
         }
-    }
-
-    /// Save an part of a layer to disk.
-    fn save_layer_rect_as(
-        &mut self,
-        id: ViewId,
-        layer_id: LayerId,
-        rect: Rect<u32>,
-        path: &Path,
-    ) -> io::Result<Option<EditId>> {
-        // Only allow overwriting of files if it's the file of the view being saved.
-        if path.exists()
-            && self
-                .view(id)
-                .file_storage()
-                .map_or(true, |f| !f.contains(path))
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                format!("\"{}\" already exists", path.display()),
-            ));
-        }
-
-        let (e_id, _) = self.view(id).save_layer(layer_id, rect, &path)?;
-
-        Ok(Some(e_id))
     }
 
     /// Load a view into the session.
@@ -3094,14 +2998,25 @@ impl Session {
                     }
                 }
             }
-            Command::Write(None) => {
-                if let Err(e) = self.save_view(self.views.active_id) {
-                    self.message(format!("Error: {}", e), MessageType::Error);
-                }
-            }
+            Command::Write(None) => match self.save_view(self.views.active_id) {
+                Ok((storage, written)) => self.message(
+                    format!("\"{}\" {} pixels written", storage, written),
+                    MessageType::Info,
+                ),
+                Err(err) => self.message(format!("Error: {}", err), MessageType::Error),
+            },
             Command::Write(Some(ref path)) => {
-                if let Err(e) = self.save_view_as(self.views.active_id, Path::new(path).into()) {
-                    self.message(format!("Error: {}", e), MessageType::Error);
+                match self
+                    .views
+                    .get_mut(self.views.active_id)
+                    .expect("there is always an active view")
+                    .save_as(&Path::new(path).into())
+                {
+                    Ok(written) => self.message(
+                        format!("\"{}\" {} pixels written", path, written),
+                        MessageType::Info,
+                    ),
+                    Err(err) => self.message(format!("Error: {}", err), MessageType::Error),
                 }
             }
             Command::WriteFrames(None) => {
@@ -3118,8 +3033,19 @@ impl Session {
                 let paths = NonEmpty::from_slice(paths.as_slice())
                     .expect("views always have at least one frame");
 
-                if let Err(e) = self.save_view_as(self.views.active_id, FileStorage::Range(paths)) {
-                    self.message(format!("Error: {}", e), MessageType::Error);
+                let view = self
+                    .views
+                    .get_mut(self.views.active_id)
+                    .expect("there is always an active view");
+
+                let fs = FileStorage::Range(paths);
+
+                match view.save_as(&fs) {
+                    Ok(written) => self.message(
+                        format!("{} {} pixels written", fs, written),
+                        MessageType::Info,
+                    ),
+                    Err(e) => self.message(format!("Error: {}", e), MessageType::Error),
                 }
             }
             Command::WriteQuit => {

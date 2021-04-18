@@ -24,6 +24,7 @@ use miniserde::{Deserialize, Serialize};
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
+use std::io;
 use std::ops::Deref;
 use std::time;
 
@@ -296,22 +297,6 @@ impl<R> View<R> {
             FileStatus::Modified(ref f) => Some(f),
             FileStatus::Saved(ref f) => Some(f),
             FileStatus::NoFile => None,
-        }
-    }
-
-    /// Mark the view as saved at a specific snapshot and with
-    /// the given path.
-    pub fn save_as(&mut self, id: EditId, storage: FileStorage) {
-        match self.file_status {
-            FileStatus::Modified(ref curr_fs) | FileStatus::New(ref curr_fs) => {
-                if curr_fs == &storage {
-                    self.saved(id, storage);
-                }
-            }
-            FileStatus::NoFile => {
-                self.saved(id, storage);
-            }
-            FileStatus::Saved(_) => {}
         }
     }
 
@@ -705,6 +690,82 @@ impl View<ViewResource> {
         );
 
         id
+    }
+
+    pub fn save_as(&mut self, storage: &FileStorage) -> io::Result<usize> {
+        let active_layer_id = self.active_layer_id;
+        let ext = self.extent();
+        let nlayers = self.layers.len();
+
+        let (edit_id, written) = match &storage {
+            FileStorage::Single(path) => {
+                {
+                    let mut path_copy = path.clone();
+                    path_copy.pop();
+                    std::fs::create_dir_all(path_copy.as_path())?;
+                }
+
+                if nlayers > 1 {
+                    let written = self.resource.save_archive(path)?;
+                    let edit_id = self.resource.cursor;
+
+                    (edit_id, written)
+                } else {
+                    let edit_id = self.save_layer_rect_as(active_layer_id, ext.rect(), &path)?;
+
+                    (edit_id, (ext.width() * ext.height()) as usize)
+                }
+            }
+            FileStorage::Range(paths) if nlayers == 1 => {
+                for (i, path) in paths.iter().enumerate() {
+                    self.save_layer_rect_as(active_layer_id, ext.frame(i), path)?;
+                }
+
+                let edit_id = self.resource.current_edit();
+
+                (edit_id, paths.len() * (ext.fw * ext.fh) as usize)
+            }
+            FileStorage::Range(_) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "range storage is not supported for more than one layer",
+                ));
+            }
+        };
+
+        // Mark the view as saved at a specific snapshot and with the given path.
+        match self.file_status {
+            FileStatus::Modified(ref curr_fs) | FileStatus::New(ref curr_fs) => {
+                if curr_fs == storage {
+                    self.saved(edit_id, storage.clone());
+                }
+            }
+            FileStatus::NoFile => {
+                self.saved(edit_id, storage.clone());
+            }
+            FileStatus::Saved(_) => {}
+        }
+
+        Ok(written)
+    }
+
+    /// Save an part of a layer to disk.
+    fn save_layer_rect_as(
+        &mut self,
+        layer_id: LayerId,
+        rect: Rect<u32>,
+        path: &std::path::Path,
+    ) -> io::Result<EditId> {
+        // Only allow overwriting of files if it's the file of the view being saved.
+        if path.exists() && self.file_storage().map_or(true, |f| !f.contains(path)) {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!("\"{}\" already exists", path.display()),
+            ));
+        }
+        let (e_id, _) = self.save_layer(layer_id, rect, &path)?;
+
+        Ok(e_id)
     }
 }
 
