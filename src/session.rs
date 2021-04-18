@@ -1652,22 +1652,27 @@ impl Session {
             io::Error::new(io::ErrorKind::Other, "file extension is not valid unicode")
         })?;
 
-        match ext {
+        let written = match ext {
             "gif" => {
-                self.save_view_gif(id, layer_id, path)?;
-                return Ok(());
+                let palette = self.colors();
+                let view = self.view(id);
+                let delay = view.animation.delay;
+
+                view.save_gif(layer_id, &path, delay, &palette)?
             }
-            "svg" => {
-                self.save_view_svg(id, layer_id, path)?;
-                return Ok(());
-            }
+            "svg" => self.view(id).save_svg(layer_id, &path)?,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     format!("`{}` is not a supported export format", ext),
                 ));
             }
-        }
+        };
+        self.message(
+            format!("\"{}\" {} pixels written", path.display(), written),
+            MessageType::Info,
+        );
+        Ok(())
     }
 
     /// Load a view into the session.
@@ -1802,40 +1807,6 @@ impl Session {
             }
             _ => self.quit_view(id),
         }
-    }
-
-    /// Save a view as a gif animation.
-    fn save_view_gif<P: AsRef<Path>>(
-        &mut self,
-        id: ViewId,
-        layer_id: LayerId,
-        path: P,
-    ) -> io::Result<()> {
-        let delay = self.view(id).animation.delay;
-        let palette = self.colors();
-        let npixels = self.view(id).save_gif(layer_id, &path, delay, &palette)?;
-
-        self.message(
-            format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
-            MessageType::Info,
-        );
-        Ok(())
-    }
-
-    /// Save a view as an svg.
-    fn save_view_svg<P: AsRef<Path>>(
-        &mut self,
-        id: ViewId,
-        layer_id: LayerId,
-        path: P,
-    ) -> io::Result<()> {
-        let npixels = self.view(id).save_svg(layer_id, &path)?;
-
-        self.message(
-            format!("\"{}\" {} pixels written", path.as_ref().display(), npixels),
-            MessageType::Info,
-        );
-        Ok(())
     }
 
     fn colors(&self) -> ArrayVec<[Rgba8; 256]> {
