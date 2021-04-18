@@ -1723,7 +1723,8 @@ impl Session {
                         extent.fh as usize,
                         Rgba8::TRANSPARENT,
                     );
-                    self.add_layer(view_id, Some(Pixels::from_rgba8(pixels.into())));
+                    self.view_mut(view_id)
+                        .add_layer(Some(Pixels::from_rgba8(pixels.into())));
                 }
             }
             view::Format::Gif => {
@@ -1735,10 +1736,6 @@ impl Session {
         }
 
         Ok(())
-    }
-
-    fn add_layer(&mut self, view_id: ViewId, pixels: Option<Pixels>) {
-        self.view_mut(view_id).add_layer(pixels);
     }
 
     fn add_view(
@@ -2826,8 +2823,7 @@ impl Session {
                 self.check_selection();
             }
             Command::LayerAdd => {
-                let view_id = self.views.active_id;
-                self.add_layer(view_id, None);
+                self.active_view_mut().add_layer(None);
                 self.organize_views();
             }
             Command::LayerRemove(id) => {
