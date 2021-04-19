@@ -1736,7 +1736,7 @@ impl Session {
                         extent.fh as usize,
                         Rgba8::TRANSPARENT,
                     );
-                    self.view_mut(view_id).add_layer(Some(pixels.into()));
+                    self.view_mut(view_id).add_layer(Some(pixels));
                 }
             }
             view::Format::Gif => {
@@ -2923,12 +2923,10 @@ impl Session {
                         format!("Error: the `export` command only works with a single layer"),
                         MessageType::Error,
                     );
-                } else {
-                    if let Err(e) =
-                        self.export_layer_as(id, active_layer_id, Path::new(&path), scale)
-                    {
-                        self.message(format!("Error: {}", e), MessageType::Error);
-                    }
+                } else if let Err(e) =
+                    self.export_layer_as(id, active_layer_id, Path::new(&path), scale)
+                {
+                    self.message(format!("Error: {}", e), MessageType::Error);
                 }
             }
             Command::Write(None) => match self.save_view(self.views.active_id) {

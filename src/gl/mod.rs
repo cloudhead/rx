@@ -1029,10 +1029,8 @@ impl Renderer {
                     {
                         let (w, h) = (s.width(), s.height());
 
-                        self.view_data.insert(
-                            id,
-                            ViewData::new(w, h, Some(&pixels.clone()), &mut self.ctx),
-                        );
+                        self.view_data
+                            .insert(id, ViewData::new(w, h, Some(&pixels), &mut self.ctx));
                     }
                 }
                 Effect::ViewRemoved(id) => {

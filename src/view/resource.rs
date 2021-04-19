@@ -292,13 +292,7 @@ impl ViewResource {
             w, h, w, h,
         )?;
 
-        for (i, rgba) in pixels
-            .clone()
-            .iter()
-            .cloned()
-            .enumerate()
-            .filter(|(_, c)| c.a > 0)
-        {
+        for (i, rgba) in pixels.iter().cloned().enumerate().filter(|(_, c)| c.a > 0) {
             let rgb: Rgb8 = rgba.into();
 
             let x = i % w;
@@ -348,7 +342,7 @@ impl ViewResource {
 
         // Convert BGRA pixels into indexed pixels.
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for rgba in pixels.clone().iter().cloned() {
+        for rgba in pixels.iter().cloned() {
             if let Ok(index) = palette.binary_search(&rgba) {
                 image.push(index as u8);
             } else {
