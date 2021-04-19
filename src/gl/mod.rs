@@ -1311,10 +1311,8 @@ impl Renderer {
         if !s.settings["animation"].is_set() {
             return;
         }
+        // TODO: Does this need to run if the view has only one frame?
         for v in s.views.iter() {
-            if !v.animation.is_playing() {
-                continue;
-            }
             // FIXME: When `v.animation.val()` doesn't change, we don't need
             // to re-create the buffer.
             let batch = draw::draw_view_animation(s, &v);

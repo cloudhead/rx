@@ -10,7 +10,6 @@ use crate::session::{Direction, Session, SessionCoords};
 use crate::util;
 use crate::view::layer::{FrameRange, Layer, LayerCoords, LayerId};
 
-use rgx::kit::Animation;
 use rgx::kit::Rgba8;
 use rgx::math::*;
 use rgx::rect::Rect;
@@ -24,7 +23,6 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::io;
 use std::ops::Deref;
-use std::time;
 
 /// View identifier.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug)]
@@ -213,6 +211,31 @@ pub struct View<R> {
     saved_snapshot: Option<EditId>,
 }
 
+/// View animation.
+#[derive(Debug)]
+pub struct Animation<T> {
+    pub index: usize,
+    pub frames: Vec<T>,
+}
+
+impl<T> Animation<T> {
+    pub fn new(frames: Vec<T>) -> Self {
+        Self { index: 0, frames }
+    }
+
+    pub fn len(&self) -> usize {
+        self.frames.len()
+    }
+
+    pub fn step(&mut self) {
+        self.index = (self.index + 1) % self.len();
+    }
+
+    pub fn val(&self) -> &T {
+        &self.frames[self.index]
+    }
+}
+
 impl<R> std::ops::Deref for View<R> {
     type Target = R;
 
@@ -229,15 +252,7 @@ impl<R> std::ops::DerefMut for View<R> {
 
 impl<R> View<R> {
     /// Create a new view. Takes a frame width and height.
-    pub fn new(
-        id: ViewId,
-        fs: FileStatus,
-        fw: u32,
-        fh: u32,
-        nframes: usize,
-        delay: u64,
-        resource: R,
-    ) -> Self {
+    pub fn new(id: ViewId, fs: FileStatus, fw: u32, fh: u32, nframes: usize, resource: R) -> Self {
         let saved_snapshot = if let FileStatus::Saved(_) = &fs {
             Some(Default::default())
         } else {
@@ -259,7 +274,7 @@ impl<R> View<R> {
             flip_x: false,
             flip_y: false,
             file_status: fs,
-            animation: Animation::new(&frames, time::Duration::from_millis(delay)),
+            animation: Animation::new(frames),
             state: ViewState::Okay,
             layers: NonEmpty::new(Layer::default()),
             active_layer_id: Default::default(),
@@ -304,7 +319,7 @@ impl<R> View<R> {
         let fw = self.fw as f32;
         let fh = self.fh as f32;
 
-        self.animation.push_frame(Rect::new(w, 0., w + fw, fh));
+        self.animation.frames.push(Rect::new(w, 0., w + fw, fh));
 
         self.resized();
     }
@@ -313,7 +328,7 @@ impl<R> View<R> {
     pub fn shrink(&mut self) {
         // Don't allow the view to have zero frames.
         if self.animation.len() > 1 {
-            self.animation.pop_frame();
+            self.animation.frames.pop();
             self.resized();
         }
     }
@@ -464,9 +479,9 @@ impl<R> View<R> {
         self.refresh_file_status(eid);
     }
 
-    // If the snapshot was saved to disk, we mark the view as saved too.
-    // Otherwise, if the view was saved before restoring the snapshot,
-    // we mark it as modified.
+    /// If the snapshot was saved to disk, we mark the view as saved too.
+    /// Otherwise, if the view was saved before restoring the snapshot,
+    /// we mark it as modified.
     pub fn refresh_file_status(&mut self, eid: EditId) {
         match self.file_status {
             FileStatus::Modified(ref f) if self.is_snapshot_saved(eid) => {
@@ -481,34 +496,9 @@ impl<R> View<R> {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn play_animation(&mut self) {
-        self.animation.play();
-    }
-
-    #[allow(dead_code)]
-    pub fn pause_animation(&mut self) {
-        self.animation.pause();
-    }
-
-    #[allow(dead_code)]
-    pub fn stop_animation(&mut self) {
-        self.animation.stop();
-    }
-
-    /// Set the delay between animation frames.
-    pub fn set_animation_delay(&mut self, ms: u64) {
-        self.animation.delay = time::Duration::from_millis(ms);
-    }
-
     /// Set the view state to `Okay`.
     pub fn okay(&mut self) {
         self.state = ViewState::Okay;
-    }
-
-    /// Update the view by one "tick".
-    pub fn update(&mut self, delta: time::Duration) {
-        self.animation.step(delta);
     }
 
     /// Return the view area, including the offset.
@@ -672,7 +662,7 @@ impl<R> View<R> {
         for i in 0..extent.nframes {
             frames.push(origin + Vector2::new(i as f32 * self.fw as f32, 0.));
         }
-        self.animation = Animation::new(&frames, self.animation.delay);
+        self.animation = Animation::new(frames);
     }
 }
 
@@ -946,17 +936,9 @@ impl<R> ViewManager<R> {
     }
 
     /// Add a view.
-    pub fn add(
-        &mut self,
-        fs: FileStatus,
-        w: u32,
-        h: u32,
-        nframes: usize,
-        delay: u64,
-        resource: R,
-    ) -> ViewId {
+    pub fn add(&mut self, fs: FileStatus, w: u32, h: u32, nframes: usize, resource: R) -> ViewId {
         let id = self.gen_id();
-        let view = View::new(id, fs, w, h, nframes, delay, resource);
+        let view = View::new(id, fs, w, h, nframes, resource);
 
         self.views.insert(id, view);
 

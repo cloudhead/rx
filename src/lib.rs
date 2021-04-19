@@ -184,15 +184,18 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
     let mut update_timer = FrameTimer::new();
     let mut session_events = Vec::with_capacity(16);
     let mut last = Instant::now();
-    let mut delta = Duration::from_secs(0);
     let mut resized = false;
     let mut hovering = false;
+    let mut delta;
 
     while !win.is_closing() {
         match session.animation_delay() {
             Some(delay) if session.is_running() => {
-                if delay.as_millis().saturating_sub(delta.as_millis()) >= 1 {
-                    events.wait_timeout(delay - delta);
+                // How much time is left until the next animation frame?
+                let remaining = delay - session.accumulator;
+                // If more than 1ms remains, let's wait.
+                if remaining.as_millis() > 1 {
+                    events.wait_timeout(remaining);
                 } else {
                     events.poll();
                 }

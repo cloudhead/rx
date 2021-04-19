@@ -707,6 +707,8 @@ pub struct Session {
     /// Effects produced by the session. Cleared at the beginning of every
     /// update.
     pub effects: Vec<Effect>,
+    /// Animation frame time accumulator.
+    pub accumulator: time::Duration,
 
     /// The current state of the command line.
     pub cmdline: CommandLine,
@@ -809,6 +811,7 @@ impl Session {
             settings_changed: HashSet::new(),
             views: ViewManager::new(),
             effects: Vec::new(),
+            accumulator: time::Duration::from_secs(0),
             palette: Palette::new(Self::PALETTE_CELL_SIZE, Self::PALETTE_HEIGHT as usize),
             key_bindings: KeyBindings::default(),
             keys_pressed: HashSet::new(),
@@ -904,9 +907,13 @@ impl Session {
             self.brush.update();
         }
 
-        for v in self.views.iter_mut() {
-            if self.settings["animation"].is_set() {
-                v.update(delta);
+        if let Some(delay) = self.animation_delay() {
+            self.accumulator += delta;
+            if self.accumulator >= delay {
+                for v in self.views.iter_mut() {
+                    v.animation.step();
+                }
+                self.accumulator = time::Duration::from_secs(0);
             }
         }
         if self.ignore_received_characters {
@@ -1225,11 +1232,6 @@ impl Session {
         self.settings_changed.insert(name.to_owned());
 
         match name {
-            "animation/delay" => {
-                self.views
-                    .iter_mut()
-                    .for_each(|v| v.set_animation_delay(new.to_u64()));
-            }
             "p/height" => {
                 self.palette.height = new.to_u64() as usize;
                 self.center_palette();
@@ -1661,7 +1663,7 @@ impl Session {
             "gif" => {
                 let palette = self.colors();
                 let view = self.view(id);
-                let delay = view.animation.delay;
+                let delay = time::Duration::from_millis(self.settings["animation/delay"].to_u64());
 
                 view.save_gif(layer_id, &path, delay, &palette, scale)?
             }
@@ -1768,11 +1770,8 @@ impl Session {
         }
 
         let pixels = util::stitch_frames(frames, fw as usize, fh as usize, Rgba8::TRANSPARENT);
-        let delay = self.settings["animation/delay"].to_u64();
         let resource = ViewResource::new(pixels, ViewExtent::new(fw, fh, nframes));
-        let id = self
-            .views
-            .add(file_status, fw, fh, nframes, delay, resource);
+        let id = self.views.add(file_status, fw, fh, nframes, resource);
 
         self.effects.push(Effect::ViewAdded(id));
 
