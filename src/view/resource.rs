@@ -1,4 +1,5 @@
 use crate::image;
+use crate::pixels;
 use crate::session::Rgb8;
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
@@ -316,8 +317,10 @@ impl ViewResource {
         path: P,
         frame_delay: time::Duration,
         palette: &[Rgba8],
-        _scale: u32,
+        scale: u32,
     ) -> io::Result<usize> {
+        assert!(scale >= 1);
+
         // The gif encoder expects the frame delay in units of 10ms.
         let frame_delay = frame_delay.as_millis() / 10;
         // If the passed in delay is larger than a `u16` can hold,
@@ -349,8 +352,11 @@ impl ViewResource {
                 image.push(transparent);
             }
         }
+        if scale > 1 {
+            image = pixels::scale(&image, extent.width(), extent.height(), scale);
+        }
 
-        let (fw, fh) = (extent.fw as usize, extent.fh as usize);
+        let (fw, fh) = ((extent.fw * scale) as usize, (extent.fh * scale) as usize);
         let mut frames: Vec<Vec<u8>> = Vec::with_capacity(nframes);
         frames.resize(nframes, Vec::with_capacity(fw * fh));
 
