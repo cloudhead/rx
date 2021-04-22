@@ -340,7 +340,7 @@ impl ViewResource {
         assert!(palette[transparent as usize] == Rgba8::TRANSPARENT);
         assert!(palette.len() <= 256);
 
-        // Convert BGRA pixels into indexed pixels.
+        // Convert RGBA pixels into indexed pixels.
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
         for rgba in pixels.iter().cloned() {
             if let Ok(index) = palette.binary_search(&rgba) {
@@ -369,8 +369,7 @@ impl ViewResource {
 
         // Discard alpha channel and convert to a `&[u8]`.
         let palette: Vec<Rgb8> = palette.into_iter().map(Rgb8::from).collect();
-        let (head, palette, tail) = unsafe { palette.align_to::<u8>() };
-        assert!(head.is_empty() && tail.is_empty());
+        let palette = util::align_u8(&palette);
 
         let mut f = File::create(path.as_ref())?;
         let mut encoder = gif::Encoder::new(&mut f, fw as u16, fh as u16, palette)?;

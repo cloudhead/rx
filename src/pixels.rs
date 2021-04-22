@@ -58,3 +58,22 @@ impl<'a> PixelsMut<'a> {
             .map(move |(i, c)| (i % width, i / width, c))
     }
 }
+
+/// Scale an image using the nearest-neighbor algorithm, by a given factor.
+pub fn scale(image: &[Rgba8], width: u32, height: u32, factor: u32) -> Vec<Rgba8> {
+    let input = Pixels::new(image, width as usize, height as usize);
+
+    let width = (width * factor) as usize;
+    let height = (height * factor) as usize;
+
+    let mut output_buf = vec![Rgba8::TRANSPARENT; width * height];
+    let mut output = PixelsMut::new(&mut output_buf, width, height);
+
+    for (x, y, pixel) in output.iter_mut() {
+        let x = x / factor as usize;
+        let y = y / factor as usize;
+
+        *pixel = *input.get(x, y).unwrap();
+    }
+    output_buf
+}
