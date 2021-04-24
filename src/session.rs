@@ -2916,7 +2916,7 @@ impl Session {
                 let active_layer_id = view.active_layer_id;
                 let nlayers = view.layers.len();
                 let id = view.id;
-                let scale = scale.unwrap_or(1);
+                let scale = scale.unwrap_or(view.zoom as u32);
 
                 if nlayers > 1 {
                     self.message(
