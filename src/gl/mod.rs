@@ -968,7 +968,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                 .expect("binding textures never fails");
             let texels = Rgba8::align(&texels);
 
-            execution.record(texels);
+            execution.record(texels).ok();
         }
 
         Ok(())

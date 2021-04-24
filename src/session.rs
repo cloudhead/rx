@@ -956,10 +956,7 @@ impl Session {
                                 info!("replaying: {}", result.summary());
                                 self.quit(ExitReason::Normal);
                             } else {
-                                self.quit(ExitReason::Error(format!(
-                                    "replay failed: {}",
-                                    result.summary()
-                                )));
+                                self.quit(ExitReason::Error(result.summary()));
                             }
                         }
                         DigestMode::Record => match exec.finalize_replaying() {

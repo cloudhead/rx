@@ -258,7 +258,7 @@ impl Execution {
         matches!(self, Execution::Recording { .. })
     }
 
-    pub fn record(&mut self, data: &[Rgba8]) {
+    pub fn record(&mut self, data: &[Rgba8]) -> Result<(), VerifyResult> {
         match self {
             // Replaying and verifying digests.
             Self::Replaying {
@@ -271,14 +271,21 @@ impl Execution {
                 recorder,
                 ..
             } => {
-                result.record(recorder.verify_frame(data));
+                let vr = recorder.verify_frame(data);
+                result.record(&vr);
+
+                if vr.is_err() {
+                    return Err(vr);
+                }
             }
             // Replaying/Recording and recording digests.
             Self::Replaying { recorder, .. } | Self::Recording { recorder, .. } => {
                 recorder.record_frame(data);
             }
+            // In normal mode, we don't actual record anything.
             _ => {}
         }
+        Ok(())
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -529,16 +536,15 @@ impl FrameRecorder {
 
 #[derive(Debug, Clone)]
 pub struct ReplayResult {
-    verify_results: Vec<VerifyResult>,
     eof: bool,
+    failed: bool,
     okay_count: u32,
-    failed_count: u32,
     stale_count: u32,
 }
 
 impl ReplayResult {
     pub fn is_ok(&self) -> bool {
-        self.failed_count == 0
+        !self.failed
     }
 
     pub fn is_err(&self) -> bool {
@@ -550,37 +556,33 @@ impl ReplayResult {
     }
 
     pub fn summary(&self) -> String {
-        let total = (self.okay_count + self.failed_count) as f32;
-
-        format!(
-            "{:.1}% OK, {:.1}% FAILED",
-            self.okay_count as f32 / total * 100.,
-            self.failed_count as f32 / total * 100.
-        )
+        if self.is_err() {
+            format!("replay failed after {} frames", self.okay_count)
+        } else {
+            format!("ok ({} frames)", self.okay_count)
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////
 
     fn new() -> Self {
         ReplayResult {
-            verify_results: Vec::new(),
             okay_count: 0,
-            failed_count: 0,
             stale_count: 0,
+            failed: false,
             eof: false,
         }
     }
 
-    fn record(&mut self, result: VerifyResult) {
-        match &result {
+    fn record(&mut self, result: &VerifyResult) {
+        match result {
             VerifyResult::Okay(actual) => {
                 info!("verify: {} OK", actual);
                 self.okay_count += 1;
             }
             VerifyResult::Failed(actual, expected) => {
                 error!("verify: {} != {}", actual, expected);
-                self.failed_count += 1;
-                // TODO: Stop replaying
+                self.failed = true;
             }
             VerifyResult::Eof => {
                 self.eof = true;
@@ -589,7 +591,6 @@ impl ReplayResult {
                 self.stale_count += 1;
             }
         }
-        self.verify_results.push(result);
     }
 }
 
@@ -603,6 +604,12 @@ pub enum VerifyResult {
     Failed(Hash, Hash),
     /// There are no further expected hashes.
     Eof,
+}
+
+impl VerifyResult {
+    fn is_err(&self) -> bool {
+        matches!(self, Self::Failed(_, _))
+    }
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
