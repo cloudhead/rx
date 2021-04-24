@@ -2739,7 +2739,11 @@ impl Session {
                     self.message("Settings reset to default values", MessageType::Okay);
                 }
             }
-            Command::Fill(color) => {
+            Command::Fill(None) => {
+                let bg = self.bg;
+                self.active_view_mut().clear(bg);
+            }
+            Command::Fill(Some(color)) => {
                 self.active_view_mut().clear(color);
             }
             Command::Pan(x, y) => {

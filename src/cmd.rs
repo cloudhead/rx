@@ -109,7 +109,7 @@ pub enum Command {
     MapClear,
 
     Slice(Option<usize>),
-    Fill(Rgba8),
+    Fill(Option<Rgba8>),
 
     SwapColors,
 
@@ -167,7 +167,8 @@ impl fmt::Display for Command {
             Self::Echo(_) => write!(f, "Echo a value"),
             Self::Edit(_) => write!(f, "Edit path(s)"),
             Self::EditFrames(_) => write!(f, "Edit path(s) as animation frames"),
-            Self::Fill(c) => write!(f, "Fill view with {color}", color = c),
+            Self::Fill(Some(c)) => write!(f, "Fill view with {color}", color = c),
+            Self::Fill(None) => write!(f, "Fill view with background color"),
             Self::ForceQuit => write!(f, "Quit view without saving"),
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
             Self::Map(_) => write!(f, "Map a key combination to a command"),
@@ -258,7 +259,8 @@ impl From<Command> for String {
             Command::BrushUnset(m) => format!("brush/unset {}", m),
             Command::Echo(_) => unimplemented!(),
             Command::Edit(_) => unimplemented!(),
-            Command::Fill(c) => format!("v/fill {}", c),
+            Command::Fill(Some(c)) => format!("v/fill {}", c),
+            Command::Fill(None) => format!("v/fill"),
             Command::ForceQuit => format!("q!"),
             Command::ForceQuitAll => format!("qa!"),
             Command::Map(_) => format!("map <key> <command> {{<command>}}"),
@@ -869,10 +871,10 @@ impl Default for Commands {
                 p.value(Command::ViewCenter)
             })
             .command("v/clear", "Clear the active view", |p| {
-                choice(vec![
-                    peek(p.clone().then(color()).map(|(_, rgba)| Command::Fill(rgba))),
-                    p.value(Command::Fill(Rgba8::TRANSPARENT)),
-                ])
+                p.value(Command::Fill(Some(Rgba8::TRANSPARENT)))
+            })
+            .command("v/fill", "Fill the active view", |p| {
+                p.then(optional(color())).map(|(_, c)| Command::Fill(c))
             })
             .command("pan", "Switch to the pan tool", |p| {
                 p.then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
@@ -1396,11 +1398,11 @@ mod test {
     }
 
     #[test]
-    fn test_vclear_commands() {
+    fn test_vfill_commands() {
         let p = Commands::default().line_parser();
 
-        p.parse(":v/clear").unwrap();
-        p.parse(":v/clear #ff00ff").unwrap();
+        p.parse(":v/fill").unwrap();
+        p.parse(":v/fill #ff00ff").unwrap();
     }
 
     #[test]
