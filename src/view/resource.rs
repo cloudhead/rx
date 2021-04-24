@@ -275,14 +275,14 @@ impl ViewResource {
         &self,
         layer_id: LayerId,
         path: P,
-        _scale: u32,
+        scale: u32,
     ) -> io::Result<usize> {
         use std::io::Write;
 
         let (snapshot, pixels) = self
             .current_snapshot(layer_id)
             .ok_or(io::ErrorKind::InvalidInput)?;
-        let (w, h) = (snapshot.width() as usize, snapshot.height() as usize);
+        let (w, h) = (snapshot.width(), snapshot.height());
 
         let f = File::create(path.as_ref())?;
         let out = &mut io::BufWriter::new(f);
@@ -290,25 +290,28 @@ impl ViewResource {
         writeln!(
             out,
             r#"<svg width="{}" height="{}" viewBox="0 0 {} {}" fill="none" xmlns="http://www.w3.org/2000/svg">"#,
-            w, h, w, h,
+            w * scale,
+            h * scale,
+            w * scale,
+            h * scale,
         )?;
 
         for (i, rgba) in pixels.iter().cloned().enumerate().filter(|(_, c)| c.a > 0) {
             let rgb: Rgb8 = rgba.into();
 
-            let x = i % w;
-            let y = i / h;
+            let x = (i as u32 % w) * scale;
+            let y = (i as u32 / h) * scale;
 
             writeln!(
                 out,
-                r#"<rect x="{}" y="{}" width="1" height="1" fill="{}"/>"#,
-                x, y, rgb
+                r#"<rect x="{}" y="{}" width="{}" height="{}" fill="{}"/>"#,
+                x, y, scale, scale, rgb
             )?;
         }
 
         writeln!(out, "</svg>")?;
 
-        Ok(w * h)
+        Ok((w * h * scale) as usize)
     }
 
     pub fn save_gif<P: AsRef<Path>>(
