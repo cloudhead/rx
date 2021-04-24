@@ -178,6 +178,8 @@ impl fmt::Display for Command {
             Self::FrameAdd => write!(f, "Add a blank frame to the view"),
             Self::FrameClone(i) => write!(f, "Clone frame {} and add it to the view", i),
             Self::FrameRemove => write!(f, "Remove the last frame of the view"),
+            Self::FramePrev => write!(f, "Navigate to previous frame"),
+            Self::FrameNext => write!(f, "Navigate to next frame"),
             Self::Noop => write!(f, "No-op"),
             Self::PaletteAdd(c) => write!(f, "Add {color} to palette", color = c),
             Self::PaletteClear => write!(f, "Clear palette"),
