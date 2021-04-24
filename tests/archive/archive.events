@@ -145,9 +145,9 @@
 00104 0076242 keyboard/input x pressed
 00104 0076242 char/received 'x'
 00105 0076378 keyboard/input x released
-00106 0076501 keyboard/input a pressed
-00106 0076501 char/received 'a'
-00107 0076650 keyboard/input a released
+00106 0076501 keyboard/input z pressed
+00106 0076501 char/received 'z'
+00107 0076650 keyboard/input z released
 00108 0077359 keyboard/input <return> pressed
 00109 0077512 keyboard/input <return> released
 00110 0086186 keyboard/input <shift> pressed
@@ -206,9 +206,9 @@
 00146 0095222 keyboard/input x pressed
 00146 0095222 char/received 'x'
 00147 0095328 keyboard/input x released
-00148 0095485 keyboard/input a pressed
-00148 0095485 char/received 'a'
-00149 0095625 keyboard/input a released
+00148 0095485 keyboard/input z pressed
+00148 0095485 char/received 'z'
+00149 0095625 keyboard/input z released
 00150 0095910 keyboard/input <return> pressed
 00151 0096050 keyboard/input <return> released
 00152 0100399 keyboard/input <shift> pressed

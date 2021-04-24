@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::path;
 
 /// Rx archive format extension.
-pub const ARCHIVE_FORMAT: &str = "rxa";
+pub const ARCHIVE_FORMAT: &str = "rxz";
 /// Supported image formats for reading.
 pub const SUPPORTED_READ_FORMATS: &[&str] = &["png", self::ARCHIVE_FORMAT];
 
