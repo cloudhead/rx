@@ -735,14 +735,8 @@ impl Default for Commands {
                 p.value(Command::ForceQuitAll)
             })
             .command("export", "Export view", |p| {
-                p.then(
-                    scale()
-                        .skip(whitespace())
-                        .then(path())
-                        .map(|(scale, path)| Command::Export(Some(scale), path))
-                        .or(path().map(|path| Command::Export(None, path))),
-                )
-                .map(|(_, cmd)| cmd)
+                p.then(optional(scale().skip(whitespace())).then(path()))
+                    .map(|(_, (scale, path))| Command::Export(scale, path))
             })
             .command("wq", "Write & quit view", |p| p.value(Command::WriteQuit))
             .command("x", "Write & quit view", |p| p.value(Command::WriteQuit))
@@ -914,11 +908,11 @@ impl Default for Commands {
             })
             .command("p/gradient", "Add a gradient to the palette", |p| {
                 p.then(tuple::<Rgba8>(
-                    color().label("<colorstart>"),
-                    color().label("<colorend>"),
+                    color().label("<from>"),
+                    color().label("<to>"),
                 ))
                 .skip(whitespace())
-                .then(natural::<usize>())
+                .then(natural::<usize>().label("<count>"))
                 .map(|((_, (cs, ce)), n)| Command::PaletteGradient(cs, ce, n))
             })
             .command(
@@ -1016,11 +1010,11 @@ impl Default for Commands {
                     .map(|(_, rgba)| Command::SelectionFill(rgba))
             })
             .command("selection/flip", "Flip selection", |p| {
-                p.then(word().label("h[orizontal]/v[ertical]"))
+                p.then(word().label("x/y"))
                     .try_map(|(_, t)| match t.as_str() {
-                        "horizontal" | "x" => Ok(Command::SelectionFlip(Axis::Horizontal)),
-                        "vertical" | "y" => Ok(Command::SelectionFlip(Axis::Vertical)),
-                        _ => Err(format!("unknown direction {:?}", t)),
+                        "x" => Ok(Command::SelectionFlip(Axis::Horizontal)),
+                        "y" => Ok(Command::SelectionFlip(Axis::Vertical)),
+                        _ => Err(format!("unknown axis {:?}, must be 'x' or 'y'", t)),
                     })
             })
             .command("paint/color", "Paint color", |p| {

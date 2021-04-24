@@ -1146,7 +1146,7 @@ impl Session {
         self.cmdline
             .commands
             .iter()
-            .map(|(_, help, parser)| format!(":{:<36} {}", parser.to_string(), help))
+            .map(|(_, help, parser)| format!(":{:<42} {}", parser.to_string(), help))
             .collect()
     }
 
