@@ -25,7 +25,6 @@ pub fn init(
     glfw.window_hint(glfw::WindowHint::RefreshRate(None));
     glfw.window_hint(glfw::WindowHint::ScaleToMonitor(true));
     glfw.window_hint(glfw::WindowHint::DoubleBuffer(true));
-
     match context {
         GraphicsContext::None => {
             glfw.window_hint(glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi));
@@ -51,6 +50,7 @@ pub fn init(
     window.make_current();
     window.set_all_polling(true);
 
+    glfw.set_swap_interval(glfw::SwapInterval::None);
     Ok((
         Window {
             handle: window,
