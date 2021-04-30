@@ -24,7 +24,7 @@ pub fn init(
     glfw.window_hint(glfw::WindowHint::Focused(true));
     glfw.window_hint(glfw::WindowHint::RefreshRate(None));
     glfw.window_hint(glfw::WindowHint::ScaleToMonitor(true));
-    glfw.window_hint(glfw::WindowHint::DoubleBuffer(false));
+    glfw.window_hint(glfw::WindowHint::DoubleBuffer(true));
 
     match context {
         GraphicsContext::None => {
