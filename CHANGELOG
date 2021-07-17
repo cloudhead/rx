@@ -99,3 +99,33 @@
 
     * Much lower CPU usage when no user input
     * `input/delay` setting removed
+
+0.5.0
+
+  New features
+
+    * New tool `:flood`, for filling an area with color
+    * New brush mode `line`, for drawing straight lines
+    * New command `:selection/flip <axis>` to flip the current selection
+    * New command `:export <resize> <path>`, eg. `:export @2x meme.gif`
+    * New command `:p/write <file>` to save the color palette to a file
+    * New command `:p/sample` to sample view colors into palette
+    * New command `:p/sort` to sort the palette colors
+    * New command `:p/gradient` to add a color gradient to the palette
+    * New setting `:p/height` to set the palette height in cells
+    * Move between frames with `h` and `l` keys
+
+  Improvements
+
+    * Use *pan* tool in help mode
+    * Fix command key ':' for non-ANSI layouts
+    * Implement new command parser based on `memoir`
+    * Add compatibility for non x86-64 systems
+    * Support pasting from clipboard in command-line
+    * Support character inputs in key mappings, eg. `map '?' :help`
+    * Skip unreadable files when reading a directory
+    * New, smoother animation rendering
+
+  Changes
+
+    * WGPU backend has been removed in favor of GL backend
