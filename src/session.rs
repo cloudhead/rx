@@ -2160,10 +2160,8 @@ impl Session {
                                         vw as i32 - (brush.size / 2) as i32 - 1,
                                         vh as i32 - (brush.size / 2) as i32 - 1,
                                     ));
-                                    brush.draw(p);
-                                } else {
-                                    brush.draw(p);
                                 }
+                                brush.draw(p);
                             }
                             _ => self.activate_hover_layer(),
                         },

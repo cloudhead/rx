@@ -344,7 +344,7 @@ impl LogicalPosition {
         physical.into().to_logical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_physical(&self, scale_factor: f64) -> PhysicalPosition {
+    pub fn to_physical(self, scale_factor: f64) -> PhysicalPosition {
         let x = self.x * self::pixel_ratio(scale_factor);
         let y = self.y * self::pixel_ratio(scale_factor);
         PhysicalPosition::new(x, y)
@@ -367,7 +367,7 @@ impl PhysicalPosition {
         logical.into().to_physical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_logical(&self, scale_factor: f64) -> LogicalPosition {
+    pub fn to_logical(self, scale_factor: f64) -> LogicalPosition {
         let x = self.x / self::pixel_ratio(scale_factor);
         let y = self.y / self::pixel_ratio(scale_factor);
         LogicalPosition::new(x, y)
@@ -390,7 +390,7 @@ impl LogicalSize {
         physical.into().to_logical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_physical(&self, scale_factor: f64) -> PhysicalSize {
+    pub fn to_physical(self, scale_factor: f64) -> PhysicalSize {
         let width = self.width * self::pixel_ratio(scale_factor);
         let height = self.height * self::pixel_ratio(scale_factor);
         PhysicalSize::new(width, height)
@@ -430,7 +430,7 @@ impl PhysicalSize {
         logical.into().to_physical(self::pixel_ratio(scale_factor))
     }
 
-    pub fn to_logical(&self, scale_factor: f64) -> LogicalSize {
+    pub fn to_logical(self, scale_factor: f64) -> LogicalSize {
         let width = self.width / self::pixel_ratio(scale_factor);
         let height = self.height / self::pixel_ratio(scale_factor);
         LogicalSize::new(width, height)

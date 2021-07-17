@@ -129,7 +129,7 @@ impl ViewExtent {
 
     /// Compute the frame index, given a point.
     /// Warning: can underflow.
-    pub fn to_frame(&self, p: ViewCoords<u32>) -> usize {
+    pub fn to_frame(self, p: ViewCoords<u32>) -> usize {
         (p.x / (self.fw as u32)) as usize
     }
 }

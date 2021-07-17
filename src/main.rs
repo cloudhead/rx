@@ -1,3 +1,4 @@
+#![allow(clippy::inconsistent_struct_constructor)]
 use rx::execution::{DigestMode, ExecutionMode, GifMode};
 use rx::logger;
 
