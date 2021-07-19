@@ -232,7 +232,7 @@ impl<T> Animation<T> {
     }
 
     pub fn val(&self) -> &T {
-        &self.frames[self.index]
+        &self.frames[self.index % self.len()]
     }
 }
 
