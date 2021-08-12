@@ -602,6 +602,17 @@ impl CommandLine {
         }
     }
 
+    pub fn cursor_back(&mut self) {
+        if self.cursor > 1 {
+            self.cursor = 1;
+            self.autocomplete.invalidate();
+        }
+    }
+
+    pub fn cursor_front(&mut self) {
+        self.cursor = self.input.len();
+    }
+
     pub fn putc(&mut self, c: char) {
         if self.input.len() + c.len_utf8() > self.input.capacity() {
             return;
@@ -1334,6 +1345,19 @@ mod test {
 
         cli.delc();
         assert_eq!(cli.input(), ":e");
+
+        cli.clear();
+        cli.puts(":echo");
+
+        assert_eq!(cli.peek(), None);
+        cli.cursor_back();
+
+        assert_eq!(cli.peek(), Some('e'));
+        assert_eq!(cli.peek_back(), Some(':'));
+
+        cli.cursor_front();
+        assert_eq!(cli.peek(), None);
+        assert_eq!(cli.peek_back(), Some('o'));
     }
 
     #[test]

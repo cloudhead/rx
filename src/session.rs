@@ -2286,6 +2286,12 @@ impl Session {
                             platform::Key::Escape => {
                                 self.cmdline_hide();
                             }
+                            platform::Key::Home => {
+                                self.cmdline.cursor_back();
+                            }
+                            platform::Key::End => {
+                                self.cmdline.cursor_front();
+                            }
                             _ => {}
                         }
                     }
