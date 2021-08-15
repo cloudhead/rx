@@ -129,3 +129,15 @@
   Changes
 
     * WGPU backend has been removed in favor of GL backend
+
+0.5.1
+
+  Fixes
+
+    * Fix potential crash when frame has been deleted
+
+0.5.2
+
+  Improvements
+
+    * Add support to Home/End keys in command line
