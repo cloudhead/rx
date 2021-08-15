@@ -2,7 +2,7 @@
 Version=1.0
 Type=Application
 Name=rx
-Comment=A modern & extensible pixel editor
+Comment=A modern & minimalist pixel editor
 TryExec=rx
 Exec=rx
 Icon=rx

@@ -8,7 +8,7 @@ use std::process;
 
 const HEADER: &str = r#"
 Alexis Sellier <self@cloudhead.io>
-A Modern & Extensible Pixel Editor
+A Modern & Minimalist Pixel Editor
 "#;
 
 const HELP: &str = r#"

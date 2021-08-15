@@ -1,7 +1,7 @@
 [package]
 name = "rx"
 version = "0.5.2"
-description = "a modern, extensible pixel editor"
+description = "a modern, minimalist pixel editor"
 license = "GPL-3.0-only"
 repository = "https://github.com/cloudhead/rx"
 homepage = "https://rx.cloudhead.io"
