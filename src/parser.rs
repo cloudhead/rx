@@ -45,6 +45,13 @@ pub fn scale() -> Parser<u32> {
         .map(|(_, scale)| scale)
 }
 
+pub fn variable() -> Parser<String> {
+    symbol('&')
+        .then(identifier())
+        .label("&<variable>")
+        .map(|(_, variable)| variable)
+}
+
 pub fn path() -> Parser<String> {
     token()
         .map(|input: String| {
