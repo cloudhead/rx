@@ -3,7 +3,7 @@ use crate::view::ViewExtent;
 
 use rgx::color::Rgba8;
 
-use miniserde::{json, Deserialize, Serialize};
+use microserde::{json, Deserialize, Serialize};
 
 use std::fs::File;
 use std::io;

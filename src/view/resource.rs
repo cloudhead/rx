@@ -11,7 +11,7 @@ use rgx::rect::Rect;
 
 use gif::{self, SetParameter};
 
-use miniserde::json;
+use microserde::json;
 
 use std::collections::BTreeMap;
 use std::fmt;

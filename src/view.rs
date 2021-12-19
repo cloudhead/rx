@@ -16,7 +16,7 @@ use rgx::rect::Rect;
 
 use nonempty::NonEmpty;
 
-use miniserde::{Deserialize, Serialize};
+use microserde::{Deserialize, Serialize};
 
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
