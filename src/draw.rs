@@ -8,13 +8,13 @@ use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
 use crate::sprite;
 use crate::view::{layer::LayerCoords, View};
 
-use rgx::kit::shape2d::{Fill, Line, Rotation, Shape, Stroke};
-use rgx::kit::Rgba;
-use rgx::kit::{self, Geometry};
-use rgx::kit::{shape2d, sprite2d};
-use rgx::kit::{Rgba8, ZDepth};
-use rgx::math::{Matrix4, Vector2};
-use rgx::rect::Rect;
+use crate::gfx::math::{Matrix4, Vector2};
+use crate::gfx::rect::Rect;
+use crate::gfx::shape2d::{Fill, Line, Rotation, Shape, Stroke};
+use crate::gfx::Geometry;
+use crate::gfx::Rgba;
+use crate::gfx::{shape2d, sprite2d};
+use crate::gfx::{Repeat, Rgba8, ZDepth};
 
 use std::time;
 
@@ -109,7 +109,7 @@ pub mod cursors {
 }
 
 mod checker {
-    use rgx::rect::Rect;
+    use crate::gfx::rect::Rect;
 
     pub fn rect() -> Rect<f32> {
         Rect::origin(2., 2.)
@@ -524,7 +524,7 @@ fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
                 self::CHECKER_LAYER,
                 Rgba::TRANSPARENT,
                 1.,
-                kit::Repeat::new(rx, ry),
+                Repeat::new(rx, ry),
             );
         }
     }
@@ -618,14 +618,7 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
         if invert {
             inverted.set(rect, dst, zdepth);
         } else {
-            batch.add(
-                rect,
-                dst,
-                zdepth,
-                Rgba::TRANSPARENT,
-                1.,
-                kit::Repeat::default(),
-            );
+            batch.add(rect, dst, zdepth, Rgba::TRANSPARENT, 1., Repeat::default());
         }
     }
 }
@@ -752,7 +745,7 @@ fn draw_paste(session: &Session, batch: &mut sprite2d::Batch) {
             ZDepth::default(),
             Rgba::TRANSPARENT,
             0.9,
-            kit::Repeat::default(),
+            Repeat::default(),
         );
     }
 }
@@ -766,7 +759,7 @@ pub fn draw_view_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch
         self::VIEW_LAYER,
         Rgba::TRANSPARENT,
         1.,
-        kit::Repeat::default(),
+        Repeat::default(),
     )
 }
 
@@ -780,7 +773,7 @@ pub fn draw_view_composites<R>(session: &Session, v: &View<R>) -> sprite2d::Batc
             self::VIEW_LAYER,
             Rgba::TRANSPARENT,
             1.,
-            kit::Repeat::default(),
+            Repeat::default(),
         )
     }
 

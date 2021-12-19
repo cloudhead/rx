@@ -1,7 +1,7 @@
 use crate::session::SessionCoords;
 
+use crate::gfx::Rgba8;
 use arrayvec::ArrayVec;
-use rgx::kit::Rgba8;
 
 pub struct Palette {
     pub colors: ArrayVec<[Rgba8; 256]>,

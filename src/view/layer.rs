@@ -1,8 +1,8 @@
 use std::ops::Deref;
 use std::ops::Range;
 
-use rgx::math::Point2;
-use rgx::rect::Rect;
+use crate::gfx::Point2;
+use crate::gfx::Rect;
 
 use crate::util;
 

@@ -1,3 +1,5 @@
+use crate::gfx::color::Rgba8;
+use crate::gfx::rect::Rect;
 use crate::image;
 use crate::pixels;
 use crate::session::Rgb8;
@@ -6,8 +8,6 @@ use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::ViewExtent;
 
 use nonempty::NonEmpty;
-use rgx::color::Rgba8;
-use rgx::rect::Rect;
 
 use gif::{self, SetParameter};
 

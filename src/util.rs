@@ -1,5 +1,4 @@
-use rgx::math::{Point2, Vector2};
-use rgx::rect::Rect;
+use crate::gfx::{Point2, Rect, Vector2};
 
 pub fn clamp(p: &mut Point2<i32>, rect: Rect<i32>) {
     if p.x < rect.x1 {

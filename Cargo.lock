@@ -555,15 +555,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rgx"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b564be87571cd229935a23a0524aab3c7b5f5f7c7bbc0554dab687b1b30021b9"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "rust-argon2"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -594,10 +585,10 @@ dependencies = [
  "memoir",
  "microserde",
  "nonempty",
+ "num-traits",
  "pico-args",
  "png",
  "raw-window-handle 0.3.4",
- "rgx",
  "seahash",
  "serde",
  "serde_derive",

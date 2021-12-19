@@ -1,6 +1,5 @@
-use rgx::kit::sprite2d;
-use rgx::kit::{Repeat, Rgba8, ZDepth};
-use rgx::rect::Rect;
+use crate::gfx::sprite2d;
+use crate::gfx::{Rect, Repeat, Rgba8, ZDepth};
 
 pub enum TextAlign {
     Left,

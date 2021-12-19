@@ -1,4 +1,5 @@
 use crate::event::TimedEvent;
+use crate::gfx::Rgba8;
 use crate::util;
 
 use std::collections::VecDeque;
@@ -10,7 +11,6 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time;
 
-use rgx::color::Rgba8;
 use seahash::SeaHasher;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

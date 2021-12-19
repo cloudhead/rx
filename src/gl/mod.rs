@@ -14,9 +14,8 @@ use crate::{data, data::Assets, image};
 
 use nonempty::NonEmpty;
 
-use rgx::kit::{self, shape2d, sprite2d, Origin, Rgba, Rgba8, ZDepth};
-use rgx::math::{Matrix4, Vector2};
-use rgx::rect::Rect;
+use crate::gfx::{shape2d, sprite2d, Origin, Rgba, Rgba8, ZDepth};
+use crate::gfx::{Matrix4, Rect, Repeat, Vector2};
 
 use luminance::context::GraphicsContext;
 use luminance::depth_test::DepthComparison;
@@ -176,7 +175,7 @@ impl LayerData {
             ZDepth::default(),
             Rgba::TRANSPARENT,
             1.,
-            kit::Repeat::default(),
+            Repeat::default(),
         );
 
         let verts: Vec<Sprite2dVertex> = batch
@@ -522,7 +521,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         self.update_view_composites(session);
 
         let [screen_w, screen_h] = self.screen_fb.size();
-        let ortho: M44 = kit::ortho(screen_w, screen_h, Origin::TopLeft).into();
+        let ortho: M44 = Matrix4::ortho(screen_w, screen_h, Origin::TopLeft).into();
         let identity: M44 = Matrix4::identity().into();
 
         let Self {
@@ -621,7 +620,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         let l = v.active_layer_id;
         let v_data = view_data.get(&v.id).unwrap();
         let l_data = v_data.get_layer(l);
-        let view_ortho = kit::ortho(v.width(), v.fh, Origin::TopLeft);
+        let view_ortho = Matrix4::ortho(v.width(), v.fh, Origin::TopLeft);
 
         let mut builder = self.ctx.new_pipeline_gate();
 
@@ -909,7 +908,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                         iface.set(&uni.tex, bound_font.binding());
                         iface.set(
                             &uni.ortho,
-                            kit::ortho(screen_w, screen_h, Origin::BottomLeft).into(),
+                            Matrix4::ortho(screen_w, screen_h, Origin::BottomLeft).into(),
                         );
 
                         rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&overlay_tess))
@@ -1187,7 +1186,7 @@ impl Renderer {
                         ZDepth::default(),
                         Rgba::TRANSPARENT,
                         1.,
-                        kit::Repeat::default(),
+                        Repeat::default(),
                     );
 
                     self.paste_outputs.push(

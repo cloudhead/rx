@@ -1,6 +1,6 @@
-use rgx::kit::ZDepth;
-use rgx::math::{Vector2, Vector3};
-use rgx::rect::Rect;
+use crate::gfx::math::{Vector2, Vector3};
+use crate::gfx::rect::Rect;
+use crate::gfx::ZDepth;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]

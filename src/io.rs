@@ -1,7 +1,7 @@
 use crate::image;
 use crate::view::ViewExtent;
 
-use rgx::color::Rgba8;
+use crate::gfx::color::Rgba8;
 
 use microserde::{json, Deserialize, Serialize};
 

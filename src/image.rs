@@ -1,4 +1,4 @@
-use rgx::color::Rgba8;
+use crate::gfx::color::Rgba8;
 
 use std::convert::TryFrom;
 use std::ffi::OsStr;

@@ -10,9 +10,9 @@ use crate::session::{Direction, Session, SessionCoords};
 use crate::util;
 use crate::view::layer::{FrameRange, Layer, LayerCoords, LayerId};
 
-use rgx::kit::Rgba8;
-use rgx::math::*;
-use rgx::rect::Rect;
+use crate::gfx::math::*;
+use crate::gfx::rect::Rect;
+use crate::gfx::Rgba8;
 
 use nonempty::NonEmpty;
 

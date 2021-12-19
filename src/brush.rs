@@ -2,10 +2,10 @@ use crate::pixels::PixelsMut;
 use crate::view::layer::LayerCoords;
 use crate::view::{ViewCoords, ViewExtent};
 
-use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use rgx::kit::{Rgba8, ZDepth};
-use rgx::math::{Point2, Vector2};
-use rgx::rect::Rect;
+use crate::gfx::math::{Point2, Vector2};
+use crate::gfx::rect::Rect;
+use crate::gfx::shape2d::{Fill, Rotation, Shape, Stroke};
+use crate::gfx::{Rgba8, ZDepth};
 
 use crate::util::vector_angle;
 use std::collections::BTreeSet;

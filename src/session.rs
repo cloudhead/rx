@@ -20,10 +20,10 @@ use crate::view::{
     ViewState,
 };
 
-use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use rgx::kit::{Rgba8, ZDepth};
-use rgx::math::*;
-use rgx::rect::Rect;
+use crate::gfx::math::*;
+use crate::gfx::rect::Rect;
+use crate::gfx::shape2d::{Fill, Rotation, Shape, Stroke};
+use crate::gfx::{Rgba8, ZDepth};
 
 use arrayvec::ArrayVec;
 

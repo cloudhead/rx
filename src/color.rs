@@ -1,4 +1,4 @@
-use rgx::kit::Rgba8;
+use crate::gfx::Rgba8;
 
 pub const WHITE: Rgba8 = Rgba8::new(0xff, 0xff, 0xff, 0xff);
 pub const BLACK: Rgba8 = Rgba8::new(0x00, 0x00, 0x00, 0xff);

@@ -9,8 +9,8 @@ use crate::view::layer::LayerId;
 use memoir::traits::Parse;
 use memoir::*;
 
-use rgx::kit::Rgba8;
-use rgx::rect::Rect;
+use crate::gfx::Rect;
+use crate::gfx::Rgba8;
 
 use std::fmt;
 use std::path::Path;

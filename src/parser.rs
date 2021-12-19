@@ -3,9 +3,8 @@ use memoir::*;
 
 use directories as dirs;
 
-use rgx::kit::Rgba8;
-
 use crate::brush::BrushMode;
+use crate::gfx::Rgba8;
 use crate::platform;
 use crate::session::{Direction, Mode, VisualState};
 

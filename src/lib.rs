@@ -16,6 +16,7 @@
 
 pub mod data;
 pub mod execution;
+pub mod gfx;
 pub mod logger;
 pub mod session;
 
@@ -28,6 +29,7 @@ mod draw;
 mod event;
 mod flood;
 mod font;
+mod gl;
 mod history;
 mod image;
 mod io;
@@ -39,9 +41,6 @@ mod renderer;
 mod sprite;
 mod timer;
 mod view;
-
-#[path = "gl/mod.rs"]
-mod gfx;
 
 #[macro_use]
 pub mod util;
@@ -166,7 +165,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
 
     let wait_events = execution.is_normal() || execution.is_recording();
 
-    let mut renderer: gfx::Renderer = Renderer::new(&mut win, win_size, scale_factor, assets)?;
+    let mut renderer: gl::Renderer = Renderer::new(&mut win, win_size, scale_factor, assets)?;
 
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);

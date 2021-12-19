@@ -1,10 +1,10 @@
+use crate::gfx::color::Rgba8;
+use crate::gfx::math::Point2;
+use crate::gfx::rect::Rect;
+use crate::gfx::shape2d::{Fill, Rotation, Shape, Stroke};
+use crate::gfx::ZDepth;
 use crate::view::layer::LayerCoords;
 use crate::view::{View, ViewResource};
-use rgx::color::Rgba8;
-use rgx::kit::shape2d::{Fill, Rotation, Shape, Stroke};
-use rgx::kit::ZDepth;
-use rgx::math::Point2;
-use rgx::rect::Rect;
 
 struct Grid {
     pixels: Vec<Rgba8>,
