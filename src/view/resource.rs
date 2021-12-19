@@ -266,7 +266,7 @@ impl ViewResource {
         let (snapshot, pixels) = self.layer(layer_id).current_snapshot();
         let (w, h) = (snapshot.width(), snapshot.height());
 
-        image::save_as(path, w, h, scale, &pixels)?;
+        image::save_as(path, w, h, scale, pixels)?;
 
         Ok((w * h * scale) as usize)
     }
@@ -386,7 +386,7 @@ impl ViewResource {
 
         for frame in frames.iter_mut() {
             let mut frame =
-                gif::Frame::from_indexed_pixels(fw as u16, fh as u16, &frame, Some(transparent));
+                gif::Frame::from_indexed_pixels(fw as u16, fh as u16, frame, Some(transparent));
             frame.delay = frame_delay;
             frame.dispose = gif::DisposalMethod::Background;
 
@@ -526,18 +526,12 @@ pub enum Edit {
 
 pub type EditId = usize;
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
 pub struct SnapshotId(usize);
 
 impl fmt::Display for SnapshotId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl Default for SnapshotId {
-    fn default() -> Self {
-        SnapshotId(0)
     }
 }
 

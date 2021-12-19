@@ -26,7 +26,7 @@ impl<'a> Deref for Path<'a, path::Path> {
     type Target = path::Path;
 
     fn deref(&self) -> &Self::Target {
-        &self.raw
+        self.raw
     }
 }
 

@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde_derive::Deserialize;
-use toml;
 
 #[macro_use]
 extern crate lazy_static;

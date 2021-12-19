@@ -170,7 +170,6 @@ impl FileCompleter {
 mod test {
     use super::*;
     use std::fs::{self, File};
-    use tempfile;
 
     #[derive(Debug)]
     pub struct StaticCompleter {
@@ -180,7 +179,7 @@ mod test {
     impl StaticCompleter {
         pub fn new(candidates: &[&str]) -> Self {
             Self {
-                candidates: candidates.into_iter().map(|s| s.to_string()).collect(),
+                candidates: candidates.iter().map(|s| s.to_string()).collect(),
             }
         }
     }

@@ -25,14 +25,8 @@ use std::io;
 use std::ops::Deref;
 
 /// View identifier.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug, Default)]
 pub struct ViewId(u16);
-
-impl Default for ViewId {
-    fn default() -> Self {
-        ViewId(0)
-    }
-}
 
 impl fmt::Display for ViewId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -754,7 +748,7 @@ impl View<ViewResource> {
 
                     (edit_id, written)
                 } else {
-                    let edit_id = self.save_layer_rect_as(active_layer_id, ext.rect(), &path)?;
+                    let edit_id = self.save_layer_rect_as(active_layer_id, ext.rect(), path)?;
 
                     (edit_id, (ext.width() * ext.height()) as usize)
                 }

@@ -134,7 +134,6 @@ impl History {
 #[cfg(test)]
 mod test {
     use super::History;
-    use tempfile;
 
     #[test]
     fn test_history() {

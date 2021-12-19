@@ -547,7 +547,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         } = self;
 
         draw_ctx.clear();
-        draw_ctx.draw(&session, avg_frametime, execution);
+        draw_ctx.draw(session, avg_frametime, execution);
 
         let text_tess = self
             .ctx
@@ -628,7 +628,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         // Render to view staging buffer.
         builder.pipeline::<PipelineError, _, _, _, _>(
             &v_data.staging_fb,
-            &pipeline_st,
+            pipeline_st,
             |pipeline, mut shd_gate| {
                 // Render staged brush strokes.
                 if let Some(tess) = staging_tess {
@@ -707,7 +707,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             .set_clear_color([bg.r, bg.g, bg.b, bg.a]);
         builder.pipeline::<PipelineError, _, _, _, _>(
             screen_fb,
-            &screen_st,
+            screen_st,
             |pipeline, mut shd_gate| {
                 // Draw view checkers to screen framebuffer.
                 if session.settings["checker"].is_set() {
@@ -888,7 +888,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
         // Render to back buffer.
         builder.pipeline::<PipelineError, _, _, _, _>(
             present_fb,
-            &pipeline_st,
+            pipeline_st,
             |pipeline, mut shd_gate| {
                 // Render screen framebuffer.
                 let bound_screen = pipeline
@@ -1030,7 +1030,7 @@ impl Renderer {
                         let (w, h) = (s.width(), s.height());
 
                         self.view_data
-                            .insert(id, ViewData::new(w, h, Some(&pixels), &mut self.ctx));
+                            .insert(id, ViewData::new(w, h, Some(pixels), &mut self.ctx));
                     }
                 }
                 Effect::ViewRemoved(id) => {
@@ -1073,7 +1073,7 @@ impl Renderer {
         for op in ops {
             match op {
                 ViewOp::Resize(w, h) => {
-                    self.resize_view(&v, *w, *h)?;
+                    self.resize_view(v, *w, *h)?;
                 }
                 ViewOp::AddLayer(layer_id, range) => {
                     if let Some((_, pixels)) = v.current_snapshot(*layer_id) {
@@ -1114,7 +1114,7 @@ impl Renderer {
                                 GenMipmaps::No,
                                 [dst.x1 as u32, dst.y1 as u32],
                                 [src.width() as u32, src.height() as u32],
-                                &texels,
+                                texels,
                             )
                             .map_err(Error::Texture)?;
                     }
@@ -1313,7 +1313,7 @@ impl Renderer {
         for v in s.views.iter() {
             // FIXME: When `v.animation.val()` doesn't change, we don't need
             // to re-create the buffer.
-            let batch = draw::draw_view_animation(s, &v);
+            let batch = draw::draw_view_animation(s, v);
 
             if let Some(vd) = self.view_data.get_mut(&v.id) {
                 vd.anim_tess = Some(
@@ -1326,7 +1326,7 @@ impl Renderer {
 
     fn update_view_composites(&mut self, s: &Session) {
         for v in s.views.iter() {
-            let batch = draw::draw_view_composites(s, &v);
+            let batch = draw::draw_view_composites(s, v);
 
             if let Some(vd) = self.view_data.get_mut(&v.id) {
                 vd.layer_tess = Some(

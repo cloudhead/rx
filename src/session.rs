@@ -1,3 +1,4 @@
+#![allow(clippy::needless_collect)]
 ///! Session
 use crate::autocomplete::FileCompleter;
 use crate::brush::*;
@@ -503,23 +504,12 @@ impl KeyBinding {
 }
 
 /// Manages a list of key bindings.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct KeyBindings {
     elems: Vec<KeyBinding>,
 }
 
-impl Default for KeyBindings {
-    fn default() -> Self {
-        KeyBindings { elems: vec![] }
-    }
-}
-
 impl KeyBindings {
-    /// Create an empty set of key bindings.
-    pub fn new() -> Self {
-        Self { elems: Vec::new() }
-    }
-
     /// Add a key binding.
     pub fn add(&mut self, binding: KeyBinding) {
         for mode in binding.modes.iter() {
@@ -633,8 +623,7 @@ impl std::ops::Index<&str> for Settings {
     type Output = Value;
 
     fn index(&self, setting: &str) -> &Self::Output {
-        &self
-            .get(setting)
+        self.get(setting)
             .expect(&format!("setting {} should exist", setting))
     }
 }
@@ -3296,7 +3285,7 @@ mod test {
 
     #[test]
     fn test_key_bindings() {
-        let mut kbs = KeyBindings::new();
+        let mut kbs = KeyBindings::default();
         let state = InputState::Pressed;
         let modifiers = Default::default();
 
@@ -3314,7 +3303,7 @@ mod test {
             ..kb1.clone()
         };
 
-        kbs.add(kb1.clone());
+        kbs.add(kb1);
         kbs.add(kb2.clone());
 
         assert_eq!(
@@ -3349,7 +3338,7 @@ mod test {
             state: InputState::Pressed,
         };
 
-        let mut kbs = KeyBindings::new();
+        let mut kbs = KeyBindings::default();
         kbs.add(kb.clone());
 
         assert_eq!(

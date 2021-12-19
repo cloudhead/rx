@@ -133,14 +133,14 @@ impl Context {
         avg_frametime: &time::Duration,
         execution: &Execution,
     ) {
-        self::draw_brush(&session, &session.brush, &mut self.ui_batch);
-        self::draw_paste(&session, &mut self.paste_batch);
-        self::draw_grid(&session, &mut self.ui_batch);
-        self::draw_ui(&session, &mut self.ui_batch, &mut self.text_batch);
-        self::draw_overlay(&session, avg_frametime, &mut self.overlay_batch, execution);
-        self::draw_palette(&session, &mut self.ui_batch);
-        self::draw_cursor(&session, &mut self.cursor_sprite, &mut self.tool_batch);
-        self::draw_checker(&session, &mut self.checker_batch);
+        self::draw_brush(session, &session.brush, &mut self.ui_batch);
+        self::draw_paste(session, &mut self.paste_batch);
+        self::draw_grid(session, &mut self.ui_batch);
+        self::draw_ui(session, &mut self.ui_batch, &mut self.text_batch);
+        self::draw_overlay(session, avg_frametime, &mut self.overlay_batch, execution);
+        self::draw_palette(session, &mut self.ui_batch);
+        self::draw_cursor(session, &mut self.cursor_sprite, &mut self.tool_batch);
+        self::draw_checker(session, &mut self.checker_batch);
     }
 
     pub fn clear(&mut self) {
