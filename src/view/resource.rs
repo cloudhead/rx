@@ -1,8 +1,7 @@
-use crate::gfx::color::Rgba8;
+use crate::gfx::color::{Rgb8, Rgba8};
 use crate::gfx::rect::Rect;
 use crate::image;
 use crate::pixels;
-use crate::session::Rgb8;
 use crate::util;
 use crate::view::layer::{LayerCoords, LayerId};
 use crate::view::ViewExtent;

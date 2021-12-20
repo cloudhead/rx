@@ -8,7 +8,7 @@ pub mod rect;
 pub mod shape2d;
 pub mod sprite2d;
 
-pub use color::{Rgba, Rgba8};
+pub use color::{Rgb8, Rgba, Rgba8};
 pub use math::{Matrix4, Origin, Ortho, Point2, Vector2, Vector3, Vector4};
 pub use rect::Rect;
 

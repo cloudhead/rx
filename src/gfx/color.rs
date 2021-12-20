@@ -140,6 +140,35 @@ impl FromStr for Rgba8 {
 }
 
 //////////////////////////////////////////////////////////////////////////////
+// Rgb8
+//////////////////////////////////////////////////////////////////////////////
+
+/// An RGB 8-bit color. Used when the alpha value isn't used.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct Rgb8 {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl From<Rgba8> for Rgb8 {
+    fn from(rgba: Rgba8) -> Self {
+        Self {
+            r: rgba.r,
+            g: rgba.g,
+            b: rgba.b,
+        }
+    }
+}
+
+impl fmt::Display for Rgb8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
 // Rgba
 //////////////////////////////////////////////////////////////////////////////
 

@@ -4,7 +4,7 @@ use crate::execution::Execution;
 use crate::font::{TextAlign, TextBatch};
 use crate::platform;
 use crate::session;
-use crate::session::{Mode, Rgb8, Session, Tool, VisualState};
+use crate::session::{Mode, Session, Tool, VisualState};
 use crate::sprite;
 use crate::view::{layer::LayerCoords, View};
 
@@ -14,7 +14,7 @@ use crate::gfx::shape2d::{Fill, Line, Rotation, Shape, Stroke};
 use crate::gfx::Geometry;
 use crate::gfx::Rgba;
 use crate::gfx::{shape2d, sprite2d};
-use crate::gfx::{Repeat, Rgba8, ZDepth};
+use crate::gfx::{Repeat, Rgb8, Rgba8, ZDepth};
 
 use std::time;
 
