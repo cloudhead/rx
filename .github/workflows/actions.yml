@@ -1,0 +1,71 @@
+name: Cargo
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    name: Build & Test
+    strategy:
+      matrix:
+        os: ['ubuntu-latest']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get -y install xorg-dev
+      - uses: actions/checkout@v2
+      - name: Build
+        run: cargo build --verbose
+        env:
+          RUSTFLAGS: -D warnings
+          RUST_BACKTRACE: 1
+      - name: Run tests
+        uses: gabrielbb/xvfb-action@v1
+        with:
+          run: cargo test --all --lib --verbose
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get -y install xorg-dev
+      - uses: actions/checkout@v2
+      - name: Docs
+        run: cargo doc --all
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: sudo apt-get -y install xorg-dev
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.60.0
+          profile: minimal
+          components: clippy, rustfmt
+          override: true
+      - name: Cache cargo registry
+        uses: actions/cache@v1
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all --tests
+        env:
+          RUSTFLAGS: -D warnings
+      - name: Check formating
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
