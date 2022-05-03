@@ -6,7 +6,7 @@ use crate::platform;
 use crate::session;
 use crate::session::{Mode, Session, Tool, VisualState};
 use crate::sprite;
-use crate::view::{layer::LayerCoords, View};
+use crate::view::{View, ViewCoords};
 
 use crate::gfx::math::{Matrix4, Vector2};
 use crate::gfx::rect::Rect;
@@ -70,14 +70,7 @@ pub mod cursors {
     const ERASE: Cursor = Cursor::new(Rect::new(64., 0., 80., 16.), -8., -8., true);
     const FLOOD: Cursor = Cursor::new(Rect::new(80., 0., 96., 16.), -8., -8., false);
 
-    pub fn info(
-        t: &Tool,
-        b: &Brush,
-        m: Mode,
-        in_view: bool,
-        in_layer: bool,
-        in_selection: bool,
-    ) -> Option<Cursor> {
+    pub fn info(t: &Tool, b: &Brush, m: Mode, in_view: bool, in_selection: bool) -> Option<Cursor> {
         match (m, t) {
             (Mode::Help, Tool::Pan(_)) => {}
             (Mode::Help, Tool::Brush) => {}
@@ -91,7 +84,7 @@ pub mod cursors {
             Tool::FloodFill => self::FLOOD,
 
             Tool::Brush => match m {
-                Mode::Visual(_) if in_selection && in_view && in_layer => self::OMNI,
+                Mode::Visual(_) if in_selection && in_view => self::OMNI,
                 Mode::Visual(VisualState::Selecting { dragging: true }) if in_selection => {
                     self::OMNI
                 }
@@ -156,7 +149,6 @@ impl Context {
 
 fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch) {
     let view = session.active_view();
-    let layer = view.active_layer_id;
 
     if let Some(selection) = session.selection {
         let fill = match session.mode {
@@ -169,7 +161,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
         let stroke = color::RED;
 
         let r = selection.abs().bounds();
-        let offset = session.offset + view.offset + view.layer_offset(layer, view.zoom);
+        let offset = session.offset + view.offset;
 
         {
             // Selection dimensions.
@@ -230,22 +222,8 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
             canvas.add(Shape::Line(
                 Line::new(
                     [x, offset.y],
-                    [
-                        x,
-                        v.zoom * (v.fh as usize * v.layers.len()) as f32 + offset.y,
-                    ],
+                    [x, v.zoom * (v.fh as usize) as f32 + offset.y],
                 ),
-                self::UI_LAYER,
-                Rotation::ZERO,
-                Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
-            ));
-        }
-        // Layer lines
-        for n in 1..v.layers.len() {
-            let n = n as f32;
-            let y = n * v.zoom * v.fh as f32 + offset.y;
-            canvas.add(Shape::Line(
-                Line::new([offset.x, y], [v.zoom * v.width() as f32 + offset.x, y]),
                 self::UI_LAYER,
                 Rotation::ZERO,
                 Stroke::new(1.0, Rgba::new(1., 1., 1., 0.6)),
@@ -261,7 +239,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 }
                 _ => color::WHITE.into(),
             }
-        } else if session.hover_view.map(|(id, _)| id) == Some(v.id) {
+        } else if session.hover_view == Some(v.id) {
             Rgba::new(0.7, 0.7, 0.7, 1.0)
         } else {
             Rgba::new(0.5, 0.5, 0.5, 1.0)
@@ -515,8 +493,8 @@ fn draw_checker(session: &Session, batch: &mut sprite2d::Batch) {
     if session.settings["checker"].is_set() {
         for v in session.views.iter() {
             let ratio = v.width() as f32 / v.height() as f32;
-            let rx = CHECKER_REPEAT * v.zoom * ratio * v.layers.len() as f32;
-            let ry = CHECKER_REPEAT * v.zoom * v.layers.len() as f32;
+            let rx = CHECKER_REPEAT * v.zoom * ratio;
+            let ry = CHECKER_REPEAT * v.zoom;
 
             batch.add(
                 checker::rect(),
@@ -594,12 +572,6 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
     let v = session.active_view();
     let c = session.cursor;
 
-    let in_active_layer = if let Some((_, layer)) = session.hover_view {
-        layer == v.active_layer_id
-    } else {
-        false
-    };
-
     if let Some(cursors::Cursor {
         rect,
         offset,
@@ -608,9 +580,8 @@ fn draw_cursor(session: &Session, inverted: &mut sprite::Sprite, batch: &mut spr
         &session.tool,
         &session.brush,
         session.mode,
-        v.contains(c - session.offset).is_some(),
-        in_active_layer,
-        session.is_selected(session.layer_coords(v.id, v.active_layer_id, c).into()),
+        v.contains(c - session.offset),
+        session.is_selected(session.view_coords(v.id, c).into()),
     ) {
         let dst = rect.with_origin(c.x, c.y) + offset;
         let zdepth = self::CURSOR_LAYER;
@@ -636,11 +607,11 @@ fn draw_brush(session: &Session, brush: &Brush, shapes: &mut shape2d::Batch) {
 
     match session.mode {
         Mode::Visual(VisualState::Selecting { .. }) => {
-            if session.is_selected(session.layer_coords(v.id, v.active_layer_id, c).into()) {
+            if session.is_selected(session.view_coords(v.id, c).into()) {
                 return;
             }
 
-            if v.contains(c - session.offset).is_some() {
+            if v.contains(c - session.offset) {
                 let c = session.snap(c, v.offset.x, v.offset.y, z);
                 shapes.add(Shape::Rectangle(
                     Rect::new(c.x, c.y, c.x + z, c.y + z),
@@ -654,10 +625,9 @@ fn draw_brush(session: &Session, brush: &Brush, shapes: &mut shape2d::Batch) {
         Mode::Normal => {
             if let Tool::Brush = session.tool {
                 let view_coords = session.active_view_coords(c);
-                let layer_coords = session.active_layer_coords(c);
 
                 // Draw enabled brush
-                if v.contains(c - session.offset).is_some() {
+                if v.contains(c - session.offset) {
                     let (stroke, fill) = if brush.is_set(BrushMode::Erase) {
                         // When erasing, we draw a stroke that is the inverse of the underlying
                         // color at the cursor. Note that this isn't perfect, since it uses
@@ -665,10 +635,7 @@ fn draw_brush(session: &Session, brush: &Brush, shapes: &mut shape2d::Batch) {
                         // while erasing over previously erased pixels in the same stroke.
                         // To make this 100% correct, we have to read the underlying color
                         // from the view's staging buffer.
-                        if let Some(color) = v
-                            .color_at(v.active_layer_id, layer_coords.into())
-                            .cloned()
-                            .map(Rgba::from)
+                        if let Some(color) = v.color_at(view_coords.into()).cloned().map(Rgba::from)
                         {
                             (
                                 Stroke::new(
@@ -700,9 +667,9 @@ fn draw_brush(session: &Session, brush: &Brush, shapes: &mut shape2d::Batch) {
                         && brush.size == 1
                         && v.zoom >= self::XRAY_MIN_ZOOM
                     {
-                        let p: LayerCoords<u32> = layer_coords.into();
+                        let p: ViewCoords<u32> = view_coords.into();
 
-                        if let Some(xray) = v.color_at(v.active_layer_id, p).cloned() {
+                        if let Some(xray) = v.color_at(p).cloned() {
                             if xray != session.fg {
                                 let center = *session.session_coords(v.id, view_coords)
                                     + Vector2::new(z / 2., z / 2.);

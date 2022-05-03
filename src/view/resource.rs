@@ -3,16 +3,12 @@ use crate::gfx::rect::Rect;
 use crate::image;
 use crate::pixels;
 use crate::util;
-use crate::view::layer::{LayerCoords, LayerId};
-use crate::view::ViewExtent;
+use crate::view::{ViewCoords, ViewExtent};
 
 use nonempty::NonEmpty;
 
 use gif::{self, SetParameter};
 
-use microserde::json;
-
-use std::collections::BTreeMap;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -21,7 +17,7 @@ use std::time;
 
 #[derive(Debug)]
 pub struct ViewResource {
-    pub layers: BTreeMap<LayerId, LayerResource>,
+    pub layer: LayerResource,
     pub history: NonEmpty<Edit>,
     pub cursor: usize,
     pub extent: ViewExtent,
@@ -30,45 +26,16 @@ pub struct ViewResource {
 impl ViewResource {
     pub fn new(pixels: Vec<Rgba8>, extent: ViewExtent) -> Self {
         Self {
-            layers: vec![(Default::default(), LayerResource::new(pixels, extent))]
-                .drain(..)
-                .collect(),
+            layer: LayerResource::new(pixels, extent),
             history: NonEmpty::new(Edit::Initial),
             cursor: 0,
             extent,
         }
     }
 
-    pub fn layer(&self, layer: LayerId) -> &LayerResource {
-        self.layers
-            .get(&layer)
-            .expect(&format!("layer #{} should exist", layer))
-    }
-
-    pub fn layer_mut(&mut self, layer: LayerId) -> &mut LayerResource {
-        self.layers
-            .get_mut(&layer)
-            .expect(&format!("layer #{} should exist", layer))
-    }
-
-    pub fn layers(&self) -> impl Iterator<Item = (&LayerId, &LayerResource)> + '_ {
-        self.layers.iter().filter(|(_, l)| !l.hidden)
-    }
-
-    pub fn add_layer(&mut self, layer_id: LayerId, extent: ViewExtent, pixels: Vec<Rgba8>) {
-        self.layers
-            .insert(layer_id, LayerResource::new(pixels, extent));
-        self.history_record(Edit::LayerAdded(layer_id));
-    }
-
-    pub fn save_layer<P: AsRef<Path>>(
-        &self,
-        layer_id: LayerId,
-        rect: Rect<u32>,
-        path: P,
-    ) -> io::Result<(EditId, usize)> {
+    pub fn save<P: AsRef<Path>>(&self, rect: Rect<u32>, path: P) -> io::Result<(EditId, usize)> {
         let (_, pixels) = self
-            .layer(layer_id)
+            .layer
             .get_snapshot_rect(&rect.map(|n| n as i32))
             .expect("rect should be within view");
         let (w, h) = (rect.width(), rect.height());
@@ -78,31 +45,16 @@ impl ViewResource {
         Ok((self.cursor, (w * h) as usize))
     }
 
-    pub fn record_view_resized(&mut self, layers: Vec<(LayerId, Vec<Rgba8>)>, extent: ViewExtent) {
-        self.history_record(Edit::ViewResized(
-            layers.iter().map(|(l, _)| *l).collect(),
-            self.extent,
-            extent,
-        ));
+    pub fn record_view_resized(&mut self, pixels: Vec<Rgba8>, extent: ViewExtent) {
+        self.history_record(Edit::ViewResized(self.extent, extent));
         self.extent = extent;
-
-        for (id, pixels) in layers.into_iter() {
-            self.layer_mut(id).push_snapshot(pixels, extent);
-        }
+        self.layer.push_snapshot(pixels, extent);
     }
 
-    pub fn record_view_painted(&mut self, layers: Vec<(LayerId, Vec<Rgba8>)>) {
+    pub fn record_view_painted(&mut self, pixels: Vec<Rgba8>) {
         let extent = self.extent;
-        self.history_record(Edit::ViewPainted(layers.iter().map(|(l, _)| *l).collect()));
-
-        for (id, pixels) in layers.into_iter() {
-            self.layer_mut(id).push_snapshot(pixels, extent);
-        }
-    }
-
-    pub fn record_layer_painted(&mut self, layer: LayerId, pixels: Vec<Rgba8>, extent: ViewExtent) {
-        self.history_record(Edit::LayerPainted(layer));
-        self.layer_mut(layer).push_snapshot(pixels, extent);
+        self.history_record(Edit::ViewPainted);
+        self.layer.push_snapshot(pixels, extent);
     }
 
     pub fn history_truncate(&mut self) {
@@ -123,10 +75,6 @@ impl ViewResource {
         self.history.push(edit);
     }
 
-    pub fn current_snapshot(&self, layer: LayerId) -> Option<(&Snapshot, &[Rgba8])> {
-        self.layers.get(&layer).map(|l| l.current_snapshot())
-    }
-
     pub fn history_prev(&mut self) -> Option<(usize, Edit)> {
         if self.cursor == 0 {
             return None;
@@ -134,23 +82,12 @@ impl ViewResource {
 
         if let Some(edit) = self.history.get(self.cursor).cloned() {
             match edit {
-                Edit::LayerPainted(id) => {
-                    self.layer_mut(id).prev_snapshot();
-                }
-                Edit::LayerAdded(id) => {
-                    self.layer_mut(id).hidden = true;
-                }
-                Edit::ViewResized(ref layers, from, _) => {
+                Edit::ViewResized(from, _) => {
                     self.extent = from;
-
-                    for id in layers.iter() {
-                        self.layer_mut(*id).prev_snapshot();
-                    }
+                    self.layer.prev_snapshot();
                 }
-                Edit::ViewPainted(ref layers) => {
-                    for id in layers.iter() {
-                        self.layer_mut(*id).prev_snapshot();
-                    }
+                Edit::ViewPainted => {
+                    self.layer.prev_snapshot();
                 }
                 _ => return None,
             }
@@ -167,23 +104,12 @@ impl ViewResource {
             self.cursor += 1;
 
             match edit {
-                Edit::LayerPainted(id) => {
-                    self.layer_mut(id).next_snapshot();
-                }
-                Edit::LayerAdded(id) => {
-                    self.layer_mut(id).hidden = false;
-                }
-                Edit::ViewResized(ref layers, _, to) => {
+                Edit::ViewResized(_, to) => {
                     self.extent = to;
-
-                    for id in layers.iter() {
-                        self.layer_mut(*id).next_snapshot();
-                    }
+                    self.layer.next_snapshot();
                 }
-                Edit::ViewPainted(ref layers) => {
-                    for id in layers.iter() {
-                        self.layer_mut(*id).next_snapshot();
-                    }
+                Edit::ViewPainted => {
+                    self.layer.next_snapshot();
                 }
                 _ => return None,
             }
@@ -197,72 +123,8 @@ impl ViewResource {
         self.cursor
     }
 
-    pub fn save_archive<P: AsRef<Path>>(&self, path: P) -> io::Result<usize> {
-        use std::io::Write;
-        use zip::write::FileOptions;
-
-        let f = File::create(path.as_ref())?;
-        let out = &mut io::BufWriter::new(f);
-        let mut zip = zip::ZipWriter::new(out);
-        let opts = FileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated)
-            .unix_permissions(0o644);
-
-        let extent = self.extent;
-        let mut buffer = Vec::new();
-        let mut written = 0;
-
-        let name = path
-            .as_ref()
-            .file_stem()
-            .expect("the file must have a stem");
-
-        let manifest = json::to_string(&crate::io::Manifest { extent });
-
-        zip.start_file_from_path(
-            &Path::new(name).join("manifest.json"),
-            FileOptions::default()
-                .compression_method(zip::CompressionMethod::Stored)
-                .unix_permissions(0o644),
-        )?;
-        zip.write_all(manifest.as_bytes())?;
-
-        for (id, layer) in self.layers.iter() {
-            let path = Path::new(name).join("layers").join(id.to_string());
-
-            for i in 0..extent.nframes {
-                let rect = &extent.frame(i);
-                let (_, pixels) = layer
-                    .get_snapshot_rect(&rect.map(|n| n as i32))
-                    .expect("the rect is within the view");
-
-                buffer.clear();
-                image::write(&mut buffer, rect.width(), rect.height(), 1, &pixels)?;
-
-                let path = path
-                    .join("frames")
-                    .join(i.to_string())
-                    .with_extension("png");
-
-                zip.start_file_from_path(&path, opts)?;
-                zip.write_all(&buffer)?;
-
-                written += pixels.len() * std::mem::size_of::<Rgba8>();
-            }
-        }
-
-        zip.finish()?;
-
-        Ok(written)
-    }
-
-    pub fn save_png<P: AsRef<Path>>(
-        &self,
-        layer_id: LayerId,
-        path: P,
-        scale: u32,
-    ) -> io::Result<usize> {
-        let (snapshot, pixels) = self.layer(layer_id).current_snapshot();
+    pub fn save_png<P: AsRef<Path>>(&self, path: P, scale: u32) -> io::Result<usize> {
+        let (snapshot, pixels) = self.layer.current_snapshot();
         let (w, h) = (snapshot.width(), snapshot.height());
 
         image::save_as(path, w, h, scale, pixels)?;
@@ -270,17 +132,10 @@ impl ViewResource {
         Ok((w * h * scale) as usize)
     }
 
-    pub fn save_svg<P: AsRef<Path>>(
-        &self,
-        layer_id: LayerId,
-        path: P,
-        scale: u32,
-    ) -> io::Result<usize> {
+    pub fn save_svg<P: AsRef<Path>>(&self, path: P, scale: u32) -> io::Result<usize> {
         use std::io::Write;
 
-        let (snapshot, pixels) = self
-            .current_snapshot(layer_id)
-            .ok_or(io::ErrorKind::InvalidInput)?;
+        let (snapshot, pixels) = self.layer.current_snapshot();
         let (w, h) = (snapshot.width(), snapshot.height());
 
         let f = File::create(path.as_ref())?;
@@ -315,7 +170,6 @@ impl ViewResource {
 
     pub fn save_gif<P: AsRef<Path>>(
         &self,
-        layer_id: LayerId,
         path: P,
         frame_delay: time::Duration,
         palette: &[Rgba8],
@@ -329,9 +183,7 @@ impl ViewResource {
         // we ensure it doesn't overflow.
         let frame_delay = u128::min(frame_delay, u16::max_value() as u128) as u16;
 
-        let (snapshot, pixels) = self
-            .current_snapshot(layer_id)
-            .ok_or(io::ErrorKind::InvalidInput)?;
+        let (snapshot, pixels) = self.layer.current_snapshot();
         let extent = snapshot.extent;
         let nframes = extent.nframes;
 
@@ -347,8 +199,8 @@ impl ViewResource {
 
         // Convert RGBA pixels into indexed pixels.
         let mut image: Vec<u8> = Vec::with_capacity(snapshot.size);
-        for rgba in pixels.iter().cloned() {
-            if let Ok(index) = palette.binary_search(&rgba) {
+        for rgba in pixels {
+            if let Ok(index) = palette.binary_search(rgba) {
                 image.push(index as u8);
             } else {
                 image.push(transparent);
@@ -405,8 +257,6 @@ pub struct LayerResource {
     /// Current layer pixels. We keep a separate decompressed
     /// cache of the view pixels for performance reasons.
     pixels: Vec<Rgba8>,
-    /// Whether this layer should be hidden.
-    hidden: bool,
 }
 
 impl LayerResource {
@@ -415,7 +265,6 @@ impl LayerResource {
             snapshots: NonEmpty::new(Snapshot::new(SnapshotId(0), &pixels, extent)),
             snapshot: 0,
             pixels,
-            hidden: false,
         }
     }
 
@@ -516,10 +365,8 @@ impl LayerResource {
 
 #[derive(Debug, Clone)]
 pub enum Edit {
-    LayerPainted(LayerId),
-    LayerAdded(LayerId),
-    ViewResized(Vec<LayerId>, ViewExtent, ViewExtent),
-    ViewPainted(Vec<LayerId>),
+    ViewResized(ViewExtent, ViewExtent),
+    ViewPainted,
     Initial,
 }
 
@@ -544,15 +391,6 @@ pub struct Snapshot {
 }
 
 impl Snapshot {
-    pub fn layer_coord_to_index(&self, p: LayerCoords<u32>) -> Option<usize> {
-        self.height()
-            .checked_sub(p.y)
-            .and_then(|x| x.checked_sub(1))
-            .map(|y| (y * self.width() + p.x) as usize)
-    }
-}
-
-impl Snapshot {
     pub fn new(id: SnapshotId, pixels: &[Rgba8], extent: ViewExtent) -> Self {
         let size = pixels.len();
         let pixels =
@@ -569,6 +407,13 @@ impl Snapshot {
             size,
             pixels,
         }
+    }
+
+    pub fn coord_to_index(&self, p: ViewCoords<u32>) -> Option<usize> {
+        self.height()
+            .checked_sub(p.y)
+            .and_then(|x| x.checked_sub(1))
+            .map(|y| (y * self.width() + p.x) as usize)
     }
 
     pub fn width(&self) -> u32 {

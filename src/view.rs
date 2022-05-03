@@ -1,4 +1,3 @@
-pub mod layer;
 pub mod path;
 pub mod resource;
 
@@ -8,15 +7,12 @@ pub use resource::{Edit, EditId, Snapshot, ViewResource};
 use crate::cmd::Axis;
 use crate::session::{Direction, Session, SessionCoords};
 use crate::util;
-use crate::view::layer::{FrameRange, Layer, LayerCoords, LayerId};
 
 use crate::gfx::math::*;
 use crate::gfx::rect::Rect;
 use crate::gfx::Rgba8;
 
 use nonempty::NonEmpty;
-
-use microserde::{Deserialize, Serialize};
 
 use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
@@ -85,7 +81,7 @@ impl From<Point2<f32>> for ViewCoords<f32> {
 }
 
 /// View extent information.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ViewExtent {
     /// Frame width.
     pub fw: u32,
@@ -139,11 +135,6 @@ pub enum ViewState {
     /// The view is damaged, it needs to be redrawn from a snapshot.
     /// This happens when undo/redo is used.
     Damaged(Option<ViewExtent>),
-    /// A layer has been touched.
-    LayerDirty(LayerId),
-    /// A layer is damaged, it needs to be redrawn from a snapshot.
-    /// This happens when undo/redo is used.
-    LayerDamaged(LayerId),
 }
 
 /// A view operation to be carried out by the renderer.
@@ -154,19 +145,15 @@ pub enum ViewOp {
     /// Clear to a color.
     Clear(Rgba8),
     /// Yank the given area into the paste buffer.
-    Yank(LayerId, Rect<i32>),
+    Yank(Rect<i32>),
     /// Flips a given area horizontally or vertically.
-    Flip(LayerId, Rect<i32>, Axis),
+    Flip(Rect<i32>, Axis),
     /// Blit the paste buffer into the given area.
     Paste(Rect<i32>),
     /// Resize the view.
     Resize(u32, u32),
     /// Paint a single pixel.
-    SetPixel(LayerId, Rgba8, i32, i32),
-    /// Add a layer.
-    AddLayer(LayerId, FrameRange),
-    /// Remove a layer.
-    RemoveLayer(LayerId),
+    SetPixel(Rgba8, i32, i32),
 }
 
 /// A view on a sprite or image.
@@ -194,10 +181,6 @@ pub struct View<R> {
     pub state: ViewState,
     /// Animation state of the sprite displayed by this view.
     pub animation: Animation<Rect<f32>>,
-    /// View layers.
-    pub layers: NonEmpty<Layer>,
-    /// Currently active layer.
-    pub active_layer_id: LayerId,
     /// View resource.
     pub resource: R,
 
@@ -270,8 +253,6 @@ impl<R> View<R> {
             file_status: fs,
             animation: Animation::new(frames),
             state: ViewState::Okay,
-            layers: NonEmpty::new(Layer::default()),
-            active_layer_id: Default::default(),
             saved_snapshot,
             resource,
         }
@@ -284,17 +265,12 @@ impl<R> View<R> {
 
     /// View height.
     pub fn height(&self) -> u32 {
-        self.fh * self.layers.len() as u32
+        self.fh
     }
 
     /// View width and height.
     pub fn size(&self) -> (u32, u32) {
         (self.width(), self.height())
-    }
-
-    /// View layer width and height.
-    pub fn layer_size(&self) -> (u32, u32) {
-        (self.width(), self.fh)
     }
 
     /// View file name, if any.
@@ -352,69 +328,6 @@ impl<R> View<R> {
         self.resized();
     }
 
-    /// Activate a layer.
-    pub fn activate_layer(&mut self, l: LayerId) -> bool {
-        if self.layers.len() > l {
-            self.active_layer_id = l;
-            return true;
-        }
-        false
-    }
-
-    /// Activate the next layer.
-    pub fn activate_next_layer(&mut self) -> bool {
-        if self.layers.len() > self.active_layer_id + 1 {
-            self.active_layer_id += 1;
-            return true;
-        }
-        false
-    }
-
-    /// Activate the previous layer.
-    pub fn activate_prev_layer(&mut self) -> bool {
-        if self.active_layer_id > 0 {
-            self.active_layer_id -= 1;
-            return true;
-        }
-        false
-    }
-
-    /// Get the active layer.
-    pub fn active_layer(&self) -> &Layer {
-        let index: usize = self.active_layer_id;
-
-        self.layers
-            .get(index)
-            .expect("there is always an active layer")
-    }
-
-    /// Push an empty layer.
-    pub fn push_layer(&mut self) -> LayerId {
-        let top = self
-            .layers
-            .iter()
-            .max_by_key(|l| l.index)
-            .expect("there is always at least one layer")
-            .index;
-        let range = FrameRange::Full;
-        let id = self.layers.len();
-
-        self.layers.push(Layer::new(range.clone(), top + 1));
-        self.ops.push(ViewOp::AddLayer(id, range));
-
-        id
-    }
-
-    /// Remove a layer.
-    pub fn remove_layer(&mut self, id: LayerId) {
-        // TODO: For now, we only allow the last layer to be removed.
-        debug_assert_eq!(id, self.layers.len() - 1);
-
-        self.layers.pop();
-        self.ops.push(ViewOp::RemoveLayer(id));
-        self.active_layer_id = self.layers.len() - 1;
-    }
-
     /// Clear the view to a color.
     pub fn clear(&mut self, color: Rgba8) {
         self.ops.push(ViewOp::Clear(color));
@@ -422,21 +335,20 @@ impl<R> View<R> {
     }
 
     pub fn paint_color(&mut self, color: Rgba8, x: i32, y: i32) {
-        self.ops
-            .push(ViewOp::SetPixel(self.active_layer_id, color, x, y));
+        self.ops.push(ViewOp::SetPixel(color, x, y));
     }
 
     pub fn yank(&mut self, area: Rect<i32>) {
-        self.ops.push(ViewOp::Yank(self.active_layer_id, area));
+        self.ops.push(ViewOp::Yank(area));
     }
 
     pub fn flip(&mut self, area: Rect<i32>, dir: Axis) {
-        self.ops.push(ViewOp::Flip(self.active_layer_id, area, dir));
+        self.ops.push(ViewOp::Flip(area, dir));
     }
 
     pub fn paste(&mut self, area: Rect<i32>) {
         self.ops.push(ViewOp::Paste(area));
-        self.touch_layer();
+        self.touch();
     }
 
     /// Slice the view into the given number of frames.
@@ -452,12 +364,6 @@ impl<R> View<R> {
             return true;
         }
         false
-    }
-
-    /// Restore a view layer to a given snapshot.
-    pub fn restore_layer(&mut self, eid: EditId, layer: LayerId) {
-        self.layer_damaged(layer);
-        self.refresh_file_status(eid);
     }
 
     /// Restore a view to a given snapshot and extent.
@@ -505,55 +411,14 @@ impl<R> View<R> {
         )
     }
 
-    /// Return the area of the given layer, including the view offset.
-    pub fn layer_rect(&self, index: usize) -> Rect<f32> {
-        Rect::new(
-            self.offset.x,
-            self.offset.y + (self.fh * index as u32) as f32 * self.zoom,
-            self.offset.x + self.width() as f32 * self.zoom,
-            self.offset.y + (self.fh * (index + 1) as u32) as f32 * self.zoom,
-        )
-    }
-
-    /// The offset of the layer at the given index.
-    pub fn layer_offset(&self, index: usize, zoom: f32) -> Vector2<f32> {
-        Vector2::new(0., self.fh as f32 * index as f32 * zoom)
-    }
-
     /// Check whether the session coordinates are contained within the view.
-    pub fn contains(&self, p: SessionCoords) -> Option<LayerId> {
-        if self.rect().contains(*p) {
-            for (i, _) in self.layers.iter().enumerate() {
-                if self.layer_rect(i).contains(*p) {
-                    return Some(i);
-                }
-            }
-        }
-        None
+    pub fn contains(&self, p: SessionCoords) -> bool {
+        self.rect().contains(*p)
     }
 
     /// Get the center of the view.
     pub fn center(&self) -> ViewCoords<f32> {
         ViewCoords::new(self.width() as f32 / 2., self.height() as f32 / 2.)
-    }
-
-    /// Get the center of the active layer.
-    pub fn active_layer_center(&self) -> ViewCoords<f32> {
-        ViewCoords::new(
-            self.width() as f32 / 2.,
-            self.layer_offset(self.active_layer_id, 1.).y + self.fh as f32 / 2.,
-        )
-    }
-
-    /// Layer has been modified. Called when using the brush on the view,
-    /// or resizing the view.
-    pub fn touch_layer(&mut self) {
-        if let FileStatus::Saved(ref f) = self.file_status {
-            self.file_status = FileStatus::Modified(f.clone());
-        }
-        if self.state == ViewState::Okay {
-            self.state = ViewState::LayerDirty(self.active_layer_id);
-        }
     }
 
     /// View has been modified. Called when using the brush on the view,
@@ -573,23 +438,14 @@ impl<R> View<R> {
         self.state = ViewState::Damaged(extent);
     }
 
-    /// Layer should be considered damaged and needs to be restored from snapshot.
-    /// Used when undoing or redoing changes.
-    pub fn layer_damaged(&mut self, layer: LayerId) {
-        self.state = ViewState::LayerDamaged(layer);
-    }
-
     /// Check whether the view is damaged.
     pub fn is_damaged(&self) -> bool {
-        matches!(
-            self.state,
-            ViewState::Damaged(_) | ViewState::LayerDamaged(_)
-        )
+        matches!(self.state, ViewState::Damaged(_))
     }
 
     /// Check whether the view is dirty.
     pub fn is_dirty(&self) -> bool {
-        matches!(self.state, ViewState::Dirty(_) | ViewState::LayerDirty(_))
+        matches!(self.state, ViewState::Dirty(_))
     }
 
     /// Check whether the view is resized.
@@ -661,31 +517,10 @@ impl<R> View<R> {
 }
 
 impl View<ViewResource> {
-    /// Add a new layer with optional pixels.
-    pub fn add_layer(&mut self, pixels: Option<Vec<Rgba8>>) -> LayerId {
-        let id = self.push_layer();
-
-        self.resource.add_layer(
-            id,
-            self.extent(),
-            pixels.unwrap_or(vec![
-                Rgba8::TRANSPARENT;
-                self.width() as usize * self.fh as usize
-            ]),
-        );
-
-        id
-    }
-
     /// Get the color at the given view coordinate.
-    pub fn color_at(&self, l: LayerId, p: LayerCoords<u32>) -> Option<&Rgba8> {
-        self.resource
-            .current_snapshot(l)
-            .and_then(|(snapshot, pixels)| {
-                snapshot
-                    .layer_coord_to_index(p)
-                    .and_then(|idx| pixels.get(idx))
-            })
+    pub fn color_at(&self, p: ViewCoords<u32>) -> Option<&Rgba8> {
+        let (snapshot, pixels) = self.resource.layer.current_snapshot();
+        snapshot.coord_to_index(p).and_then(|idx| pixels.get(idx))
     }
 
     /// Restore a view snapshot (undo/redo an edit).
@@ -697,31 +532,14 @@ impl View<ViewResource> {
         };
 
         match result {
-            Some((eid, Edit::LayerPainted(layer))) => {
-                self.restore_layer(eid, layer);
-            }
-            Some((eid, Edit::LayerAdded(layer))) => {
-                match dir {
-                    Direction::Backward => {
-                        self.remove_layer(layer);
-                    }
-                    Direction::Forward => {
-                        // TODO: This relies on the fact that `remove_layer` can
-                        // only remove the last layer.
-                        let layer_id = self.push_layer();
-                        debug_assert!(layer_id == layer);
-                    }
-                };
-                self.refresh_file_status(eid);
-            }
-            Some((eid, Edit::ViewResized(_, from, to))) => {
+            Some((eid, Edit::ViewResized(from, to))) => {
                 let extent = match dir {
                     Direction::Backward => from,
                     Direction::Forward => to,
                 };
                 self.restore_extent(eid, extent);
             }
-            Some((eid, Edit::ViewPainted(_))) => {
+            Some((eid, Edit::ViewPainted)) => {
                 self.restore(eid);
             }
             Some((_, Edit::Initial)) => {}
@@ -730,10 +548,7 @@ impl View<ViewResource> {
     }
 
     pub fn save_as(&mut self, storage: &FileStorage) -> io::Result<usize> {
-        let active_layer_id = self.active_layer_id;
         let ext = self.extent();
-        let nlayers = self.layers.len();
-
         let (edit_id, written) = match &storage {
             FileStorage::Single(path) => {
                 {
@@ -742,31 +557,18 @@ impl View<ViewResource> {
                     std::fs::create_dir_all(path_copy.as_path())?;
                 }
 
-                if nlayers > 1 {
-                    let written = self.resource.save_archive(path)?;
-                    let edit_id = self.resource.cursor;
+                let edit_id = self.save_rect_as(ext.rect(), path)?;
 
-                    (edit_id, written)
-                } else {
-                    let edit_id = self.save_layer_rect_as(active_layer_id, ext.rect(), path)?;
-
-                    (edit_id, (ext.width() * ext.height()) as usize)
-                }
+                (edit_id, (ext.width() * ext.height()) as usize)
             }
-            FileStorage::Range(paths) if nlayers == 1 => {
+            FileStorage::Range(paths) => {
                 for (i, path) in paths.iter().enumerate() {
-                    self.save_layer_rect_as(active_layer_id, ext.frame(i), path)?;
+                    self.save_rect_as(ext.frame(i), path)?;
                 }
 
                 let edit_id = self.resource.current_edit();
 
                 (edit_id, paths.len() * (ext.fw * ext.fh) as usize)
-            }
-            FileStorage::Range(_) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    "range storage is not supported for more than one layer",
-                ));
             }
         };
 
@@ -787,12 +589,7 @@ impl View<ViewResource> {
     }
 
     /// Save part of a layer to disk.
-    fn save_layer_rect_as(
-        &mut self,
-        layer_id: LayerId,
-        rect: Rect<u32>,
-        path: &std::path::Path,
-    ) -> io::Result<EditId> {
+    fn save_rect_as(&mut self, rect: Rect<u32>, path: &std::path::Path) -> io::Result<EditId> {
         // Only allow overwriting of files if it's the file of the view being saved.
         if path.exists() && self.file_storage().map_or(true, |f| !f.contains(path)) {
             return Err(io::Error::new(
@@ -800,7 +597,7 @@ impl View<ViewResource> {
                 format!("\"{}\" already exists", path.display()),
             ));
         }
-        let (e_id, _) = self.save_layer(layer_id, rect, &path)?;
+        let (e_id, _) = self.save(rect, &path)?;
 
         Ok(e_id)
     }
@@ -1060,36 +857,30 @@ impl<R> ViewManager<R> {
 }
 
 impl ViewManager<ViewResource> {
-    pub fn get_snapshot_safe(
-        &self,
-        id: ViewId,
-        layer_id: LayerId,
-    ) -> Option<(&Snapshot, &[Rgba8])> {
+    pub fn get_snapshot_safe(&self, id: ViewId) -> Option<(&Snapshot, &[Rgba8])> {
         self.views
             .get(&id)
-            .and_then(|v| v.resource.current_snapshot(layer_id))
+            .map(|v| v.resource.layer.current_snapshot())
     }
 
-    pub fn get_snapshot(&self, id: ViewId, layer_id: LayerId) -> (&Snapshot, &[Rgba8]) {
-        self.get_snapshot_safe(id, layer_id).expect(&format!(
-            "layer #{} of view #{} must exist and have an associated snapshot",
-            layer_id, id
+    pub fn get_snapshot(&self, id: ViewId) -> (&Snapshot, &[Rgba8]) {
+        self.get_snapshot_safe(id).expect(&format!(
+            "view #{} must exist and have an associated snapshot",
+            id
         ))
     }
 
     pub fn get_snapshot_rect(
         &self,
         id: ViewId,
-        layer_id: LayerId,
         rect: &Rect<i32>,
     ) -> Option<(&Snapshot, Vec<Rgba8>)> {
         self.views
             .get(&id)
-            .map(|v| &v.resource)
-            .and_then(|v| v.layers.get(&layer_id))
+            .map(|v| &v.resource.layer)
             .expect(&format!(
-                "view #{} with layer #{} must exist and have an associated snapshot",
-                id, layer_id
+                "view #{} must exist and have an associated snapshot",
+                id
             ))
             .get_snapshot_rect(rect)
     }

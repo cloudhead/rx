@@ -10,7 +10,6 @@ pub const SUPPORTED_READ_FORMATS: &[&str] = &["png", self::ARCHIVE_FORMAT];
 
 #[derive(Debug, Copy, Clone)]
 pub enum Format {
-    Archive,
     Png,
     Gif,
 }
@@ -48,7 +47,6 @@ impl<'a> TryFrom<&'a path::Path> for Path<'a, path::Path> {
         let format = match ext {
             "gif" => Format::Gif,
             "png" => Format::Png,
-            ARCHIVE_FORMAT => Format::Archive,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::Other,

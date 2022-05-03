@@ -4,7 +4,6 @@ use crate::history::History;
 use crate::parser::*;
 use crate::platform;
 use crate::session::{Direction, Input, Mode, PanState, Tool, VisualState};
-use crate::view::layer::LayerId;
 
 use memoir::traits::Parse;
 use memoir::*;
@@ -80,8 +79,6 @@ pub enum Command {
     Pan(i32, i32),
     Zoom(Op),
 
-    // TODO: These operate on the active layer. We should have a command
-    // to set the active layer.
     PaintColor(Rgba8, i32, i32),
     PaintForeground(i32, i32),
     PaintBackground(i32, i32),
@@ -124,11 +121,6 @@ pub enum Command {
     ViewCenter,
     ViewNext,
     ViewPrev,
-
-    // Layers
-    LayerAdd,
-    LayerRemove(Option<LayerId>),
-    LayerExtend(Option<LayerId>),
 
     Noop,
 }
@@ -965,9 +957,6 @@ impl Default for Commands {
                     natural().label("<height>"),
                 ))
                 .map(|(_, (w, h))| Command::FrameResize(w, h))
-            })
-            .command("l/add", "Add a new layer to the active view", |p| {
-                p.value(Command::LayerAdd)
             })
             .command("tool", "Switch tool", |p| {
                 p.then(word().label("pan/brush/sampler/.."))

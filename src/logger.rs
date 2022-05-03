@@ -25,7 +25,7 @@ impl Log for Logger {
 
             fn write(record: &log::Record, _module: &str, mut stream: impl io::Write) {
                 let now = Local::now().to_rfc3339_opts(SecondsFormat::Millis, true);
-                writeln!(stream, "{} {}", now, record.args().to_string())
+                writeln!(stream, "{} {}", now, record.args())
                     .expect("write shouldn't fail");
             }
         }

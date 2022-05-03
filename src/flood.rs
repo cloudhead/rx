@@ -3,8 +3,7 @@ use crate::gfx::math::Point2;
 use crate::gfx::rect::Rect;
 use crate::gfx::shape2d::{Fill, Rotation, Shape, Stroke};
 use crate::gfx::ZDepth;
-use crate::view::layer::LayerCoords;
-use crate::view::{View, ViewResource};
+use crate::view::{View, ViewCoords, ViewResource};
 
 struct Grid {
     pixels: Vec<Rgba8>,
@@ -49,10 +48,10 @@ pub struct FloodFiller {
 impl FloodFiller {
     pub fn new(
         view: &View<ViewResource>,
-        starting_point: LayerCoords<f32>,
+        starting_point: ViewCoords<f32>,
         replacement_color: Rgba8,
     ) -> Option<FloodFiller> {
-        let (snapshot, pixels) = view.current_snapshot(view.active_layer_id)?;
+        let (snapshot, pixels) = view.layer.current_snapshot();
         let bounds = snapshot.extent.rect();
         let grid = Grid::new(
             pixels.to_vec(),
@@ -66,6 +65,7 @@ impl FloodFiller {
         );
 
         let target_color = *grid.get(starting_point.x, starting_point.y)?;
+
         Some(FloodFiller {
             grid,
             target_color,

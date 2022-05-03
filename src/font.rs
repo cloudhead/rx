@@ -41,7 +41,7 @@ impl TextBatch {
             }
         }
 
-        for c in text.bytes().into_iter() {
+        for c in text.bytes() {
             let i: usize = c as usize - offset;
             let x: f32 = (i % 16) as f32 * gw;
             let y: f32 = (i / 16) as f32 * gh;
