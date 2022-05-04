@@ -6,11 +6,10 @@ pub use resource::{Edit, EditId, Snapshot, ViewResource};
 
 use crate::cmd::Axis;
 use crate::session::{Direction, Session, SessionCoords};
-use crate::util;
 
 use crate::gfx::math::*;
 use crate::gfx::rect::Rect;
-use crate::gfx::Rgba8;
+use crate::gfx::{Point, Rgba8};
 
 use nonempty::NonEmpty;
 
@@ -18,7 +17,6 @@ use std::collections::btree_map;
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::io;
-use std::ops::Deref;
 
 /// View identifier.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Clone, Debug, Default)]
@@ -33,52 +31,7 @@ impl fmt::Display for ViewId {
 /// View coordinates.
 ///
 /// These coordinates are relative to the bottom left corner of the view.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct ViewCoords<T>(Point2<T>);
-
-impl<T> ViewCoords<T> {
-    pub fn new(x: T, y: T) -> Self {
-        Self(Point2::new(x, y))
-    }
-}
-
-impl ViewCoords<i32> {
-    pub fn clamp(&mut self, rect: Rect<i32>) {
-        util::clamp(&mut self.0, rect);
-    }
-}
-
-impl<T> Deref for ViewCoords<T> {
-    type Target = Point2<T>;
-
-    fn deref(&self) -> &Point2<T> {
-        &self.0
-    }
-}
-
-impl From<ViewCoords<f32>> for ViewCoords<i32> {
-    fn from(other: ViewCoords<f32>) -> ViewCoords<i32> {
-        ViewCoords::new(other.x.round() as i32, other.y.round() as i32)
-    }
-}
-
-impl From<ViewCoords<i32>> for ViewCoords<f32> {
-    fn from(other: ViewCoords<i32>) -> ViewCoords<f32> {
-        ViewCoords::new(other.x as f32, other.y as f32)
-    }
-}
-
-impl From<ViewCoords<f32>> for ViewCoords<u32> {
-    fn from(other: ViewCoords<f32>) -> ViewCoords<u32> {
-        ViewCoords::new(other.x.round() as u32, other.y.round() as u32)
-    }
-}
-
-impl From<Point2<f32>> for ViewCoords<f32> {
-    fn from(p: Point2<f32>) -> ViewCoords<f32> {
-        ViewCoords::new(p.x, p.y)
-    }
-}
+pub type ViewCoords<T> = Point<ViewExtent, T>;
 
 /// View extent information.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

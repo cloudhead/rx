@@ -22,7 +22,7 @@ use crate::view::{
 use crate::gfx::math::*;
 use crate::gfx::rect::Rect;
 use crate::gfx::shape2d::{Fill, Rotation, Shape, Stroke};
-use crate::gfx::{Rgb8, Rgba8, ZDepth};
+use crate::gfx::{Point, Rgb8, Rgba8, ZDepth};
 
 use arrayvec::ArrayVec;
 
@@ -35,7 +35,8 @@ use std::fmt;
 use std::fs::File;
 use std::io;
 use std::io::Write;
-use std::ops::{Add, Deref, Sub};
+
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::time;
 
@@ -61,42 +62,7 @@ enum InternalCommand {
 
 /// Session coordinates.
 /// Encompasses anything within the window, such as the cursor position.
-#[derive(Copy, Clone, PartialEq, Debug)]
-pub struct SessionCoords(Point2<f32>);
-
-impl SessionCoords {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(Point2::new(x, y))
-    }
-
-    pub fn floor(&mut self) -> Self {
-        Self(self.0.map(f32::floor))
-    }
-}
-
-impl Deref for SessionCoords {
-    type Target = Point2<f32>;
-
-    fn deref(&self) -> &Point2<f32> {
-        &self.0
-    }
-}
-
-impl Add<Vector2<f32>> for SessionCoords {
-    type Output = Self;
-
-    fn add(self, vec: Vector2<f32>) -> Self {
-        SessionCoords(self.0 + vec)
-    }
-}
-
-impl Sub<Vector2<f32>> for SessionCoords {
-    type Output = Self;
-
-    fn sub(self, vec: Vector2<f32>) -> Self {
-        SessionCoords(self.0 - vec)
-    }
-}
+pub type SessionCoords = Point<Session, f32>;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1359,9 +1325,9 @@ impl Session {
     }
 
     /// Convert session coordinates to view coordinates of the given view.
-    pub fn view_coords(&self, v: ViewId, p: SessionCoords) -> ViewCoords<f32> {
+    pub fn view_coords(&self, v: ViewId, p: SessionCoords) -> Point<ViewExtent, f32> {
         let v = self.view(v);
-        let SessionCoords(mut p) = p;
+        let SessionCoords { point: mut p, .. } = p;
 
         p = p - self.offset - v.offset;
         p = p / v.zoom;
@@ -1373,11 +1339,11 @@ impl Session {
             p.y = v.height() as f32 - p.y;
         }
 
-        ViewCoords::new(p.x.floor(), p.y.floor())
+        Point::new(p.x.floor(), p.y.floor())
     }
 
     /// Convert view coordinates to session coordinates.
-    pub fn session_coords(&self, v: ViewId, p: ViewCoords<f32>) -> SessionCoords {
+    pub fn session_coords(&self, v: ViewId, p: Point<ViewExtent, f32>) -> SessionCoords {
         let v = self.view(v);
 
         let p = Point2::new(p.x * v.zoom, p.y * v.zoom);
@@ -1394,7 +1360,7 @@ impl Session {
     }
 
     /// Convert session coordinates to view coordinates of the active view.
-    pub fn active_view_coords(&self, p: SessionCoords) -> ViewCoords<f32> {
+    pub fn active_view_coords(&self, p: SessionCoords) -> Point<ViewExtent, f32> {
         self.view_coords(self.views.active_id, p)
     }
 
