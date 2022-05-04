@@ -137,6 +137,7 @@ impl Completer for FileCompleter {
             }
         }
 
+        candidates.sort_by(|(a, _), (b, _)| a.cmp(b));
         candidates.into_iter().map(|(c, _)| c).collect()
     }
 }
@@ -211,40 +212,31 @@ mod test {
         // Hidden directories should be ignored by the completer.
         fs::create_dir(tmp.path().join(".git")).unwrap();
         // Normal directories *shouldn't* be ignored.
-        fs::create_dir(tmp.path().join("backup")).unwrap();
+        fs::create_dir(tmp.path().join("zod")).unwrap();
         // Non-PNG files should be ignored by the completer.
-        for file_name in &["one.png", "two.png", "three.png", "other.jpeg", ".rxrc"] {
+        for file_name in &["1.png", "2.png", "3.png", "other.jpeg", ".rxrc"] {
             let path = tmp.path().join(file_name);
             File::create(path).unwrap();
         }
-        for file_name in &["four.png", "five.png", "six.png"] {
-            let path = tmp.path().join("backup").join(file_name);
+        for file_name in &["4.png", "5.png", "6.png"] {
+            let path = tmp.path().join("zod").join(file_name);
             File::create(path).unwrap();
         }
 
         let completer = FileCompleter::new(tmp.path(), &["png"]);
         let mut auto = Autocomplete::new(completer);
 
-        assert_eq!(Some(("three.png".to_owned(), 0..0)), auto.next("", 0),);
-        assert_eq!(
-            Some(("two.png".to_owned(), 0..9)),
-            auto.next("three.png", 0),
-        );
-        assert_eq!(Some(("one.png".to_owned(), 0..7)), auto.next("two.png", 7),);
-        assert_eq!(Some(("backup".to_owned(), 0..7)), auto.next("one.png", 7),);
-        assert_eq!(Some(("three.png".to_owned(), 0..6)), auto.next("backup", 6),);
+        assert_eq!(Some(("1.png".to_owned(), 0..0)), auto.next("", 0));
+        assert_eq!(Some(("2.png".to_owned(), 0..5)), auto.next("1.png", 5));
+        assert_eq!(Some(("3.png".to_owned(), 0..5)), auto.next("2.png", 5));
+        assert_eq!(Some(("zod".to_owned(), 0..5)), auto.next("3.png", 5));
+        assert_eq!(Some(("1.png".to_owned(), 0..3)), auto.next("zod", 3));
 
         // Invalidate completions, as we're insert a '/' into the input.
         auto.invalidate();
 
-        assert_eq!(Some(("six.png".to_owned(), 7..7)), auto.next("backup/", 7),);
-        assert_eq!(
-            Some(("five.png".to_owned(), 7..14)),
-            auto.next("backup/six.png", 14),
-        );
-        assert_eq!(
-            Some(("four.png".to_owned(), 7..15)),
-            auto.next("backup/five.png", 15),
-        );
+        assert_eq!(Some(("4.png".to_owned(), 4..4)), auto.next("zod/", 4));
+        assert_eq!(Some(("5.png".to_owned(), 4..9)), auto.next("zod/4.png", 9));
+        assert_eq!(Some(("6.png".to_owned(), 4..9)), auto.next("zod/5.png", 9));
     }
 }
