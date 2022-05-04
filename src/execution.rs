@@ -423,8 +423,6 @@ impl GifRecorder {
     }
 
     fn finish(&mut self) -> io::Result<()> {
-        use std::convert::TryInto;
-
         if let Some(encoder) = &mut self.encoder {
             for (i, (t1, gif_data)) in self.frames.iter().enumerate() {
                 let delay = if let Some((t2, _)) = self.frames.get(i + 1) {

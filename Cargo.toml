@@ -6,7 +6,7 @@ license = "GPL-3.0-only"
 repository = "https://github.com/cloudhead/rx"
 homepage = "https://rx.cloudhead.io"
 authors = ["Alexis Sellier <self@cloudhead.io>"]
-edition = "2018"
+edition = "2021"
 
 [features]
 default = ["glfw"]
