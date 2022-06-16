@@ -53,6 +53,7 @@ pub enum Command {
     Write(Option<String>),
     WriteFrames(Option<String>),
     WriteQuit,
+    SaveAs(String),
     Quit,
     QuitAll,
     ForceQuit,
@@ -210,7 +211,8 @@ impl fmt::Display for Command {
             Self::ViewPrev => write!(f, "Go to previous view"),
             Self::Write(None) => write!(f, "Write view to disk"),
             Self::Write(Some(_)) => write!(f, "Write view to disk as..."),
-            Self::WriteQuit => write!(f, "Write file to disk and quit"),
+            Self::WriteQuit => write!(f, "Write view to disk and quit"),
+            Self::SaveAs(_) => write!(f, "Change view name and write view to disk as..."),
             Self::Zoom(Op::Incr) => write!(f, "Zoom in view"),
             Self::Zoom(Op::Decr) => write!(f, "Zoom out view"),
             Self::Zoom(Op::Set(z)) => write!(f, "Set view zoom to {:.1}", z),
@@ -287,6 +289,7 @@ impl From<Command> for String {
             Command::Write(None) => format!("w"),
             Command::Write(Some(path)) => format!("w {}", path),
             Command::WriteQuit => format!("wq"),
+            Command::SaveAs(path) => format!("saveas {}", path),
             Command::Zoom(Op::Incr) => format!("v/zoom +"),
             Command::Zoom(Op::Decr) => format!("v/zoom -"),
             Command::Zoom(Op::Set(z)) => format!("v/zoom {}", z),
@@ -744,6 +747,9 @@ impl Default for Commands {
                     .map(|(_, (scale, path))| Command::Export(scale, path))
             })
             .command("wq", "Write & quit view", |p| p.value(Command::WriteQuit))
+            .command("saveas", "Write and change view name", |p| {
+                p.then(path()).map(|(_, path)| Command::SaveAs(path))
+            })
             .command("x", "Write & quit view", |p| p.value(Command::WriteQuit))
             .command("w", "Write view", |p| {
                 p.then(optional(path()))
@@ -1086,6 +1092,9 @@ impl autocomplete::Completer for CommandCompleter {
                     input,
                     FileCompleterOpts { directories: true },
                 ),
+                Command::SaveAs(path) => {
+                    self.complete_path(Some(path).as_ref(), input, Default::default())
+                }
                 Command::Source(path) | Command::Write(path) => {
                     self.complete_path(path.as_ref(), input, Default::default())
                 }
