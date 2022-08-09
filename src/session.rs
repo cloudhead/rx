@@ -2678,7 +2678,6 @@ impl Session {
                     }
                 }
             }
-            #[allow(mutable_borrow_reservation_conflict)]
             Command::Toggle(ref k) => match self.settings.get(k) {
                 Some(Value::Bool(b)) => self.command(Command::Set(k.clone(), Value::Bool(!b))),
                 Some(_) => {
