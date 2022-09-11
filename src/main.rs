@@ -22,6 +22,7 @@ OPTIONS
     -v                   Verbose mode
     -u <script>          Use the commands in <script> for initialization
 
+    --fullscreen         Start application in fullscreen mode
     --record <dir>       Record user input to a directory
     --replay <dir>       Replay user input from a directory
     --width <width>      Set the window width
