@@ -104,7 +104,7 @@ pub enum Command {
     Reset,
     Map(Box<KeyMapping>),
     MapClear,
-
+    //Fullscreen,
     Slice(Option<usize>),
     Fill(Option<Rgba8>),
 
@@ -165,6 +165,7 @@ impl fmt::Display for Command {
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
             Self::Map(_) => write!(f, "Map a key combination to a command"),
             Self::MapClear => write!(f, "Clear all key mappings"),
+            //Self::Fullscreen => write!(f, "Toggle fullscreen"),
             Self::Mode(Mode::Help) => write!(f, "Toggle help"),
             Self::Mode(m) => write!(f, "Switch to {} mode", m),
             Self::FrameAdd => write!(f, "Add a blank frame to the view"),

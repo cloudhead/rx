@@ -79,6 +79,7 @@ pub struct Options<'a> {
     pub exec: ExecutionMode,
     pub glyphs: &'a [u8],
     pub debug: bool,
+    pub fullscreen: bool,
 }
 
 impl<'a> Default for Options<'a> {
@@ -92,6 +93,7 @@ impl<'a> Default for Options<'a> {
             exec: ExecutionMode::Normal,
             glyphs: data::GLYPHS,
             debug: false,
+            fullscreen: false,
         }
     }
 }
@@ -109,6 +111,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
         "rx",
         options.width,
         options.height,
+        options.fullscreen,
         hints,
         platform::GraphicsContext::Gl,
     )?;
