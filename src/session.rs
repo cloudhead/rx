@@ -2678,7 +2678,6 @@ impl Session {
                     }
                 }
             }
-            #[allow(mutable_borrow_reservation_conflict)]
             Command::Toggle(ref k) => match self.settings.get(k) {
                 Some(Value::Bool(b)) => self.command(Command::Set(k.clone(), Value::Bool(!b))),
                 Some(_) => {
@@ -3017,6 +3016,10 @@ impl Session {
                 if let Some(color) = c.get(i) {
                     v.paint_color(*color, x, y);
                 }
+            }
+            Command::Fullscreen => {
+                //Set screen to fullscreen
+                debug!("Fullscreen!!"); // <<===== DEBUG DOES NOT WORK
             }
         };
     }
