@@ -271,24 +271,22 @@ dependencies = [
 
 [[package]]
 name = "glfw"
-version = "0.41.0"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbb254ad1715644ab078c94372405bf061358b97969635ef7b09cf6f9437843e"
+checksum = "90751c70bf04fa3aaf85bbe27cf8865059c786d04e25aa2762ea7d59df2be675"
 dependencies = [
  "bitflags",
  "glfw-sys",
- "log",
  "objc",
- "raw-window-handle 0.3.4",
- "semver",
+ "raw-window-handle 0.4.3",
  "winapi",
 ]
 
 [[package]]
 name = "glfw-sys"
-version = "3.3.5"
+version = "4.0.0+3.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0cbb12e2dfac494316e91f6bf7cf070ccd9c61501a02f4af14d71222c9f67f"
+checksum = "5abed6d39a50226676aab893d6b4ad154da7e93fcdfed90d7696758a1b477ed1"
 dependencies = [
  "cmake",
 ]
@@ -596,21 +594,6 @@ name = "seahash"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
-
-[[package]]
-name = "semver"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
-dependencies = [
- "semver-parser",
-]
-
-[[package]]
-name = "semver-parser"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"

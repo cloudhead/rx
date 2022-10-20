@@ -39,7 +39,7 @@ map         <return>      :f/add                                    --  Add a fr
 map         <backspace>   :f/remove                                 --  Remove a frame from the view
 map/normal  h             :f/prev                                   --  Navigate to previous frame
 map/normal  l             :f/next                                   --  Navigate to next frame
-map         a             :fullscreen                               --  Toggle fullscreen mode
+map         s             :fullscreen                               --  Toggle fullscreen mode
 
 map/visual  j             :selection/move    0 -1
 map/visual  k             :selection/move    0  1

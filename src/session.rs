@@ -665,7 +665,9 @@ pub struct Session {
 
     pub fullscreen_requested: bool,
 
-    pub prev_size: LogicalSize,
+    pub prev_size: (u32, u32),
+
+    pub prev_pos: (i32, i32),
 }
 
 impl Session {
@@ -760,10 +762,8 @@ impl Session {
             queue: Vec::new(),
             fullscreen: fs,
             fullscreen_requested: false,
-            prev_size: LogicalSize {
-                width: 1280.0,
-                height: 720.0,
-            },
+            prev_size: (1280, 720),
+            prev_pos: (100, 100),
         }
     }
 

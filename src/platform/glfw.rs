@@ -91,7 +91,7 @@ pub fn init(
 
 pub struct Events {
     handle: sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
-    glfw: glfw::Glfw,
+    pub glfw: glfw::Glfw,
 }
 
 impl Events {

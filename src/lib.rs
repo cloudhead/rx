@@ -137,6 +137,11 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
         )
         .init(options.source.clone())?;
 
+    session.prev_pos = win.handle.get_pos();
+
+    let (sx, sy) = win.handle.get_size();
+    session.prev_size = (sx as u32, sy as u32);
+
     if options.debug {
         session
             .settings
@@ -302,16 +307,35 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
         }
 
         if session.fullscreen_requested {
-            // UNIMPLEMENTED!!!!!
-            // GLFW RS LIBRARY DOES NOT YET IMPLEMENT glfw.set_window_monitor()
-            // 20/10/2022
-
-            /* let s = win.size();
-            let glfw = &mut win.handle.glfw;
-            if session.fullscreen {
-            } else {
-            } */
             debug!("Toggled fullscreen");
+            if session.fullscreen {
+                win.handle.set_monitor(
+                    glfw::WindowMode::Windowed,
+                    session.prev_pos.0,
+                    session.prev_pos.1,
+                    session.prev_size.0,
+                    session.prev_size.1,
+                    None,
+                )
+            } else {
+                events.glfw.with_primary_monitor(|_, m| {
+                    let mon = m.unwrap();
+                    let mode = mon.get_video_mode().unwrap();
+
+                    session.prev_pos = win.handle.get_pos();
+                    let (sx, sy) = win.handle.get_size();
+                    session.prev_size = (sx as u32, sy as u32);
+
+                    win.handle.set_monitor(
+                        glfw::WindowMode::FullScreen(mon),
+                        0,
+                        0,
+                        mode.width,
+                        mode.height,
+                        None,
+                    )
+                })
+            }
             session.set_fullscreen();
         }
 
