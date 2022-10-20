@@ -129,7 +129,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
     let base_dirs = dirs::BaseDirs::new()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
     let cwd = std::env::current_dir()?;
-    let mut session = Session::new(win_w, win_h, cwd, proj_dirs, base_dirs)
+    let mut session = Session::new(options.fullscreen, win_w, win_h, cwd, proj_dirs, base_dirs)
         .with_blank(
             FileStatus::NoFile,
             Session::DEFAULT_VIEW_W,
@@ -173,6 +173,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
     }
+
     // Make sure our session ticks once before anything is rendered.
     let effects = session.update(
         &mut vec![],
@@ -298,6 +299,20 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
                 }
                 _ => {}
             };
+        }
+
+        if session.fullscreen_requested {
+            // UNIMPLEMENTED!!!!!
+            // GLFW RS LIBRARY DOES NOT YET IMPLEMENT glfw.set_window_monitor()
+            // 20/10/2022
+
+            /* let s = win.size();
+            let glfw = &mut win.handle.glfw;
+            if session.fullscreen {
+            } else {
+            } */
+            debug!("Toggled fullscreen");
+            session.set_fullscreen();
         }
 
         if resized {

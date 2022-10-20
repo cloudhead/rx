@@ -660,6 +660,12 @@ pub struct Session {
     /// the command is processed. For example, when displaying a message before
     /// an expensive process is kicked off.
     queue: Vec<InternalCommand>,
+
+    pub fullscreen: bool,
+
+    pub fullscreen_requested: bool,
+
+    pub prev_size: LogicalSize,
 }
 
 impl Session {
@@ -707,6 +713,7 @@ impl Session {
 
     /// Create a new un-initialized session.
     pub fn new<P: AsRef<Path>>(
+        fs: bool,
         w: u32,
         h: u32,
         cwd: P,
@@ -751,6 +758,12 @@ impl Session {
             avg_time: time::Duration::from_secs(0),
             frame_number: 0,
             queue: Vec::new(),
+            fullscreen: fs,
+            fullscreen_requested: false,
+            prev_size: LogicalSize {
+                width: 1280.0,
+                height: 720.0,
+            },
         }
     }
 
@@ -3017,11 +3030,13 @@ impl Session {
                     v.paint_color(*color, x, y);
                 }
             }
-            Command::Fullscreen => {
-                //Set screen to fullscreen
-                debug!("Fullscreen!!"); // <<===== DEBUG DOES NOT WORK
-            }
+            Command::Fullscreen => self.fullscreen_requested = true,
         };
+    }
+
+    pub fn set_fullscreen(&mut self) {
+        self.fullscreen = !self.fullscreen;
+        self.fullscreen_requested = false;
     }
 
     fn cmdline_hide(&mut self) {

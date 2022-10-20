@@ -178,7 +178,7 @@ impl fmt::Display for Command {
             Self::PaletteClear => write!(f, "Clear palette"),
             Self::PaletteGradient(cs, ce, n) => write!(
                 f,
-                "Create {} colors gradient from {} to {}",
+                "Create {number} colors gradient from {colorstart} to {colorend}",
                 number = n,
                 colorstart = cs,
                 colorend = ce
@@ -907,9 +907,11 @@ impl Default for Commands {
             .command("map/clear!", "Clear all key mappings", |p| {
                 p.value(Command::MapClear)
             })
-            .command("fullscreen", "Toggle between fullscreen and windowed", |p| {
-                p.value(Command::Fullscreen)
-            })
+            .command(
+                "fullscreen",
+                "Toggle between fullscreen and windowed",
+                |p| p.value(Command::Fullscreen),
+            )
             .command("p/add", "Add a color to the palette", |p| {
                 p.then(color()).map(|(_, rgba)| Command::PaletteAdd(rgba))
             })
