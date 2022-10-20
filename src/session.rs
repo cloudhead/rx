@@ -2848,7 +2848,6 @@ impl Session {
             Command::MapClear => {
                 self.key_bindings = KeyBindings::default();
             }
-            //Command::Fullscreen => {}
             Command::Undo => {
                 self.undo(self.views.active_id);
             }
