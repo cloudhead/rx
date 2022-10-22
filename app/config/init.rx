@@ -1,0 +1,81 @@
+-------------
+-- init.rx --
+-------------
+
+-- Default `rx` configuration
+
+----------- ------------- -------------------------------------------- -----------------------------------
+--           KEY           COMMAND                                       DESCRIPTION
+----------- ------------- -------------------------------------------- -----------------------------------
+map        '?'            help                                     --  Show help
+map/help   '?'            help                                     --  Hide help
+map        ':'            mode command                             --  Switch to command mode
+map         v             mode visual                              --  Switch to visual mode
+map         .             zoom +                                   --  Zoom in active view
+map         ,             zoom -                                   --  Zoom out active view
+map         /             zoom 1.0                                 --  Reset active view zoom
+map/normal  j             v/prev                                   --  Go to previous view
+map/normal  k             v/next                                   --  Go to next view
+map         <tab>         v/prev                                   --  Go to previous view (all modes)
+map         z             v/center                                 --  Center active view
+map         u             undo                                     --  Undo active view edit
+map         r             redo                                     --  Redo active view edit
+map         x             swap                                     --  Swap foreground/background colors
+map/normal  b             brush                                    --  Reset brush
+map/normal  g             flood                                    --  Flood tool
+map/normal  e             brush/mode erase {brush/mode erase}      --  Erase (hold)
+map/normal  <shift>       brush/set multi {brush/unset multi}      --  Multi-brush (hold)
+map/normal  =             brush/mode pencil                        --  Pencil mode
+map/normal  ]             brush/size +                             --  Increase brush size
+map/normal  [             brush/size -                             --  Decrease brush size
+map/normal  <ctrl>        tool sampler {tool/prev}                 --  Sample color (hold)
+map/help    <space>       tool pan {tool/prev}                     --  Pan help (hold)
+map         <space>       tool pan {tool/prev}                     --  Pan workspace (hold)
+map         <up>          pan  0  1                                --  Pan view up
+map         <down>        pan  0 -1                                --  Pan view down
+map         <left>        pan -1  0                                --  Pan view left
+map         <right>       pan  1  0                                --  Pan view right
+map         <return>      f/add                                    --  Add a frame to the view
+map         <backspace>   f/remove                                 --  Remove a frame from the view
+map/normal  h             f/prev                                   --  Navigate to previous frame
+map/normal  l             f/next                                   --  Navigate to next frame
+
+map/visual  j             selection/move    0 -1
+map/visual  k             selection/move    0  1
+map/visual  h             selection/move   -1  0
+map/visual  l             selection/move    1  0
+map/visual  ]             selection/offset  1  1
+map/visual  [             selection/offset -1 -1
+map/visual  \             selection/expand
+map/visual  f             selection/fill
+map/visual  y             selection/yank
+map/visual  d             selection/cut
+map/visual  e             selection/erase
+map/visual  p             selection/paste
+map/visual  w             selection/jump +
+map/visual  b             selection/jump -
+
+set scale = 1.0                                               --  Set interface scale to 100%
+set checker = off                                             --  Turn off alpha checker
+set debug = off                                               --  Turn off debug mode
+set background = #000000/0.0                                  --  Set background appearance to black
+
+-------------------
+-- Color palette --
+-------------------
+p/add #1a1c2c
+p/add #5d275d
+p/add #b13e53
+p/add #ef7d57
+p/add #ffcd75
+p/add #a7f070
+p/add #38b764
+p/add #257179
+p/add #29366f
+p/add #3b5dc9
+p/add #41a6f6
+p/add #73eff7
+p/add #f4f4f4
+p/add #94b0c2
+p/add #566c86
+p/add #333c57
