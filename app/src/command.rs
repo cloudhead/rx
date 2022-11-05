@@ -224,13 +224,10 @@ impl fmt::Display for Command {
             Self::Noop => write!(f, "No-op"),
             Self::PaletteAdd(c) => write!(f, "Add {color} to palette", color = c),
             Self::PaletteClear => write!(f, "Clear palette"),
-            Self::PaletteGradient(cs, ce, n) => write!(
-                f,
-                "Create {} colors gradient from {} to {}",
-                number = n,
-                colorstart = cs,
-                colorend = ce
-            ),
+            Self::PaletteGradient(cs, ce, n) => {
+                write!(f, "Create {n} colors gradient from {cs} to {ce}")
+            }
+
             Self::PaletteSample => write!(f, "Sample palette from view"),
             Self::PaletteSort => write!(f, "Sort palette colors"),
             Self::Pan(x, 0) if *x > 0 => write!(f, "Pan workspace right"),
@@ -718,7 +715,7 @@ mod test {
         );
         assert_eq!(
             p.parse("set scale = 1.0"),
-            Ok((Command::Set("scale".to_owned(), Value::F64(1.0)), ""))
+            Ok((Command::Set("scale".to_owned(), Value::Float(1.0)), ""))
         );
         assert_eq!(
             p.parse("set foo=value"),

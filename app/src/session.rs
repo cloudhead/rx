@@ -14,6 +14,7 @@ use crate::app::command_line::MessageType;
 use crate::app::keyboard;
 use crate::app::keyboard::{Input, KeyBinding, KeyBindings};
 use crate::app::script;
+use crate::app::settings;
 use crate::app::view;
 use crate::app::view::ViewId;
 use crate::app::DEFAULT_CONFIG;
@@ -423,6 +424,9 @@ impl Session {
                     });
                 }
             }
+            Command::Set(setting, value) => {
+                self.settings.set(setting, value)?;
+            }
             _ => {}
         };
 
@@ -717,4 +721,6 @@ pub enum Error {
     Source(PathBuf, Box<dyn std::error::Error + Send + Sync>),
     #[error(transparent)]
     Io(#[from] io::Error),
+    #[error(transparent)]
+    Settings(#[from] settings::Error),
 }

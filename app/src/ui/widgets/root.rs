@@ -111,6 +111,15 @@ impl Widget<Session> for Root {
             }
         }
 
+        for setting in session.settings.changed() {
+            match setting.as_str() {
+                "ui/font" => {
+                    //
+                }
+                _ => {}
+            }
+        }
+
         ControlFlow::Continue(())
     }
 

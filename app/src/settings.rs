@@ -1,38 +1,53 @@
-use std::collections::HashMap;
-
-use anyhow::{anyhow, Error};
+use std::collections::hash_map::Entry;
+use std::collections::{HashMap, HashSet};
 
 use crate::gfx::prelude::Rgba8;
 use crate::script::Value;
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("no such setting `{0}`")]
+    InvalidSetting(String),
+    #[error("invalid value `{0}` for `{1}`, expected {2}")]
+    InvalidValue(Value, String, &'static str),
+}
+
 /// A dictionary used to store session settings.
 #[derive(Debug)]
 pub struct Settings {
-    map: HashMap<String, Value>,
+    current: HashMap<String, Value>,
+    changed: HashSet<String>,
 }
 
 impl Settings {
     /// Lookup a setting.
     pub fn get(&self, setting: &str) -> Option<&Value> {
-        self.map.get(setting)
+        self.current.get(setting)
+    }
+
+    /// Returns changed settings since last time, removing each changed key from the set.
+    pub fn changed(&mut self) -> impl Iterator<Item = String> + '_ {
+        self.changed.drain()
     }
 
     /// Set an existing setting to a new value. Returns `Err` if there is a type
     /// mismatch or the setting isn't found. Otherwise, returns `Ok` with the
     /// old value.
-    pub fn set(&mut self, k: &str, v: Value) -> Result<Value, Error> {
-        if let Some(current) = self.get(k) {
-            if std::mem::discriminant(&v) == std::mem::discriminant(current) {
-                return Ok(self.map.insert(k.to_string(), v).unwrap());
+    pub fn set(&mut self, key: String, val: Value) -> Result<Value, Error> {
+        match self.current.entry(key) {
+            Entry::Occupied(mut e) => {
+                if std::mem::discriminant(&val) == std::mem::discriminant(e.get()) {
+                    self.changed.insert(e.key().to_owned());
+                    Ok(e.insert(val))
+                } else {
+                    Err(Error::InvalidValue(
+                        val,
+                        e.key().to_owned(),
+                        e.get().description(),
+                    ))
+                }
             }
-            Err(anyhow!(
-                "invalid value `{}` for `{}`, expected {}",
-                v,
-                k,
-                current.description()
-            ))
-        } else {
-            Err(anyhow!("no such setting `{}`", k))
+            Entry::Vacant(e) => Err(Error::InvalidSetting(e.into_key())),
         }
     }
 }
@@ -41,27 +56,27 @@ impl Default for Settings {
     /// The default settings.
     fn default() -> Self {
         Self {
-            map: hashmap! {
+            current: hashmap! {
                 "debug" => Value::Bool(false),
                 "checker" => Value::Bool(false),
-                "background" => Value::Rgba8(Rgba8::TRANSPARENT),
+                "background" => Value::Color(Rgba8::TRANSPARENT),
                 "input/mouse" => Value::Bool(true),
-                "scale" => Value::F64(1.0),
+                "scale" => Value::Float(1.0),
                 "animation" => Value::Bool(true),
-                "animation/delay" => Value::U32(160),
+                "animation/delay" => Value::Int(160),
                 "ui/palette" => Value::Bool(true),
                 "ui/status" => Value::Bool(true),
                 "ui/cursor" => Value::Bool(true),
                 "ui/message" => Value::Bool(true),
                 "ui/switcher" => Value::Bool(true),
                 "ui/view-info" => Value::Bool(true),
-
+                "ui/font" => Value::Str(String::new()),
                 "grid" => Value::Bool(false),
-                "grid/color" => Value::Rgba8(Rgba8::BLUE),
-                "grid/spacing" => Value::U32Tuple(8, 8),
-
+                "grid/color" => Value::Color(Rgba8::BLUE),
+                "grid/spacing" => Value::Int2D(8, 8),
                 "debug/crosshair" => Value::Bool(false)
             },
+            changed: HashSet::default(),
         }
     }
 }

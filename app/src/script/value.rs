@@ -9,13 +9,13 @@ use crate::script::parsers::*;
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
     Bool(bool),
-    U32(u32),
-    U32Tuple(u32, u32),
-    F32Tuple(f32, f32),
-    F64(f64),
+    Int(u32),
+    Int2D(u32, u32),
+    Float2D(f32, f32),
+    Float(f64),
     Str(String),
     Ident(String),
-    Rgba8(Rgba8),
+    Color(Rgba8),
 }
 
 impl Value {
@@ -27,21 +27,21 @@ impl Value {
     }
 
     pub fn to_f64(&self) -> f64 {
-        if let Value::F64(n) = self {
+        if let Value::Float(n) = self {
             return *n;
         }
         panic!("expected {:?} to be a `float`", self);
     }
 
     pub fn to_u64(&self) -> u64 {
-        if let Value::U32(n) = self {
+        if let Value::Int(n) = self {
             return *n as u64;
         }
         panic!("expected {:?} to be a `uint`", self);
     }
 
     pub fn to_rgba8(&self) -> Rgba8 {
-        if let Value::Rgba8(rgba8) = self {
+        if let Value::Color(rgba8) = self {
             return *rgba8;
         }
         panic!("expected {:?} to be a `Rgba8`", self);
@@ -50,12 +50,12 @@ impl Value {
     pub fn description(&self) -> &'static str {
         match self {
             Self::Bool(_) => "on / off",
-            Self::U32(_) => "positive integer, eg. 32",
-            Self::F64(_) => "float, eg. 1.33",
-            Self::U32Tuple(_, _) => "two positive integers, eg. 32, 48",
-            Self::F32Tuple(_, _) => "two floats , eg. 32.17, 48.29",
+            Self::Int(_) => "positive integer, eg. 32",
+            Self::Float(_) => "float, eg. 1.33",
+            Self::Int2D(_, _) => "two positive integers, eg. 32, 48",
+            Self::Float2D(_, _) => "two floats , eg. 32.17, 48.29",
             Self::Str(_) => "string, eg. \"fnord\"",
-            Self::Rgba8(_) => "color, eg. #ffff00",
+            Self::Color(_) => "color, eg. #ffff00",
             Self::Ident(_) => "identifier, eg. fnord",
         }
     }
@@ -63,7 +63,7 @@ impl Value {
 
 impl From<Value> for (u32, u32) {
     fn from(other: Value) -> (u32, u32) {
-        if let Value::U32Tuple(x, y) = other {
+        if let Value::Int2D(x, y) = other {
             return (x, y);
         }
         panic!("expected {:?} to be a `(u32, u32)`", other);
@@ -72,7 +72,7 @@ impl From<Value> for (u32, u32) {
 
 impl From<Value> for f32 {
     fn from(other: Value) -> f32 {
-        if let Value::F64(x) = other {
+        if let Value::Float(x) = other {
             return x as f32;
         }
         panic!("expected {:?} to be a `f64`", other);
@@ -81,7 +81,7 @@ impl From<Value> for f32 {
 
 impl From<Value> for f64 {
     fn from(other: Value) -> f64 {
-        if let Value::F64(x) = other {
+        if let Value::Float(x) = other {
             return x as f64;
         }
         panic!("expected {:?} to be a `f64`", other);
@@ -93,12 +93,12 @@ impl fmt::Display for Value {
         match self {
             Value::Bool(true) => "on".fmt(f),
             Value::Bool(false) => "off".fmt(f),
-            Value::U32(u) => u.fmt(f),
-            Value::F64(x) => x.fmt(f),
-            Value::U32Tuple(x, y) => write!(f, "{},{}", x, y),
-            Value::F32Tuple(x, y) => write!(f, "{},{}", x, y),
+            Value::Int(u) => u.fmt(f),
+            Value::Float(x) => x.fmt(f),
+            Value::Int2D(x, y) => write!(f, "{},{}", x, y),
+            Value::Float2D(x, y) => write!(f, "{},{}", x, y),
             Value::Str(s) => s.fmt(f),
-            Value::Rgba8(c) => c.fmt(f),
+            Value::Color(c) => c.fmt(f),
             Value::Ident(i) => i.fmt(f),
         }
     }
@@ -107,12 +107,11 @@ impl fmt::Display for Value {
 impl Parse for Value {
     fn parser() -> Parser<Self> {
         let str_val = quoted().map(Value::Str).label("<string>");
-        let rgba8_val = color().map(Value::Rgba8);
-        let u32_tuple_val = tuple::<u32>(natural(), natural()).map(|(x, y)| Value::U32Tuple(x, y));
-        let u32_val = natural::<u32>().map(Value::U32);
-        let f64_tuple_val =
-            tuple::<f32>(rational(), rational()).map(|(x, y)| Value::F32Tuple(x, y));
-        let f64_val = rational::<f64>().map(Value::F64).label("0.0 .. 4096.0");
+        let rgba8_val = color().map(Value::Color);
+        let u32_tuple_val = tuple::<u32>(natural(), natural()).map(|(x, y)| Value::Int2D(x, y));
+        let u32_val = natural::<u32>().map(Value::Int);
+        let f64_tuple_val = tuple::<f32>(rational(), rational()).map(|(x, y)| Value::Float2D(x, y));
+        let f64_val = rational::<f64>().map(Value::Float).label("0.0 .. 4096.0");
         let bool_val = string("on")
             .value(Value::Bool(true))
             .or(string("off").value(Value::Bool(false)))
@@ -141,15 +140,15 @@ mod test {
     fn tes_value_parser() {
         let p = Value::parser();
 
-        assert_eq!(p.parse("1.0 2.0").unwrap(), (Value::F32Tuple(1.0, 2.0), ""));
-        assert_eq!(p.parse("1.0").unwrap(), (Value::F64(1.0), ""));
-        assert_eq!(p.parse("1").unwrap(), (Value::U32(1), ""));
-        assert_eq!(p.parse("1 2").unwrap(), (Value::U32Tuple(1, 2), ""));
+        assert_eq!(p.parse("1.0 2.0").unwrap(), (Value::Float2D(1.0, 2.0), ""));
+        assert_eq!(p.parse("1.0").unwrap(), (Value::Float(1.0), ""));
+        assert_eq!(p.parse("1").unwrap(), (Value::Int(1), ""));
+        assert_eq!(p.parse("1 2").unwrap(), (Value::Int2D(1, 2), ""));
         assert_eq!(p.parse("on").unwrap(), (Value::Bool(true), ""));
         assert_eq!(p.parse("off").unwrap(), (Value::Bool(false), ""));
         assert_eq!(
             p.parse("#ff00ff").unwrap(),
-            (Value::Rgba8(Rgba8::new(0xff, 0x0, 0xff, 0xff)), "")
+            (Value::Color(Rgba8::new(0xff, 0x0, 0xff, 0xff)), "")
         );
     }
 }
