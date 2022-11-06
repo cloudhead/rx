@@ -2,5 +2,10 @@
 members = [
   "app",
   "framework",
+  "utils",
   "examples"
+]
+default-members = [
+  "app",
+  "framework"
 ]

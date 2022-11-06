@@ -61,6 +61,12 @@ impl Value {
     }
 }
 
+impl From<String> for Value {
+    fn from(s: String) -> Self {
+        Self::Str(s)
+    }
+}
+
 impl From<Value> for (u32, u32) {
     fn from(other: Value) -> (u32, u32) {
         if let Value::Int2D(x, y) = other {

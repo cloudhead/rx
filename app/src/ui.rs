@@ -70,14 +70,16 @@ pub fn status_bar() -> impl ui::Widget<Session> {
                     cursor.y.floor(),
                     hover_color
                 ))
+                .font(session.settings["ui/font"].to_string().into())
                 .offset(Offset::new(canvas.size.w / 2., 0.)),
             );
 
             // TODO: Use `Label` widget and "right-align".
-            canvas.paint(Text::new(status));
+            canvas.paint(Text::new(status).font(session.settings["ui/font"].to_string().into()));
             canvas.paint(
                 Text::new(zoom)
                     .align(TextAlign::Right)
+                    .font(session.settings["ui/font"].to_string().into())
                     .offset(Offset::new(canvas.size.w, 0.)),
             );
         }

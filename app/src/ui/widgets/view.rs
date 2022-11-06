@@ -97,6 +97,7 @@ impl Widget<Session> for View {
         canvas.with(unscaled).paint(
             Text::new(format!("{}x{}", size.w, size.h))
                 .color(Rgba8::GREY)
+                .font(session.settings["ui/font"].to_string().into())
                 .offset(Vector::new(0., size.h * session.zoom + 1.)),
         );
     }

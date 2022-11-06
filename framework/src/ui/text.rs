@@ -1,6 +1,7 @@
 pub mod fonts;
 
 use std::array::TryFromSliceError;
+use std::fmt;
 use thiserror::Error;
 
 use crate::gfx::pixels::PixelsMut;
@@ -113,6 +114,12 @@ impl Font {
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct FontId(pub String);
 
+impl fmt::Display for FontId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl Default for FontId {
     fn default() -> Self {
         Self(String::from("default"))
@@ -122,6 +129,12 @@ impl Default for FontId {
 impl From<&str> for FontId {
     fn from(other: &str) -> Self {
         Self(other.to_owned())
+    }
+}
+
+impl From<String> for FontId {
+    fn from(other: String) -> Self {
+        Self(other)
     }
 }
 

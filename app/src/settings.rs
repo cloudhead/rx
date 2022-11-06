@@ -33,7 +33,10 @@ impl Settings {
     /// Set an existing setting to a new value. Returns `Err` if there is a type
     /// mismatch or the setting isn't found. Otherwise, returns `Ok` with the
     /// old value.
-    pub fn set(&mut self, key: String, val: Value) -> Result<Value, Error> {
+    pub fn set(&mut self, key: impl Into<String>, val: impl Into<Value>) -> Result<Value, Error> {
+        let key = key.into();
+        let val = val.into();
+
         match self.current.entry(key) {
             Entry::Occupied(mut e) => {
                 if std::mem::discriminant(&val) == std::mem::discriminant(e.get()) {
@@ -70,7 +73,7 @@ impl Default for Settings {
                 "ui/message" => Value::Bool(true),
                 "ui/switcher" => Value::Bool(true),
                 "ui/view-info" => Value::Bool(true),
-                "ui/font" => Value::Str(String::new()),
+                "ui/font" => Value::Str(String::from("default")),
                 "grid" => Value::Bool(false),
                 "grid/color" => Value::Color(Rgba8::BLUE),
                 "grid/spacing" => Value::Int2D(8, 8),

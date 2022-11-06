@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context as _};
@@ -11,6 +12,7 @@ use rx::gfx::Image;
 
 struct Options {
     paths: Vec<PathBuf>,
+    fonts: Option<PathBuf>,
 }
 
 impl Options {
@@ -19,9 +21,14 @@ impl Options {
 
         let mut parser = lexopt::Parser::from_env();
         let mut paths = Vec::new();
+        let mut fonts = None;
 
         while let Some(arg) = parser.next()? {
             match arg {
+                Long("fonts") => {
+                    let folder = parser.value()?;
+                    fonts = Some(PathBuf::from(folder));
+                }
                 Value(val) => {
                     let path = PathBuf::try_from(val)?;
                     paths.push(path);
@@ -29,7 +36,7 @@ impl Options {
                 _ => return Err(anyhow!(arg.unexpected())),
             }
         }
-        Ok(Self { paths })
+        Ok(Self { paths, fonts })
     }
 }
 
@@ -55,9 +62,40 @@ fn main() -> anyhow::Result<()> {
 
     // App UI.
     let ui = rx::app::ui::root(id);
+    let fonts = if let Some(fonts) = options.fonts {
+        fs::read_dir(fonts)?
+            .map(|entry| {
+                let entry = entry?;
+                let font = fs::read(entry.path())?;
+                let name = Path::new(&entry.file_name())
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .to_string();
+
+                Ok::<_, anyhow::Error>((FontId::from(name), font, FontFormat::UF2))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        vec![(FontId::default(), DEFAULT_FONT.to_owned(), FontFormat::UF2)]
+    };
+
+    if let Some((font, _, _)) = fonts.first() {
+        session.settings.set("ui/font", font.to_string())?;
+    } else {
+        anyhow::bail!("No fonts found");
+    }
+
+    // let fonts = fonts
+    //     .into_iter()
+    //     .map(|(id, data, format)| (id, data.as_slice(), format));
+
+    // } else {
+    //     vec![(FontId::default(), DEFAULT_FONT, FontFormat::UF2)]
+    // };
 
     rx::framework::Application::new("rx")
-        .font(FontId::default(), DEFAULT_FONT, FontFormat::UF2)?
+        .fonts(fonts)?
         .cursors(cursors)
         .image("pencil", Image::try_from(images::PENCIL).unwrap())
         .launch(ui, session)

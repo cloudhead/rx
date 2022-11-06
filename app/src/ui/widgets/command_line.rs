@@ -3,8 +3,7 @@ use std::time;
 
 use crate::app::{Mode, Session};
 use crate::framework::platform::Key;
-use crate::framework::ui::text;
-use crate::framework::ui::text::Text;
+use crate::framework::ui::text::{FontId, Text};
 use crate::framework::ui::*;
 use crate::gfx::prelude::*;
 
@@ -23,11 +22,14 @@ impl Widget<Session> for CommandLine {
     }
 
     fn paint(&mut self, mut canvas: Canvas<'_>, session: &Session) {
+        let font: FontId = session.settings["ui/font"].to_string().into();
+
         if session.mode == Mode::Command {
             let input = format!(":{}_", session.cmdline.input());
-            canvas.paint(Paint::text(input, text::FontId::default(), &canvas));
+
+            canvas.paint(Paint::text(input, font, &canvas));
         } else if let Some(msg) = &session.cmdline.message {
-            canvas.paint(Text::new(msg).color(msg.color()));
+            canvas.paint(Text::new(msg).font(font).color(msg.color()));
         }
     }
 

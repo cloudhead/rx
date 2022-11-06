@@ -38,14 +38,16 @@ impl Application {
         }
     }
 
-    pub fn font(
+    pub fn fonts(
         mut self,
-        id: impl Into<FontId>,
-        data: &[u8],
-        format: FontFormat,
+        fonts: impl IntoIterator<Item = (impl Into<FontId>, impl AsRef<[u8]>, FontFormat)>,
     ) -> Result<Self, Error> {
-        self.graphics.font(id, data, format)?;
+        for (id, data, format) in fonts {
+            let id = id.into();
+            log::debug!("Loading font {:?}..", id);
 
+            self.graphics.font(id, data.as_ref(), format)?;
+        }
         Ok(self)
     }
 
