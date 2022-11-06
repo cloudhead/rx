@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 
+use crate::framework::ui::text::FontId;
 use crate::gfx::prelude::Rgba8;
 use crate::script::Value;
 
@@ -28,6 +29,11 @@ impl Settings {
     /// Returns changed settings since last time, removing each changed key from the set.
     pub fn changed(&mut self) -> impl Iterator<Item = String> + '_ {
         self.changed.drain()
+    }
+
+    /// Get the currently set font.
+    pub fn font(&self) -> FontId {
+        self["ui/font"].to_string().into()
     }
 
     /// Set an existing setting to a new value. Returns `Err` if there is a type

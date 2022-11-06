@@ -185,7 +185,9 @@ impl Text {
 
 impl IntoPaint for &Text {
     fn into_paint(self, canvas: &Canvas<'_>) -> Paint {
-        let font = canvas.fonts.get(&self.font).unwrap();
+        let Some(font) = canvas.fonts.get(&self.font) else {
+            panic!("Font {:?} was not found", self.font);
+        };
         let texture = canvas.textures().get(&font.texture_id).unwrap();
         // XXX Don't clone the font?
         let vertices = TextBatch::new(*font, texture.size)

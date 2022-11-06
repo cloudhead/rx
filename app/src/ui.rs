@@ -38,17 +38,26 @@ pub fn toolbar() -> impl ui::Widget<Session> {
                 session.brush.mode(brush::Mode::Pencil);
             },
         ))
-        .child(Button::new(Text::new("B"), |_, session: &mut Session| {
-            session.tool(Tool::Brush);
-            session.brush.mode(brush::Mode::Normal);
-        }))
-        .child(Button::new(Text::new("E"), |_, session: &mut Session| {
-            session.tool(Tool::Brush);
-            session.brush.mode(brush::Mode::Erase);
-        }))
-        .child(Button::new(Text::new("G"), |_, session: &mut Session| {
-            session.tool(Tool::Bucket);
-        }))
+        .child(Button::new(
+            Image::named("brush"),
+            |_, session: &mut Session| {
+                session.tool(Tool::Brush);
+                session.brush.mode(brush::Mode::Normal);
+            },
+        ))
+        .child(Button::new(
+            Image::named("eraser"),
+            |_, session: &mut Session| {
+                session.tool(Tool::Brush);
+                session.brush.mode(brush::Mode::Erase);
+            },
+        ))
+        .child(Button::new(
+            Image::named("bucket"),
+            |_, session: &mut Session| {
+                session.tool(Tool::Bucket);
+            },
+        ))
 }
 
 /// Session status bar. Displays general information about the session.
@@ -70,16 +79,16 @@ pub fn status_bar() -> impl ui::Widget<Session> {
                     cursor.y.floor(),
                     hover_color
                 ))
-                .font(session.settings["ui/font"].to_string().into())
+                .font(session.settings.font())
                 .offset(Offset::new(canvas.size.w / 2., 0.)),
             );
 
             // TODO: Use `Label` widget and "right-align".
-            canvas.paint(Text::new(status).font(session.settings["ui/font"].to_string().into()));
+            canvas.paint(Text::new(status).font(session.settings.font()));
             canvas.paint(
                 Text::new(zoom)
                     .align(TextAlign::Right)
-                    .font(session.settings["ui/font"].to_string().into())
+                    .font(session.settings.font())
                     .offset(Offset::new(canvas.size.w, 0.)),
             );
         }

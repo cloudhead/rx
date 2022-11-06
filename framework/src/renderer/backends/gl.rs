@@ -739,7 +739,7 @@ impl renderer::Renderer for Renderer {
             let clear = frame.clear.get(&id);
 
             if let Some(texels) = frame.upload.get(&id) {
-                target.upload(&*texels)?;
+                target.upload(texels)?;
 
                 if clear.is_some() {
                     warn!("ignoring `clear` operation due to `upload` on {}", id);

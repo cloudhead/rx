@@ -86,18 +86,13 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("No fonts found");
     }
 
-    // let fonts = fonts
-    //     .into_iter()
-    //     .map(|(id, data, format)| (id, data.as_slice(), format));
-
-    // } else {
-    //     vec![(FontId::default(), DEFAULT_FONT, FontFormat::UF2)]
-    // };
-
     rx::framework::Application::new("rx")
         .fonts(fonts)?
         .cursors(cursors)
         .image("pencil", Image::try_from(images::PENCIL).unwrap())
+        .image("brush", Image::try_from(images::BRUSH).unwrap())
+        .image("bucket", Image::try_from(images::BUCKET).unwrap())
+        .image("eraser", Image::try_from(images::ERASER).unwrap())
         .launch(ui, session)
         .map_err(Into::into)
 }

@@ -38,6 +38,12 @@ pub mod app {
     pub mod images {
         pub const PENCIL: &[u8] =
             include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/pencil.rgba"));
+        pub const BRUSH: &[u8] =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/brush.rgba"));
+        pub const ERASER: &[u8] =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/eraser.rgba"));
+        pub const BUCKET: &[u8] =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/bucket.rgba"));
     }
 
     pub use super::autocomplete;

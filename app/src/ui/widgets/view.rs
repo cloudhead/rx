@@ -1,6 +1,7 @@
 use std::ops::ControlFlow;
 use std::time;
 
+use rx_framework::gfx::math::rect;
 use rx_framework::platform::MouseButton;
 
 use crate::app::brush;
@@ -21,6 +22,7 @@ pub struct View {
     size: Size<u32>,
     zoom: f32,
     cursor: Point,
+    hot: bool,
 
     draft: Vec<shape2d::Vertex>,
     paint: Vec<shape2d::Vertex>,
@@ -38,6 +40,7 @@ impl View {
             zoom: 1.,
             size: Size::default(),
             cursor: Point::default(),
+            hot: false,
             draft: Vec::default(),
             paint: Vec::default(),
             blending: Blending::default(),
@@ -86,6 +89,15 @@ impl Widget<Session> for View {
         canvas.paint(Paint::sprite(&self.paint_texture, &canvas));
         canvas.paint(Paint::sprite(&self.draft_texture, &canvas));
 
+        if self.hot {
+            if session.mode == Mode::Normal
+                && session.tool == Tool::Brush
+                && session.brush.mode == brush::Mode::Pencil
+            {
+                canvas.fill(Rect::new(self.cursor, [1., 1.]), session.colors.fg);
+            }
+        }
+
         // Parent transform without the scaling. This is to draw UI decorations
         // that don't scale when the viewport is zoomed.
         let unscaled = Transform::translate(canvas.transform.translation());
@@ -97,7 +109,7 @@ impl Widget<Session> for View {
         canvas.with(unscaled).paint(
             Text::new(format!("{}x{}", size.w, size.h))
                 .color(Rgba8::GREY)
-                .font(session.settings["ui/font"].to_string().into())
+                .font(session.settings.font())
                 .offset(Vector::new(0., size.h * session.zoom + 1.)),
         );
     }
@@ -123,15 +135,21 @@ impl Widget<Session> for View {
         };
 
         match event {
+            WidgetEvent::MouseEnter(_) => {
+                self.hot = true;
+            }
+            WidgetEvent::MouseExit => {
+                self.hot = false;
+            }
             WidgetEvent::MouseMove(cursor) => {
-                if ctx.hot {
-                    session.colors.hover = view.sample(cursor.map(|n| n as u32));
-                }
                 let cursor = cursor.map(|c| c.floor());
+
+                debug_assert!(ctx.hot);
 
                 if self.cursor == cursor {
                     return ControlFlow::Continue(());
                 }
+                session.colors.hover = view.sample(cursor.map(|n| n as u32));
                 session.views.cursor = cursor;
 
                 if session.mode == Mode::Normal {

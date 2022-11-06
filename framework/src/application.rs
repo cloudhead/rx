@@ -133,8 +133,6 @@ impl Application {
         while win.is_open() {
             win_events.wait();
 
-            println!("-----------------");
-
             for event in win_events.flush() {
                 if event.is_input() {
                     trace!("event: {:?}", event);
@@ -290,9 +288,8 @@ impl Application {
                 events.drain(..events.len() - 1);
             }
 
-            let mut event_ctx = ctx.into();
             for ev in events.drain(..) {
-                root.event(&ev, &mut event_ctx, &mut data);
+                root.event(&ev, &ctx, &mut data);
             }
             self.graphics.cursor.style = root.cursor().unwrap_or_default();
 

@@ -1,0 +1,9 @@
+[package]
+name = "rx-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1" }
+png = { version = "0.17.7" }
+rx = { version = "*", path = "../app" }

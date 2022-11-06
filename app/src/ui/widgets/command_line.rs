@@ -22,7 +22,7 @@ impl Widget<Session> for CommandLine {
     }
 
     fn paint(&mut self, mut canvas: Canvas<'_>, session: &Session) {
-        let font: FontId = session.settings["ui/font"].to_string().into();
+        let font: FontId = session.settings.font();
 
         if session.mode == Mode::Command {
             let input = format!(":{}_", session.cmdline.input());
