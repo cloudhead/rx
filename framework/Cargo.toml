@@ -7,12 +7,12 @@ homepage = "https://rx.cloudhead.io"
 edition = "2021"
 
 [features]
-default = ["glfw"]
-wayland = ["glfw", "glfw/wayland"]
+default = ["glfw", "glfw/glfw-sys"]
+wayland = ["glfw", "glfw/glfw-sys", "glfw/wayland"]
 
 [dependencies]
 gl = "0.14"
-glfw = { version = "0.45.0", optional = true }
+glfw = { version = "0.46.0", default-features = false, optional = true }
 log = { version = "0.4.17", features = ["std"] }
 luminance = "0.47.0"
 luminance-derive = "0.10.0"
