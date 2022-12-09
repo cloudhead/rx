@@ -326,7 +326,7 @@ impl<T> Animation<T> {
 pub struct Manager {
     pub active: ViewId,
     pub views: HashMap<ViewId, View>,
-    pub cursor: Point2D,
+    pub cursor: Option<Point2D>,
 }
 
 impl Manager {

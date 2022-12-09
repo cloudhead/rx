@@ -24,7 +24,7 @@ impl Widget<Session> for Swatch {
         let stroke = if self.hot { 1. } else { 0. };
 
         canvas.paint(
-            rectangle(Rect::origin(self.size))
+            rectangle([0., 0.], self.size)
                 .stroke(stroke, Rgba8::WHITE)
                 .fill(self.color),
         );
@@ -45,7 +45,6 @@ impl Widget<Session> for Swatch {
             }
             WidgetEvent::MouseExit => {
                 self.hot = false;
-                session.colors.hover = None;
             }
             WidgetEvent::MouseUp { .. } => {
                 return ControlFlow::Break(());
@@ -134,6 +133,13 @@ impl Widget<Session> for Palette {
         ctx: &Context<'_>,
         session: &mut Session,
     ) -> ControlFlow<()> {
+        match event {
+            WidgetEvent::MouseEnter { .. } => {}
+            WidgetEvent::MouseExit => {
+                session.colors.hover = None;
+            }
+            _ => {}
+        }
         self.swatches.event(event, ctx, session)
     }
 

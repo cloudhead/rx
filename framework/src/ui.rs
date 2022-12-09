@@ -26,7 +26,7 @@ pub use env::Env;
 pub use event::{InputState, WidgetEvent, WindowEvent};
 pub use renderer::{Blending, Paint, TextureId};
 pub use widgets::align::Align;
-pub use widgets::align::{bottom, center, left, right, top};
+pub use widgets::align::{align, bottom, center, left, right, top};
 pub use widgets::click::Click;
 pub use widgets::controller::Control;
 pub use widgets::hover::Hover;

@@ -20,20 +20,24 @@ impl<T> Align<T> {
         self
     }
 
-    pub fn left(child: impl Widget<T> + 'static) -> Self {
-        Self::new(child).position(Position::default().left(0.))
+    pub fn left(mut self, offset: f32) -> Self {
+        self.position = self.position.left(offset);
+        self
     }
 
-    pub fn right(child: impl Widget<T> + 'static) -> Self {
-        Self::new(child).position(Position::default().right(0.))
+    pub fn right(mut self, offset: f32) -> Self {
+        self.position = self.position.right(offset);
+        self
     }
 
-    pub fn top(child: impl Widget<T> + 'static) -> Self {
-        Self::new(child).position(Position::default().top(0.))
+    pub fn top(mut self, offset: f32) -> Self {
+        self.position = self.position.top(offset);
+        self
     }
 
-    pub fn bottom(child: impl Widget<T> + 'static) -> Self {
-        Self::new(child).position(Position::default().bottom(0.))
+    pub fn bottom(mut self, offset: f32) -> Self {
+        self.position = self.position.bottom(offset);
+        self
     }
 }
 
@@ -104,22 +108,26 @@ impl<T> Widget<T> for Align<T> {
     }
 }
 
-pub fn center<T, W: Widget<T> + 'static>(widget: W) -> Align<T> {
+pub fn align<T, W: Widget<T> + 'static>(widget: W) -> Align<T> {
     Align::new(widget)
 }
 
+pub fn center<T, W: Widget<T> + 'static>(widget: W) -> Align<T> {
+    align(widget)
+}
+
 pub fn top<T, W: Widget<T> + 'static>(widget: W) -> Align<T> {
-    Align::top(widget)
+    align(widget).top(0.)
 }
 
 pub fn left<T, W: Widget<T> + 'static>(widget: W) -> Align<T> {
-    Align::left(widget)
+    align(widget).left(0.)
 }
 
 pub fn bottom<T, W: Widget<T> + 'static>(widget: W) -> Align<T> {
-    Align::bottom(widget)
+    align(widget).bottom(0.)
 }
 
 pub fn right<T, W: Widget<T> + 'static>(widget: W) -> Align<T> {
-    Align::right(widget)
+    align(widget).right(0.)
 }

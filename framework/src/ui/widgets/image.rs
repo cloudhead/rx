@@ -20,12 +20,12 @@ impl<T> Widget<T> for Image {
         if let Self::ById(_, info) = self {
             return info.size.into();
         }
-        return Size::ZERO;
+        Size::ZERO
     }
 
     fn paint(&mut self, mut canvas: Canvas<'_>, _data: &T) {
         if let Self::ById(id, _) = self {
-            canvas.paint(Paint::sprite(&id, &canvas));
+            canvas.paint(Paint::texture(id, &canvas));
         }
     }
 

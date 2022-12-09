@@ -482,8 +482,8 @@ pub fn line<P: Into<Point2D<f32>>>(p1: P, p2: P) -> Line {
     Line::new(p1, p2)
 }
 
-pub fn rectangle(rect: impl Into<Rect<f32>>) -> Rectangle {
-    Rectangle::from(rect.into())
+pub fn rectangle(origin: impl Into<Point>, size: impl Into<Size>) -> Rectangle {
+    Rectangle::new(origin, size)
 }
 
 pub fn circle(origin: impl Into<Point>, radius: f32, sides: u32) -> Circle {

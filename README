@@ -38,6 +38,7 @@ BUILD DEPENDENCIES
 
   * rust (https://www.rust-lang.org/tools/install)
   * cmake (https://cmake.org/download/)
+  * extra-cmake-modules
 
   On macOS, `Xcode` and the `Xcode Command Line Tools` are required.
   The latter can be obtained by running `xcode-select --install`
@@ -84,4 +85,4 @@ LICENSE
 
 COPYRIGHT
 
-  (c) 2019 Alexis Sellier
+  (c) 2019-2022 Alexis Sellier

@@ -230,7 +230,7 @@ impl<T> Widget<T> for Text {
 
     // TODO: Maybe return `Option<bool>`, and if `None`, it's determined
     // by the Pod?!
-    fn contains(&self, point: Point) -> bool {
+    fn contains(&self, _point: Point) -> bool {
         // Rect::<f32>::origin(self.size).contains(point)
         true
     }

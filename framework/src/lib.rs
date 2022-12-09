@@ -19,6 +19,7 @@ pub mod timer;
 pub mod ui;
 
 pub use application::Application;
+pub use ui::Widget;
 
 /// Program version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

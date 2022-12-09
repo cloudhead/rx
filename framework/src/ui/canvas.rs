@@ -6,6 +6,7 @@ use crate::gfx::prelude::*;
 use crate::gfx::{self, shape2d, sprite2d};
 use crate::renderer::{Blending, Effect, Paint, TextureId};
 use crate::ui::text::{Font, FontError, FontFormat, FontId, Text};
+use crate::ui::Context;
 use crate::ui::Cursor;
 
 #[derive(Debug)]
@@ -15,6 +16,7 @@ pub struct Canvas<'a> {
     pub target: Option<TextureId>,
     pub blending: Blending,
 
+    context: &'a Context<'a>,
     graphics: &'a mut Graphics,
 }
 
@@ -27,14 +29,28 @@ impl<'a> Deref for Canvas<'a> {
 }
 
 impl<'a> Canvas<'a> {
-    pub fn new(graphics: &'a mut Graphics, transform: Transform, size: Size<f32>) -> Self {
+    pub fn new(
+        context: &'a Context<'a>,
+        graphics: &'a mut Graphics,
+        transform: Transform,
+        size: Size<f32>,
+    ) -> Self {
         Self {
             transform,
             size,
             target: None,
             blending: Blending::default(),
+            context,
             graphics,
         }
+    }
+
+    pub fn is_hot(&self) -> bool {
+        self.context.hot
+    }
+
+    pub fn is_active(&self) -> bool {
+        self.context.active
     }
 
     pub fn transform(&mut self, transform: Transform) -> Canvas<'_> {
@@ -43,7 +59,8 @@ impl<'a> Canvas<'a> {
             size: self.size,
             target: self.target,
             blending: self.blending,
-            graphics: &mut self.graphics,
+            context: self.context,
+            graphics: self.graphics,
         }
     }
 
@@ -53,7 +70,8 @@ impl<'a> Canvas<'a> {
             size,
             target: self.target,
             blending: self.blending,
-            graphics: &mut self.graphics,
+            context: self.context,
+            graphics: self.graphics,
         }
     }
 
@@ -63,7 +81,8 @@ impl<'a> Canvas<'a> {
             size: self.size,
             target: self.target,
             blending: self.blending,
-            graphics: &mut self.graphics,
+            context: self.context,
+            graphics: self.graphics,
         }
     }
 
@@ -94,7 +113,8 @@ impl<'a> Canvas<'a> {
             size: self.size,
             transform: self.transform,
             blending: self.blending,
-            graphics: &mut self.graphics,
+            context: self.context,
+            graphics: self.graphics,
         }
     }
 
@@ -104,7 +124,8 @@ impl<'a> Canvas<'a> {
             size: self.size,
             blending,
             transform: self.transform,
-            graphics: &mut self.graphics,
+            context: self.context,
+            graphics: self.graphics,
         }
     }
 
@@ -142,11 +163,12 @@ impl<'a> Canvas<'a> {
 
     pub fn clone(&mut self) -> Canvas<'_> {
         Canvas {
-            graphics: &mut self.graphics,
             size: self.size,
             transform: self.transform,
             target: self.target,
             blending: self.blending,
+            context: self.context,
+            graphics: self.graphics,
         }
     }
 
@@ -255,7 +277,20 @@ impl Paint {
         Text::new(body).font(font).into_paint(canvas)
     }
 
-    pub fn sprite(texture_id: &TextureId, canvas: &Canvas<'_>) -> Self {
+    pub fn sprite(texture_id: &TextureId, sprite: sprite2d::Sprite, canvas: &Canvas<'_>) -> Self {
+        let texture = canvas.textures().get(texture_id).unwrap();
+        let batch = sprite2d::Batch::new(texture.size).sprite(sprite);
+        let vertices = batch.vertices();
+
+        Paint::Sprite {
+            transform: Transform::identity(),
+            texture: *texture_id,
+            vertices,
+            target: None,
+        }
+    }
+
+    pub fn texture(texture_id: &TextureId, canvas: &Canvas<'_>) -> Self {
         let texture = canvas.textures().get(texture_id).unwrap();
         let vertices = sprite2d::Batch::new(texture.size)
             .item(

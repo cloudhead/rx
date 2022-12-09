@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use crate::platform::MouseButton;
 use crate::ui::widgets::Controller;
 use crate::ui::*;

@@ -1,7 +1,6 @@
 use std::ops::ControlFlow;
 use std::time;
 
-use rx_framework::gfx::math::rect;
 use rx_framework::platform::MouseButton;
 
 use crate::app::brush;
@@ -86,8 +85,8 @@ impl Widget<Session> for View {
         canvas.on(draft).paint(Paint::from(self.draft.clone()));
 
         // Render view textures to the screen.
-        canvas.paint(Paint::sprite(&self.paint_texture, &canvas));
-        canvas.paint(Paint::sprite(&self.draft_texture, &canvas));
+        canvas.paint(Paint::texture(&self.paint_texture, &canvas));
+        canvas.paint(Paint::texture(&self.draft_texture, &canvas));
 
         if self.hot {
             if session.mode == Mode::Normal
@@ -140,6 +139,7 @@ impl Widget<Session> for View {
             }
             WidgetEvent::MouseExit => {
                 self.hot = false;
+                session.views.cursor = None;
             }
             WidgetEvent::MouseMove(cursor) => {
                 let cursor = cursor.map(|c| c.floor());
@@ -150,7 +150,7 @@ impl Widget<Session> for View {
                     return ControlFlow::Continue(());
                 }
                 session.colors.hover = view.sample(cursor.map(|n| n as u32));
-                session.views.cursor = cursor;
+                session.views.cursor = Some(cursor);
 
                 if session.mode == Mode::Normal {
                     if session.tool == Tool::Brush {

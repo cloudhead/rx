@@ -303,20 +303,18 @@ impl Application {
                 );
             });
 
-            let graphics = &mut self.graphics;
-
             paint_timer.run(|_avg| {
                 root.paint(
-                    Canvas::new(graphics, Transform::identity(), win_size_ui),
+                    Canvas::new(&ctx, &mut self.graphics, Transform::identity(), win_size_ui),
                     &data,
                 );
             });
 
             render_timer.run(|_avg| {
-                let cursor = graphics.cursor();
+                let cursor = self.graphics.cursor();
 
                 renderer
-                    .frame(graphics.effects(), cursor, &mut store)
+                    .frame(self.graphics.effects(), cursor, &mut store)
                     .unwrap_or_else(|err| {
                         error!("{}", err);
                     });

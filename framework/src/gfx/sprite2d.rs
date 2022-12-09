@@ -47,6 +47,7 @@ impl Sprite {
         Self {
             src,
             dst,
+            alpha: 1.,
             ..Default::default()
         }
     }
@@ -80,7 +81,6 @@ impl Sprite {
 pub struct Batch {
     pub w: u32,
     pub h: u32,
-    pub size: usize,
 
     items: Vec<Sprite>,
 }
@@ -93,8 +93,12 @@ impl Batch {
             w: size.w,
             h: size.h,
             items: Vec::new(),
-            size: 0,
         }
+    }
+
+    pub fn sprite(mut self, sprite: Sprite) -> Self {
+        self.items.push(sprite);
+        self
     }
 
     pub fn singleton(
@@ -159,7 +163,6 @@ impl Batch {
                 .alpha(alpha)
                 .repeat(repeat.x, repeat.y),
         );
-        self.size += 1;
     }
 
     pub fn vertices(&self) -> Vec<Vertex> {
@@ -202,7 +205,6 @@ impl Batch {
 
     pub fn clear(&mut self) {
         self.items.clear();
-        self.size = 0;
     }
 
     pub fn offset(&mut self, x: f32, y: f32) {
