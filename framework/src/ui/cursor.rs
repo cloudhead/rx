@@ -5,6 +5,8 @@ use crate::gfx::prelude::*;
 
 const SIZE: Size = Size::new(16., 16.);
 
+pub type HwCursor = crate::platform::Cursor;
+
 #[derive(Default, Debug, Copy, Clone)]
 pub struct Cursor {
     pub style: CursorStyle,

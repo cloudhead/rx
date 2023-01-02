@@ -134,15 +134,19 @@ impl Widget<Session> for View {
         };
 
         match event {
-            WidgetEvent::MouseEnter(_) => {
+            // XXX Something weird happening here. Cursor paint hover preview appears to jump
+            // when entering/existing view.
+            WidgetEvent::MouseEnter(cursor) => {
                 self.hot = true;
+                self.cursor = cursor.map(f32::floor);
+                session.views.cursor = Some(self.cursor);
             }
             WidgetEvent::MouseExit => {
                 self.hot = false;
                 session.views.cursor = None;
             }
             WidgetEvent::MouseMove(cursor) => {
-                let cursor = cursor.map(|c| c.floor());
+                let cursor = cursor.map(f32::floor);
 
                 debug_assert!(ctx.hot);
 

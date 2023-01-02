@@ -44,12 +44,10 @@ impl<T, W: Widget<T>> Pod<T, W> {
 
 impl<T, W: Widget<T>> fmt::Display for Pod<T, W> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = self
-            .widget
-            .type_name()
-            .split("::")
-            .last()
-            .unwrap_or("Widget");
+        let name = self.widget.type_name();
+        // .split("::")
+        // .last()
+        // .unwrap_or("Widget");
         write!(f, "{}#{}", name, self.id)
     }
 }
@@ -90,6 +88,10 @@ impl<T, W: Widget<T>> Widget<T> for Pod<T, W> {
 
     fn cursor(&self) -> Option<CursorStyle> {
         self.widget.cursor()
+    }
+
+    fn hw_cursor(&self) -> Option<&'static str> {
+        dbg!(self.widget.hw_cursor())
     }
 
     fn event(&mut self, event: &WidgetEvent, ctx: &Context<'_>, data: &mut T) -> ControlFlow<()> {

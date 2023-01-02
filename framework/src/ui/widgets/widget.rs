@@ -31,6 +31,10 @@ pub trait Widget<T> {
         None
     }
 
+    fn hw_cursor(&self) -> Option<&'static str> {
+        None
+    }
+
     fn contains(&self, point: Point) -> bool {
         true
     }
@@ -87,6 +91,10 @@ impl<T> Widget<T> for Box<dyn Widget<T>> {
 
     fn cursor(&self) -> Option<CursorStyle> {
         self.deref().cursor()
+    }
+
+    fn hw_cursor(&self) -> Option<&'static str> {
+        self.deref().hw_cursor()
     }
 
     fn contains(&self, point: Point) -> bool {

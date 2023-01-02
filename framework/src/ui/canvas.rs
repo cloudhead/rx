@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::gfx::prelude::*;
 use crate::gfx::{self, shape2d, sprite2d};
+use crate::platform::Cursor as HwCursor;
 use crate::renderer::{Blending, Effect, Paint, TextureId};
 use crate::ui::text::{Font, FontError, FontFormat, FontId, Text};
 use crate::ui::Context;
@@ -189,12 +190,17 @@ pub struct TextureInfo {
 pub struct Graphics {
     /// Textures in use.
     pub textures: HashMap<TextureId, TextureInfo>,
+    /// Hardware cursors registered.
+    pub cursors: HashMap<&'static str, HwCursor>,
     /// Cursor state.
     pub cursor: Cursor,
     /// Fonts in use.
     pub fonts: HashMap<FontId, Font>,
     /// Pending effects to be handled by backend.
     effects: VecDeque<Effect>,
+
+    // XXX
+    pub hw_cursor: &'static str,
 }
 
 impl Graphics {

@@ -5,7 +5,7 @@ use std::mem::ManuallyDrop;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::{Point2D, Size, Zero};
+use super::{pixels, Point2D, Rect, Size, Zero};
 
 /// File extension for RGBA images.
 pub const FILE_EXTENSION: &str = "rgba";
@@ -67,6 +67,21 @@ impl Image {
             size: Size::ZERO,
             pixels: Arc::new([]),
         }
+    }
+
+    /// Return a new scaled image.
+    pub fn scaled(&self, factor: u32) -> Self {
+        let scaled = pixels::scale(&self.pixels, self.size.w, self.size.h, factor);
+
+        Self {
+            size: self.size * factor,
+            pixels: scaled.into(),
+        }
+    }
+
+    /// Get the image area rectangle.
+    pub fn rect(&self) -> Rect<u32> {
+        Rect::origin(self.size)
     }
 
     /// Create a blank image of the given size.
@@ -294,6 +309,12 @@ impl From<Rgba> for Rgba8 {
 
 impl From<u32> for Rgba8 {
     fn from(rgba: u32) -> Self {
+        unsafe { std::mem::transmute(rgba) }
+    }
+}
+
+impl From<Rgba8> for u32 {
+    fn from(rgba: Rgba8) -> Self {
         unsafe { std::mem::transmute(rgba) }
     }
 }

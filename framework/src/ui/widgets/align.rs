@@ -103,6 +103,14 @@ impl<T> Widget<T> for Align<T> {
         }
     }
 
+    fn hw_cursor(&self) -> Option<&'static str> {
+        if self.widget.hot {
+            self.widget.hw_cursor()
+        } else {
+            None
+        }
+    }
+
     fn display(&self) -> String {
         format!("Align({})", self.widget.display())
     }

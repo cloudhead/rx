@@ -7,7 +7,7 @@ use rx_framework::ui::widgets::ZStack;
 use crate::app::brush;
 use crate::app::{Session, Tool};
 use crate::framework::ui::canvas::Canvas;
-use crate::framework::ui::cursor::CursorStyle;
+use crate::framework::ui::cursor::{CursorStyle, HwCursor};
 use crate::framework::ui::widgets::Pod;
 use crate::framework::ui::{
     Context, Env, LayoutCtx, Surfaces, Widget, WidgetEvent, WidgetLifecycle,
@@ -18,6 +18,7 @@ use crate::gfx::prelude::*;
 pub struct Root {
     widgets: ZStack<Session>,
     cursor: CursorStyle,
+    hw_cursor: &'static str,
 }
 
 impl Default for Root {
@@ -25,6 +26,7 @@ impl Default for Root {
         Self {
             widgets: ZStack::new(),
             cursor: CursorStyle::default(),
+            hw_cursor: "pointer",
         }
     }
 }
@@ -34,6 +36,7 @@ impl Root {
         Self {
             widgets: self.widgets.push(widget),
             cursor: self.cursor,
+            hw_cursor: self.hw_cursor,
         }
     }
 }
@@ -96,15 +99,26 @@ impl Widget<Session> for Root {
         match session.tool {
             Tool::Pan { panning: true } => {
                 self.cursor = CursorStyle::Grab;
+                self.hw_cursor = "grab";
             }
             Tool::Pan { panning: false } => {
                 self.cursor = CursorStyle::Hand;
+                self.hw_cursor = "hand";
             }
             Tool::Brush if session.brush.is_mode(brush::Mode::Erase) => {
                 self.cursor = CursorStyle::Pointer;
+                self.hw_cursor = "eraser";
             }
             Tool::Brush if session.brush.is_mode(brush::Mode::Normal) => {
                 self.cursor = CursorStyle::Pointer;
+                self.hw_cursor = "brush";
+            }
+            Tool::Brush if session.brush.is_mode(brush::Mode::Pencil) => {
+                self.cursor = CursorStyle::Pointer;
+                self.hw_cursor = "pencil";
+            }
+            Tool::Sampler => {
+                self.hw_cursor = "picker";
             }
             _ => {
                 self.cursor = CursorStyle::Pointer;
@@ -143,5 +157,9 @@ impl Widget<Session> for Root {
 
     fn cursor(&self) -> Option<CursorStyle> {
         self.widgets.cursor().or(Some(self.cursor))
+    }
+
+    fn hw_cursor(&self) -> Option<&'static str> {
+        dbg!(self.widgets.hw_cursor()).or(Some(self.hw_cursor))
     }
 }

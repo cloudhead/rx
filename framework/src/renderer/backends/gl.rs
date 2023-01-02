@@ -819,23 +819,24 @@ impl renderer::Renderer for Renderer {
                         })
                     },
                 )?;
+                Ok(())
 
-                // Render cursor.
-                let bound_cursors = pipeline.bind_texture(cursors)?;
-                shd_gate.shade(
-                    &mut self.context.cursor2d,
-                    |mut iface, uni, mut rdr_gate| {
-                        iface.set(&uni.cursor, bound_cursors.binding());
-                        iface.set(&uni.framebuffer, bound_screen.binding());
-                        iface.set(&uni.ortho, ortho);
-                        iface.set(&uni.transform, identity);
-                        iface.set(&uni.invert, false);
+                // // Render cursor.
+                // let bound_cursors = pipeline.bind_texture(cursors)?;
+                // shd_gate.shade(
+                //     &mut self.context.cursor2d,
+                //     |mut iface, uni, mut rdr_gate| {
+                //         iface.set(&uni.cursor, bound_cursors.binding());
+                //         iface.set(&uni.framebuffer, bound_screen.binding());
+                //         iface.set(&uni.ortho, ortho);
+                //         iface.set(&uni.transform, identity);
+                //         iface.set(&uni.invert, false);
 
-                        rdr_gate.render(&self.context.render_st, |mut tess_gate| {
-                            tess_gate.render(&cursor_tess)
-                        })
-                    },
-                )
+                //         rdr_gate.render(&self.context.render_st, |mut tess_gate| {
+                //             tess_gate.render(&cursor_tess)
+                //         })
+                //     },
+                // )
             },
         );
 

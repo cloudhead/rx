@@ -2,9 +2,20 @@ use std::io;
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
+use crate::gfx::color::Image;
+use crate::gfx::Point2D;
 use crate::platform::{GraphicsContext, LogicalSize, WindowEvent, WindowHint};
 
 pub struct DummyWindow(());
+
+#[derive(Debug)]
+pub struct Cursor {}
+
+impl Cursor {
+    pub fn create(image: Image, origin: Point2D<u32>) -> Self {
+        unreachable!()
+    }
+}
 
 unsafe impl HasRawWindowHandle for DummyWindow {
     fn raw_window_handle(&self) -> RawWindowHandle {

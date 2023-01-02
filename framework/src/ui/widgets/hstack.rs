@@ -117,6 +117,15 @@ impl<T> Widget<T> for HStack<T> {
         None
     }
 
+    fn hw_cursor(&self) -> Option<&'static str> {
+        for widget in &self.children {
+            if widget.hot {
+                return widget.hw_cursor();
+            }
+        }
+        None
+    }
+
     fn display(&self) -> String {
         format!("HStack({})", self.children.len())
     }

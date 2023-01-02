@@ -104,6 +104,19 @@ impl<T> Widget<T> for ZStack<T> {
         None
     }
 
+    fn hw_cursor(&self) -> Option<&'static str> {
+        for widget in self.widgets.iter().rev() {
+            println!(">>zstack: {}", widget);
+            if widget.hot {
+                println!("hot: {}", widget);
+                if let Some(cursor) = dbg!(widget.hw_cursor()) {
+                    return Some(cursor);
+                }
+            }
+        }
+        None
+    }
+
     fn frame(&mut self, surfaces: &Surfaces, data: &mut T) {
         for widget in &mut self.widgets {
             widget.frame(surfaces, data);

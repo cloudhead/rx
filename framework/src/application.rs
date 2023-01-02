@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::{io, time};
 
-use crate::gfx::prelude::*;
+use crate::gfx::{self, prelude::*};
 use crate::platform;
-use crate::platform::{WindowEvent, WindowHint};
+use crate::platform::{Cursor, WindowEvent, WindowHint};
 use crate::renderer;
 use crate::renderer::Renderer;
 use crate::timer::FrameTimer;
@@ -19,11 +19,25 @@ pub enum Error {
     Font(#[from] FontError),
 }
 
+#[derive(Default, Clone, Debug)]
+pub struct ImageOpts {
+    /// Cursor origin.
+    cursor: Option<Point2D<u32>>,
+}
+
+impl ImageOpts {
+    pub fn cursor(mut self, origin: impl Into<Point2D<u32>>) -> Self {
+        self.cursor = Some(origin.into());
+        self
+    }
+}
+
 /// Application launcher.
 pub struct Application {
     title: String,
     graphics: Graphics,
     env: Env,
+    cursors: Vec<(&'static str, Image, Point2D<u32>)>,
 }
 
 impl Application {
@@ -35,6 +49,7 @@ impl Application {
             title: title.to_owned(),
             graphics,
             env,
+            cursors: Vec::new(),
         }
     }
 
@@ -56,9 +71,12 @@ impl Application {
         self
     }
 
-    pub fn image(mut self, name: &'static str, image: Image) -> Self {
+    pub fn image(mut self, name: &'static str, image: Image, opts: ImageOpts) -> Self {
         let id = TextureId::next();
 
+        if let Some(origin) = opts.cursor {
+            self.cursors.push((name, image.clone(), origin));
+        }
         self.graphics.texture(id, image);
         self.env.set(env::Key::<TextureId>::new(name), id);
         self
@@ -130,6 +148,16 @@ impl Application {
             &self.env,
         );
 
+        for (name, image, origin) in self.cursors {
+            if !image.rect().contains(origin) {
+                panic!("bad cursor origin");
+            }
+            let scaled = image.scaled(ui_scale as u32);
+            let cursor = Cursor::create(&scaled, origin * ui_scale as u32);
+
+            self.graphics.cursors.insert(name, cursor);
+        }
+
         while win.is_open() {
             win_events.wait();
 
@@ -154,13 +182,13 @@ impl Application {
                         // events.push(WidgetEvent::CursorEntered);
 
                         if win.is_focused() {
-                            win.set_cursor_visible(false);
+                            // win.set_cursor_visible(false);
                         }
                         hovered = true;
                     }
                     WindowEvent::CursorLeft { .. } => {
                         // events.push(WidgetEvent::CursorLeft);
-                        win.set_cursor_visible(true);
+                        // win.set_cursor_visible(true);
 
                         hovered = false;
                     }
@@ -172,11 +200,11 @@ impl Application {
                     }
                     WindowEvent::Focused(true) => {
                         if hovered {
-                            win.set_cursor_visible(false);
+                            // win.set_cursor_visible(false);
                         }
                     }
                     WindowEvent::Focused(false) => {
-                        win.set_cursor_visible(true);
+                        // win.set_cursor_visible(true);
                     }
                     WindowEvent::RedrawRequested => {
                         // All events currently trigger a redraw, we don't need to
@@ -292,6 +320,23 @@ impl Application {
                 root.event(&ev, &ctx, &mut data);
             }
             self.graphics.cursor.style = root.cursor().unwrap_or_default();
+
+            if let Some(cursor) = root.hw_cursor() {
+                println!(" ROOT CURSOR = {}", cursor);
+                if self.graphics.hw_cursor != cursor {
+                    println!("SET ROOT CURSOR TO {}", cursor);
+                    if let Some(c) = self.graphics.cursors.remove(cursor) {
+                        println!("REMOVED: URSOR  {:?}", c);
+                        if let Some(prev) = win.set_cursor(c) {
+                            println!("PREV:  {:?}", prev);
+                            self.graphics.cursors.insert(self.graphics.hw_cursor, prev);
+                        }
+                        self.graphics.hw_cursor = cursor;
+                    }
+                }
+            } else {
+                println!(" NO ROOT CURSOR ");
+            }
 
             update_timer.run(|_avg| {
                 root.update(delta, &ctx, &data);

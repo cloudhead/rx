@@ -7,6 +7,7 @@ use directories as dirs;
 use rx::app::images;
 use rx::app::view::{View, ViewExtent, ViewId};
 use rx::app::{DEFAULT_CURSORS, DEFAULT_FONT};
+use rx::framework::application::ImageOpts;
 use rx::framework::ui::text::{FontFormat, FontId};
 use rx::gfx::Image;
 
@@ -89,10 +90,46 @@ fn main() -> anyhow::Result<()> {
     rx::framework::Application::new("rx")
         .fonts(fonts)?
         .cursors(cursors)
-        .image("pencil", Image::try_from(images::PENCIL).unwrap())
-        .image("brush", Image::try_from(images::BRUSH).unwrap())
-        .image("bucket", Image::try_from(images::BUCKET).unwrap())
-        .image("eraser", Image::try_from(images::ERASER).unwrap())
+        .image(
+            "pointer",
+            Image::try_from(images::POINTER).unwrap(),
+            ImageOpts::default().cursor([0, 14]),
+        )
+        .image(
+            "hand",
+            Image::try_from(images::HAND).unwrap(),
+            ImageOpts::default().cursor([15, 15]),
+        )
+        .image(
+            "grab",
+            Image::try_from(images::GRAB).unwrap(),
+            ImageOpts::default().cursor([15, 15]),
+        )
+        .image(
+            "picker",
+            Image::try_from(images::PICKER).unwrap(),
+            ImageOpts::default().cursor([0, 15]),
+        )
+        .image(
+            "pencil",
+            Image::try_from(images::PENCIL).unwrap(),
+            ImageOpts::default().cursor([0, 14]),
+        )
+        .image(
+            "brush",
+            Image::try_from(images::BRUSH).unwrap(),
+            ImageOpts::default().cursor([0, 15]),
+        )
+        .image(
+            "bucket",
+            Image::try_from(images::BUCKET).unwrap(),
+            ImageOpts::default().cursor([0, 15]),
+        )
+        .image(
+            "eraser",
+            Image::try_from(images::ERASER).unwrap(),
+            ImageOpts::default().cursor([0, 15]),
+        )
         .launch(ui, session)
         .map_err(Into::into)
 }

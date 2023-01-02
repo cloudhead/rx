@@ -1,7 +1,6 @@
 #![allow(dead_code)]
-use std::io;
-
 use std::fmt;
+use std::io;
 
 #[cfg(not(feature = "glfw"))]
 #[path = "platform/dummy.rs"]
@@ -10,6 +9,8 @@ pub mod backend;
 #[cfg(feature = "glfw")]
 #[path = "platform/glfw.rs"]
 pub mod backend;
+
+pub use backend::Cursor;
 
 /// Initialize the platform.
 pub fn init(

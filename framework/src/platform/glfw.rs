@@ -1,7 +1,10 @@
+use std::rc::Rc;
 use std::{io, sync};
 
 use glfw::Context;
 
+use crate::gfx::color::Image;
+use crate::gfx::Point2D;
 use crate::platform::{
     GraphicsContext, InputState, Key, KeyboardInput, LogicalDelta, LogicalPosition, LogicalSize,
     ModifiersState, MouseButton, WindowEvent, WindowHint,
@@ -65,6 +68,29 @@ pub fn init(
     ))
 }
 
+#[derive(Debug)]
+pub struct Cursor {
+    pub(super) raw: glfw::Cursor,
+}
+
+impl Cursor {
+    pub fn create(image: &Image, origin: Point2D<u32>) -> Self {
+        let (head, pixels, tail) = unsafe { image.pixels.align_to::<u32>() };
+        assert!(head.is_empty() && tail.is_empty());
+
+        let raw = glfw::Cursor::create_from_pixels(
+            glfw::PixelImage {
+                width: image.size.w,
+                height: image.size.h,
+                pixels: pixels.to_vec(),
+            },
+            origin.x,
+            origin.y,
+        );
+        Self { raw }
+    }
+}
+
 pub struct Events {
     handle: sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
     glfw: glfw::Glfw,
@@ -108,6 +134,12 @@ impl Window {
         } else {
             glfw::CursorMode::Hidden
         });
+    }
+
+    pub fn set_cursor(&mut self, cursor: Cursor) -> Option<Cursor> {
+        self.handle
+            .set_cursor(Some(cursor.raw))
+            .map(|raw| Cursor { raw })
     }
 
     pub fn get_cursor_pos(&self) -> (f64, f64) {

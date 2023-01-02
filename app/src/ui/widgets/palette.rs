@@ -74,6 +74,10 @@ impl Widget<Session> for Swatch {
     fn cursor(&self) -> Option<CursorStyle> {
         Some(CursorStyle::Sampler)
     }
+
+    fn hw_cursor(&self) -> Option<&'static str> {
+        Some("picker")
+    }
 }
 
 pub struct Palette {
@@ -159,5 +163,9 @@ impl Widget<Session> for Palette {
 
     fn cursor(&self) -> Option<CursorStyle> {
         self.swatches.cursor()
+    }
+
+    fn hw_cursor(&self) -> Option<&'static str> {
+        dbg!(self.swatches.hw_cursor())
     }
 }

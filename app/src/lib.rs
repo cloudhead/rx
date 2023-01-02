@@ -36,6 +36,14 @@ pub mod app {
         include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/cursors.rgba"));
 
     pub mod images {
+        pub const POINTER: &[u8] =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/pointer.rgba"));
+        pub const HAND: &[u8] =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/hand.rgba"));
+        pub const GRAB: &[u8] =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/grab.rgba"));
+        pub const PICKER: &[u8] =
+            include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/picker.rgba"));
         pub const PENCIL: &[u8] =
             include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/pencil.rgba"));
         pub const BRUSH: &[u8] =
