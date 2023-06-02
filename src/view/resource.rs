@@ -150,11 +150,13 @@ impl ViewResource {
             h * scale,
         )?;
 
+        writeln!(out, "<g shape-rendering=\"crispEdges\">")?;
+
         for (i, rgba) in pixels.iter().cloned().enumerate().filter(|(_, c)| c.a > 0) {
             let rgb: Rgb8 = rgba.into();
 
             let x = (i as u32 % w) * scale;
-            let y = (i as u32 / h) * scale;
+            let y = (i as u32 / w) * scale;
 
             writeln!(
                 out,
@@ -163,6 +165,7 @@ impl ViewResource {
             )?;
         }
 
+        writeln!(out, "</g>")?;
         writeln!(out, "</svg>")?;
 
         Ok((w * h * scale) as usize)
