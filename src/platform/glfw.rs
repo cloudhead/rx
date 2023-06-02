@@ -13,6 +13,7 @@ pub fn init(
     title: &str,
     w: u32,
     h: u32,
+    fs: bool,
     hints: &[WindowHint],
     context: GraphicsContext,
 ) -> io::Result<(Window, Events)> {
@@ -44,9 +45,32 @@ pub fn init(
         glfw.window_hint((*hint).into());
     }
 
-    let (mut window, events) = glfw
-        .create_window(w, h, title, glfw::WindowMode::Windowed)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "glfw: error creating window"))?;
+    let (mut window, events) = match fs {
+        true => glfw.with_primary_monitor(|glfw, m| {
+            let mon = m.ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    "glfw: unable to detect primary monitor",
+                )
+            })?;
+            let mode = mon.get_video_mode().ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::Other,
+                    "glfw: unable to detect monitor video modes",
+                )
+            })?;
+            let w = mode.width;
+            let h = mode.height;
+            return glfw
+                .create_window(w as u32, h as u32, title, glfw::WindowMode::FullScreen(mon))
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::Other, "glfw: error creating window")
+                });
+        })?,
+        false => glfw
+            .create_window(w, h, title, glfw::WindowMode::Windowed)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "glfw: error creating window"))?,
+    };
 
     window.make_current();
     window.set_all_polling(true);
@@ -67,7 +91,7 @@ pub fn init(
 
 pub struct Events {
     handle: sync::mpsc::Receiver<(f64, glfw::WindowEvent)>,
-    glfw: glfw::Glfw,
+    pub glfw: glfw::Glfw,
 }
 
 impl Events {

@@ -79,6 +79,7 @@ pub struct Options<'a> {
     pub exec: ExecutionMode,
     pub glyphs: &'a [u8],
     pub debug: bool,
+    pub fullscreen: bool,
 }
 
 impl<'a> Default for Options<'a> {
@@ -92,6 +93,7 @@ impl<'a> Default for Options<'a> {
             exec: ExecutionMode::Normal,
             glyphs: data::GLYPHS,
             debug: false,
+            fullscreen: false,
         }
     }
 }
@@ -109,6 +111,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
         "rx",
         options.width,
         options.height,
+        options.fullscreen,
         hints,
         platform::GraphicsContext::Gl,
     )?;
@@ -126,13 +129,18 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
     let base_dirs = dirs::BaseDirs::new()
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
     let cwd = std::env::current_dir()?;
-    let mut session = Session::new(win_w, win_h, cwd, proj_dirs, base_dirs)
+    let mut session = Session::new(options.fullscreen, win_w, win_h, cwd, proj_dirs, base_dirs)
         .with_blank(
             FileStatus::NoFile,
             Session::DEFAULT_VIEW_W,
             Session::DEFAULT_VIEW_H,
         )
         .init(options.source.clone())?;
+
+    session.prev_pos = win.handle.get_pos();
+
+    let (sx, sy) = win.handle.get_size();
+    session.prev_size = (sx as u32, sy as u32);
 
     if options.debug {
         session
@@ -170,6 +178,7 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
     if let Err(e) = session.edit(paths) {
         session.message(format!("Error loading path(s): {}", e), MessageType::Error);
     }
+
     // Make sure our session ticks once before anything is rendered.
     let effects = session.update(
         &mut vec![],
@@ -295,6 +304,39 @@ pub fn init<P: AsRef<Path>>(paths: &[P], options: Options<'_>) -> std::io::Resul
                 }
                 _ => {}
             };
+        }
+
+        if session.fullscreen_requested {
+            debug!("Toggled fullscreen");
+            if session.fullscreen {
+                win.handle.set_monitor(
+                    glfw::WindowMode::Windowed,
+                    session.prev_pos.0,
+                    session.prev_pos.1,
+                    session.prev_size.0,
+                    session.prev_size.1,
+                    None,
+                )
+            } else {
+                events.glfw.with_primary_monitor(|_, m| {
+                    let mon = m.unwrap();
+                    let mode = mon.get_video_mode().unwrap();
+
+                    session.prev_pos = win.handle.get_pos();
+                    let (sx, sy) = win.handle.get_size();
+                    session.prev_size = (sx as u32, sy as u32);
+
+                    win.handle.set_monitor(
+                        glfw::WindowMode::FullScreen(mon),
+                        0,
+                        0,
+                        mode.width,
+                        mode.height,
+                        None,
+                    )
+                })
+            }
+            session.set_fullscreen();
         }
 
         if resized {

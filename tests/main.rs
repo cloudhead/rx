@@ -20,6 +20,7 @@ struct Config {
 struct WindowConfig {
     width: u32,
     height: u32,
+    fullscreen: bool,
 }
 
 #[derive(Deserialize)]
@@ -152,6 +153,7 @@ fn run(name: &str) -> io::Result<()> {
         source: Some(path.join(name).with_extension("rx")),
         width: cfg.window.width,
         height: cfg.window.height,
+        fullscreen: cfg.window.fullscreen,
         exec: ExecutionMode::Replay(path.clone(), DigestMode::Verify),
         glyphs,
         debug: false,

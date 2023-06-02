@@ -16,10 +16,11 @@ pub fn init(
     title: &str,
     w: u32,
     h: u32,
+    fs: bool,
     hints: &[WindowHint],
     context: GraphicsContext,
 ) -> io::Result<(backend::Window, backend::Events)> {
-    backend::init(title, w, h, hints, context)
+    backend::init(title, w, h, fs, hints, context)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

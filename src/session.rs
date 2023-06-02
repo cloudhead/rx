@@ -660,6 +660,14 @@ pub struct Session {
     /// the command is processed. For example, when displaying a message before
     /// an expensive process is kicked off.
     queue: Vec<InternalCommand>,
+
+    pub fullscreen: bool,
+
+    pub fullscreen_requested: bool,
+
+    pub prev_size: (u32, u32),
+
+    pub prev_pos: (i32, i32),
 }
 
 impl Session {
@@ -707,6 +715,7 @@ impl Session {
 
     /// Create a new un-initialized session.
     pub fn new<P: AsRef<Path>>(
+        fs: bool,
         w: u32,
         h: u32,
         cwd: P,
@@ -751,6 +760,10 @@ impl Session {
             avg_time: time::Duration::from_secs(0),
             frame_number: 0,
             queue: Vec::new(),
+            fullscreen: fs,
+            fullscreen_requested: false,
+            prev_size: (1280, 720),
+            prev_pos: (100, 100),
         }
     }
 
@@ -2678,7 +2691,6 @@ impl Session {
                     }
                 }
             }
-            #[allow(mutable_borrow_reservation_conflict)]
             Command::Toggle(ref k) => match self.settings.get(k) {
                 Some(Value::Bool(b)) => self.command(Command::Set(k.clone(), Value::Bool(!b))),
                 Some(_) => {
@@ -3017,7 +3029,13 @@ impl Session {
                     v.paint_color(*color, x, y);
                 }
             }
+            Command::Fullscreen => self.fullscreen_requested = true,
         };
+    }
+
+    pub fn set_fullscreen(&mut self) {
+        self.fullscreen = !self.fullscreen;
+        self.fullscreen_requested = false;
     }
 
     fn cmdline_hide(&mut self) {

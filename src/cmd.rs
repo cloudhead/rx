@@ -104,7 +104,7 @@ pub enum Command {
     Reset,
     Map(Box<KeyMapping>),
     MapClear,
-
+    Fullscreen,
     Slice(Option<usize>),
     Fill(Option<Rgba8>),
 
@@ -165,6 +165,7 @@ impl fmt::Display for Command {
             Self::ForceQuitAll => write!(f, "Quit all views without saving"),
             Self::Map(_) => write!(f, "Map a key combination to a command"),
             Self::MapClear => write!(f, "Clear all key mappings"),
+            Self::Fullscreen => write!(f, "Toggle fullscreen"),
             Self::Mode(Mode::Help) => write!(f, "Toggle help"),
             Self::Mode(m) => write!(f, "Switch to {} mode", m),
             Self::FrameAdd => write!(f, "Add a blank frame to the view"),
@@ -177,7 +178,7 @@ impl fmt::Display for Command {
             Self::PaletteClear => write!(f, "Clear palette"),
             Self::PaletteGradient(cs, ce, n) => write!(
                 f,
-                "Create {} colors gradient from {} to {}",
+                "Create {number} colors gradient from {colorstart} to {colorend}",
                 number = n,
                 colorstart = cs,
                 colorend = ce
@@ -290,6 +291,7 @@ impl From<Command> for String {
             Command::Zoom(Op::Incr) => format!("v/zoom +"),
             Command::Zoom(Op::Decr) => format!("v/zoom -"),
             Command::Zoom(Op::Set(z)) => format!("v/zoom {}", z),
+            Command::Fullscreen => format!("fullscreen"),
             _ => unimplemented!(),
         }
     }
@@ -905,6 +907,11 @@ impl Default for Commands {
             .command("map/clear!", "Clear all key mappings", |p| {
                 p.value(Command::MapClear)
             })
+            .command(
+                "fullscreen",
+                "Toggle between fullscreen and windowed",
+                |p| p.value(Command::Fullscreen),
+            )
             .command("p/add", "Add a color to the palette", |p| {
                 p.then(color()).map(|(_, rgba)| Command::PaletteAdd(rgba))
             })
