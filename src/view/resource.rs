@@ -216,8 +216,8 @@ impl ViewResource {
 
         {
             // Convert animation strip into discrete frames for gif encoder.
-            let nrows = fh as usize * nframes;
-            let row_nbytes = fw as usize;
+            let nrows = fh * nframes;
+            let row_nbytes = fw;
 
             for i in 0..nrows {
                 let offset = i * row_nbytes;

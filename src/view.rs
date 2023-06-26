@@ -73,7 +73,7 @@ impl ViewExtent {
     /// Compute the frame index, given a point.
     /// Warning: can underflow.
     pub fn to_frame(self, p: ViewCoords<u32>) -> usize {
-        (p.x / (self.fw as u32)) as usize
+        (p.x / self.fw) as usize
     }
 }
 
@@ -550,7 +550,7 @@ impl View<ViewResource> {
                 format!("\"{}\" already exists", path.display()),
             ));
         }
-        let (e_id, _) = self.save(rect, &path)?;
+        let (e_id, _) = self.save(rect, path)?;
 
         Ok(e_id)
     }

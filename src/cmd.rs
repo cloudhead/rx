@@ -175,13 +175,9 @@ impl fmt::Display for Command {
             Self::Noop => write!(f, "No-op"),
             Self::PaletteAdd(c) => write!(f, "Add {color} to palette", color = c),
             Self::PaletteClear => write!(f, "Clear palette"),
-            Self::PaletteGradient(cs, ce, n) => write!(
-                f,
-                "Create {} colors gradient from {} to {}",
-                number = n,
-                colorstart = cs,
-                colorend = ce
-            ),
+            Self::PaletteGradient(cs, ce, n) => {
+                write!(f, "Create {n} colors gradient from {cs} to {ce}")
+            }
             Self::PaletteSample => write!(f, "Sample palette from view"),
             Self::PaletteSort => write!(f, "Sort palette colors"),
             Self::Pan(x, 0) if *x > 0 => write!(f, "Pan workspace right"),
@@ -435,7 +431,7 @@ impl From<Value> for f32 {
 impl From<Value> for f64 {
     fn from(other: Value) -> f64 {
         if let Value::F64(x) = other {
-            return x as f64;
+            return x;
         }
         panic!("expected {:?} to be a `f64`", other);
     }

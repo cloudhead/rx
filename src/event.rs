@@ -125,10 +125,7 @@ impl FromStr for Event {
                     .followed_by(end())
                     .parse(p)
                     .map_err(|(e, _)| e)?;
-                Ok((
-                    Event::CursorMoved(platform::LogicalPosition::new(x as f64, y as f64)),
-                    p,
-                ))
+                Ok((Event::CursorMoved(platform::LogicalPosition::new(x, y)), p))
             }
             "keyboard/input" => {
                 let ((k, s), p) = parser::param::<platform::Key>()

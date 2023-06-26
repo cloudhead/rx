@@ -112,7 +112,7 @@ pub fn read<R: io::Read>(reader: R) -> io::Result<(Vec<u8>, u32, u32)> {
         ));
     }
 
-    let (width, height) = (info.width as u32, info.height as u32);
+    let (width, height) = (info.width, info.height);
 
     let mut buffer: Vec<u8> = vec![0; info.buffer_size()];
     reader

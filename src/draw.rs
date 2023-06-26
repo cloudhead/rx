@@ -749,14 +749,14 @@ pub fn draw_view_composites<R>(session: &Session, v: &View<R>) -> sprite2d::Batc
 
 pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::Batch) {
     shape.add(Shape::Rectangle(
-        Rect::origin(session.width as f32, session.height as f32),
+        Rect::origin(session.width, session.height),
         ZDepth(0.0),
         Rotation::ZERO,
         Stroke::new(1., color::RED.into()),
         Fill::Empty,
     ));
     shape.add(Shape::Rectangle(
-        Rect::origin(session.width as f32, session.height as f32),
+        Rect::origin(session.width, session.height),
         self::HELP_LAYER,
         Rotation::ZERO,
         Stroke::NONE,
@@ -773,7 +773,7 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
             platform::Key::Escape,
         ),
         left_margin,
-        session.height as f32 - self::MARGIN - self::LINE_HEIGHT,
+        session.height - self::MARGIN - self::LINE_HEIGHT,
         self::HELP_LAYER,
         color::LIGHT_GREY,
         TextAlign::Left,
@@ -859,7 +859,7 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
     }
 
     for (i, l) in session.help().iter().enumerate() {
-        let y = session.height as f32 - (i + 4) as f32 * self::LINE_HEIGHT;
+        let y = session.height - (i + 4) as f32 * self::LINE_HEIGHT;
 
         text.add(
             l,

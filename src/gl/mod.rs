@@ -1015,14 +1015,13 @@ impl Renderer {
                         .map_err(Error::Texture)?;
                 }
                 ViewOp::Yank(src) => {
-                    let (_, pixels) = v.layer.get_snapshot_rect(&src.map(|n| n as i32)).unwrap();
+                    let (_, pixels) = v.layer.get_snapshot_rect(&src.map(|n| n)).unwrap();
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
                     if paste_w != w || paste_h != h {
-                        self.paste =
-                            Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
-                                .map_err(Error::Texture)?;
+                        self.paste = Texture::new(&mut self.ctx, [w, h], 0, self::SAMPLER)
+                            .map_err(Error::Texture)?;
                     }
                     let body = util::align_u8(&pixels);
 
@@ -1031,15 +1030,13 @@ impl Renderer {
                         .map_err(Error::Texture)?;
                 }
                 ViewOp::Flip(src, dir) => {
-                    let (_, mut pixels) =
-                        v.layer.get_snapshot_rect(&src.map(|n| n as i32)).unwrap();
+                    let (_, mut pixels) = v.layer.get_snapshot_rect(&src.map(|n| n)).unwrap();
                     let (w, h) = (src.width() as u32, src.height() as u32);
                     let [paste_w, paste_h] = self.paste.size();
 
                     if paste_w != w || paste_h != h {
-                        self.paste =
-                            Texture::new(&mut self.ctx, [w as u32, h as u32], 0, self::SAMPLER)
-                                .map_err(Error::Texture)?;
+                        self.paste = Texture::new(&mut self.ctx, [w, h], 0, self::SAMPLER)
+                            .map_err(Error::Texture)?;
                     }
 
                     match dir {

@@ -1,5 +1,5 @@
 #![allow(clippy::needless_collect)]
-///! Session
+//! Session
 use crate::autocomplete::FileCompleter;
 use crate::brush::*;
 use crate::cmd::{self, Command, CommandLine, KeyMapping, Op, Value};
@@ -68,9 +68,10 @@ pub type SessionCoords = Point<Session, f32>;
 
 /// An editing mode the `Session` can be in.
 /// Some of these modes are inspired by vi.
-#[derive(Eq, PartialEq, Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug, Default)]
 pub enum Mode {
     /// Allows the user to paint pixels.
+    #[default]
     Normal,
     /// Allows pixels to be selected, copied and manipulated visually.
     Visual(VisualState),
@@ -81,12 +82,6 @@ pub enum Mode {
     Present,
     /// Activated with the `:help` command.
     Help,
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Mode::Normal
-    }
 }
 
 impl fmt::Display for Mode {
@@ -227,9 +222,10 @@ pub enum State {
 }
 
 /// An editing tool.
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Default)]
 pub enum Tool {
     /// The standard drawing tool.
+    #[default]
     Brush,
     /// Used for filling enclosed regions with color.
     FloodFill,
@@ -237,12 +233,6 @@ pub enum Tool {
     Sampler,
     /// Used to pan the workspace.
     Pan(PanState),
-}
-
-impl Default for Tool {
-    fn default() -> Self {
-        Tool::Brush
-    }
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -1545,10 +1535,10 @@ impl Session {
                 let view = self.view(id);
                 let delay = time::Duration::from_millis(self.settings["animation/delay"].to_u64());
 
-                view.save_gif(&path, delay, &palette, scale)?
+                view.save_gif(path, delay, &palette, scale)?
             }
-            "svg" => self.view(id).save_svg(&path, scale)?,
-            "png" => self.view(id).save_png(&path, scale)?,
+            "svg" => self.view(id).save_svg(path, scale)?,
+            "png" => self.view(id).save_png(path, scale)?,
             _ => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -2190,7 +2180,7 @@ impl Session {
         let path = path.as_ref();
         debug!("source: {}", path.display());
 
-        File::open(&path)
+        File::open(path)
             .or_else(|_| File::open(self.proj_dirs.config_dir().join(path)))
             .and_then(|f| self.source_reader(io::BufReader::new(f), path))
             .map_err(|e| {
@@ -2678,7 +2668,6 @@ impl Session {
                     }
                 }
             }
-            #[allow(mutable_borrow_reservation_conflict)]
             Command::Toggle(ref k) => match self.settings.get(k) {
                 Some(Value::Bool(b)) => self.command(Command::Set(k.clone(), Value::Bool(!b))),
                 Some(_) => {

@@ -48,7 +48,7 @@ impl DigestState {
         let mut frames = Vec::new();
         let path = path.as_ref();
 
-        match File::open(&path) {
+        match File::open(path) {
             Ok(f) => {
                 let r = io::BufReader::new(f);
                 for line in r.lines() {
@@ -97,8 +97,10 @@ pub enum ExecutionMode {
 /// Execution mode. Controls whether the session is playing or recording
 /// commands.
 // TODO: Make this a `struct` and have `ExecutionMode`.
+#[derive(Default)]
 pub enum Execution {
     /// Normal execution. User inputs are processed normally.
+    #[default]
     Normal,
     /// Recording user inputs to log.
     Recording {
@@ -198,7 +200,7 @@ impl Execution {
             } => {
                 let mut frames = Vec::new();
 
-                match File::open(&path) {
+                match File::open(path) {
                     Ok(f) => {
                         let r = io::BufReader::new(f);
                         for line in r.lines() {
@@ -369,12 +371,6 @@ impl Execution {
             writeln!(&mut f, "{}", frame)?;
         }
         Ok(())
-    }
-}
-
-impl Default for Execution {
-    fn default() -> Self {
-        Execution::Normal
     }
 }
 
