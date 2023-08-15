@@ -2121,6 +2121,9 @@ impl Session {
                             platform::Key::Backspace => {
                                 self.cmdline_handle_backspace();
                             }
+                            platform::Key::Delete => {
+                                self.cmdline_handle_delete();
+                            }
                             platform::Key::Return => {
                                 self.cmdline_handle_enter();
                             }
@@ -2763,6 +2766,19 @@ impl Session {
                     Err(err) => self.message(format!("Error: {}", err), MessageType::Error),
                 }
             }
+            Command::SaveAs(ref path) => {
+                match self.active_view_mut().save_as(&Path::new(path).into()) {
+                    Ok(written) => {
+                        self.message(
+                            format!("\"{}\" {} pixels written", path, written),
+                            MessageType::Info,
+                        );
+                        self.active_view_mut().file_status =
+                            FileStatus::Saved(FileStorage::Single(Path::new(path).into()));
+                    }
+                    Err(err) => self.message(format!("Error: {}", err), MessageType::Error),
+                }
+            }
             Command::WriteFrames(None) => {
                 self.command(Command::WriteFrames(Some(".".to_owned())));
             }
@@ -3014,6 +3030,15 @@ impl Session {
     }
 
     fn cmdline_handle_backspace(&mut self) {
+        self.cmdline.delc();
+
+        if self.cmdline.is_empty() {
+            self.cmdline_hide();
+        }
+    }
+
+    fn cmdline_handle_delete(&mut self) {
+        self.cmdline.cursor_forward();
         self.cmdline.delc();
 
         if self.cmdline.is_empty() {
