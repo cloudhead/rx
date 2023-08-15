@@ -412,8 +412,21 @@ impl<R> View<R> {
     }
 
     /// Return the file status as a string.
-    pub fn status(&self) -> String {
-        self.file_status.to_string()
+    pub fn status(&self, width: f32, margin: f32) -> String {
+        let mut shortened_status: String = self.file_status.to_string();
+        let pixel_bound: f32 = (width * 0.4) - 32.0;
+        let name_width: i32 = (shortened_status.len() as i32 * 8) + margin as i32;
+        let pixel_diff: i32 = pixel_bound.floor() as i32 - name_width;
+        let midpoint_index: i32 = shortened_status.len() as i32 / 6;
+        let endpoint: i32 = (midpoint_index - 3) - (pixel_diff / 8);
+
+        // If the user makes the window too small, nothing will be replaced and it will just
+        // display the full status
+        if pixel_diff < 0 && midpoint_index > 3 && endpoint < shortened_status.len() as i32 {
+            shortened_status.replace_range((midpoint_index - 3) as usize..endpoint as usize, "...");
+        }
+
+        return shortened_status;
     }
 
     /// Return the view extent.

@@ -267,7 +267,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
     if session.settings["ui/status"].is_set() {
         // Active view status
         text.add(
-            &view.status(),
+            &view.status(session.width, MARGIN),
             MARGIN,
             MARGIN + self::LINE_HEIGHT,
             self::TEXT_LAYER,
