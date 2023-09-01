@@ -2657,13 +2657,19 @@ impl Session {
                     );
                     return;
                 }
-                match self.settings.set(k, v.clone()) {
-                    Err(e) => {
-                        self.message(format!("Error: {}", e), MessageType::Error);
-                    }
-                    Ok(ref old) => {
-                        if old != v {
-                            self.setting_changed(k, old, v);
+                let val = match v {
+                    Value::Var(_) => self.settings.get(v.to_var()).map(|r| r.clone()),
+                    _ => Some(v.clone()),
+                };
+                if let Some(ref v) = val {
+                    match self.settings.set(k, v.clone()) {
+                        Err(e) => {
+                            self.message(format!("Error: {}", e), MessageType::Error);
+                        }
+                        Ok(ref old) => {
+                            if old != v {
+                                self.setting_changed(k, old, v);
+                            }
                         }
                     }
                 }

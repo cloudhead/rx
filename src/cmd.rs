@@ -365,6 +365,7 @@ pub enum Value {
     Str(String),
     Ident(String),
     Rgba8(Rgba8),
+    Var(String),
 }
 
 impl Value {
@@ -396,6 +397,13 @@ impl Value {
         panic!("expected {:?} to be a `Rgba8`", self);
     }
 
+    pub fn to_var(&self) -> &str {
+        if let Value::Var(var) = self {
+            return &var;
+        }
+        panic!("expected {:?} to be a `variable`", self);
+    }
+
     pub fn description(&self) -> &'static str {
         match self {
             Self::Bool(_) => "on / off",
@@ -406,6 +414,7 @@ impl Value {
             Self::Str(_) => "string, eg. \"fnord\"",
             Self::Rgba8(_) => "color, eg. #ffff00",
             Self::Ident(_) => "identifier, eg. fnord",
+            Self::Var(_) => "variable, eg. &grid",
         }
     }
 }
@@ -449,6 +458,7 @@ impl fmt::Display for Value {
             Value::Str(s) => s.fmt(f),
             Value::Rgba8(c) => c.fmt(f),
             Value::Ident(i) => i.fmt(f),
+            Value::Var(v) => v.fmt(f),
         }
     }
 }
@@ -456,6 +466,7 @@ impl fmt::Display for Value {
 impl Parse for Value {
     fn parser() -> Parser<Self> {
         let str_val = quoted().map(Value::Str).label("<string>");
+        let var_val = variable().map(Value::Var).label("<variable>");
         let rgba8_val = color().map(Value::Rgba8);
         let u32_tuple_val = tuple::<u32>(natural(), natural()).map(|(x, y)| Value::U32Tuple(x, y));
         let u32_val = natural::<u32>().map(Value::U32);
@@ -476,6 +487,7 @@ impl Parse for Value {
             f64_val,
             bool_val,
             ident_val,
+            var_val,
             str_val,
         ])
         .label("<value>")
