@@ -45,6 +45,56 @@ mod view;
 #[macro_use]
 pub mod util;
 
+// manual prints a quick reference given default Session parameters
+pub fn manual() -> std::io::Result<String> {
+    use std::io;
+
+    let mut manual: String = String::new();
+
+    let proj_dirs = dirs::ProjectDirs::from("io", "cloudhead", "rx")
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "config directory not found"))?;
+    let base_dirs = dirs::BaseDirs::new()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "home directory not found"))?;
+    let cwd = std::env::current_dir()?;
+    let options = Options {
+        headless: true,
+        ..Default::default()
+    };
+
+    let session = Session::new(1, 1, cwd, ResourceManager::new(), proj_dirs, base_dirs)
+        .with_blank(
+            FileStatus::NoFile,
+            Session::DEFAULT_VIEW_W,
+            Session::DEFAULT_VIEW_H,
+        )
+        .init(options.source.clone())?;
+
+    &manual.push_str(&format!("rx v{}: quick reference\n", crate::VERSION));
+
+    let session_kbs = session.key_bindings;
+    let (normal_kbs, visual_kbs) = session_kbs.get_key_bindings();
+
+    // colour the header? Windows versions before Linux subshell update doesn't support ANSI
+    &manual.push_str("\nNORMAL MODE\n\n");
+    for (display, kb) in normal_kbs.iter() {
+        &manual.push_str(&format!("{:<36} {}\n", display, kb.command));
+    }
+
+    &manual.push_str("\nVISUAL MODE\n\n");
+    for (display, kb) in visual_kbs.iter() {
+        &manual.push_str(&format!("{:<36} {}\n", display, kb.command));
+    }
+
+    &manual.push_str("\nCOMMAND MODE\n\n");
+    for (key, def, _) in cmd::Commands::default().iter() {
+        &manual.push_str(&format!(":{:<36} {}\n", key, def));
+    }
+
+    manual.push_str(session::SETTINGS);
+
+    Ok(manual)
+}
+
 use cmd::Value;
 use event::Event;
 use execution::{DigestMode, Execution, ExecutionMode};

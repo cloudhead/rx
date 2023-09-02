@@ -474,6 +474,13 @@ impl KeyBindings {
     pub fn iter(&self) -> std::slice::Iter<'_, KeyBinding> {
         self.elems.iter()
     }
+
+    /// Return tuple of normal mode and visual mode key bindings
+    pub fn get_key_bindings(&self) -> (Vec<(&String, &KeyBinding)>, Vec<(&String, &KeyBinding)>) {
+        self.iter()
+            .filter_map(|kb| kb.display.as_ref().map(|d| (d, kb)))
+            .partition(|(_, kb)| kb.modes.contains(&Mode::Normal))
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

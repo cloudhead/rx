@@ -779,14 +779,7 @@ pub fn draw_help(session: &Session, text: &mut TextBatch, shape: &mut shape2d::B
         TextAlign::Left,
     );
 
-    let (normal_kbs, visual_kbs): (
-        Vec<(&String, &session::KeyBinding)>,
-        Vec<(&String, &session::KeyBinding)>,
-    ) = session
-        .key_bindings
-        .iter()
-        .filter_map(|kb| kb.display.as_ref().map(|d| (d, kb)))
-        .partition(|(_, kb)| kb.modes.contains(&Mode::Normal));
+    let (normal_kbs, visual_kbs) = session.key_bindings.get_key_bindings();
 
     let mut line = (0..(session.height as usize - self::LINE_HEIGHT as usize * 4))
         .rev()
