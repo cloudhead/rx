@@ -3034,11 +3034,10 @@ impl Session {
 
         match self.cmdline.parse(&input) {
             Err(e) => self.message(format!("Error: {}", e), MessageType::Error),
-            Ok(cmd) => {
-                self.command(cmd);
-                self.cmdline.history.add(input);
-            }
+            Ok(cmd) => self.command(cmd),
         }
+
+        self.cmdline.history.add(input);
     }
 
     fn cmdline_handle_input(&mut self, c: char) {
