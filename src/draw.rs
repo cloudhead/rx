@@ -730,6 +730,20 @@ pub fn draw_view_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch
     )
 }
 
+pub fn draw_view_lookuptexture_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
+    sprite2d::Batch::singleton(
+        v.width(),
+        v.fh,
+        *v.animation.val(),
+        Rect::new(-(v.fw as f32) * 2., 0., -(v.fw as f32), v.fh as f32) * v.zoom + (session.offset + v.offset),
+        self::VIEW_LAYER,
+        Rgba::TRANSPARENT,
+        1.,
+        Repeat::default(),
+    )
+}
+
+
 pub fn draw_view_composites<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
     let mut batch = sprite2d::Batch::new(v.width(), v.fh);
 

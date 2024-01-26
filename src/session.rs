@@ -3006,6 +3006,34 @@ impl Session {
                     v.paint_color(*color, x, y);
                 }
             }
+            Command::LookupTextureOn => {
+                if !self.active_view().is_lookuptexture() {
+                    self.active_view_mut().lookuptexture_on();
+                } else {
+                    self.message(
+                        format!("View is already set as a lookup texture"),
+                        MessageType::Error,
+                    );
+                }
+            }
+            Command::LookupTextureSet(d) => {
+                if d == 0 {
+                    self.message(
+                        format!("Cannot set a view as its own lookup texture"),
+                        MessageType::Error,
+                    );
+                    return;
+                }
+
+                let current = self.views.active_id;
+                if let Some(id) = self.views.relativen(current, d) {
+                    self.active_view_mut().lookuptexture_set(id);
+                    if !self.view(id).is_lookuptexture() {
+                        self.activate(id); // TODO: seems to crash on first draw without it
+                        self.view_mut(id).lookuptexture_on();
+                    }
+                }
+            }
         };
     }
 

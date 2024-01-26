@@ -31,6 +31,7 @@ use luminance::{
 use luminance_derive::{Semantics, UniformInterface, Vertex};
 use luminance_gl::gl33;
 
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt;
@@ -39,6 +40,7 @@ use std::mem;
 use std::time;
 
 type Backend = gl33::GL33;
+type V2 = [f32; 2];
 type M44 = [[f32; 4]; 4];
 
 const SAMPLER: Sampler = Sampler {
@@ -127,6 +129,24 @@ struct Screen2dInterface {
     framebuffer: Uniform<TextureBinding<Dim2, pixel::NormUnsigned>>,
 }
 
+#[derive(UniformInterface)]
+struct Lookuptex2dInterface {
+    tex: Uniform<TextureBinding<Dim2, pixel::NormUnsigned>>,
+    ltex: Uniform<TextureBinding<Dim2, pixel::NormUnsigned>>,
+    ltexreg: Uniform<V2>,
+    ortho: Uniform<M44>,
+    transform: Uniform<M44>,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Vertex)]
+#[vertex(sem = "VertexSemantics")]
+#[rustfmt::skip]
+struct Lookuptex2dVertex {
+    #[allow(dead_code)] position: VertexPosition,
+    #[allow(dead_code)] uv: VertexUv,
+}
+
 pub struct Renderer {
     pub win_size: LogicalSize,
 
@@ -153,8 +173,9 @@ pub struct Renderer {
     shape2d: Program<Backend, VertexSemantics, (), Shape2dInterface>,
     cursor2d: Program<Backend, VertexSemantics, (), Cursor2dInterface>,
     screen2d: Program<Backend, VertexSemantics, (), Screen2dInterface>,
+    lookuptex2d: Program<Backend, VertexSemantics, (), Lookuptex2dInterface>,
 
-    view_data: BTreeMap<ViewId, ViewData>,
+    view_data: BTreeMap<ViewId, RefCell<ViewData>>,
 }
 
 struct LayerData {
@@ -239,6 +260,7 @@ struct ViewData {
     layer: LayerData,
     staging_fb: Framebuffer<Backend, Dim2, pixel::SRGBA8UI, pixel::Depth32F>,
     anim_tess: Option<Tess<Backend, Sprite2dVertex>>,
+    anim_lt_tess: Option<Tess<Backend, Sprite2dVertex>>,
     layer_tess: Option<Tess<Backend, Sprite2dVertex>>,
 }
 
@@ -256,6 +278,7 @@ impl ViewData {
             layer: LayerData::new(w, h, pixels, ctx),
             staging_fb,
             anim_tess: None,
+            anim_lt_tess: None,
             layer_tess: None,
         }
     }
@@ -399,6 +422,10 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             include_str!("data/screen.vert"),
             include_str!("data/screen.frag"),
         );
+        let lookuptex2d = ctx.program::<Lookuptex2dInterface>(
+            include_str!("data/lookuptex.vert"),
+            include_str!("data/lookuptex.frag"),
+        );
 
         let physical = win_size.to_physical(scale_factor);
         let present_fb =
@@ -450,6 +477,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             shape2d,
             cursor2d,
             screen2d,
+            lookuptex2d,
             font,
             cursors,
             checker,
@@ -495,6 +523,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             shape2d,
             cursor2d,
             screen2d,
+            lookuptex2d,
             scale_factor,
             present_fb,
             blending,
@@ -575,90 +604,93 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             None
         };
 
+        let mut builder = self.ctx.new_pipeline_gate();
         let v = session
             .views
             .active()
             .expect("there must always be an active view");
-        let v_data = view_data.get(&v.id).unwrap();
-        let l_data = &v_data.layer;
         let view_ortho = Matrix4::ortho(v.width(), v.fh, Origin::TopLeft);
 
-        let mut builder = self.ctx.new_pipeline_gate();
+        {
+            let v_data = view_data.get(&v.id).unwrap().borrow();
+            let l_data = &v_data.layer;
 
-        // Render to view staging buffer.
-        builder.pipeline::<PipelineError, _, _, _, _>(
-            &v_data.staging_fb,
-            pipeline_st,
-            |pipeline, mut shd_gate| {
-                // Render staged brush strokes.
-                if let Some(tess) = staging_tess {
-                    shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
-                        iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity);
+            // Render to view staging buffer.
+            builder.pipeline::<PipelineError, _, _, _, _>(
+                &v_data.staging_fb,
+                pipeline_st,
+                |pipeline, mut shd_gate| {
+                    // Render staged brush strokes.
+                    if let Some(tess) = staging_tess {
+                        shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
+                            iface.set(&uni.ortho, view_ortho.into());
+                            iface.set(&uni.transform, identity);
 
-                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
-                    })?;
-                }
-                // Render staging paste buffer.
-                if let Some(tess) = paste_tess {
+                            rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
+                        })?;
+                    }
+                    // Render staging paste buffer.
+                    if let Some(tess) = paste_tess {
+                        let bound_paste = pipeline
+                            .bind_texture(paste)
+                            .expect("binding textures never fails. qed.");
+                        shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                            iface.set(&uni.ortho, view_ortho.into());
+                            iface.set(&uni.transform, identity);
+                            iface.set(&uni.tex, bound_paste.binding());
+
+                            rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
+                        })?;
+                    }
+                    Ok(())
+                },
+            );
+
+            // Render to view final buffer.
+            builder.pipeline::<PipelineError, _, _, _, _>(
+                &l_data.fb,
+                &pipeline_st.clone().enable_clear_color(false),
+                |pipeline, mut shd_gate| {
                     let bound_paste = pipeline
                         .bind_texture(paste)
                         .expect("binding textures never fails. qed.");
-                    shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                        iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity);
-                        iface.set(&uni.tex, bound_paste.binding());
 
-                        rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tess))
-                    })?;
-                }
-                Ok(())
-            },
-        );
+                    // Render final brush strokes.
+                    if let Some(tess) = final_tess {
+                        shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
+                            iface.set(&uni.ortho, view_ortho.into());
+                            iface.set(&uni.transform, identity);
 
-        // Render to view final buffer.
-        builder.pipeline::<PipelineError, _, _, _, _>(
-            &l_data.fb,
-            &pipeline_st.clone().enable_clear_color(false),
-            |pipeline, mut shd_gate| {
-                let bound_paste = pipeline
-                    .bind_texture(paste)
-                    .expect("binding textures never fails. qed.");
+                            let render_st = if blending == &Blending::Constant {
+                                render_st.clone().set_blending(blending::Blending {
+                                    equation: Equation::Additive,
+                                    src: Factor::One,
+                                    dst: Factor::Zero,
+                                })
+                            } else {
+                                render_st.clone()
+                            };
 
-                // Render final brush strokes.
-                if let Some(tess) = final_tess {
-                    shd_gate.shade(shape2d, |mut iface, uni, mut rdr_gate| {
-                        iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity);
+                            rdr_gate.render(&render_st, |mut tess_gate| tess_gate.render(&tess))
+                        })?;
+                    }
+                    if !paste_outputs.is_empty() {
+                        shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
+                            iface.set(&uni.ortho, view_ortho.into());
+                            iface.set(&uni.transform, identity);
+                            iface.set(&uni.tex, bound_paste.binding());
 
-                        let render_st = if blending == &Blending::Constant {
-                            render_st.clone().set_blending(blending::Blending {
-                                equation: Equation::Additive,
-                                src: Factor::One,
-                                dst: Factor::Zero,
-                            })
-                        } else {
-                            render_st.clone()
-                        };
-
-                        rdr_gate.render(&render_st, |mut tess_gate| tess_gate.render(&tess))
-                    })?;
-                }
-                if !paste_outputs.is_empty() {
-                    shd_gate.shade(sprite2d, |mut iface, uni, mut rdr_gate| {
-                        iface.set(&uni.ortho, view_ortho.into());
-                        iface.set(&uni.transform, identity);
-                        iface.set(&uni.tex, bound_paste.binding());
-
-                        for out in paste_outputs.drain(..) {
-                            rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&out))?;
-                        }
-                        Ok(())
-                    })?;
-                }
-                Ok(())
-            },
-        );
+                            for out in paste_outputs.drain(..) {
+                                rdr_gate
+                                    .render(render_st, |mut tess_gate| tess_gate.render(&out))?;
+                            }
+                            Ok(())
+                        })?;
+                    }
+                    Ok(())
+                },
+            );
+        }
 
         // Render to screen framebuffer.
         let bg = Rgba::from(session.settings["background"].to_rgba8());
@@ -684,7 +716,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                     })?;
                 }
 
-                for (id, v) in view_data.iter_mut() {
+                for (id, rcv) in view_data.iter() {
+                    let mut v = rcv.borrow_mut();
                     if let Some(view) = session.views.get(*id) {
                         let transform =
                             Matrix4::from_translation(
@@ -736,7 +769,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
                     // Render view animations.
                     if session.settings["animation"].is_set() {
-                        for (id, v) in view_data.iter_mut() {
+                        for (id, v) in view_data.iter() {
+                            let v = &mut *v.borrow_mut();
                             match (&v.anim_tess, session.views.get(*id)) {
                                 (Some(tess), Some(view)) if view.animation.len() > 1 => {
                                     let bound_layer = pipeline
@@ -776,6 +810,48 @@ impl<'a> renderer::Renderer<'a> for Renderer {
 
                         // Render tool.
                         rdr_gate.render(render_st, |mut tess_gate| tess_gate.render(&tool_tess))?;
+                    }
+                    Ok(())
+                })?;
+
+                shd_gate.shade(lookuptex2d, |mut iface, uni, mut rdr_gate| {
+                    iface.set(&uni.ortho, ortho);
+                    if session.settings["animation"].is_set() {
+                        for (id, v) in view_data.iter() {
+                            let v = &mut *v.borrow_mut();
+                            match (&v.anim_lt_tess, session.views.get(*id)) {
+                                (Some(tess), Some(view)) if !view.lookuptexture().is_none() => {
+                                    let ltid = view.lookuptexture().unwrap();
+                                    match (
+                                        view_data.get(&ltid),
+                                        session.views.get(ltid),
+                                    ) {
+                                        (Some(rcltv), Some(ltview)) => {
+                                            let mut ltv = rcltv.borrow_mut();
+                                            let bound_layer = pipeline
+                                                .bind_texture(v.layer.fb.color_slot())
+                                                .expect("binding textures never fails");
+                                            let lookup_layer = pipeline
+                                                .bind_texture(ltv.layer.fb.color_slot())
+                                                .expect("binding textures never fails");
+                                            let t = Matrix4::from_translation(
+                                                Vector2::new(0., view.zoom).extend(0.),
+                                            );
+                                            // Render layer animation.
+                                            iface.set(&uni.tex, bound_layer.binding());
+                                            iface.set(&uni.ltex, lookup_layer.binding());
+                                            iface.set(&uni.ltexreg, [0.5, 1.]);
+                                            iface.set(&uni.transform, t.into());
+                                            rdr_gate.render(render_st, |mut tess_gate| {
+                                                tess_gate.render(tess)
+                                            })?;
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                                _ => (),
+                            }
+                        }
                     }
                     Ok(())
                 })?;
@@ -859,7 +935,7 @@ impl<'a> renderer::Renderer<'a> for Renderer {
             let extent = v.extent();
 
             if let Some(vr) = session.views.get_mut(id) {
-                let v_data = view_data.get_mut(&id).unwrap();
+                let mut v_data = view_data.get(&id).unwrap().borrow_mut();
 
                 match state {
                     ViewState::Dirty(_) if is_resized => {
@@ -939,8 +1015,10 @@ impl Renderer {
                     if let Some((s, pixels)) = session.views.get_snapshot_safe(id) {
                         let (w, h) = (s.width(), s.height());
 
-                        self.view_data
-                            .insert(id, ViewData::new(w, h, Some(pixels), &mut self.ctx));
+                        self.view_data.insert(
+                            id,
+                            RefCell::new(ViewData::new(w, h, Some(pixels), &mut self.ctx)),
+                        );
                     }
                 }
                 Effect::ViewRemoved(id) => {
@@ -983,10 +1061,11 @@ impl Renderer {
                     self.resize_view(v, *w, *h)?;
                 }
                 ViewOp::Clear(color) => {
-                    let view = self
+                    let mut view = self
                         .view_data
-                        .get_mut(&v.id)
-                        .expect("views must have associated view data");
+                        .get(&v.id)
+                        .expect("views must have associated view data")
+                        .borrow_mut();
 
                     view.layer
                         .fb
@@ -995,10 +1074,11 @@ impl Renderer {
                         .map_err(Error::Texture)?;
                 }
                 ViewOp::Blit(src, dst) => {
-                    let view = self
+                    let mut view = self
                         .view_data
-                        .get_mut(&v.id)
-                        .expect("views must have associated view data");
+                        .get(&v.id)
+                        .expect("views must have associated view data")
+                        .borrow_mut();
 
                     let (_, texels) = v.layer.get_snapshot_rect(&src.map(|n| n as i32)).unwrap(); // TODO: Handle this nicely?
                     let texels = util::align_u8(&texels);
@@ -1085,14 +1165,64 @@ impl Renderer {
                 ViewOp::SetPixel(rgba, x, y) => {
                     let fb = &mut self
                         .view_data
-                        .get_mut(&v.id)
+                        .get(&v.id)
                         .expect("views must have associated view data")
+                        .borrow_mut()
                         .layer
                         .fb;
                     let texels = &[*rgba];
                     let texels = util::align_u8(texels);
                     fb.color_slot()
                         .upload_part_raw(GenMipmaps::No, [*x as u32, *y as u32], [1, 1], texels)
+                        .map_err(Error::Texture)?;
+                }
+                //TODO: could be more generic
+                ViewOp::GenerateLookupTextureIR(src, dst) => {
+                    let mut view = self
+                        .view_data
+                        .get(&v.id)
+                        .expect("views must have associated view data")
+                        .borrow_mut();
+
+                    let (_, pixels) = v.layer.get_snapshot_rect(&src.map(|n| n as i32)).unwrap(); // TODO: Handle this nicely?
+
+                    let modified: Vec<Rgba8> = pixels
+                        .iter()
+                        .enumerate()
+                        .map(|(i, p)| {
+                            if p.a == 0 {
+                                return Rgba8 {
+                                    r: 0,
+                                    g: 0,
+                                    b: 0,
+                                    a: 0,
+                                };
+                            }
+
+                            let x = i as f32 % src.width();
+                            let xf = 256.0 / src.width();
+                            let y = (i as f32 / src.width()).floor();
+                            let yf = 256.0 / src.height();
+                            Rgba8 {
+                                r: (x * xf).floor() as u8,
+                                g: (y * yf).floor() as u8,
+                                b: 0,
+                                a: p.a,
+                            }
+                        })
+                        .collect();
+
+                    let modified = util::align_u8(&modified);
+
+                    view.layer
+                        .fb
+                        .color_slot()
+                        .upload_part_raw(
+                            GenMipmaps::No,
+                            [dst.x1 as u32, dst.y1 as u32],
+                            [src.width() as u32, src.height() as u32],
+                            modified,
+                        )
                         .map_err(Error::Texture)?;
                 }
             }
@@ -1103,8 +1233,9 @@ impl Renderer {
     fn handle_view_damaged(&mut self, view: &View<ViewResource>) -> Result<(), RendererError> {
         let layer = &mut self
             .view_data
-            .get_mut(&view.id)
+            .get(&view.id)
             .expect("views must have associated view data")
+            .borrow_mut()
             .layer;
 
         let (_, pixels) = view.layer.current_snapshot();
@@ -1156,7 +1287,7 @@ impl Renderer {
             l.upload_part([0, vh - th], [tw, th], texels)?;
         }
 
-        self.view_data.insert(view.id, view_data);
+        self.view_data.insert(view.id, RefCell::new(view_data));
 
         Ok(())
     }
@@ -1167,15 +1298,28 @@ impl Renderer {
         }
         // TODO: Does this need to run if the view has only one frame?
         for v in s.views.iter() {
+            if v.is_lookuptexture() {
+                continue;
+            }
             // FIXME: When `v.animation.val()` doesn't change, we don't need
             // to re-create the buffer.
             let batch = draw::draw_view_animation(s, v);
-
-            if let Some(vd) = self.view_data.get_mut(&v.id) {
-                vd.anim_tess = Some(
+            if let Some(vd) = self.view_data.get(&v.id) {
+                vd.borrow_mut().anim_tess = Some(
                     self.ctx
                         .tessellation::<_, Sprite2dVertex>(batch.vertices().as_slice()),
                 );
+            }
+
+            // lookup-texture animation enabled
+            if let Some(_) = v.lookuptexture() {
+                let ltbatch = draw::draw_view_lookuptexture_animation(s, v);
+                if let Some(vd) = self.view_data.get(&v.id) {
+                    vd.borrow_mut().anim_lt_tess = Some(
+                        self.ctx
+                            .tessellation::<_, Sprite2dVertex>(ltbatch.vertices().as_slice()),
+                    );
+                }
             }
         }
     }
@@ -1184,8 +1328,8 @@ impl Renderer {
         for v in s.views.iter() {
             let batch = draw::draw_view_composites(s, v);
 
-            if let Some(vd) = self.view_data.get_mut(&v.id) {
-                vd.layer_tess = Some(
+            if let Some(vd) = self.view_data.get(&v.id) {
+                vd.borrow_mut().layer_tess = Some(
                     self.ctx
                         .tessellation::<_, Sprite2dVertex>(batch.vertices().as_slice()),
                 );
