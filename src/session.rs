@@ -3006,14 +3006,11 @@ impl Session {
                     v.paint_color(*color, x, y);
                 }
             }
-            Command::LookupTextureOn => {
-                if !self.active_view().is_lookuptexture() {
+            Command::LookupTextureMode(on) => {
+                if on {
                     self.active_view_mut().lookuptexture_on();
                 } else {
-                    self.message(
-                        format!("View is already set as a lookup texture"),
-                        MessageType::Error,
-                    );
+                    self.active_view_mut().lookuptexture_off();
                 }
             }
             Command::LookupTextureSet(d) => {
@@ -3031,6 +3028,7 @@ impl Session {
                     if !self.view(id).is_lookuptexture() {
                         self.activate(id); // TODO: seems to crash on first draw without it
                         self.view_mut(id).lookuptexture_on();
+                        self.activate(current);
                     }
                 }
             }

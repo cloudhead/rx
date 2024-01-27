@@ -448,28 +448,6 @@ impl<R> View<R> {
         Rect::origin(self.width() as i32, self.fh as i32)
     }
 
-    /// Set another view as current view's lookup texture
-    pub fn lookuptexture_set(&mut self, ltid: ViewId) {
-        assert!(self.id != ltid, "cannot set a view as its own lookup texture");
-        self.lookuptexture = Some(ltid);
-    }
-
-    /// Set current view as a lookup texture
-    pub fn lookuptexture_on(&mut self) {
-        assert!(self.animation.len() <= 1, "view is already an animation, cannot transform to lookup texture");
-        self.lookuptexture_on = true;
-        let width = self.width() as f32;
-        let (fw, fh) = (self.fw as f32, self.fh as f32);
-
-        self.extend();
-        // build initial intermediate map
-        self.ops.push(ViewOp::GenerateLookupTextureIR(
-            Rect::new(0., 0., fw as f32, fh),
-            Rect::new(width, 0., width + fw, fh),
-        ));
-
-    }
-
     ////////////////////////////////////////////////////////////////////////////
 
     fn resized(&mut self) {
@@ -592,6 +570,38 @@ impl View<ViewResource> {
         let (e_id, _) = self.save(rect, path)?;
 
         Ok(e_id)
+    }
+
+    /// Set another view as current view's lookup texture
+    pub fn lookuptexture_set(&mut self, ltid: ViewId) {
+        assert!(self.id != ltid, "cannot set a view as its own lookup texture");
+        self.lookuptexture = Some(ltid);
+    }
+
+    /// Set current view as a lookup texture
+    pub fn lookuptexture_on(&mut self) {
+        self.lookuptexture_on = true;
+
+        if self.animation.len() == 1 {
+            let width = self.width() as f32;
+            let (fw, fh) = (self.fw as f32, self.fh as f32);
+
+            self.extend();
+            // build initial intermediate map
+            self.ops.push(ViewOp::GenerateLookupTextureIR(
+                Rect::new(0., 0., fw as f32, fh),
+                Rect::new(width, 0., width + fw, fh),
+            ));
+        }
+    }
+
+    /// Set current view as a lookup texture
+    pub fn lookuptexture_off(&mut self) {
+        self.lookuptexture_on = false;
+        
+        if self.animation.len() > 1 {
+            self.shrink();
+        }
     }
 }
 

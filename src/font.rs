@@ -1,4 +1,4 @@
-use crate::gfx::sprite2d;
+use crate::gfx::{sprite2d};
 use crate::gfx::{Rect, Repeat, Rgba8, ZDepth};
 
 pub enum TextAlign {
@@ -27,7 +27,7 @@ impl TextBatch {
         z: ZDepth,
         color: Rgba8,
         align: TextAlign,
-    ) {
+    ) -> f32 {
         let offset: usize = 32;
 
         let gw = self.gw;
@@ -56,6 +56,8 @@ impl TextBatch {
             );
             sx += gw;
         }
+
+        return sx;
     }
 
     pub fn offset(&mut self, x: f32, y: f32) {

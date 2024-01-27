@@ -254,7 +254,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
 
         if session.settings["ui/view-info"].is_set() {
             // View info
-            text.add(
+            let x = text.add(
                 &format!("{}x{}x{}", v.fw, v.fh, v.animation.len()),
                 offset.x,
                 offset.y - self::LINE_HEIGHT,
@@ -262,6 +262,17 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 color::GREY,
                 TextAlign::Left,
             );
+
+            if v.is_lookuptexture() {
+                text.add(
+                    &format!(" LUT"),
+                    x,
+                    offset.y - self::LINE_HEIGHT,
+                    self::TEXT_LAYER,
+                    color::GREEN,
+                    TextAlign::Left,
+                );
+            }
         }
     }
     if session.settings["ui/status"].is_set() {
