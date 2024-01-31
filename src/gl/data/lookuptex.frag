@@ -22,6 +22,7 @@ void main() {
     vec4 texel = texture(tex, f_uv);
     texel = vec4(linearTosRGB(texel.rgb), texel.a); // Convert to linear space
     texel.rg = texel.rg * ltexreg;
+    texel.rg = texel.rg + vec2(0.001953125, 0.001953125);
     if (texel.a > 0.0) { // Non-transparent pixel
         vec4 lt_texel = texture(ltex, texel.rg);
         fragColor = vec4(
