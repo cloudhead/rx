@@ -91,6 +91,7 @@ impl fmt::Display for Mode {
             Self::Visual(VisualState::Selecting { dragging: true }) => "visual (dragging)".fmt(f),
             Self::Visual(VisualState::Selecting { .. }) => "visual".fmt(f),
             Self::Visual(VisualState::Pasting) => "visual (pasting)".fmt(f),
+            Self::Visual(VisualState::LookupSampling) => "visual (LUT sampling)".fmt(f),
             Self::Command => "command".fmt(f),
             Self::Present => "present".fmt(f),
             Self::Help => "help".fmt(f),
@@ -102,6 +103,7 @@ impl fmt::Display for Mode {
 pub enum VisualState {
     Selecting { dragging: bool },
     Pasting,
+    LookupSampling,
 }
 
 impl VisualState {
@@ -159,6 +161,30 @@ impl Deref for Selection {
 
     fn deref(&self) -> &Rect<i32> {
         &self.0
+    }
+}
+
+#[derive(Clone)]
+pub struct LookupSampleCandidate(pub Rect<f32>, pub Rgba8);
+
+#[derive(Clone)]
+pub struct LookupSampleState {
+    pub candidates: Vec<LookupSampleCandidate>,
+    pub selected: i32,
+    pub color: Rgba8,
+}
+
+impl LookupSampleState {
+    fn new(color: Rgba8) -> LookupSampleState {
+        LookupSampleState {
+            candidates: Vec::new(),
+            selected: -1,
+            color: color
+        }
+    }
+
+    fn next(&mut self, i: i32) {
+        self.selected = (self.selected + i) % self.candidates.len() as i32;
     }
 }
 
@@ -233,6 +259,8 @@ pub enum Tool {
     Sampler,
     /// Used to pan the workspace.
     Pan(PanState),
+    /// Used to sample colors from lookup texture
+    LookupTextureSampler,
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
@@ -614,6 +642,10 @@ pub struct Session {
     /// Current pixel selection.
     pub selection: Option<Selection>,
 
+    /// Current pixel selection.
+    pub lookup_sample_state: Option<LookupSampleState>,
+    pub prev_lookup_sample_state: Option<LookupSampleState>,
+
     /// The session's current settings.
     pub settings: Settings,
     /// Settings recently changed.
@@ -737,6 +769,8 @@ impl Session {
             mode: Mode::Normal,
             prev_mode: Option::default(),
             selection: Option::default(),
+            lookup_sample_state: Option::default(),
+            prev_lookup_sample_state: Option::default(),
             message: Message::default(),
             avg_time: time::Duration::from_secs(0),
             frame_number: 0,
@@ -1177,6 +1211,11 @@ impl Session {
         match old {
             Mode::Command => {
                 self.cmdline.clear();
+            }
+            Mode::Visual(VisualState::LookupSampling) => {
+                if self.lookup_sample_state.is_some() {
+                    self.prev_lookup_sample_state = std::mem::replace(&mut self.lookup_sample_state, None);
+                }
             }
             _ => {}
         }
@@ -1895,6 +1934,10 @@ impl Session {
                                     }
                                     debug!("flood fill in: {:?}", start_time.elapsed());
                                 }
+                                Tool::LookupTextureSampler => {
+                                    self.command(Command::LookupTextureSample);
+                                    self.prev_tool();
+                                }
                             },
                             Mode::Command => {
                                 // TODO
@@ -1917,6 +1960,9 @@ impl Session {
                                 // Re-center the selection in-case we've switched layer.
                                 self.center_selection(self.cursor);
                                 self.command(Command::SelectionPaste);
+                            }
+                            Mode::Visual(VisualState::LookupSampling) => {
+                                // TODO
                             }
                             Mode::Present | Mode::Help => {}
                         }
@@ -2098,6 +2144,37 @@ impl Session {
                     if key == platform::Key::Escape && state == InputState::Pressed {
                         self.switch_mode(Mode::Visual(VisualState::default()));
                         return;
+                    }
+                }
+                Mode::Visual(VisualState::LookupSampling) => {
+                    if state == InputState::Pressed {
+                        match key {
+                            platform::Key::Escape => {
+                                self.switch_mode(Mode::Normal);
+                                return;
+                            }
+                            platform::Key::Tab => {
+                                if let Some(lss) = self.lookup_sample_state.as_mut() {
+                                    if modifiers.shift {
+                                        lss.next(-1);
+                                    } else {
+                                        lss.next(1);
+                                    }
+                                }
+                                return;
+                            }
+                            platform::Key::Return => {
+                                if let Some(lss) = &self.lookup_sample_state {
+                                    if lss.selected >= 0 {
+                                        self.pick_color(lss.candidates[lss.selected as usize].1)
+                                    }
+                                }
+                                self.switch_mode(Mode::Normal);
+                                self.tool(Tool::Brush);
+                                return;
+                            }
+                            _ => {}
+                        }
                     }
                 }
                 Mode::Command => {
@@ -3004,6 +3081,98 @@ impl Session {
 
                 if let Some(color) = c.get(i) {
                     v.paint_color(*color, x, y);
+                }
+            }
+            Command::LookupTextureMode(on) => {
+                if on {
+                    self.active_view_mut().lookuptexture_on();
+                } else {
+                    self.active_view_mut().lookuptexture_off();
+                }
+            }
+            Command::LookupTextureSet(d) => {
+                if d == 0 {
+                    self.message(
+                        format!("Cannot set a view as its own lookup texture"),
+                        MessageType::Error,
+                    );
+                    return;
+                }
+
+                let current = self.views.active_id;
+                if let Some(id) = self.views.relativen(current, d) {
+                    self.active_view_mut().lookuptexture_set(id);
+                    if !self.view(id).is_lookuptexture() {
+                        self.activate(id); // TODO: seems to crash on first draw without it
+                        self.view_mut(id).lookuptexture_on();
+                    }
+                }
+            }
+            Command::LookupTextureSample => {
+                let v = self.active_view();
+                if v.lookuptexture().is_none() {
+                    self.message(
+                        format!("Current view has no lookup texture"),
+                        MessageType::Error,
+                    );
+                    return;
+                }
+
+                let lutid = v.lookuptexture().unwrap();
+                let lutv = self
+                    .views
+                    .get(lutid)
+                    .expect(&format!("view #{} must exist", lutid));
+
+                let (_, pixels) = lutv.layer.current_snapshot();
+
+                let hover = self.hover_color;
+                if hover.is_none() {
+                    self.message(format!("Not hovering on any color"), MessageType::Error);
+                    return;
+                }
+
+                let hover = hover.unwrap();
+
+                let mut lss = LookupSampleState::new(hover);
+                for (i, pixel) in pixels.iter().cloned().enumerate() {
+                    let vw = lutv.extent.fw * lutv.extent.nframes as u32;
+                    let x = (i as u32 % vw) as f32;
+                    let r = (i as u32 % vw) as f32;
+                    let rf = 256.0 / (lutv.extent.fw as f32);
+                    let y = (lutv.extent.fh - 1 - i as u32 / vw) as f32;
+                    let g = (i as f32 / (vw as f32)).floor();
+                    let gf = 256.0 / (lutv.extent.fh as f32);
+                    if pixel == hover {
+                        // register potential candidate
+                        lss.candidates.push(LookupSampleCandidate(
+                            Rect::new(x, y, x + 1., y + 1.),
+                            Rgba8::new(
+                                (r * rf).floor() as u8,
+                                (g * gf).floor() as u8,
+                                pixel.r.max(pixel.g).max(pixel.b) as u8,
+                                255,
+                            ),
+                        ))
+                    }
+                }
+
+                if let Some(prevlss) = &self.prev_lookup_sample_state {
+                    if prevlss.color == lss.color &&
+                        (prevlss.selected as usize) < lss.candidates.len() {
+                        lss.selected = prevlss.selected;
+                    }
+                }
+                
+
+                if lss.candidates.len() > 0 {
+                    self.lookup_sample_state = Some(lss);
+                    self.switch_mode(Mode::Visual(VisualState::LookupSampling));
+                } else {
+                    self.message(
+                        format!("No matching pixels in lookup texture"),
+                        MessageType::Warning,
+                    );
                 }
             }
         };

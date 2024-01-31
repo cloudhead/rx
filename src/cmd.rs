@@ -122,6 +122,10 @@ pub enum Command {
     ViewNext,
     ViewPrev,
 
+    LookupTextureSample,
+    LookupTextureMode(bool),
+    LookupTextureSet(i32),
+
     Noop,
 }
 
@@ -1050,6 +1054,20 @@ impl Default for Commands {
                     .skip(whitespace())
                     .then(tuple::<i32>(integer().label("<x>"), integer().label("<y>")))
                     .map(|((_, i), (x, y))| Command::PaintPalette(i, x, y))
+            })
+            .command("lt/on", "Set current view as lookup texture", |p| {
+                p.value(Command::LookupTextureMode(true)) })
+            .command("lt/off", "Revert view to normal mode", |p| {
+                p.value(Command::LookupTextureMode(false)) })
+            .command("lt/set", "Set another view as lookup texture to current view", |p| {
+                p.then(integer::<i32>().label("<d>"))
+                    .map(|(_, d)| Command::LookupTextureSet(d))
+            })
+            .command("lt/sample", "Search lookup texture for matching pixels", |p| {
+                p.value(Command::LookupTextureSample)
+            })
+            .command("lt/sampler", "Switch to lookup texture sampler tool", |p| {
+                p.value(Command::Tool(Tool::LookupTextureSampler))
             })
     }
 }

@@ -69,6 +69,7 @@ pub mod cursors {
     const PAN: Cursor = Cursor::new(Rect::new(48., 0., 64., 16.), -8., -8., false);
     const ERASE: Cursor = Cursor::new(Rect::new(64., 0., 80., 16.), -8., -8., true);
     const FLOOD: Cursor = Cursor::new(Rect::new(80., 0., 96., 16.), -8., -8., false);
+    const LOOKUP: Cursor = Cursor::new(Rect::new(96., 0., 112., 16.), -5.5, -8., false);
 
     pub fn info(t: &Tool, b: &Brush, m: Mode, in_view: bool, in_selection: bool) -> Option<Cursor> {
         match (m, t) {
@@ -82,6 +83,7 @@ pub mod cursors {
             Tool::Sampler => self::SAMPLER,
             Tool::Pan(_) => self::PAN,
             Tool::FloodFill => self::FLOOD,
+            Tool::LookupTextureSampler => self::LOOKUP,
 
             Tool::Brush => match m {
                 Mode::Visual(_) if in_selection && in_view => self::OMNI,
@@ -150,7 +152,7 @@ impl Context {
 fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch) {
     let view = session.active_view();
 
-    if let Some(selection) = session.selection {
+    if let Some(selection) = &session.selection {
         let fill = match session.mode {
             Mode::Visual(VisualState::Selecting { .. }) => {
                 Rgba8::new(color::RED.r, color::RED.g, color::RED.b, 0x55)
@@ -212,6 +214,33 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
         }
     }
 
+    if let (Some(lss), Some(ltid)) = (&session.lookup_sample_state, view.lookuptexture()) {
+        match session.mode {
+            Mode::Visual(VisualState::LookupSampling) => {
+                let ltv = session.view(ltid);
+            
+                let offset = session.offset + ltv.offset;
+                let t = Matrix4::from_translation(offset.extend(0.)) * Matrix4::from_scale(ltv.zoom);
+
+                for (i, c) in lss.candidates.iter().enumerate() {
+                    let mut stroke = color::RED;
+                    if i as i32 == lss.selected {
+                        stroke = color::GREEN;
+                    }
+
+                    canvas.add(Shape::Rectangle(
+                        c.0.transform(t),
+                        self::UI_LAYER,
+                        Rotation::ZERO,
+                        Stroke::new(1., stroke.into()),
+                        Fill::Empty,
+                    ));    
+                }
+            }
+            _ => ()
+        };
+    }
+
     for v in session.views.iter() {
         let offset = v.offset + session.offset;
 
@@ -254,7 +283,7 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
 
         if session.settings["ui/view-info"].is_set() {
             // View info
-            text.add(
+            let x = text.add(
                 &format!("{}x{}x{}", v.fw, v.fh, v.animation.len()),
                 offset.x,
                 offset.y - self::LINE_HEIGHT,
@@ -262,6 +291,17 @@ fn draw_ui(session: &Session, canvas: &mut shape2d::Batch, text: &mut TextBatch)
                 color::GREY,
                 TextAlign::Left,
             );
+
+            if v.is_lookuptexture() {
+                text.add(
+                    &format!(" LUT"),
+                    x,
+                    offset.y - self::LINE_HEIGHT,
+                    self::TEXT_LAYER,
+                    color::GREEN,
+                    TextAlign::Left,
+                );
+            }
         }
     }
     if session.settings["ui/status"].is_set() {
@@ -729,6 +769,20 @@ pub fn draw_view_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch
         Repeat::default(),
     )
 }
+
+pub fn draw_view_lookuptexture_animation<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
+    sprite2d::Batch::singleton(
+        v.width(),
+        v.fh,
+        *v.animation.val(),
+        Rect::new(-(v.fw as f32) * 2., 0., -(v.fw as f32), v.fh as f32) * v.zoom + (session.offset + v.offset),
+        self::VIEW_LAYER,
+        Rgba::TRANSPARENT,
+        1.,
+        Repeat::default(),
+    )
+}
+
 
 pub fn draw_view_composites<R>(session: &Session, v: &View<R>) -> sprite2d::Batch {
     let mut batch = sprite2d::Batch::new(v.width(), v.fh);
