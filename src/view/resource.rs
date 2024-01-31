@@ -307,6 +307,15 @@ impl LayerResource {
         if !(snapshot_rect.x1 <= rect.x1 && snapshot_rect.y1 <= rect.y1)
             || !(snapshot_rect.x2 >= rect.x2 && snapshot_rect.y2 >= rect.y2)
         {
+            debug!("snaption rect out of bounds: snaphot: ({},{}),({},{}) rect: ({},{}),({},{})",
+                snapshot_rect.x1,
+                snapshot_rect.y1,
+                snapshot_rect.x2,
+                snapshot_rect.y2,
+                rect.x1,
+                rect.y1,
+                rect.x2,
+                rect.y2);
             return None;
         }
         debug_assert!(w * h <= total_w * total_h);

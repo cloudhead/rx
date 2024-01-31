@@ -822,11 +822,8 @@ impl<'a> renderer::Renderer<'a> for Renderer {
                             match (&v.anim_lt_tess, session.views.get(*id)) {
                                 (Some(tess), Some(view)) if !view.lookuptexture().is_none() => {
                                     let ltid = view.lookuptexture().unwrap();
-                                    match (
-                                        view_data.get(&ltid),
-                                        session.views.get(ltid),
-                                    ) {
-                                        (Some(rcltv), Some(ltview)) => {
+                                    match view_data.get(&ltid) {
+                                        Some(rcltv) => {
                                             let mut ltv = rcltv.borrow_mut();
                                             let bound_layer = pipeline
                                                 .bind_texture(v.layer.fb.color_slot())
@@ -1083,16 +1080,11 @@ impl Renderer {
                     let (_, texels) = v.layer.get_snapshot_rect(&src.map(|n| n as i32)).unwrap(); // TODO: Handle this nicely?
                     let texels = util::align_u8(&texels);
 
-                    view.layer
-                        .fb
-                        .color_slot()
-                        .upload_part_raw(
-                            GenMipmaps::No,
-                            [dst.x1 as u32, dst.y1 as u32],
-                            [src.width() as u32, src.height() as u32],
-                            texels,
-                        )
-                        .map_err(Error::Texture)?;
+                    view.layer.upload_part(
+                        [dst.x1 as u32, dst.y1 as u32],
+                        [src.width() as u32, src.height() as u32],
+                        texels,
+                    )?;
                 }
                 ViewOp::Yank(src) => {
                     let (_, pixels) = v.layer.get_snapshot_rect(&src.map(|n| n)).unwrap();
@@ -1163,18 +1155,15 @@ impl Renderer {
                     );
                 }
                 ViewOp::SetPixel(rgba, x, y) => {
-                    let fb = &mut self
+                    let layer = &mut self
                         .view_data
                         .get(&v.id)
                         .expect("views must have associated view data")
                         .borrow_mut()
-                        .layer
-                        .fb;
+                        .layer;
                     let texels = &[*rgba];
                     let texels = util::align_u8(texels);
-                    fb.color_slot()
-                        .upload_part_raw(GenMipmaps::No, [*x as u32, *y as u32], [1, 1], texels)
-                        .map_err(Error::Texture)?;
+                    layer.upload_part([*x as u32, *y as u32], [1, 1], texels)?;
                 }
                 //TODO: could be more generic
                 ViewOp::GenerateLookupTextureIR(src, dst) => {
@@ -1203,10 +1192,11 @@ impl Renderer {
                             let xf = 256.0 / src.width();
                             let y = (i as f32 / src.width()).floor();
                             let yf = 256.0 / src.height();
+
                             Rgba8 {
                                 r: (x * xf).floor() as u8,
                                 g: (y * yf).floor() as u8,
-                                b: 0,
+                                b: p.r.max(p.g).max(p.b),
                                 a: p.a,
                             }
                         })
@@ -1214,16 +1204,11 @@ impl Renderer {
 
                     let modified = util::align_u8(&modified);
 
-                    view.layer
-                        .fb
-                        .color_slot()
-                        .upload_part_raw(
-                            GenMipmaps::No,
-                            [dst.x1 as u32, dst.y1 as u32],
-                            [src.width() as u32, src.height() as u32],
-                            modified,
-                        )
-                        .map_err(Error::Texture)?;
+                    view.layer.upload_part(
+                        [dst.x1 as u32, dst.y1 as u32],
+                        [src.width() as u32, src.height() as u32],
+                        modified,
+                    )?;
                 }
             }
         }

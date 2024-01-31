@@ -6,3 +6,4 @@ flamegraph.svg
 **/*.rs.bk
 *.AppImage
 AppDir
+.vscode

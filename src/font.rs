@@ -1,4 +1,4 @@
-use crate::gfx::{sprite2d};
+use crate::gfx::sprite2d;
 use crate::gfx::{Rect, Repeat, Rgba8, ZDepth};
 
 pub enum TextAlign {
